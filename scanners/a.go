@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"flag"
+	"fmt"
 )
 
 type AScanner struct {
@@ -14,7 +15,7 @@ func (s AScanner) Initialize(*GlobalConf) {
 }
 
 func (s AScanner) AddFlags(*flag.FlagSet)  {
-
+	fmt.Println("testing")
 }
 
 func (s AScanner) Lookup(string) (ResultInterface, error) {
@@ -27,8 +28,8 @@ func (s AScanner) Close(*GlobalConf) {
 
 }
 
+// register the scannner globally
 func init() {
 	var s AScanner
-	Scanners["a"] = &s
+	register_scanner("a", s)
 }
-

@@ -43,7 +43,11 @@ func (s GenericScanner) AllowStdIn() bool {
 	return true
 }
 
-//
-//
-//
 var Scanners map[string]Scanner;
+
+func register_scanner(name string, s Scanner) {
+	if Scanners == nil {
+		Scanners = make(map[string]Scanner, 100)
+	}
+	Scanners[name] = s
+}
