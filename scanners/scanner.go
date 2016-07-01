@@ -30,10 +30,19 @@ type Scanner interface {
 	Initialize(conf *GlobalConf)
 	AddFlags(flags *flag.FlagSet)
 	Lookup(name string) (ResultInterface, error)
+	AllowStdIn() (bool)
 //
-//	AllowStdIn bool
 //
 }
+
+type GenericScanner struct {
+
+}
+
+func (s GenericScanner) AllowStdIn() bool {
+	return true
+}
+
 //
 //
 //
