@@ -2,20 +2,20 @@ package scanner
 
 import (
 	"flag"
-	"fmt"
+_	"fmt"
 )
 
 type AScanner struct {
 	GenericScanner
+	test int
+}
 
+func (s AScanner) AddFlags(f *flag.FlagSet)  {
+	f.IntVar(&s.test, "test", 0, "")
 }
 
 func (s AScanner) Initialize(*GlobalConf) {
 
-}
-
-func (s AScanner) AddFlags(*flag.FlagSet)  {
-	fmt.Println("testing")
 }
 
 func (s AScanner) Lookup(string) (ResultInterface, error) {

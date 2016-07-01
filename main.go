@@ -4,6 +4,7 @@ import (
 	"os"
 	"flag"
 	"fmt"
+	"strings"
 	//"reflect"
 	"github.com/zmap/zdns/scanners"
 )
@@ -15,9 +16,12 @@ func main() {
 		fmt.Println("loaded module:", k)
 	}
 
+	var gc scanner.GlobalConf
+
 	flags := flag.NewFlagSet("flags", flag.ExitOnError)
-	//threads := flag.Int("threads", 1000, "number of lightweight go threads")
-	//servers_string := flag.String("servers", "", "comma-delimited list of DNS servers to use")
+	flags.IntVar(&gc.Threads, "threads", 1000, "number of lightweight go threads")
+	servers_string := flags.String("servers", "", "comma-delimited list of DNS servers to use")
+	gc.Servers = strings.Split(*servers_string, ",")
 	//output_file := flag.String("output-file", "-", "comma-delimited list of DNS servers to use")
 	//input_file := flag.String("input-file", "-", "comma-delimited list of DNS servers to use")
 	//metadata_file := flag.String("metadata-file", "", "comma-delimited list of DNS servers to use")

@@ -6,10 +6,11 @@ import (
 
 type GlobalConf struct {
 
-	threads int
-	servers []string
-	resultsPath string
-	metadataPath string
+	Threads int
+	Servers []string
+	ResultsPath string
+	InputPath string
+	MetadataPath string
 
 }
 
