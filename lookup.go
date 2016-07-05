@@ -1,18 +1,24 @@
-package lookup
+package zdns
 
-func makeName(name string, prefix string) {
+import (
+	"os"
+_	"io"
+	"strings"
+)
+
+func makeName(name string, prefix string) string {
 
 	if prefix == "" {
 		return name
 	} else {
-
+		return strings.Join([]string{prefix, name}, "")
 	}
 
 }
 
-func doLookup(f *lookup.LookupFactory, gc *conf.GlobalConf, input <-chan string, output chan<- string) error {
+func doLookup(f *LookupFactory, gc *GlobalConf, input <-chan string, output chan<- string) error {
 
-	for n := range in input {
+	for n := range input {
 		lookupName = makeName(rawName, gc.NamePrefix)
 		l, err := f.MakeLookup()
 		if err {
@@ -20,31 +26,38 @@ func doLookup(f *lookup.LookupFactory, gc *conf.GlobalConf, input <-chan string,
 		}
 		res, err := f.DoLookup(lookupName)
 	}
+	return nil
 }
 
 // write results from lookup to output file
-func output(out <-chan string, path string) error {
-	var f *File;
+func doOutput(out <-chan string, path string) error {
+	var f *os.File;
 	if path == "" || path == "-" {
 		f = os.Stdout
 	} else {
 		f, err := os.Open(path)
 	}
-	for n := range in out {
-		f.
-
+	for n := range out {
+		f.WriteString(n)
+		f.WriteString("\n")
 	}
+	return nil
 }
 
 // read input file and put results into channel
-func input(in chan<- string, path string, bool ) error {
+func doInput(in chan<- string, path string) error {
 
+	return nil
 }
 
 
 
-func DoLookups(f *lookup.LookupFactory, c *conf.GlobalConf) error {
+func DoLookups(f *LookupFactory, c *GlobalConf) error {
 
-	c := make(chan int)
+	inChan := make(chan string)
+	outChan := make(chan string)
+
+	go doOutput(outChan, c.OutputFilePath)
+	return nil
 
 }

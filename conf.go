@@ -1,4 +1,4 @@
-package conf
+package zdns
 
 type GlobalConf struct {
 

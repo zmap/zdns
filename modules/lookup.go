@@ -1,4 +1,4 @@
-package lookup
+package zdns
 
 import (
 	"flag"
@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"github.com/zmap/zdns"
+	"github.com/zmap/zdns/modules"
 )
 
 type Lookup interface {
