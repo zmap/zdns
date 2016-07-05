@@ -1,4 +1,4 @@
-package scanner
+package lookup
 
 import (
 	"flag"
@@ -40,5 +40,5 @@ func (s ALookupFactory) MakeLookup() Lookup {
 // register the scannner globally
 func init() {
 	var s ALookupFactory
-	register_lookup("a", s)
+	RegisterLookup("a", s)
 }
