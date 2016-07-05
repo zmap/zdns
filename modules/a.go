@@ -1,4 +1,4 @@
-package lookup
+package zdns
 
 import (
 	"flag"

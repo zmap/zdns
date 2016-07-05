@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"log"
 	"flag"
 	"fmt"
 	"strings"
@@ -27,12 +28,22 @@ func main() {
 	servers_string := flags.String("name-servers", "", "comma-delimited list of DNS servers to use")
 	// allow module to initialize and add its own flags before we parse
 	if len(os.Args) < 2 {
-		fmt.Println("[error] No module specified.")
-		os.Exit(1)
+		log.Fatal("No lookup module specified.")
 	}
 	factory := lookup.GetLookupFactory(os.Args[1])
+	if factory == nil {
+		log.Fatal("Invalid lookup module specified.")
+	}
 	factory.AddFlags(flags)
 	flags.Parse(os.Args[2:])
+	// setup global logging
+	if gc.LogFilePath != "" {
+		var f *File
+		if f, err := os.Open(gc.LogFilePath); err != nil {
+			log.logFatalf("Unable to open log file (%s): %s", path, string(err))
+		}
+		log.SetOutput(f)
+	}
 	// complete post facto global initialization based on command line arguments
 	if *servers_string == "" {
 		// figure out default OS name servers
@@ -42,12 +53,8 @@ func main() {
 		gc.NameServers = strings.Split(*servers_string, ",")
 		gc.NameServersSpecified = true
 	}
-
 	// allow the factory to initialize itself
-	if factory.initialize(&gc) != nil {
-		fmt.Println("[error] factory could not initialize")
-		os.Exit(1)
+	if err := factory.initialize(&gc); err != nil {
+		log.Fatal("Factory was unable to initialize:", string(err))
 	}
-	//
-
 }
