@@ -51,19 +51,19 @@ func (s GenericLookupFactory) AllowStdIn() bool {
 
 
 // keep a mapping from name to factory
-var Lookups map[string]LookupFactory;
+var lookups map[string]LookupFactory;
 
 func RegisterLookup(name string, s LookupFactory) {
-	if Lookups == nil {
-		Lookups = make(map[string]LookupFactory, 100)
+	if lookups == nil {
+		lookups = make(map[string]LookupFactory, 100)
 	}
-	Lookups[name] = s
+	lookups[name] = s
 }
 
-func ValidLookupsString() string {
+func ValidlookupsString() string {
 
-	valid := make([]string, len(Lookups))
-	for k, _ := range Lookups {
+	valid := make([]string, len(lookups))
+	for k, _ := range lookups {
 		valid = append(valid, k)
 		fmt.Println("loaded module:", k)
 	}
@@ -72,9 +72,9 @@ func ValidLookupsString() string {
 
 func GetLookup(name string) *LookupFactory {
 
-	factory, ok := Lookups[name]
+	factory, ok := lookups[name]
 	if !ok {
-		fmt.Println("[error] Invalid module:", os.Args[1], "Valid modules:", ValidLookupsString())
+		fmt.Println("[error] Invalid module:", os.Args[1], "Valid modules:", ValidlookupsString())
 		os.Exit(1)
 	}
 	return &factory
