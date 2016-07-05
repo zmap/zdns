@@ -1,11 +1,11 @@
 package zdns
 
 import (
-	"os"
-_	"io"
-	"strings"
 	"bufio"
+	_ "io"
 	"log"
+	"os"
+	"strings"
 )
 
 func makeName(name string, prefix string) string {
@@ -33,7 +33,7 @@ func doLookup(f *LookupFactory, gc *GlobalConf, input <-chan string, output chan
 
 // write results from lookup to output file
 func doOutput(out <-chan string, path string) error {
-	var f *os.File;
+	var f *os.File
 	if path == "" || path == "-" {
 		f = os.Stdout
 	} else {
@@ -48,23 +48,21 @@ func doOutput(out <-chan string, path string) error {
 
 // read input file and put results into channel
 func doInput(in chan<- string, path string) error {
-	var f *os.File;
+	var f *os.File
 	if path == "" || path == "-" {
 		f = os.Stdin
 	} else {
 		f, err := os.Open(path)
 	}
 	s := bufio.NewScanner(f)
-    for s.Scan() {
+	for s.Scan() {
 		in <- s.Text()
-    }
-    if err := s.Err(); err != nil {
-        log.Fatal("input unable to read file", err)
-    }
+	}
+	if err := s.Err(); err != nil {
+		log.Fatal("input unable to read file", err)
+	}
 	return nil
 }
-
-
 
 func DoLookups(f *LookupFactory, c *GlobalConf) error {
 

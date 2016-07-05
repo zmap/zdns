@@ -2,22 +2,18 @@ package zdns
 
 import (
 	"flag"
-	_"log"
+	_ "log"
 	"strings"
 )
 
 type Lookup interface {
-
-	DoLookup(name string) (interface {}, error)
-
+	DoLookup(name string) (interface{}, error)
 }
 
 type GenericLookup struct {
-
 	NameServers *[]string
-	Timeout int
+	Timeout     int
 }
-
 
 type LookupFactory interface {
 	// expected to add any necessary commandline flags if being
@@ -28,16 +24,14 @@ type LookupFactory interface {
 	Initialize(conf *GlobalConf) error
 	// We can't set variables on an interface, so write functions
 	// that define any settings for the factory
-	AllowStdIn() (bool)
+	AllowStdIn() bool
 	// Return a single scanner which will scan a single host
 	MakeLookup() (Lookup, error)
-
 }
 
 type GenericLookupFactory struct {
-
 	NameServers *[]string
-	Timeout int
+	Timeout     int
 }
 
 func (l GenericLookupFactory) Initialize(c *GlobalConf) error {
@@ -48,9 +42,8 @@ func (s GenericLookupFactory) AllowStdIn() bool {
 	return true
 }
 
-
 // keep a mapping from name to factory
-var lookups map[string]LookupFactory;
+var lookups map[string]LookupFactory
 
 func RegisterLookup(name string, s LookupFactory) {
 	if lookups == nil {
