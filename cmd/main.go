@@ -1,14 +1,13 @@
 package main
 
 import (
-	"os"
-	"log"
 	"flag"
-	"strings"
-	_"github.com/zmap/zdns/modules"
 	"github.com/zmap/zdns"
+	_ "github.com/zmap/zdns/modules"
+	"log"
+	"os"
+	"strings"
 )
-
 
 func main() {
 

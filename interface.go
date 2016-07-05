@@ -62,11 +62,11 @@ func ValidlookupsString() string {
 	return strings.Join(valid, ", ")
 }
 
-func GetLookup(name string) LookupFactory {
+func GetLookup(name string) *LookupFactory {
 
 	factory, ok := lookups[name]
 	if !ok {
 		return nil
 	}
-	return factory
+	return &factory
 }

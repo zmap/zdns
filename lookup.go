@@ -18,15 +18,15 @@ func makeName(name string, prefix string) string {
 
 }
 
-func doLookup(f *LookupFactory, gc *GlobalConf, input <-chan string, output chan<- string) error {
+func doLookup(f LookupFactory, gc GlobalConf, input <-chan string, output chan<- string) error {
 
 	for rawName := range input {
 		lookupName := makeName(rawName, gc.NamePrefix)
 		l, err := f.MakeLookup()
-		if err {
+		if err != nil {
 
 		}
-		res, err := f.DoLookup(lookupName)
+		res, err := l.DoLookup(lookupName)
 	}
 	return nil
 }
@@ -53,6 +53,9 @@ func doInput(in chan<- string, path string) error {
 		f = os.Stdin
 	} else {
 		f, err := os.Open(path)
+		if err != nil {
+			log.Fatal("unable to open output file:", err.Error())
+		}
 	}
 	s := bufio.NewScanner(f)
 	for s.Scan() {
@@ -70,6 +73,7 @@ func DoLookups(f *LookupFactory, c *GlobalConf) error {
 	outChan := make(chan string)
 
 	go doOutput(outChan, c.OutputFilePath)
+	go doInput(inChan, c.InputFilePath)
 	return nil
 
 }
