@@ -1,8 +1,8 @@
 package a
 
 import (
-	"github.com/zmap/zdns"
 	"flag"
+	"github.com/zmap/zdns"
 )
 
 // result to be returned by scan of host
@@ -16,12 +16,11 @@ type ALookup struct {
 	Factory *ALookupFactory
 }
 
-func (s ALookup) DoLookup(name string) (interface {}, error) {
+func (s ALookup) DoLookup(name string) (interface{}, error) {
 	// this is where we do scanning
-	a := AResult{Field:"Asf"}
+	a := AResult{Field: "Asf"}
 	return &a, nil
 }
-
 
 type ALookupFactory struct {
 	zdns.GenericLookupFactory
@@ -37,7 +36,6 @@ func (s ALookupFactory) MakeLookup() (zdns.Lookup, error) {
 	a := ALookup{Factory: &s}
 	return a, nil
 }
-
 
 // register the scannner globally
 func init() {
