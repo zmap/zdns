@@ -1,6 +1,7 @@
-package zdns
+package a
 
 import (
+	"github.com/zmap/zdns"
 	"flag"
 )
 
@@ -11,7 +12,7 @@ type AResult struct {
 
 // scanner that will be instantiated for each connection
 type ALookup struct {
-	GenericLookup
+	zdns.GenericLookup
 	Factory *ALookupFactory
 }
 
@@ -23,22 +24,23 @@ func (s ALookup) DoLookup(name string) (interface {}, error) {
 
 
 type ALookupFactory struct {
-	GenericLookupFactory
+	zdns.GenericLookupFactory
 }
 
-func (s ALookupFactory) AddFlags(f *flag.FlagSet) {
+func (s ALookupFactory) AddFlags(f *flag.FlagSet) error {
 	f.IntVar(&s.Timeout, "timeout", 0, "")
+	return nil
 }
 
-func (s ALookupFactory) MakeLookup() Lookup {
+func (s ALookupFactory) MakeLookup() (zdns.Lookup, error) {
 
 	a := ALookup{Factory: &s}
-	return a
+	return a, nil
 }
 
 
 // register the scannner globally
 func init() {
 	var s ALookupFactory
-	RegisterLookup("a", s)
+	zdns.RegisterLookup("a", s)
 }

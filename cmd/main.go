@@ -4,17 +4,15 @@ import (
 	"os"
 	"log"
 	"flag"
-	"fmt"
 	"strings"
-	_"encoding/json"
-	"github.com/zmap/zdns/modules"
+	_"github.com/zmap/zdns/modules"
 	"github.com/zmap/zdns"
 )
 
 
 func main() {
 
-	var gc conf.GlobalConf
+	var gc zdns.GlobalConf
 	// global flags relevant to every lookup module
 	flags := flag.NewFlagSet("flags", flag.ExitOnError)
 	flags.IntVar(&gc.Threads, "threads", 1000, "number of lightweight go threads")
@@ -30,7 +28,7 @@ func main() {
 	if len(os.Args) < 2 {
 		log.Fatal("No lookup module specified.")
 	}
-	factory := lookup.GetLookupFactory(os.Args[1])
+	factory := zdns.GetLookup(os.Args[1])
 	if factory == nil {
 		log.Fatal("Invalid lookup module specified.")
 	}
@@ -38,23 +36,23 @@ func main() {
 	flags.Parse(os.Args[2:])
 	// setup global logging
 	if gc.LogFilePath != "" {
-		var f *File
-		if f, err := os.Open(gc.LogFilePath); err != nil {
-			log.logFatalf("Unable to open log file (%s): %s", path, string(err))
+		f, err := os.Open(gc.LogFilePath)
+		if err != nil {
+			log.Fatalf("Unable to open log file (%s): %s", gc.LogFilePath, err.Error())
 		}
 		log.SetOutput(f)
 	}
 	// complete post facto global initialization based on command line arguments
 	if *servers_string == "" {
 		// figure out default OS name servers
-		gc.NameServers = conf.GetDNSServers()
+		gc.NameServers = zdns.GetDNSServers()
 		gc.NameServersSpecified = false
 	} else {
 		gc.NameServers = strings.Split(*servers_string, ",")
 		gc.NameServersSpecified = true
 	}
 	// allow the factory to initialize itself
-	if err := factory.initialize(&gc); err != nil {
-		log.Fatal("Factory was unable to initialize:", string(err))
+	if err := factory.Initialize(&gc); err != nil {
+		log.Fatal("Factory was unable to initialize:", err.Error())
 	}
 }

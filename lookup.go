@@ -2,8 +2,7 @@ package zdns
 
 import (
 	"flag"
-	"os"
-	"fmt"
+	_"log"
 	"strings"
 )
 
@@ -23,15 +22,15 @@ type GenericLookup struct {
 type LookupFactory interface {
 	// expected to add any necessary commandline flags if being
 	// run as a standalone scanner
-	AddFlags(flags *flag.FlagSet)
+	AddFlags(flags *flag.FlagSet) error
 	// global initialization. Gets called once globally
 	// This is called after command line flags have been parsed
-	Initialize(conf *GlobalConf) bool
+	Initialize(conf *GlobalConf) error
 	// We can't set variables on an interface, so write functions
 	// that define any settings for the factory
 	AllowStdIn() (bool)
 	// Return a single scanner which will scan a single host
-	MakeLookup() (Lookup)
+	MakeLookup() (Lookup, error)
 
 }
 
@@ -41,8 +40,8 @@ type GenericLookupFactory struct {
 	Timeout int
 }
 
-func (l GenericLookupFactory) Initialize(c *GlobalConf) bool {
-	return true
+func (l GenericLookupFactory) Initialize(c *GlobalConf) error {
+	return nil
 }
 
 func (s GenericLookupFactory) AllowStdIn() bool {
@@ -65,17 +64,16 @@ func ValidlookupsString() string {
 	valid := make([]string, len(lookups))
 	for k, _ := range lookups {
 		valid = append(valid, k)
-		fmt.Println("loaded module:", k)
+		//log.Debug("loaded module:", k)
 	}
 	return strings.Join(valid, ", ")
 }
 
-func GetLookup(name string) *LookupFactory {
+func GetLookup(name string) LookupFactory {
 
 	factory, ok := lookups[name]
 	if !ok {
-		fmt.Println("[error] Invalid module:", os.Args[1], "Valid modules:", ValidlookupsString())
-		os.Exit(1)
+		return nil
 	}
-	return &factory
+	return factory
 }
