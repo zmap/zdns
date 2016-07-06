@@ -3,6 +3,7 @@ package zdns
 import (
 	"bufio"
 	"encoding/json"
+	"github.com/miekg/dns"
 	_ "io"
 	"log"
 	"os"
@@ -111,9 +112,16 @@ func doInput(in chan<- string, path string) error {
 }
 
 func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
+	// doInput: take lines from input -> inChan
+	//	- closes channel when done processing
+	// doOutput: take serialized JSON from outChan and write
+	// DoLookup:
+	//	- n threads that do processing from in and place results in out
+	//	- process until inChan closes, then wg.done()
+	// Once we processing threads have all finished, wait until the
+	// output and metadata threads have completed
 	inChan := make(chan string)
 	outChan := make(chan string)
-
 	go doOutput(outChan, c.OutputFilePath)
 	go doInput(inChan, c.InputFilePath)
 	var wg sync.WaitGroup
@@ -127,9 +135,14 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 }
 
 func GetDNSServers(path string) ([]string, error) {
-	c, err := ClientConfigFromFile(path)
+	c, err := dns.ClientConfigFromFile(path)
 	if err != nil {
 		return []string{}, err
 	}
-	return []string{}, nil
+	var servers []string
+	for _, s := range c.Servers {
+		full := strings.Join([]string{s, c.Port}, ":")
+		servers = append(servers, full)
+	}
+	return servers, nil
 }
