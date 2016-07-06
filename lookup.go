@@ -27,8 +27,14 @@ func makeName(name string, prefix string) (string, bool) {
 	}
 }
 
-func doLookup(f LookupFactory, gc GlobalConf, input <-chan string, output chan<- string) error {
-
+func lookupRoutine(g GlobalLookupFactory, gc *GlobalConf, input <-chan string, output chan<- string) error {
+	f, err := g.MakeRoutineFactory()
+	if err != nil {
+		log.Fatal("Unable to create new routine factory", err.Error())
+	}
+	if err := f.Initialize(&g); err != nil {
+		log.Fatal("Routine factory failed to initialize", err.Error())
+	}
 	for line := range input {
 		var res Result
 		var rawName string
@@ -104,7 +110,7 @@ func doInput(in chan<- string, path string) error {
 	return nil
 }
 
-func DoLookups(f *LookupFactory, c *GlobalConf) error {
+func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 
 	inChan := make(chan string)
 	outChan := make(chan string)

@@ -2,12 +2,13 @@ package a
 
 import (
 	"flag"
+	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
 )
 
 // result to be returned by scan of host
 type AResult struct {
-	Field string `json:"field"`
+	Addresses []string `json:"addresses"`
 }
 
 // scanner that will be instantiated for each connection
