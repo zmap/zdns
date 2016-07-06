@@ -24,3 +24,20 @@ func GetDNSServers() []string {
 
 	return []string{}
 }
+
+type Result struct {
+	OriginalDomain string
+	Domain         string
+	AlexaRank      int
+	Status         string
+	Error          string
+	Data           interface{}
+}
+
+type Status string
+
+const (
+	SUCCESS       Status = "success"
+	UNKNOWN_ERROR Status = "error"
+	TIMEOUT       Status = "timeout"
+)

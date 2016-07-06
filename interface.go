@@ -7,7 +7,7 @@ import (
 )
 
 type Lookup interface {
-	DoLookup(name string) (interface{}, error)
+	DoLookup(name string) (interface{}, Status, error)
 }
 
 type GenericLookup struct {

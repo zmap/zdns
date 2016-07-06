@@ -16,10 +16,10 @@ type ALookup struct {
 	Factory *ALookupFactory
 }
 
-func (s ALookup) DoLookup(name string) (interface{}, error) {
+func (s ALookup) DoLookup(name string) (interface{}, string, error) {
 	// this is where we do scanning
 	a := AResult{Field: "Asf"}
-	return &a, nil
+	return &a, "", nil
 }
 
 type ALookupFactory struct {
