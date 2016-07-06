@@ -39,7 +39,6 @@ func (s Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 			res.Addresses = append(res.Addresses, a.String())
 		}
 	}
-
 	return &res, zdns.STATUS_SUCCESS, nil
 }
 

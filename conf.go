@@ -22,11 +22,6 @@ type GlobalConf struct {
 type Metadata struct {
 }
 
-func GetDNSServers() []string {
-
-	return []string{}
-}
-
 type Result struct {
 	OriginalDomain string
 	Domain         string

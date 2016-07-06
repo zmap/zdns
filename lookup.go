@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 func parseAlexa(line string) (string, int) {
@@ -27,7 +28,7 @@ func makeName(name string, prefix string) (string, bool) {
 	}
 }
 
-func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan string, output chan<- string) error {
+func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan string, output chan<- string, wg *sync.WaitGroup) error {
 	f, err := (*g).MakeRoutineFactory()
 	if err != nil {
 		log.Fatal("Unable to create new routine factory", err.Error())
@@ -63,6 +64,7 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan string, outpu
 		}
 		output <- string(jsonRes)
 	}
+	(*wg).Done()
 	return nil
 }
 
@@ -104,6 +106,7 @@ func doInput(in chan<- string, path string) error {
 	if err := s.Err(); err != nil {
 		log.Fatal("input unable to read file", err)
 	}
+	close(in)
 	return nil
 }
 
@@ -113,8 +116,20 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 
 	go doOutput(outChan, c.OutputFilePath)
 	go doInput(inChan, c.InputFilePath)
+	var wg sync.WaitGroup
+	wg.Add(c.Threads)
 	for i := 0; i < c.Threads; i++ {
-		go doLookup(g, c, inChan, outChan)
+		go doLookup(g, c, inChan, outChan, &wg)
 	}
+	wg.Wait()
+	close(outChan)
 	return nil
+}
+
+func GetDNSServers(path string) ([]string, error) {
+	c, err := ClientConfigFromFile(path)
+	if err != nil {
+		return []string{}, err
+	}
+	return []string{}, nil
 }

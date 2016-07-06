@@ -23,6 +23,7 @@ func main() {
 	flags.StringVar(&gc.MetadataFilePath, "metadata-file", "", "where should JSON metadata be saved")
 	flags.StringVar(&gc.LogFilePath, "log-file", "", "where should JSON metadata be saved")
 	servers_string := flags.String("name-servers", "", "comma-delimited list of DNS servers to use")
+	config_file := flags.String("conf-file", "/etc/resolv.conf", "config file for DNS servers")
 	// allow module to initialize and add its own flags before we parse
 	if len(os.Args) < 2 {
 		log.Fatal("No lookup module specified.")
@@ -44,7 +45,7 @@ func main() {
 	// complete post facto global initialization based on command line arguments
 	if *servers_string == "" {
 		// figure out default OS name servers
-		gc.NameServers = zdns.GetDNSServers()
+		gc.NameServers = zdns.GetDNSServers(config_file)
 		gc.NameServersSpecified = false
 	} else {
 		gc.NameServers = strings.Split(*servers_string, ",")
@@ -53,5 +54,10 @@ func main() {
 	// allow the factory to initialize itself
 	if err := (*factory).Initialize(&gc); err != nil {
 		log.Fatal("Factory was unable to initialize:", err.Error())
+	}
+	// run it.
+	err := zdns.DoLookups(factory, &gc)
+	if err != nil {
+		log.Fatal("Unable to run lookups:", err.Error())
 	}
 }
