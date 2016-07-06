@@ -31,7 +31,7 @@ func main() {
 	if factory == nil {
 		log.Fatal("Invalid lookup module specified.")
 	}
-	factory.AddFlags(flags)
+	(*factory).AddFlags(flags)
 	flags.Parse(os.Args[2:])
 	// setup global logging
 	if gc.LogFilePath != "" {
@@ -51,7 +51,7 @@ func main() {
 		gc.NameServersSpecified = true
 	}
 	// allow the factory to initialize itself
-	if err := factory.Initialize(&gc); err != nil {
+	if err := (*factory).Initialize(&gc); err != nil {
 		log.Fatal("Factory was unable to initialize:", err.Error())
 	}
 }

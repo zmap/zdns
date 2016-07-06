@@ -27,13 +27,10 @@ func makeName(name string, prefix string) (string, bool) {
 	}
 }
 
-func lookupRoutine(g GlobalLookupFactory, gc *GlobalConf, input <-chan string, output chan<- string) error {
-	f, err := g.MakeRoutineFactory()
+func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan string, output chan<- string) error {
+	f, err := (*g).MakeRoutineFactory()
 	if err != nil {
 		log.Fatal("Unable to create new routine factory", err.Error())
-	}
-	if err := f.Initialize(&g); err != nil {
-		log.Fatal("Routine factory failed to initialize", err.Error())
 	}
 	for line := range input {
 		var res Result
@@ -94,11 +91,11 @@ func doInput(in chan<- string, path string) error {
 	if path == "" || path == "-" {
 		f = os.Stdin
 	} else {
-		f, err := os.Open(path)
+		var err error
+		f, err = os.Open(path)
 		if err != nil {
 			log.Fatal("unable to open output file:", err.Error())
 		}
-		defer f.Close()
 	}
 	s := bufio.NewScanner(f)
 	for s.Scan() {
@@ -111,12 +108,13 @@ func doInput(in chan<- string, path string) error {
 }
 
 func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
-
 	inChan := make(chan string)
 	outChan := make(chan string)
 
 	go doOutput(outChan, c.OutputFilePath)
 	go doInput(inChan, c.InputFilePath)
+	for i := 0; i < c.Threads; i++ {
+		go doLookup(g, c, inChan, outChan)
+	}
 	return nil
-
 }

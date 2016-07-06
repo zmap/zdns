@@ -3,6 +3,7 @@ package zdns
 import (
 	"flag"
 	_ "log"
+	"math/rand"
 	"strings"
 )
 
@@ -27,33 +28,13 @@ import (
 // one Lookup per IP/name/connection ==========================================
 //
 type Lookup interface {
-	Initialize(r *RoutineLookupFactory) error
 	DoLookup(name string) (interface{}, Status, error)
-}
-
-type BaseLookup struct {
-	routineFactory *RoutineLookupFactory
-}
-
-func (s BaseLookup) Initialize(r *RoutineLookupFactory) error {
-	s.routineFactory = r
-	return nil
 }
 
 // one RoutineLookupFactory per goroutine =====================================
 //
 type RoutineLookupFactory interface {
-	Initialize(g *GlobalLookupFactory) error
 	MakeLookup() (Lookup, error)
-}
-
-type BaseRoutineLookupFactory struct {
-	globalFactory *GlobalLookupFactory
-}
-
-func (s BaseRoutineLookupFactory) Initialize(g *GlobalLookupFactory) error {
-	s.globalFactory = g
-	return nil
 }
 
 // one RoutineLookupFactory per execution =====================================
@@ -61,13 +42,15 @@ func (s BaseRoutineLookupFactory) Initialize(g *GlobalLookupFactory) error {
 type GlobalLookupFactory interface {
 	// expected to add any necessary commandline flags if being
 	// run as a standalone scanner
-	AddFlags(flags *flag.FlagSet) error
+	AddFlags(flags *flag.FlagSet)
 	// global initialization. Gets called once globally
 	// This is called after command line flags have been parsed
 	Initialize(conf *GlobalConf) error
 	// We can't set variables on an interface, so write functions
 	// that define any settings for the factory
 	AllowStdIn() bool
+	// Help text for the CLI
+	Help() string
 	// Return a single scanner which will scan a single host
 	MakeRoutineFactory() (RoutineLookupFactory, error)
 }
@@ -79,6 +62,10 @@ type BaseGlobalLookupFactory struct {
 func (l BaseGlobalLookupFactory) Initialize(c *GlobalConf) error {
 	l.globalConf = c
 	return nil
+}
+
+func (l BaseGlobalLookupFactory) RandomNameServer() string {
+	return l.globalConf.NameServers[rand.Intn(len(l.globalConf.NameServers))]
 }
 
 func (s BaseGlobalLookupFactory) AllowStdIn() bool {

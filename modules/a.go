@@ -7,39 +7,79 @@ import (
 )
 
 // result to be returned by scan of host
-type AResult struct {
+type Result struct {
 	Addresses []string `json:"addresses"`
 }
 
-// scanner that will be instantiated for each connection
-type ALookup struct {
-	zdns.GenericLookup
-	Factory *ALookupFactory
+// Per Connection Lookup ======================================================
+//
+type Lookup struct {
+	Factory *RoutineLookupFactory
 }
 
-func (s ALookup) DoLookup(name string) (interface{}, string, error) {
+func (s Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
+	// get a name server to use for this connection
+	nameServer := s.Factory.Factory.RandomNameServer()
 	// this is where we do scanning
-	a := AResult{Field: "Asf"}
-	return &a, "", nil
+	res := Result{Addresses: []string{}}
+
+	m := new(dns.Msg)
+	m.SetQuestion("miek.nl.", dns.TypeA)
+	m.RecursionDesired = true
+
+	r, _, err := s.Factory.Client.Exchange(m, nameServer)
+	if err != nil {
+		return nil, zdns.STATUS_ERROR, err
+	}
+	if r.Rcode != dns.RcodeSuccess {
+		return nil, zdns.STATUS_BAD_RCODE, nil
+	}
+	for _, ans := range r.Answer {
+		if a, ok := ans.(*dns.A); ok {
+			res.Addresses = append(res.Addresses, a.String())
+		}
+	}
+
+	return &res, zdns.STATUS_SUCCESS, nil
 }
 
-type ALookupFactory struct {
-	zdns.GenericLookupFactory
+// Per GoRoutine Factory ======================================================
+//
+type RoutineLookupFactory struct {
+	Factory *GlobalLookupFactory
+	Client  *dns.Client
 }
 
-func (s ALookupFactory) AddFlags(f *flag.FlagSet) error {
-	f.IntVar(&s.Timeout, "timeout", 0, "")
-	return nil
-}
-
-func (s ALookupFactory) MakeLookup() (zdns.Lookup, error) {
-
-	a := ALookup{Factory: &s}
+func (s RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
+	a := Lookup{Factory: &s}
 	return a, nil
 }
 
-// register the scannner globally
+// Global Factory =============================================================
+//
+type GlobalLookupFactory struct {
+	zdns.BaseGlobalLookupFactory // warning: do not remove
+}
+
+func (s GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
+	//f.IntVar(&s.Timeout, "timeout", 0, "")
+}
+
+// Command-line Help Documentation. This is the descriptive text what is
+// returned when you run zdns module --help
+func (s GlobalLookupFactory) Help() string {
+	return ""
+}
+
+func (s GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
+	c := new(dns.Client)
+	r := RoutineLookupFactory{Factory: &s, Client: c}
+	return r, nil
+}
+
+// Global Registration ========================================================
+//
 func init() {
-	var s ALookupFactory
-	zdns.RegisterLookup("a", s)
+	var s GlobalLookupFactory
+	zdns.RegisterLookup("a", &s)
 }

@@ -1,5 +1,7 @@
 package zdns
 
+import ()
+
 type GlobalConf struct {
 	Threads     int
 	Timeout     int
@@ -37,7 +39,8 @@ type Result struct {
 type Status string
 
 const (
-	SUCCESS       Status = "success"
-	UNKNOWN_ERROR Status = "error"
-	TIMEOUT       Status = "timeout"
+	STATUS_SUCCESS   Status = "success"
+	STATUS_ERROR     Status = "error"
+	STATUS_TIMEOUT   Status = "timeout"
+	STATUS_BAD_RCODE Status = "bad_r_code"
 )
