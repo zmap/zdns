@@ -54,6 +54,11 @@ type RoutineLookupFactory struct {
 	Client  *dns.Client
 }
 
+func (s *RoutineLookupFactory) Initialize(f *GlobalLookupFactory) {
+	s.Factory = f
+	s.Client = new(dns.Client)
+}
+
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 	a := Lookup{Factory: s}
 	return &a, nil
@@ -76,14 +81,14 @@ func (s *GlobalLookupFactory) Help() string {
 }
 
 func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
-	c := new(dns.Client)
-	r := RoutineLookupFactory{Factory: s, Client: c}
-	return &r, nil
+	r := new(RoutineLookupFactory)
+	r.Initialize(s)
+	return r, nil
 }
 
 // Global Registration ========================================================
 //
 func init() {
-	var s GlobalLookupFactory
-	zdns.RegisterLookup("a", &s)
+	s := new(GlobalLookupFactory)
+	zdns.RegisterLookup("a", s)
 }
