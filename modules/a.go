@@ -4,6 +4,7 @@ import (
 	"flag"
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
+	"strings"
 )
 
 // result to be returned by scan of host
@@ -17,6 +18,10 @@ type Lookup struct {
 	Factory *RoutineLookupFactory
 }
 
+func dotName(name string) string {
+	return strings.Join([]string{name, "."}, "")
+}
+
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	// get a name server to use for this connection
 	nameServer := s.Factory.Factory.RandomNameServer()
@@ -24,7 +29,7 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	res := Result{Addresses: []string{}}
 
 	m := new(dns.Msg)
-	m.SetQuestion("miek.nl.", dns.TypeA)
+	m.SetQuestion(dotName(name), dns.TypeA)
 	m.RecursionDesired = true
 
 	r, _, err := s.Factory.Client.Exchange(m, nameServer)
