@@ -12,6 +12,11 @@ import (
 	"sync"
 )
 
+type routineMetadata struct {
+	Names  int
+	Status map[Status]int
+}
+
 func parseAlexa(line string) (string, int) {
 	s := strings.SplitN(line, ",", 1)
 	rank, err := strconv.Atoi(s[0])
@@ -29,11 +34,12 @@ func makeName(name string, prefix string) (string, bool) {
 	}
 }
 
-func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan string, output chan<- string, wg *sync.WaitGroup) error {
+func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan string, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
 	f, err := (*g).MakeRoutineFactory()
 	if err != nil {
 		log.Fatal("Unable to create new routine factory", err.Error())
 	}
+	var metadata routineMetadata
 	for line := range input {
 		var res Result
 		var rawName string
@@ -64,7 +70,10 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan string, outpu
 			log.Fatal("Unable to marshal JSON result", err)
 		}
 		output <- string(jsonRes)
+		metadata.Names++
+		metadata.Status[status]++
 	}
+	metaChan <- metadata
 	(*wg).Done()
 	return nil
 }
@@ -113,7 +122,18 @@ func doInput(in chan<- string, path string, wg *sync.WaitGroup) error {
 	return nil
 }
 
-func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
+func aggregateMetadata(c <-chan routineMetadata) Metadata {
+	var meta Metadata
+	for m := range c {
+		meta.Names += m.Names
+		for k, v := range m.Status {
+			meta.Status[string(k)] += v
+		}
+	}
+	return meta
+}
+
+func DoLookups(g *GlobalLookupFactory, c *GlobalConf) (Metadata, error) {
 	// doInput: take lines from input -> inChan
 	//	- closes channel when done processing
 	// doOutput: take serialized JSON from outChan and write
@@ -124,6 +144,7 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	// output and metadata threads have completed
 	inChan := make(chan string)
 	outChan := make(chan string)
+	metaChan := make(chan routineMetadata, c.Threads)
 	var routineWG sync.WaitGroup
 	go doOutput(outChan, c.OutputFilePath, &routineWG)
 	go doInput(inChan, c.InputFilePath, &routineWG)
@@ -132,12 +153,14 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	var lookupWG sync.WaitGroup
 	lookupWG.Add(c.Threads)
 	for i := 0; i < c.Threads; i++ {
-		go doLookup(g, c, inChan, outChan, &lookupWG)
+		go doLookup(g, c, inChan, outChan, metaChan, &lookupWG)
 	}
 	lookupWG.Wait()
+	// we're done processing data
+	metadata := aggregateMetadata(metaChan)
 	close(outChan)
 	routineWG.Wait()
-	return nil
+	return metadata, nil
 }
 
 func GetDNSServers(path string) ([]string, error) {

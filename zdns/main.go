@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	_ "fmt"
 	"github.com/zmap/zdns"
@@ -62,8 +63,26 @@ func main() {
 	}
 	// run it.
 	f := &factory
-	err := zdns.DoLookups(f, &gc)
+	metadata, err := zdns.DoLookups(f, &gc)
 	if err != nil {
 		log.Fatal("Unable to run lookups:", err.Error())
+	}
+	if gc.MetadataFilePath != "" {
+		var f *os.File
+		if gc.MetadataFilePath == "" || gc.MetadataFilePath == "-" {
+			f = os.Stdout
+		} else {
+			f, err := os.Open(gc.MetadataFilePath)
+			if err != nil {
+				log.Fatal("unable to open metadata file:", err.Error())
+			}
+			defer f.Close()
+		}
+		j, err := json.Marshal(metadata)
+		if err != nil {
+			log.Fatal("unable to JSON encode metadata:", err.Error())
+		}
+		f.WriteString(string(j))
+
 	}
 }

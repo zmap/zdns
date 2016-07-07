@@ -20,6 +20,11 @@ type GlobalConf struct {
 }
 
 type Metadata struct {
+	Names       int            `json:"names"`
+	Status      map[string]int `json:"statuses"`
+	StartTime   string         `json:"start_time"`
+	EndTime     string         `json:"end_time"`
+	NameServers []string       `json:"name_servers"`
 }
 
 type Result struct {
