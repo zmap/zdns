@@ -135,7 +135,7 @@ func aggregateMetadata(c <-chan routineMetadata) Metadata {
 	return meta
 }
 
-func DoLookups(g *GlobalLookupFactory, c *GlobalConf) (Metadata, error) {
+func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	// doInput: take lines from input -> inChan
 	//	- closes channel when done processing
 	// doOutput: take serialized JSON from outChan and write
@@ -165,7 +165,26 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) (Metadata, error) {
 	metadata := aggregateMetadata(metaChan)
 	metadata.NameServers = c.NameServers
 	// add global lookup-related metadata
-	return metadata, nil
+	// write out metadata
+	if c.MetadataFilePath != "" {
+		var f *os.File
+		if c.MetadataFilePath == "-" {
+			f = os.Stderr
+		} else {
+			var err error
+			f, err = os.OpenFile(c.MetadataFilePath, os.O_WRONLY|os.O_CREATE, 0666)
+			if err != nil {
+				log.Fatal("unable to open metadata file:", err.Error())
+			}
+			defer f.Close()
+		}
+		j, err := json.Marshal(metadata)
+		if err != nil {
+			log.Fatal("unable to JSON encode metadata:", err.Error())
+		}
+		f.WriteString(string(j))
+	}
+	return nil
 }
 
 func GetDNSServers(path string) ([]string, error) {
