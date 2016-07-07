@@ -17,7 +17,7 @@ type Lookup struct {
 	Factory *RoutineLookupFactory
 }
 
-func (s Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	// get a name server to use for this connection
 	nameServer := s.Factory.Factory.RandomNameServer()
 	// this is where we do scanning
@@ -49,9 +49,9 @@ type RoutineLookupFactory struct {
 	Client  *dns.Client
 }
 
-func (s RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
-	a := Lookup{Factory: &s}
-	return a, nil
+func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
+	a := Lookup{Factory: s}
+	return &a, nil
 }
 
 // Global Factory =============================================================
@@ -60,20 +60,20 @@ type GlobalLookupFactory struct {
 	zdns.BaseGlobalLookupFactory // warning: do not remove
 }
 
-func (s GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
+func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
 	//f.IntVar(&s.Timeout, "timeout", 0, "")
 }
 
 // Command-line Help Documentation. This is the descriptive text what is
 // returned when you run zdns module --help
-func (s GlobalLookupFactory) Help() string {
+func (s *GlobalLookupFactory) Help() string {
 	return ""
 }
 
-func (s GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
+func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
 	c := new(dns.Client)
-	r := RoutineLookupFactory{Factory: &s, Client: c}
-	return r, nil
+	r := RoutineLookupFactory{Factory: s, Client: c}
+	return &r, nil
 }
 
 // Global Registration ========================================================

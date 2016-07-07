@@ -3,6 +3,7 @@ package zdns
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"github.com/miekg/dns"
 	_ "io"
 	"log"
@@ -64,6 +65,7 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan string, outpu
 			log.Fatal("Unable to marshal JSON result", err)
 		}
 		output <- string(jsonRes)
+		fmt.Print(string(jsonRes))
 	}
 	(*wg).Done()
 	return nil

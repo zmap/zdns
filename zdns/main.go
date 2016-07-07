@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	_ "fmt"
 	"github.com/zmap/zdns"
 	_ "github.com/zmap/zdns/modules"
 	"log"
@@ -32,7 +33,7 @@ func main() {
 	if factory == nil {
 		log.Fatal("Invalid lookup module specified.")
 	}
-	(*factory).AddFlags(flags)
+	factory.AddFlags(flags)
 	flags.Parse(os.Args[2:])
 	// setup global logging
 	if gc.LogFilePath != "" {
@@ -45,18 +46,23 @@ func main() {
 	// complete post facto global initialization based on command line arguments
 	if *servers_string == "" {
 		// figure out default OS name servers
-		gc.NameServers = zdns.GetDNSServers(config_file)
+		ns, err := zdns.GetDNSServers(*config_file)
+		if err != nil {
+			log.Fatal("Unable to fetch correct name servers:", err.Error())
+		}
+		gc.NameServers = ns
 		gc.NameServersSpecified = false
 	} else {
 		gc.NameServers = strings.Split(*servers_string, ",")
 		gc.NameServersSpecified = true
 	}
 	// allow the factory to initialize itself
-	if err := (*factory).Initialize(&gc); err != nil {
+	if err := factory.Initialize(&gc); err != nil {
 		log.Fatal("Factory was unable to initialize:", err.Error())
 	}
 	// run it.
-	err := zdns.DoLookups(factory, &gc)
+	f := &factory
+	err := zdns.DoLookups(f, &gc)
 	if err != nil {
 		log.Fatal("Unable to run lookups:", err.Error())
 	}

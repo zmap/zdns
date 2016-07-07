@@ -2,7 +2,8 @@ package zdns
 
 import (
 	"flag"
-	_ "log"
+	_ "fmt"
+	"log"
 	"math/rand"
 	"strings"
 )
@@ -53,22 +54,30 @@ type GlobalLookupFactory interface {
 	Help() string
 	// Return a single scanner which will scan a single host
 	MakeRoutineFactory() (RoutineLookupFactory, error)
+	RandomNameServer() string
 }
 
 type BaseGlobalLookupFactory struct {
 	globalConf *GlobalConf
 }
 
-func (l BaseGlobalLookupFactory) Initialize(c *GlobalConf) error {
-	l.globalConf = c
+func (f *BaseGlobalLookupFactory) Initialize(c *GlobalConf) error {
+	f.globalConf = c
 	return nil
 }
 
-func (l BaseGlobalLookupFactory) RandomNameServer() string {
-	return l.globalConf.NameServers[rand.Intn(len(l.globalConf.NameServers))]
+func (f *BaseGlobalLookupFactory) RandomNameServer() string {
+	if f.globalConf == nil {
+		log.Fatal("no global conf initialized")
+	}
+	l := len(f.globalConf.NameServers)
+	if l == 0 {
+		log.Fatal("No name servers specified")
+	}
+	return f.globalConf.NameServers[rand.Intn(l)]
 }
 
-func (s BaseGlobalLookupFactory) AllowStdIn() bool {
+func (s *BaseGlobalLookupFactory) AllowStdIn() bool {
 	return true
 }
 
@@ -92,11 +101,11 @@ func ValidlookupsString() string {
 	return strings.Join(valid, ", ")
 }
 
-func GetLookup(name string) *GlobalLookupFactory {
+func GetLookup(name string) GlobalLookupFactory {
 
 	factory, ok := lookups[name]
 	if !ok {
 		return nil
 	}
-	return &factory
+	return factory
 }
