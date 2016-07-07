@@ -161,8 +161,10 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) (Metadata, error) {
 	close(outChan)
 	close(metaChan)
 	routineWG.Wait()
-	// we're done processing data
+	// we're done processing data. aggregate all the data from individual routines
 	metadata := aggregateMetadata(metaChan)
+	metadata.NameServers = c.NameServers
+	// add global lookup-related metadata
 	return metadata, nil
 }
 

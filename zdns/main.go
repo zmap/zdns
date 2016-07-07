@@ -72,7 +72,8 @@ func main() {
 		if gc.MetadataFilePath == "" || gc.MetadataFilePath == "-" {
 			f = os.Stdout
 		} else {
-			f, err := os.Open(gc.MetadataFilePath)
+			var err error
+			f, err = os.OpenFile(gc.MetadataFilePath, os.O_WRONLY|os.O_CREATE, 0666)
 			if err != nil {
 				log.Fatal("unable to open metadata file:", err.Error())
 			}
@@ -83,6 +84,5 @@ func main() {
 			log.Fatal("unable to JSON encode metadata:", err.Error())
 		}
 		f.WriteString(string(j))
-
 	}
 }
