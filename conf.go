@@ -29,7 +29,7 @@ type Metadata struct {
 }
 
 type Result struct {
-	OriginalDomain string      `json:"original_domain,omitempty"`
+	OriginalDomain string      `json:"original,omitempty"`
 	Domain         string      `json:"domain,omitempty"`
 	AlexaRank      int         `json:"alexa_rank,omitempty"`
 	Status         string      `json:"status,omitempty"`

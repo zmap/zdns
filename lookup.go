@@ -10,11 +10,25 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 type routineMetadata struct {
 	Names  int
 	Status map[Status]int
+}
+
+func GetDNSServers(path string) ([]string, error) {
+	c, err := dns.ClientConfigFromFile(path)
+	if err != nil {
+		return []string{}, err
+	}
+	var servers []string
+	for _, s := range c.Servers {
+		full := strings.Join([]string{s, c.Port}, ":")
+		servers = append(servers, full)
+	}
+	return servers, nil
 }
 
 func parseAlexa(line string) (string, int) {
@@ -154,6 +168,7 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	// create pool of worker goroutines
 	var lookupWG sync.WaitGroup
 	lookupWG.Add(c.Threads)
+	startTime := time.Now().Format(time.RFC3339)
 	for i := 0; i < c.Threads; i++ {
 		go doLookup(g, c, inChan, outChan, metaChan, &lookupWG)
 	}
@@ -163,6 +178,8 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	routineWG.Wait()
 	// we're done processing data. aggregate all the data from individual routines
 	metadata := aggregateMetadata(metaChan)
+	metadata.StartTime = startTime
+	metadata.EndTime = time.Now().Format(time.RFC3339)
 	metadata.NameServers = c.NameServers
 	// add global lookup-related metadata
 	// write out metadata
@@ -185,17 +202,4 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 		f.WriteString(string(j))
 	}
 	return nil
-}
-
-func GetDNSServers(path string) ([]string, error) {
-	c, err := dns.ClientConfigFromFile(path)
-	if err != nil {
-		return []string{}, err
-	}
-	var servers []string
-	for _, s := range c.Servers {
-		full := strings.Join([]string{s, c.Port}, ":")
-		servers = append(servers, full)
-	}
-	return servers, nil
 }
