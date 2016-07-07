@@ -3,7 +3,7 @@ package zdns
 import (
 	"bufio"
 	"encoding/json"
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 	"github.com/miekg/dns"
 	_ "io"
 	"os"
@@ -21,7 +21,7 @@ func parseAlexa(line string) (string, int) {
 	s := strings.SplitN(line, ",", 2)
 	rank, err := strconv.Atoi(s[0])
 	if err != nil {
-		glog.Fatal("Malformed Alexa Top Million file")
+		log.Fatal("Malformed Alexa Top Million file")
 	}
 	return s[1], rank
 }
@@ -37,7 +37,7 @@ func makeName(name string, prefix string) (string, bool) {
 func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan string, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
 	f, err := (*g).MakeRoutineFactory()
 	if err != nil {
-		glog.Fatal("Unable to create new routine factory", err.Error())
+		log.Fatal("Unable to create new routine factory", err.Error())
 	}
 	var metadata routineMetadata
 	metadata.Status = make(map[Status]int)
@@ -58,7 +58,7 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan string, outpu
 		}
 		l, err := f.MakeLookup()
 		if err != nil {
-			glog.Fatal("Unable to build lookup instance", err)
+			log.Fatal("Unable to build lookup instance", err)
 		}
 		innerRes, status, err := l.DoLookup(lookupName)
 		res.Status = string(status)
@@ -68,7 +68,7 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan string, outpu
 		}
 		jsonRes, err := json.Marshal(res)
 		if err != nil {
-			glog.Fatal("Unable to marshal JSON result", err)
+			log.Fatal("Unable to marshal JSON result", err)
 		}
 		output <- string(jsonRes)
 		metadata.Names++
@@ -87,7 +87,7 @@ func doOutput(out <-chan string, path string, wg *sync.WaitGroup) error {
 	} else {
 		f, err := os.Open(path)
 		if err != nil {
-			glog.Fatal("unable to open output file:", err.Error())
+			log.Fatal("unable to open output file:", err.Error())
 		}
 		defer f.Close()
 	}
@@ -108,7 +108,7 @@ func doInput(in chan<- string, path string, wg *sync.WaitGroup) error {
 		var err error
 		f, err = os.Open(path)
 		if err != nil {
-			glog.Fatal("unable to open output file:", err.Error())
+			log.Fatal("unable to open output file:", err.Error())
 		}
 	}
 	s := bufio.NewScanner(f)
@@ -116,7 +116,7 @@ func doInput(in chan<- string, path string, wg *sync.WaitGroup) error {
 		in <- s.Text()
 	}
 	if err := s.Err(); err != nil {
-		glog.Fatal("input unable to read file", err)
+		log.Fatal("input unable to read file", err)
 	}
 	close(in)
 	(*wg).Done()
@@ -174,13 +174,13 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 			var err error
 			f, err = os.OpenFile(c.MetadataFilePath, os.O_WRONLY|os.O_CREATE, 0666)
 			if err != nil {
-				glog.Fatal("unable to open metadata file:", err.Error())
+				log.Fatal("unable to open metadata file:", err.Error())
 			}
 			defer f.Close()
 		}
 		j, err := json.Marshal(metadata)
 		if err != nil {
-			glog.Fatal("unable to JSON encode metadata:", err.Error())
+			log.Fatal("unable to JSON encode metadata:", err.Error())
 		}
 		f.WriteString(string(j))
 	}

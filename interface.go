@@ -3,7 +3,7 @@ package zdns
 import (
 	"flag"
 	_ "fmt"
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 	"math/rand"
 	"strings"
 )
@@ -68,11 +68,11 @@ func (f *BaseGlobalLookupFactory) Initialize(c *GlobalConf) error {
 
 func (f *BaseGlobalLookupFactory) RandomNameServer() string {
 	if f.globalConf == nil {
-		glog.Fatal("no global conf initialized")
+		log.Fatal("no global conf initialized")
 	}
 	l := len(f.globalConf.NameServers)
 	if l == 0 {
-		glog.Fatal("No name servers specified")
+		log.Fatal("No name servers specified")
 	}
 	return f.globalConf.NameServers[rand.Intn(l)]
 }

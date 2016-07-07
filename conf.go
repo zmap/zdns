@@ -6,7 +6,8 @@ type GlobalConf struct {
 	Threads     int
 	Timeout     int
 	AlexaFormat bool
-	GoLangProcs int
+	GoMaxProcs  int
+	Verbosity   int
 
 	NameServersSpecified bool
 	NameServers          []string
