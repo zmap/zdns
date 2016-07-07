@@ -90,5 +90,5 @@ func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, e
 //
 func init() {
 	s := new(GlobalLookupFactory)
-	zdns.RegisterLookup("a", s)
+	zdns.RegisterLookup("A", s)
 }

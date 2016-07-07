@@ -3,9 +3,9 @@ package main
 import (
 	"flag"
 	_ "fmt"
+	"github.com/golang/glog"
 	"github.com/zmap/zdns"
 	_ "github.com/zmap/zdns/modules"
-	"log"
 	"os"
 	"strings"
 )
@@ -23,15 +23,16 @@ func main() {
 	flags.StringVar(&gc.OutputFilePath, "output-file", "-", "comma-delimited list of DNS servers to use")
 	flags.StringVar(&gc.MetadataFilePath, "metadata-file", "", "where should JSON metadata be saved")
 	flags.StringVar(&gc.LogFilePath, "log-file", "", "where should JSON metadata be saved")
+	flags.IntVar(&gc.Verbosity, "verbosity", 3, "log verbosity: 1--5")
 	servers_string := flags.String("name-servers", "", "comma-delimited list of DNS servers to use")
 	config_file := flags.String("conf-file", "/etc/resolv.conf", "config file for DNS servers")
 	// allow module to initialize and add its own flags before we parse
 	if len(os.Args) < 2 {
-		log.Fatal("No lookup module specified.")
+		glog.Fatal("No lookup module specified.")
 	}
 	factory := zdns.GetLookup(os.Args[1])
 	if factory == nil {
-		log.Fatal("Invalid lookup module specified.")
+		glog.Fatal("Invalid lookup module specified.")
 	}
 	factory.AddFlags(flags)
 	flags.Parse(os.Args[2:])
@@ -39,16 +40,16 @@ func main() {
 	if gc.LogFilePath != "" {
 		f, err := os.Open(gc.LogFilePath)
 		if err != nil {
-			log.Fatalf("Unable to open log file (%s): %s", gc.LogFilePath, err.Error())
+			glog.Fatalf("Unable to open log file (%s): %s", gc.LogFilePath, err.Error())
 		}
-		log.SetOutput(f)
+		glog.SetOutput(f)
 	}
 	// complete post facto global initialization based on command line arguments
 	if *servers_string == "" {
 		// figure out default OS name servers
 		ns, err := zdns.GetDNSServers(*config_file)
 		if err != nil {
-			log.Fatal("Unable to fetch correct name servers:", err.Error())
+			glog.Fatal("Unable to fetch correct name servers:", err.Error())
 		}
 		gc.NameServers = ns
 		gc.NameServersSpecified = false
@@ -58,11 +59,11 @@ func main() {
 	}
 	// allow the factory to initialize itself
 	if err := factory.Initialize(&gc); err != nil {
-		log.Fatal("Factory was unable to initialize:", err.Error())
+		glog.Fatal("Factory was unable to initialize:", err.Error())
 	}
 	// run it.
 	f := &factory
 	if err := zdns.DoLookups(f, &gc); err != nil {
-		log.Fatal("Unable to run lookups:", err.Error())
+		glog.Fatal("Unable to run lookups:", err.Error())
 	}
 }
