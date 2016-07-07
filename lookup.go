@@ -18,7 +18,7 @@ type routineMetadata struct {
 }
 
 func parseAlexa(line string) (string, int) {
-	s := strings.SplitN(line, ",", 1)
+	s := strings.SplitN(line, ",", 2)
 	rank, err := strconv.Atoi(s[0])
 	if err != nil {
 		log.Fatal("Malformed Alexa Top Million file")
@@ -40,6 +40,7 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan string, outpu
 		log.Fatal("Unable to create new routine factory", err.Error())
 	}
 	var metadata routineMetadata
+	metadata.Status = make(map[Status]int)
 	for line := range input {
 		var res Result
 		var rawName string
@@ -124,6 +125,7 @@ func doInput(in chan<- string, path string, wg *sync.WaitGroup) error {
 
 func aggregateMetadata(c <-chan routineMetadata) Metadata {
 	var meta Metadata
+	meta.Status = make(map[string]int)
 	for m := range c {
 		meta.Names += m.Names
 		for k, v := range m.Status {
@@ -156,10 +158,11 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) (Metadata, error) {
 		go doLookup(g, c, inChan, outChan, metaChan, &lookupWG)
 	}
 	lookupWG.Wait()
+	close(outChan)
+	close(metaChan)
+	routineWG.Wait()
 	// we're done processing data
 	metadata := aggregateMetadata(metaChan)
-	close(outChan)
-	routineWG.Wait()
 	return metadata, nil
 }
 

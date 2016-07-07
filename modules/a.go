@@ -41,7 +41,7 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	}
 	for _, ans := range r.Answer {
 		if a, ok := ans.(*dns.A); ok {
-			res.Addresses = append(res.Addresses, a.String())
+			res.Addresses = append(res.Addresses, a.A.String())
 		}
 	}
 	return &res, zdns.STATUS_SUCCESS, nil
@@ -62,7 +62,7 @@ func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 // Global Factory =============================================================
 //
 type GlobalLookupFactory struct {
-	zdns.BaseGlobalLookupFactory // warning: do not remove
+	zdns.BaseGlobalLookupFactory
 }
 
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
