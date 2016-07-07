@@ -3,7 +3,6 @@ package zdns
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	"github.com/miekg/dns"
 	_ "io"
 	"log"
@@ -65,14 +64,13 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan string, outpu
 			log.Fatal("Unable to marshal JSON result", err)
 		}
 		output <- string(jsonRes)
-		fmt.Print(string(jsonRes))
 	}
 	(*wg).Done()
 	return nil
 }
 
 // write results from lookup to output file
-func doOutput(out <-chan string, path string) error {
+func doOutput(out <-chan string, path string, wg *sync.WaitGroup) error {
 	var f *os.File
 	if path == "" || path == "-" {
 		f = os.Stdout
@@ -87,11 +85,12 @@ func doOutput(out <-chan string, path string) error {
 		f.WriteString(n)
 		f.WriteString("\n")
 	}
+	(*wg).Done()
 	return nil
 }
 
 // read input file and put results into channel
-func doInput(in chan<- string, path string) error {
+func doInput(in chan<- string, path string, wg *sync.WaitGroup) error {
 	var f *os.File
 	if path == "" || path == "-" {
 		f = os.Stdin
@@ -110,6 +109,7 @@ func doInput(in chan<- string, path string) error {
 		log.Fatal("input unable to read file", err)
 	}
 	close(in)
+	(*wg).Done()
 	return nil
 }
 
@@ -124,15 +124,19 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	// output and metadata threads have completed
 	inChan := make(chan string)
 	outChan := make(chan string)
-	go doOutput(outChan, c.OutputFilePath)
-	go doInput(inChan, c.InputFilePath)
-	var wg sync.WaitGroup
-	wg.Add(c.Threads)
+	var routineWG sync.WaitGroup
+	go doOutput(outChan, c.OutputFilePath, &routineWG)
+	go doInput(inChan, c.InputFilePath, &routineWG)
+	routineWG.Add(2)
+	// create pool of worker goroutines
+	var lookupWG sync.WaitGroup
+	lookupWG.Add(c.Threads)
 	for i := 0; i < c.Threads; i++ {
-		go doLookup(g, c, inChan, outChan, &wg)
+		go doLookup(g, c, inChan, outChan, &lookupWG)
 	}
-	wg.Wait()
+	lookupWG.Wait()
 	close(outChan)
+	routineWG.Wait()
 	return nil
 }
 
