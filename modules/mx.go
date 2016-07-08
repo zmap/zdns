@@ -22,8 +22,16 @@ import (
 )
 
 // result to be returned by scan of host
+
+type MXRecord struct {
+	Name          string `json:"name"`
+	Priority      int    `json:"priority"`
+	IPv4Addresses string `json:"ipv4_addresses,omitempty"`
+	IPv6Addresses string `json:"ipv6_addresses,omitempty"`
+}
+
 type Result struct {
-	Addresses []string `json:"addresses"`
+	Servers []MXRecord `json:"servers"`
 }
 
 // Per Connection Lookup ======================================================
@@ -36,14 +44,27 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
+func getAddresses(name string, ipv4 bool, ipv6 bool) ([]string, []string) {
+
+	var ipv4Out *[]string
+	var ipv6Out *[]string
+	if ipv4 {
+
+	}
+	if ipv6 {
+
+	}
+	return ipv4Out, ipv6Out
+}
+
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	// get a name server to use for this connection
 	nameServer := s.Factory.Factory.RandomNameServer()
 	// this is where we do scanning
-	res := Result{Addresses: []string{}}
+	res := Result{Servers: []MXRecord{}}
 
 	m := new(dns.Msg)
-	m.SetQuestion(dotName(name), dns.TypeA)
+	m.SetQuestion(dotName(name), dns.TypeMX)
 	m.RecursionDesired = true
 
 	r, _, err := s.Factory.Client.Exchange(m, nameServer)
@@ -54,8 +75,9 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 		return nil, zdns.STATUS_BAD_RCODE, nil
 	}
 	for _, ans := range r.Answer {
-		if a, ok := ans.(*dns.A); ok {
-			res.Addresses = append(res.Addresses, a.A.String())
+		if a, ok := ans.(*dns.MX); ok {
+			//res.Addresses = append(res.Addresses, a.A.String())
+			// call getAddresses
 		}
 	}
 	return &res, zdns.STATUS_SUCCESS, nil
@@ -82,10 +104,15 @@ func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 //
 type GlobalLookupFactory struct {
 	zdns.BaseGlobalLookupFactory
+	IPv4Lookup bool
+	IPv6Lookup bool
+	CacheSize  int
 }
 
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
-	//f.IntVar(&s.Timeout, "timeout", 0, "")
+	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", false, "perform A lookups for each MX server")
+	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", false, "perform AAAA record lookups for each MX server")
+	f.IntVar(&s.CacheSize, "cache-size", false, "number of records to store in MX -> A/AAAA cache")
 }
 
 // Command-line Help Documentation. This is the descriptive text what is
