@@ -70,8 +70,7 @@ func main() {
 		log.Fatal("Factory was unable to initialize:", err.Error())
 	}
 	// run it.
-	f := &factory
-	if err := zdns.DoLookups(f, &gc); err != nil {
+	if err := zdns.DoLookups(&factory, &gc); err != nil {
 		log.Fatal("Unable to run lookups:", err.Error())
 	}
 }
