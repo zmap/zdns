@@ -22,7 +22,8 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/zmap/zdns"
-	_ "github.com/zmap/zdns/modules"
+	_ "github.com/zmap/zdns/modules/a"
+	_ "github.com/zmap/zdns/modules/aaaa"
 )
 
 func main() {
