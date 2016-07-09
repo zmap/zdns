@@ -1,5 +1,5 @@
 /*
- * ZGrab Copyright 2015 Regents of the University of Michigan
+ * ZDNS Copyright 2016 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -16,9 +16,10 @@ package a
 
 import (
 	"flag"
+	"strings"
+
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
-	"strings"
 )
 
 // result to be returned by scan of host
