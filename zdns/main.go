@@ -17,7 +17,7 @@ func main() {
 	// global flags relevant to every lookup module
 	flags := flag.NewFlagSet("flags", flag.ExitOnError)
 	flags.IntVar(&gc.Threads, "threads", 1000, "number of lightweight go threads")
-	flags.IntVar(&gc.GoMaxProcs, "go-processes", 1, "number of OS processes")
+	flags.IntVar(&gc.GoMaxProcs, "go-processes", 0, "number of OS processes (GOMAXPROCS)")
 	flags.IntVar(&gc.Timeout, "timeout", 10, "timeout for resolving an individual name")
 	flags.StringVar(&gc.NamePrefix, "prefix", "", "name to be prepended to what's passed in (e.g., www.)")
 	flags.BoolVar(&gc.AlexaFormat, "alexa", false, "is input file from alexa top million download")
@@ -61,10 +61,12 @@ func main() {
 		gc.NameServers = strings.Split(*servers_string, ",")
 		gc.NameServersSpecified = true
 	}
-	if gc.GoMaxProcs < 1 {
+	if gc.GoMaxProcs < 0 {
 		log.Fatal("Invalid argument for --go-processes. Must be >1.")
 	}
-	runtime.GOMAXPROCS(gc.GoMaxProcs)
+	if gc.GoMaxProcs != 0 {
+		runtime.GOMAXPROCS(gc.GoMaxProcs)
+	}
 	// allow the factory to initialize itself
 	if err := factory.Initialize(&gc); err != nil {
 		log.Fatal("Factory was unable to initialize:", err.Error())
