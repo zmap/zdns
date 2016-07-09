@@ -3,12 +3,13 @@ package main
 import (
 	"flag"
 	_ "fmt"
-	log "github.com/Sirupsen/logrus"
-	"github.com/zmap/zdns"
-	_ "github.com/zmap/zdns/modules"
 	"os"
 	"runtime"
 	"strings"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/zmap/zdns"
+	_ "github.com/zmap/zdns/modules"
 )
 
 func main() {

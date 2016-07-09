@@ -17,14 +17,15 @@ package zdns
 import (
 	"bufio"
 	"encoding/json"
-	log "github.com/Sirupsen/logrus"
-	"github.com/miekg/dns"
 	_ "io"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/miekg/dns"
 )
 
 type routineMetadata struct {

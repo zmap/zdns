@@ -14,8 +14,6 @@
 
 package zdns
 
-import ()
-
 type GlobalConf struct {
 	Threads     int
 	Timeout     int
