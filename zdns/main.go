@@ -24,6 +24,7 @@ import (
 	"github.com/zmap/zdns"
 	_ "github.com/zmap/zdns/modules/a"
 	_ "github.com/zmap/zdns/modules/aaaa"
+	_ "github.com/zmap/zdns/modules/txt"
 )
 
 func main() {

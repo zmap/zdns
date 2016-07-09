@@ -16,15 +16,22 @@ package a
 
 import (
 	"flag"
+	"fmt"
 	"strings"
 
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
 )
 
+type Answer struct {
+	Ttl    uint32 `json:"ttl"`
+	Type   string `json:"type"`
+	Answer string `json:"answer"`
+}
+
 // result to be returned by scan of host
 type Result struct {
-	Addresses []string `json:"addresses"`
+	Answers []Answer `json:"answers"`
 }
 
 // Per Connection Lookup ======================================================
@@ -41,7 +48,7 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	// get a name server to use for this connection
 	nameServer := s.Factory.Factory.RandomNameServer()
 	// this is where we do scanning
-	res := Result{Addresses: []string{}}
+	res := Result{Answers: []Answer{}}
 
 	m := new(dns.Msg)
 	m.SetQuestion(dotName(name), dns.TypeA)
@@ -56,7 +63,8 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	}
 	for _, ans := range r.Answer {
 		if a, ok := ans.(*dns.A); ok {
-			res.Addresses = append(res.Addresses, a.A.String())
+			fmt.Println(a)
+			res.Answers = append(res.Answers, Answer{a.Hdr.Ttl, dns.Type(a.Hdr.Rrtype).String(), a.A.String()})
 		}
 	}
 	return &res, zdns.STATUS_SUCCESS, nil
