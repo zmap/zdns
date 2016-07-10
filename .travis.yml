@@ -1,0 +1,15 @@
+language: go
+go:
+- 1.5.2
+before_install:
+- go get github.com/Sirupsen/logrus
+before_script:
+- mkdir -p $GOPATH/src/github.com/zdns
+- ln -s $TRAVIS_BUILD_DIR $GOPATH/src/github.com/zdns/ || true
+script:
+- ./.test-cover.sh
+notifications:
+  email:
+  - zmap-devel@umich.edu
+  slack:
+    secure: C9nvJpSXSBuqfyv7z+vt+d0CQ4ZC5JklQj9iY9g1jpObDeBG13/THKxINTAAkKIjrgZHkeSVRjOSAE+pz6XbGKFBoFwsKqx9kc4rM7rZumlRalXgyTMc2nInWVcCwlQBGHTAmqPudXR4zMD8xRM9iNxpzOIb2cjOkPRAHw1cCXY=
