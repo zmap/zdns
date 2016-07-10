@@ -29,7 +29,7 @@ type keyValue struct {
 }
 
 func (c *CacheHash) Init(maxLen int) {
-
+	c.l = list.New()
 	c.l = c.l.Init()
 	c.h = make(map[interface{}]*list.Element)
 	c.len = 0
@@ -51,11 +51,33 @@ func (c *CacheHash) Add(k interface{}, v interface{}) bool {
 		if c.len >= c.maxLen {
 			c.Eject()
 		}
-		e := make(list.Element)
-		e.value = v
-		c.l.
-			c.len++
+		var kv keyValue
+		kv.Key = k
+		kv.Value = v
+		e = c.l.PushFront(kv)
+		c.len++
+		c.h[k] = e
 	}
+	return ok
+}
+
+func (c *CacheHash) First() (interface{}, interface{}) {
+	if c.len == 0 {
+		return nil, nil
+	}
+	e := c.l.Front()
+	kv := e.Value.(keyValue)
+	return kv.Key, kv.Value
+}
+
+func (c *CacheHash) Last() (interface{}, interface{}) {
+	if c.len == 0 {
+		return nil, nil
+	}
+	e := c.l.Back()
+	kv := e.Value.(keyValue)
+	return kv.Key, kv.Value
+
 }
 
 func (c *CacheHash) Get(k interface{}) (interface{}, bool) {
@@ -81,7 +103,7 @@ func (c *CacheHash) Has(k interface{}) bool {
 }
 
 func (c *CacheHash) Delete(k interface{}) bool {
-
+	return false
 }
 
 func (c *CacheHash) Len() int {
