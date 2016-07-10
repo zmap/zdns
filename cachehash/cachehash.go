@@ -84,7 +84,8 @@ func (c *CacheHash) Get(k interface{}) (interface{}, bool) {
 	e, ok := c.h[k]
 	if ok {
 		c.l.MoveToFront(e)
-		return e.Value, ok
+		kv := e.Value.(keyValue)
+		return kv.Value, ok
 	}
 	return nil, ok
 }
