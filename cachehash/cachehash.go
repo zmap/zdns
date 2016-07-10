@@ -37,7 +37,14 @@ func (c *CacheHash) Init(maxLen int) {
 }
 
 func (c *CacheHash) Eject() {
-
+	if c.len == 0 {
+		return
+	}
+	e := c.l.Back()
+	kv := e.Value.(keyValue)
+	delete(c.h, kv.Key)
+	c.l.Remove(e)
+	c.len--
 }
 
 func (c *CacheHash) Add(k interface{}, v interface{}) bool {
@@ -77,7 +84,6 @@ func (c *CacheHash) Last() (interface{}, interface{}) {
 	e := c.l.Back()
 	kv := e.Value.(keyValue)
 	return kv.Key, kv.Value
-
 }
 
 func (c *CacheHash) Get(k interface{}) (interface{}, bool) {
@@ -103,8 +109,16 @@ func (c *CacheHash) Has(k interface{}) bool {
 	return ok
 }
 
-func (c *CacheHash) Delete(k interface{}) bool {
-	return false
+func (c *CacheHash) Delete(k interface{}) (interface{}, bool) {
+	e, ok := c.h[k]
+	if ok != true {
+		return nil, false
+	}
+	kv := e.Value.(keyValue)
+	delete(c.h, k)
+	c.l.Remove(e)
+	c.len--
+	return kv.Value, true
 }
 
 func (c *CacheHash) Len() int {
