@@ -47,8 +47,8 @@ func dotName(name string) string {
 
 func getAddresses(name string, ipv4 bool, ipv6 bool) ([]string, []string) {
 
-	var ipv4Out *[]string
-	var ipv6Out *[]string
+	var ipv4Out []string
+	var ipv6Out []string
 	if ipv4 {
 
 	}
@@ -76,7 +76,7 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 		return nil, zdns.STATUS_BAD_RCODE, nil
 	}
 	for _, ans := range r.Answer {
-		if a, ok := ans.(*dns.MX); ok {
+		if _, ok := ans.(*dns.MX); ok {
 			//res.Addresses = append(res.Addresses, a.A.String())
 			// call getAddresses
 		}
@@ -113,7 +113,7 @@ type GlobalLookupFactory struct {
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
 	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", false, "perform A lookups for each MX server")
 	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", false, "perform AAAA record lookups for each MX server")
-	f.IntVar(&s.CacheSize, "cache-size", false, "number of records to store in MX -> A/AAAA cache")
+	f.IntVar(&s.CacheSize, "cache-size", 1000, "number of records to store in MX -> A/AAAA cache")
 }
 
 // Command-line Help Documentation. This is the descriptive text what is
