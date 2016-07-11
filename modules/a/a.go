@@ -38,7 +38,7 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	if s.Factory == nil {
 		panic("Bad factory")
 	}
-	nameServer := "8.8.8.8:53"
+	nameServer := s.Factory.Factory.RandomNameServer()
 	return miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, parseA, dns.TypeA, name)
 }
 
