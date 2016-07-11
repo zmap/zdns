@@ -44,7 +44,7 @@ type MXRecord struct {
 }
 
 type Result struct {
-	Servers  []MXRecord `json:"servers"`
+	Servers  []MXRecord `json:"exchanges"`
 	Protocol string
 }
 
