@@ -15,7 +15,6 @@
 package a
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/miekg/dns"
@@ -30,7 +29,8 @@ type Answer struct {
 
 // result to be returned by scan of host
 type Result struct {
-	Answers []Answer `json:"answers"`
+	Answers  []Answer `json:"answers"`
+	Protocol string   `json:"protocol"`
 }
 
 // Per Connection Lookup ======================================================
@@ -53,7 +53,17 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	m.SetQuestion(dotName(name), dns.TypeA)
 	m.RecursionDesired = true
 
+	tcp := false
+	res.Protocol = "udp"
 	r, _, err := s.Factory.Client.Exchange(m, nameServer)
+	if err == dns.ErrTruncated {
+		r, _, err = s.Factory.TCPClient.Exchange(m, nameServer)
+		tcp = true
+		res.Protocol = "tcp"
+	}
+	if r.Rcode == dns.RcodeBadTrunc && !tcp {
+		r, _, err = s.Factory.TCPClient.Exchange(m, nameServer)
+	}
 	if err != nil {
 		return nil, zdns.STATUS_ERROR, err
 	}
@@ -62,7 +72,6 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	}
 	for _, ans := range r.Answer {
 		if a, ok := ans.(*dns.A); ok {
-			fmt.Println(a)
 			res.Answers = append(res.Answers, Answer{a.Hdr.Ttl, dns.Type(a.Hdr.Rrtype).String(), a.A.String()})
 		}
 	}
@@ -72,13 +81,17 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 // Per GoRoutine Factory ======================================================
 //
 type RoutineLookupFactory struct {
-	Factory *GlobalLookupFactory
-	Client  *dns.Client
+	Factory   *GlobalLookupFactory
+	Client    *dns.Client
+	TCPClient *dns.Client
 }
 
 func (s *RoutineLookupFactory) Initialize(f *GlobalLookupFactory) {
 	s.Factory = f
 	s.Client = new(dns.Client)
+	s.TCPClient = new(dns.Client)
+	s.TCPClient.Net = "tcp"
+
 }
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
