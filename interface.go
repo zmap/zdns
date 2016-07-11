@@ -72,11 +72,11 @@ type GlobalLookupFactory interface {
 }
 
 type BaseGlobalLookupFactory struct {
-	globalConf *GlobalConf
+	GlobalConf *GlobalConf
 }
 
 func (f *BaseGlobalLookupFactory) Initialize(c *GlobalConf) error {
-	f.globalConf = c
+	f.GlobalConf = c
 	return nil
 }
 
@@ -88,14 +88,14 @@ func (s *BaseGlobalLookupFactory) Help() string {
 }
 
 func (f *BaseGlobalLookupFactory) RandomNameServer() string {
-	if f.globalConf == nil {
+	if f.GlobalConf == nil {
 		log.Fatal("no global conf initialized")
 	}
-	l := len(f.globalConf.NameServers)
+	l := len(f.GlobalConf.NameServers)
 	if l == 0 {
 		log.Fatal("No name servers specified")
 	}
-	return f.globalConf.NameServers[rand.Intn(l)]
+	return f.GlobalConf.NameServers[rand.Intn(l)]
 }
 
 func (s *BaseGlobalLookupFactory) AllowStdIn() bool {

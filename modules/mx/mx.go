@@ -17,14 +17,22 @@ package mx
 import (
 	"flag"
 	"strings"
+	"sync"
 
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
+	"github.com/zmap/zdns/cachehash"
 	"github.com/zmap/zdns/modules/a"
+	"github.com/zmap/zdns/modules/aaaa"
 	"github.com/zmap/zdns/modules/miekg"
 )
 
 // result to be returned by scan of host
+
+type CachedAddresses struct {
+	IPv4Addresses []string
+	IPv6Addresses []string
+}
 
 type MXRecord struct {
 	Name          string   `json:"name"`
@@ -50,19 +58,39 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-func (s *Lookup) GetARecords(name string) []string {
+func (s *Lookup) LookupIPs(name string) CachedAddresses {
+	s.Factory.Factory.CHmu.Lock()
+	res, found := s.Factory.Factory.CacheHash.Get(name)
+	s.Factory.Factory.CHmu.Unlock()
+	if found {
+		return res.(CachedAddresses)
+	}
+	var retv CachedAddresses
 	nameServer := s.Factory.Factory.RandomNameServer()
-	res, status, _ := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, a.ParseA, dns.TypeA, name)
-	if status != zdns.STATUS_SUCCESS {
-		var retv []string
-		return retv
+	// ipv4
+	if s.Factory.Factory.IPv4Lookup {
+		res, status, _ := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, a.ParseA, dns.TypeA, name)
+		if status == zdns.STATUS_SUCCESS {
+			cast, _ := res.(miekg.Result)
+			for _, innerRes := range cast.Answers {
+				retv.IPv4Addresses = append(retv.IPv4Addresses, innerRes.Answer)
+			}
+		}
 	}
-	var servers []string
-	cast := res.(miekg.Result)
-	for _, innerRes := range cast.Answers {
-		servers = append(servers, innerRes.Answer)
+	// ipv6
+	if s.Factory.Factory.IPv6Lookup {
+		res, status, _ := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, aaaa.ParseAAAA, dns.TypeA, name)
+		if status == zdns.STATUS_SUCCESS {
+			cast, _ := res.(miekg.Result)
+			for _, innerRes := range cast.Answers {
+				retv.IPv6Addresses = append(retv.IPv6Addresses, innerRes.Answer)
+			}
+		}
 	}
-	return servers
+	s.Factory.Factory.CHmu.Lock()
+	s.Factory.Factory.CacheHash.Add(name, retv)
+	s.Factory.Factory.CHmu.Unlock()
+	return retv
 }
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
@@ -94,7 +122,9 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 		if a, ok := ans.(*dns.MX); ok {
 			name = strings.TrimSuffix(a.Mx, ".")
 			rec := MXRecord{TTL: a.Hdr.Ttl, Type: dns.Type(a.Hdr.Rrtype).String(), Name: name, Preference: a.Preference}
-			rec.IPv4Addresses = s.GetARecords(a.Mx)
+			ips := s.LookupIPs(name)
+			rec.IPv4Addresses = ips.IPv4Addresses
+			rec.IPv6Addresses = ips.IPv6Addresses
 			res.Servers = append(res.Servers, rec)
 		}
 	}
@@ -120,12 +150,20 @@ type GlobalLookupFactory struct {
 	IPv4Lookup bool
 	IPv6Lookup bool
 	CacheSize  int
+	CacheHash  *cachehash.CacheHash
+	CHmu       sync.Mutex
 }
 
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
 	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", false, "perform A lookups for each MX server")
 	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", false, "perform AAAA record lookups for each MX server")
 	f.IntVar(&s.CacheSize, "cache-size", 1000, "number of records to store in MX -> A/AAAA cache")
+}
+
+func (s *GlobalLookupFactory) Initalize(c *zdns.GlobalConf) {
+	s.GlobalConf = c
+	s.CacheHash = new(cachehash.CacheHash)
+	s.CacheHash.Init(s.CacheSize)
 }
 
 // Command-line Help Documentation. This is the descriptive text what is
@@ -136,8 +174,8 @@ func (s *GlobalLookupFactory) Help() string {
 
 func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
-	r.Factory = s
 	r.Initialize()
+	r.Factory = s
 	return r, nil
 }
 
