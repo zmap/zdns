@@ -113,10 +113,11 @@ func RegisterLookup(name string, s GlobalLookupFactory) {
 }
 
 func ValidlookupsString() string {
-
 	valid := make([]string, len(lookups))
+	i := 0
 	for k, _ := range lookups {
-		valid = append(valid, k)
+		valid[i] = k
+		i++
 	}
 	return strings.Join(valid, ", ")
 }

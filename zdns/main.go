@@ -49,11 +49,11 @@ func main() {
 	config_file := flags.String("conf-file", "/etc/resolv.conf", "config file for DNS servers")
 	// allow module to initialize and add its own flags before we parse
 	if len(os.Args) < 2 {
-		log.Fatal("No lookup module specified.")
+		log.Fatal("No lookup module specified. Valid modules: ", zdns.ValidlookupsString())
 	}
 	factory := zdns.GetLookup(os.Args[1])
 	if factory == nil {
-		log.Fatal("Invalid lookup module specified.")
+		log.Fatal("Invalid lookup module specified. Valid modules: ", zdns.ValidlookupsString())
 	}
 	factory.AddFlags(flags)
 	flags.Parse(os.Args[2:])
