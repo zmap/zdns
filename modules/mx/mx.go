@@ -20,17 +20,19 @@ import (
 
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
+	"github.com/zmap/zdns/modules/a"
+	"github.com/zmap/zdns/modules/miekg"
 )
 
 // result to be returned by scan of host
 
 type MXRecord struct {
-	Name          string `json:"name"`
-	Type          string `json:"type"`
-	Preference    uint16 `json:"preference"`
-	IPv4Addresses string `json:"ipv4_addresses,omitempty"`
-	IPv6Addresses string `json:"ipv6_addresses,omitempty"`
-	TTL           uint32 `json:"ttl"`
+	Name          string   `json:"name"`
+	Type          string   `json:"type"`
+	Preference    uint16   `json:"preference"`
+	IPv4Addresses []string `json:"ipv4_addresses,omitempty"`
+	IPv6Addresses []string `json:"ipv6_addresses,omitempty"`
+	TTL           uint32   `json:"ttl"`
 }
 
 type Result struct {
@@ -47,6 +49,22 @@ type Lookup struct {
 func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
+
+func (s *Lookup) GetARecords(name string) []string {
+	nameServer := s.Factory.Factory.RandomNameServer()
+	res, status, _ := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, a.ParseA, dns.TypeA, name)
+	if status != zdns.STATUS_SUCCESS {
+		var retv []string
+		return retv
+	}
+	var servers []string
+	cast := res.(miekg.Result)
+	for _, innerRes := range cast.Answers {
+		servers = append(servers, innerRes.Answer)
+	}
+	return servers
+}
+
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	nameServer := s.Factory.Factory.RandomNameServer()
 	res := Result{Servers: []MXRecord{}}
@@ -74,7 +92,9 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	}
 	for _, ans := range r.Answer {
 		if a, ok := ans.(*dns.MX); ok {
-			rec := MXRecord{TTL: a.Hdr.Ttl, Type: dns.Type(a.Hdr.Rrtype).String(), Name: a.Mx, Preference: a.Preference}
+			name = strings.TrimSuffix(a.Mx, ".")
+			rec := MXRecord{TTL: a.Hdr.Ttl, Type: dns.Type(a.Hdr.Rrtype).String(), Name: name, Preference: a.Preference}
+			rec.IPv4Addresses = s.GetARecords(a.Mx)
 			res.Servers = append(res.Servers, rec)
 		}
 	}
@@ -84,17 +104,8 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 // Per GoRoutine Factory ======================================================
 //
 type RoutineLookupFactory struct {
-	Factory   *GlobalLookupFactory
-	Client    *dns.Client
-	TCPClient *dns.Client
-}
-
-func (s *RoutineLookupFactory) Initialize(f *GlobalLookupFactory) {
-	s.Factory = f
-	s.Client = new(dns.Client)
-	s.TCPClient = new(dns.Client)
-	s.TCPClient.Net = "tcp"
-
+	miekg.RoutineLookupFactory
+	Factory *GlobalLookupFactory
 }
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
@@ -125,7 +136,8 @@ func (s *GlobalLookupFactory) Help() string {
 
 func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
-	r.Initialize(s)
+	r.Factory = s
+	r.Initialize()
 	return r, nil
 }
 
