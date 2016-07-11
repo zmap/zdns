@@ -15,69 +15,35 @@
 package a
 
 import (
-	"flag"
-	"strings"
-
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
+	"github.com/zmap/zdns/modules/miekg"
 )
-
-type Answer struct {
-	Ttl    uint32 `json:"ttl"`
-	Type   string `json:"type"`
-	Answer string `json:"answer"`
-}
-
-// result to be returned by scan of host
-type Result struct {
-	Answers []Answer `json:"answers"`
-}
 
 // Per Connection Lookup ======================================================
 //
 type Lookup struct {
 	Factory *RoutineLookupFactory
+	miekg.Lookup
 }
 
-func dotName(name string) string {
-	return strings.Join([]string{name, "."}, "")
+func parseA(res dns.RR) (miekg.Answer, bool) {
+	if a, ok := res.(*dns.AAAA); ok {
+		return miekg.Answer{a.Hdr.Ttl, dns.Type(a.Hdr.Rrtype).String(), a.AAAA.String()}, true
+	}
+	return miekg.Answer{}, false
 }
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
-	// get a name server to use for this connection
 	nameServer := s.Factory.Factory.RandomNameServer()
-	// this is where we do scanning
-	res := Result{Answers: []Answer{}}
-
-	m := new(dns.Msg)
-	m.SetQuestion(dotName(name), dns.TypeAAAA)
-	m.RecursionDesired = true
-
-	r, _, err := s.Factory.Client.Exchange(m, nameServer)
-	if err != nil {
-		return nil, zdns.STATUS_ERROR, err
-	}
-	if r.Rcode != dns.RcodeSuccess {
-		return nil, zdns.STATUS_BAD_RCODE, nil
-	}
-	for _, ans := range r.Answer {
-		if a, ok := ans.(*dns.AAAA); ok {
-			res.Answers = append(res.Answers, Answer{a.Hdr.Ttl, dns.Type(a.Hdr.Rrtype).String(), a.AAAA.String()})
-		}
-	}
-	return &res, zdns.STATUS_SUCCESS, nil
+	return miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, parseA, dns.TypeAAAA, name)
 }
 
 // Per GoRoutine Factory ======================================================
 //
 type RoutineLookupFactory struct {
+	miekg.RoutineLookupFactory
 	Factory *GlobalLookupFactory
-	Client  *dns.Client
-}
-
-func (s *RoutineLookupFactory) Initialize(f *GlobalLookupFactory) {
-	s.Factory = f
-	s.Client = new(dns.Client)
 }
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
@@ -91,10 +57,6 @@ type GlobalLookupFactory struct {
 	zdns.BaseGlobalLookupFactory
 }
 
-func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
-	//f.IntVar(&s.Timeout, "timeout", 0, "")
-}
-
 // Command-line Help Documentation. This is the descriptive text what is
 // returned when you run zdns module --help
 func (s *GlobalLookupFactory) Help() string {
@@ -103,7 +65,8 @@ func (s *GlobalLookupFactory) Help() string {
 
 func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
-	r.Initialize(s)
+	r.Factory = s
+	r.Initialize()
 	return r, nil
 }
 
