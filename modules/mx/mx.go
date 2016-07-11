@@ -79,7 +79,7 @@ func (s *Lookup) LookupIPs(name string) CachedAddresses {
 	}
 	// ipv6
 	if s.Factory.Factory.IPv6Lookup {
-		res, status, _ := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, aaaa.ParseAAAA, dns.TypeA, name)
+		res, status, _ := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, aaaa.ParseAAAA, dns.TypeAAAA, name)
 		if status == zdns.STATUS_SUCCESS {
 			cast, _ := res.(miekg.Result)
 			for _, innerRes := range cast.Answers {
@@ -160,10 +160,11 @@ func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
 	f.IntVar(&s.CacheSize, "cache-size", 1000, "number of records to store in MX -> A/AAAA cache")
 }
 
-func (s *GlobalLookupFactory) Initalize(c *zdns.GlobalConf) {
+func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	s.GlobalConf = c
 	s.CacheHash = new(cachehash.CacheHash)
 	s.CacheHash.Init(s.CacheSize)
+	return nil
 }
 
 // Command-line Help Documentation. This is the descriptive text what is

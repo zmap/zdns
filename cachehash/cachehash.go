@@ -87,13 +87,6 @@ func (c *CacheHash) Last() (interface{}, interface{}) {
 }
 
 func (c *CacheHash) Get(k interface{}) (interface{}, bool) {
-	if c == nil {
-		panic("wtf")
-	}
-	if c.maxLen == 0 {
-		panic("not setup")
-	}
-	return nil, false
 	e, ok := c.h[k]
 	if ok {
 		c.l.MoveToFront(e)
