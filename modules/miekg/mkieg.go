@@ -73,7 +73,28 @@ func DoLookup(udp *dns.Client, tcp *dns.Client, nameServer string, parse ReadRes
 		if innerRes, ok := parse(ans); ok {
 			res.Answers = append(res.Answers, innerRes)
 		}
-
 	}
-	return &res, zdns.STATUS_SUCCESS, nil
+	return res, zdns.STATUS_SUCCESS, nil
+}
+
+func ParseTXT(res dns.RR) (Answer, bool) {
+	if a, ok := res.(*dns.TXT); ok {
+		return Answer{a.Hdr.Ttl, dns.Type(a.Hdr.Rrtype).String(), strings.Join(a.Txt, "\n")}, true
+	}
+	return Answer{}, false
+}
+
+func DoTxtLookup(udp *dns.Client, tcp *dns.Client, nameServer string, prefix string, name string) (string, zdns.Status, error) {
+	res, status, err := DoLookup(udp, tcp, nameServer, ParseTXT, dns.TypeTXT, name)
+	if status != zdns.STATUS_SUCCESS {
+		return "", status, err
+	}
+	if parsedResult, ok := res.(Result); ok {
+		for _, ans := range parsedResult.Answers {
+			if strings.HasPrefix(ans.Answer, prefix) {
+				return ans.Answer, zdns.STATUS_SUCCESS, err
+			}
+		}
+	}
+	return "", zdns.STATUS_NO_RECORD, nil
 }

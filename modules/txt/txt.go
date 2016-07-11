@@ -15,19 +15,10 @@
 package txt
 
 import (
-	"strings"
-
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/modules/miekg"
 )
-
-func parseA(res dns.RR) (miekg.Answer, bool) {
-	if a, ok := res.(*dns.TXT); ok {
-		return miekg.Answer{a.Hdr.Ttl, dns.Type(a.Hdr.Rrtype).String(), strings.Join(a.Txt, "\n")}, true
-	}
-	return miekg.Answer{}, false
-}
 
 type Lookup struct {
 	Factory *RoutineLookupFactory
@@ -36,7 +27,7 @@ type Lookup struct {
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	nameServer := s.Factory.Factory.RandomNameServer()
-	return miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, parseA, dns.TypeTXT, name)
+	return miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, miekg.ParseTXT, dns.TypeTXT, name)
 }
 
 // Per GoRoutine Factory ======================================================
