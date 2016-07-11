@@ -80,6 +80,13 @@ func (f *BaseGlobalLookupFactory) Initialize(c *GlobalConf) error {
 	return nil
 }
 
+func (s *BaseGlobalLookupFactory) AddFlags(f *flag.FlagSet) {
+}
+
+func (s *BaseGlobalLookupFactory) Help() string {
+	return ""
+}
+
 func (f *BaseGlobalLookupFactory) RandomNameServer() string {
 	if f.globalConf == nil {
 		log.Fatal("no global conf initialized")

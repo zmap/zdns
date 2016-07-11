@@ -24,6 +24,8 @@ import (
 	"github.com/zmap/zdns"
 	_ "github.com/zmap/zdns/modules/a"
 	_ "github.com/zmap/zdns/modules/aaaa"
+	_ "github.com/zmap/zdns/modules/dmarc"
+	_ "github.com/zmap/zdns/modules/spf"
 	_ "github.com/zmap/zdns/modules/txt"
 )
 
@@ -72,7 +74,7 @@ func main() {
 		}
 		gc.NameServers = ns
 		gc.NameServersSpecified = false
-		log.Info("no name servers specified. will use:", gc.NameServers)
+		log.Info("no name servers specified. will use: ", strings.Join(gc.NameServers, ", "))
 	} else {
 		gc.NameServers = strings.Split(*servers_string, ",")
 		gc.NameServersSpecified = true

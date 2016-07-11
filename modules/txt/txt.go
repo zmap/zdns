@@ -12,7 +12,7 @@
  * permissions and limitations under the License.
  */
 
-package a
+package txt
 
 import (
 	"flag"
@@ -46,6 +46,9 @@ func dotName(name string) string {
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	// get a name server to use for this connection
+	if s.Factory == nil {
+		panic("no routine factory")
+	}
 	nameServer := s.Factory.Factory.RandomNameServer()
 	// this is where we do scanning
 	res := Result{Answers: []Answer{}}

@@ -12,25 +12,19 @@
  * permissions and limitations under the License.
  */
 
-package a
+package spf
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
 )
 
-type Answer struct {
-	Ttl    uint32 `json:"ttl"`
-	Type   string `json:"type"`
-	Answer string `json:"answer"`
-}
-
 // result to be returned by scan of host
 type Result struct {
-	Answers []Answer `json:"answers"`
+	Dmarc    string `json:"dmarc,omitempty"`
+	Protocol string `json:"protocol"`
 }
 
 // Per Connection Lookup ======================================================
@@ -47,23 +41,35 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	// get a name server to use for this connection
 	nameServer := s.Factory.Factory.RandomNameServer()
 	// this is where we do scanning
-	res := Result{Answers: []Answer{}}
+	var res Result
 
 	m := new(dns.Msg)
-	m.SetQuestion(dotName(name), dns.TypeA)
+	m.SetQuestion(dotName(name), dns.TypeTXT)
 	m.RecursionDesired = true
-
+	tcp := false
+	res.Protocol = "udp"
 	r, _, err := s.Factory.Client.Exchange(m, nameServer)
+	if err == dns.ErrTruncated {
+		r, _, err = s.Factory.TCPClient.Exchange(m, nameServer)
+		tcp = true
+		res.Protocol = "tcp"
+	}
 	if err != nil {
 		return nil, zdns.STATUS_ERROR, err
+	}
+	if r.Rcode == dns.RcodeBadTrunc && !tcp {
+		r, _, err = s.Factory.TCPClient.Exchange(m, nameServer)
 	}
 	if r.Rcode != dns.RcodeSuccess {
 		return nil, zdns.STATUS_BAD_RCODE, nil
 	}
 	for _, ans := range r.Answer {
-		if a, ok := ans.(*dns.A); ok {
-			fmt.Println(a)
-			res.Answers = append(res.Answers, Answer{a.Hdr.Ttl, dns.Type(a.Hdr.Rrtype).String(), a.A.String()})
+		if a, ok := ans.(*dns.TXT); ok {
+			v := strings.Join(a.Txt, "\n")
+			if strings.HasPrefix(v, "v=DMARC") {
+				res.Dmarc = v
+				return &res, zdns.STATUS_SUCCESS, err
+			}
 		}
 	}
 	return &res, zdns.STATUS_SUCCESS, nil
@@ -72,13 +78,16 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 // Per GoRoutine Factory ======================================================
 //
 type RoutineLookupFactory struct {
-	Factory *GlobalLookupFactory
-	Client  *dns.Client
+	Factory   *GlobalLookupFactory
+	Client    *dns.Client
+	TCPClient *dns.Client
 }
 
 func (s *RoutineLookupFactory) Initialize(f *GlobalLookupFactory) {
 	s.Factory = f
 	s.Client = new(dns.Client)
+	s.TCPClient = new(dns.Client)
+	s.TCPClient.Net = "tcp"
 }
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
@@ -92,12 +101,6 @@ type GlobalLookupFactory struct {
 	zdns.BaseGlobalLookupFactory
 }
 
-// Command-line Help Documentation. This is the descriptive text what is
-// returned when you run zdns module --help
-func (s *GlobalLookupFactory) Help() string {
-	return ""
-}
-
 func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
 	r.Initialize(s)
@@ -108,5 +111,5 @@ func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, e
 //
 func init() {
 	s := new(GlobalLookupFactory)
-	zdns.RegisterLookup("A", s)
+	zdns.RegisterLookup("DMARC", s)
 }

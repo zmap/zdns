@@ -53,6 +53,7 @@ type Status string
 
 const (
 	STATUS_SUCCESS   Status = "success"
+	STATUS_NO_RECORD Status = "norecord"
 	STATUS_ERROR     Status = "error"
 	STATUS_TIMEOUT   Status = "timeout"
 	STATUS_BAD_RCODE Status = "bad_r_code"
