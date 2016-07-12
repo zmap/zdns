@@ -80,9 +80,9 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan string, outpu
 			rawName = line
 		}
 		lookupName, changed := makeName(rawName, gc.NamePrefix)
-		res.Name = lookupName
+		res.Name = rawName
 		if changed {
-			res.OriginalName = rawName
+			res.AlteredName = lookupName
 		}
 		l, err := f.MakeLookup()
 		if err != nil {

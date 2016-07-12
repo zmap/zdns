@@ -41,12 +41,12 @@ type Metadata struct {
 }
 
 type Result struct {
-	OriginalName string      `json:"original,omitempty"`
-	Name         string      `json:"name,omitempty"`
-	AlexaRank    int         `json:"alexa_rank,omitempty"`
-	Status       string      `json:"status,omitempty"`
-	Error        string      `json:"error,omitempty"`
-	Data         interface{} `json:"data,omitempty"`
+	AlteredName string      `json:"altered_name,omitempty"`
+	Name        string      `json:"name,omitempty"`
+	AlexaRank   int         `json:"alexa_rank,omitempty"`
+	Status      string      `json:"status,omitempty"`
+	Error       string      `json:"error,omitempty"`
+	Data        interface{} `json:"data,omitempty"`
 }
 
 type Status string
