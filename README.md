@@ -1,6 +1,6 @@
 # ZDNS
 
-[![Build Status](https://travis-ci.org/zmap/zdns.svg?branch=travis-configuration)](https://travis-ci.org/zmap/zdns)
+[![Build Status](https://travis-ci.org/zmap/zdns.svg?branch=master)](https://travis-ci.org/zmap/zdns)
 
 
 ZDNS is a command-line utility that provides high-speed DNS lookups. For
