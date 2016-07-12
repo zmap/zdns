@@ -109,10 +109,10 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 		useTCP = true
 		res.Protocol = "tcp"
 	}
-	if r.Rcode == dns.RcodeBadTrunc && !useTCP {
+	if r != nil && r.Rcode == dns.RcodeBadTrunc && !useTCP {
 		r, _, err = s.Factory.TCPClient.Exchange(m, nameServer)
 	}
-	if err != nil {
+	if err != nil || r == nil {
 		return nil, zdns.STATUS_ERROR, err
 	}
 	if r.Rcode != dns.RcodeSuccess {
