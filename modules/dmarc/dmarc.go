@@ -21,7 +21,7 @@ import (
 
 // result to be returned by scan of host
 type Result struct {
-	Spf string `json:"dmarc,omitempty"`
+	Dmarc string `json:"dmarc,omitempty"`
 }
 
 // Per Connection Lookup ======================================================
@@ -37,7 +37,7 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	if status != zdns.STATUS_SUCCESS {
 		return res, status, err
 	}
-	res.Spf = innerRes
+	res.Dmarc = innerRes
 	return res, zdns.STATUS_SUCCESS, nil
 }
 
