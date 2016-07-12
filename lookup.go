@@ -113,9 +113,10 @@ func doOutput(out <-chan string, path string, wg *sync.WaitGroup) error {
 	if path == "" || path == "-" {
 		f = os.Stdout
 	} else {
-		f, err := os.Open(path)
+		var err error
+		f, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
-			log.Fatal("unable to open output file:", err.Error())
+			log.Fatal("unable to open metadata file:", err.Error())
 		}
 		defer f.Close()
 	}
