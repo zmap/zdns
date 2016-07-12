@@ -1,5 +1,8 @@
 # ZDNS
 
+[![Build Status](https://travis-ci.org/zmap/zdns.svg?branch=travis-configuration)](https://travis-ci.org/zmap/zdns)
+
+
 ZDNS is a command-line utility that provides high-speed DNS lookups. For
 example, the following will perform MX lookups and a secondary A lookup for the
 IPs of MX servers for the domains in the Alexa Top Million:
