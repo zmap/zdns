@@ -60,11 +60,14 @@ func DoLookup(udp *dns.Client, tcp *dns.Client, nameServer string, parse ReadRes
 		useTCP = true
 		res.Protocol = "tcp"
 	}
-	if err != nil {
+	if err != nil || r == nil {
 		return nil, zdns.STATUS_ERROR, err
 	}
 	if r.Rcode == dns.RcodeBadTrunc && !useTCP {
 		r, _, err = tcp.Exchange(m, nameServer)
+	}
+	if err != nil || r == nil {
+		return nil, zdns.STATUS_ERROR, err
 	}
 	if r.Rcode != dns.RcodeSuccess {
 		return nil, zdns.STATUS_BAD_RCODE, nil
