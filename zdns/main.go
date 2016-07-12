@@ -19,6 +19,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/zmap/zdns"
@@ -37,7 +38,6 @@ func main() {
 	flags := flag.NewFlagSet("flags", flag.ExitOnError)
 	flags.IntVar(&gc.Threads, "threads", 1000, "number of lightweight go threads")
 	flags.IntVar(&gc.GoMaxProcs, "go-processes", 0, "number of OS processes (GOMAXPROCS)")
-	flags.IntVar(&gc.Timeout, "timeout", 10, "timeout for resolving an individual name")
 	flags.StringVar(&gc.NamePrefix, "prefix", "", "name to be prepended to what's passed in (e.g., www.)")
 	flags.BoolVar(&gc.AlexaFormat, "alexa", false, "is input file from alexa top million download")
 	flags.StringVar(&gc.InputFilePath, "input-file", "-", "names to read")
@@ -47,6 +47,7 @@ func main() {
 	flags.IntVar(&gc.Verbosity, "verbosity", 3, "log verbosity: 1--5")
 	servers_string := flags.String("name-servers", "", "comma-delimited list of DNS servers to use")
 	config_file := flags.String("conf-file", "/etc/resolv.conf", "config file for DNS servers")
+	timeout := flags.Int("timeout", 10, "timeout for resolving an individual name")
 	// allow module to initialize and add its own flags before we parse
 	if len(os.Args) < 2 {
 		log.Fatal("No lookup module specified. Valid modules: ", zdns.ValidlookupsString())
@@ -67,6 +68,7 @@ func main() {
 		log.SetOutput(f)
 	}
 	// complete post facto global initialization based on command line arguments
+	gc.Timeout = time.Duration(1000000000 * *timeout)
 	if *servers_string == "" {
 		// figure out default OS name servers
 		ns, err := zdns.GetDNSServers(*config_file)

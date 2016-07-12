@@ -175,7 +175,7 @@ func (s *GlobalLookupFactory) Help() string {
 
 func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
-	r.Initialize()
+	r.Initialize(s.GlobalConf.Timeout)
 	r.Factory = s
 	return r, nil
 }

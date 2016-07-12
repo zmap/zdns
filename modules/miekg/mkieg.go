@@ -2,6 +2,7 @@ package miekg
 
 import (
 	"strings"
+	"time"
 
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
@@ -32,10 +33,12 @@ type RoutineLookupFactory struct {
 	TCPClient *dns.Client
 }
 
-func (s *RoutineLookupFactory) Initialize() {
+func (s *RoutineLookupFactory) Initialize(t time.Duration) {
 	s.Client = new(dns.Client)
+	s.Client.Timeout = t
 	s.TCPClient = new(dns.Client)
 	s.TCPClient.Net = "tcp"
+	s.TCPClient.Timeout = t
 }
 
 func dotName(name string) string {

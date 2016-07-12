@@ -14,9 +14,11 @@
 
 package zdns
 
+import "time"
+
 type GlobalConf struct {
 	Threads     int
-	Timeout     int
+	Timeout     time.Duration
 	AlexaFormat bool
 	GoMaxProcs  int
 	Verbosity   int
