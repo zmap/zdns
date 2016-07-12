@@ -68,7 +68,7 @@ func main() {
 		log.SetOutput(f)
 	}
 	// complete post facto global initialization based on command line arguments
-	gc.Timeout = time.Duration(1000000000 * *timeout)
+	gc.Timeout = time.Duration(time.Seconds * *timeout)
 	if *servers_string == "" {
 		// figure out default OS name servers
 		ns, err := zdns.GetDNSServers(*config_file)
