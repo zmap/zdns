@@ -29,6 +29,10 @@ For example:
 
 	zdns AAAA --help
 
+Please note the --threads and --go-processes flags, which will dictate ZDNS's
+performance.
+
+
 
 ### License
 
