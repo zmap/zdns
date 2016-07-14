@@ -20,7 +20,7 @@ ZDNS can be installed by running:
 
 ### Usage
 
-ZDNS provides several modules: A, AAAA, MX, TXT, SPF, and SPF. For additional
+ZDNS provides several modules: A, AAAA, CNAME, MX, TXT, SPF, and SPF. For additional
 information about each, you can run:
 
 	zdns CMD --help
@@ -28,6 +28,10 @@ information about each, you can run:
 For example:
 
 	zdns AAAA --help
+
+Please note the --threads and --go-processes flags, which will dictate ZDNS's
+performance.
+
 
 
 ### License
