@@ -12,7 +12,7 @@
  * permissions and limitations under the License.
  */
 
-package mx
+package ns
 
 import (
 	"github.com/miekg/dns"
@@ -29,7 +29,7 @@ type Lookup struct {
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	nameServer := s.Factory.Factory.RandomNameServer()
-	return miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dns.TypeMX, name)
+	return miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dns.TypeNS, name)
 }
 
 // Per GoRoutine Factory ======================================================
@@ -67,5 +67,5 @@ func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, e
 //
 func init() {
 	s := new(GlobalLookupFactory)
-	zdns.RegisterLookup("MX", s)
+	zdns.RegisterLookup("NS", s)
 }
