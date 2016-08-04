@@ -25,7 +25,6 @@ import (
 	"github.com/zmap/zdns"
 	_ "github.com/zmap/zdns/modules/a"
 	_ "github.com/zmap/zdns/modules/aaaa"
-	_ "github.com/zmap/zdns/modules/axfr"
 	_ "github.com/zmap/zdns/modules/cname"
 	_ "github.com/zmap/zdns/modules/dmarc"
 	_ "github.com/zmap/zdns/modules/mx"
