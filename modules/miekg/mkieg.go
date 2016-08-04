@@ -9,11 +9,10 @@ import (
 )
 
 type Answer struct {
-	Ttl     uint32 `json:"ttl"`
-	Type    string `json:"type"`
-	Name    string `json:"name"`
-	Answer  string `json:"rdata"`
-	Priorty string `json:"rdata"`
+	Ttl    uint32 `json:"ttl"`
+	Type   string `json:"type"`
+	Name   string `json:"name"`
+	Answer string `json:"rdata"`
 }
 
 // result to be returned by scan of host
