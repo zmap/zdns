@@ -22,8 +22,6 @@ import (
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/cachehash"
-	"github.com/zmap/zdns/modules/a"
-	"github.com/zmap/zdns/modules/aaaa"
 	"github.com/zmap/zdns/modules/miekg"
 )
 
@@ -69,7 +67,7 @@ func (s *Lookup) LookupIPs(name string) CachedAddresses {
 	nameServer := s.Factory.Factory.RandomNameServer()
 	// ipv4
 	if s.Factory.Factory.IPv4Lookup {
-		res, status, _ := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, a.ParseA, dns.TypeA, name)
+		res, status, _ := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dns.TypeA, name)
 		if status == zdns.STATUS_SUCCESS {
 			cast, _ := res.(miekg.Result)
 			for _, innerRes := range cast.Answers {
@@ -79,7 +77,7 @@ func (s *Lookup) LookupIPs(name string) CachedAddresses {
 	}
 	// ipv6
 	if s.Factory.Factory.IPv6Lookup {
-		res, status, _ := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, aaaa.ParseAAAA, dns.TypeAAAA, name)
+		res, status, _ := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dns.TypeAAAA, name)
 		if status == zdns.STATUS_SUCCESS {
 			cast, _ := res.(miekg.Result)
 			for _, innerRes := range cast.Answers {

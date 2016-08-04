@@ -27,7 +27,7 @@ type Lookup struct {
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	nameServer := s.Factory.Factory.RandomNameServer()
-	return miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, miekg.ParseTXT, dns.TypeTXT, name)
+	return miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dns.TypeTXT, name)
 }
 
 // Per GoRoutine Factory ======================================================
