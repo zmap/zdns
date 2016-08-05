@@ -92,6 +92,11 @@ func main() {
 	if gc.GoMaxProcs != 0 {
 		runtime.GOMAXPROCS(gc.GoMaxProcs)
 	}
+	// some modules require multiple passes over a file (this is really just the case for zone files)
+	if !factory.AllowStdIn() && gc.InputFilePath == "-" {
+		log.Fatal("Specified module does not allow reading from stdin")
+	}
+
 	// allow the factory to initialize itself
 	if err := factory.Initialize(&gc); err != nil {
 		log.Fatal("Factory was unable to initialize:", err.Error())
