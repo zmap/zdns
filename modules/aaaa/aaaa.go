@@ -27,16 +27,9 @@ type Lookup struct {
 	miekg.Lookup
 }
 
-func ParseAAAA(res dns.RR) (miekg.Answer, bool) {
-	if a, ok := res.(*dns.AAAA); ok {
-		return miekg.Answer{a.Hdr.Ttl, dns.Type(a.Hdr.Rrtype).String(), a.AAAA.String()}, true
-	}
-	return miekg.Answer{}, false
-}
-
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	nameServer := s.Factory.Factory.RandomNameServer()
-	return miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, ParseAAAA, dns.TypeAAAA, name)
+	return miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dns.TypeAAAA, name)
 }
 
 // Per GoRoutine Factory ======================================================

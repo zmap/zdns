@@ -28,6 +28,8 @@ import (
 	_ "github.com/zmap/zdns/modules/cname"
 	_ "github.com/zmap/zdns/modules/dmarc"
 	_ "github.com/zmap/zdns/modules/mx"
+	_ "github.com/zmap/zdns/modules/mxlookup"
+	_ "github.com/zmap/zdns/modules/ns"
 	_ "github.com/zmap/zdns/modules/spf"
 	_ "github.com/zmap/zdns/modules/txt"
 )
@@ -53,7 +55,7 @@ func main() {
 	if len(os.Args) < 2 {
 		log.Fatal("No lookup module specified. Valid modules: ", zdns.ValidlookupsString())
 	}
-	factory := zdns.GetLookup(os.Args[1])
+	factory := zdns.GetLookup(strings.ToUpper(os.Args[1]))
 	if factory == nil {
 		log.Fatal("Invalid lookup module specified. Valid modules: ", zdns.ValidlookupsString())
 	}

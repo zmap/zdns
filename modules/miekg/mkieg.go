@@ -11,13 +11,16 @@ import (
 type Answer struct {
 	Ttl    uint32 `json:"ttl"`
 	Type   string `json:"type"`
-	Answer string `json:"answer"`
+	Name   string `json:"name"`
+	Answer string `json:"rdata"`
 }
 
 // result to be returned by scan of host
 type Result struct {
-	Answers  []Answer `json:"answers"`
-	Protocol string   `json:"protocol"`
+	Answers     []Answer `json:"answers"`
+	Additional  []Answer `json:"additionals"`
+	Authorities []Answer `json:"authorities"`
+	Protocol    string   `json:"protocol"`
 }
 
 type Lookup struct {
@@ -45,11 +48,30 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-type ReadResult func(dns.RR) (Answer, bool)
+func parseAnswer(ans dns.RR) *Answer {
+	var retv *Answer = nil
+	if a, ok := ans.(*dns.A); ok {
+		retv = &Answer{a.Hdr.Ttl, dns.Type(a.Hdr.Rrtype).String(), a.Hdr.Name, a.A.String()}
+	} else if aaaa, ok := ans.(*dns.AAAA); ok {
+		retv = &Answer{aaaa.Hdr.Ttl, dns.Type(aaaa.Hdr.Rrtype).String(), aaaa.Hdr.Name, aaaa.AAAA.String()}
+	} else if cname, ok := ans.(*dns.CNAME); ok {
+		retv = &Answer{cname.Hdr.Ttl, dns.Type(cname.Hdr.Rrtype).String(), a.Hdr.Name, cname.Target}
+	} else if txt, ok := ans.(*dns.TXT); ok {
+		retv = &Answer{txt.Hdr.Ttl, dns.Type(a.Hdr.Rrtype).String(), a.Hdr.Name, strings.Join(txt.Txt, "\n")}
+	} else if ns, ok := ans.(*dns.NS); ok {
+		retv = &Answer{ns.Hdr.Ttl, dns.Type(ns.Hdr.Rrtype).String(), ns.Hdr.Name, ns.Ns}
+	} else if ns, ok := ans.(*dns.MX); ok {
+		retv = &Answer{ns.Hdr.Ttl, dns.Type(ns.Hdr.Rrtype).String(), ns.Hdr.Name, ns.Mx}
+	}
+	if retv != nil {
+		retv.Name = strings.TrimSuffix(retv.Name, ".")
+	}
+	return retv
+}
 
-func DoLookup(udp *dns.Client, tcp *dns.Client, nameServer string, parse ReadResult, dnsType uint16, name string) (interface{}, zdns.Status, error) {
+func DoLookup(udp *dns.Client, tcp *dns.Client, nameServer string, dnsType uint16, name string) (interface{}, zdns.Status, error) {
 	// this is where we do scanning
-	res := Result{Answers: []Answer{}}
+	res := Result{Answers: []Answer{}, Authorities: []Answer{}, Additional: []Answer{}}
 
 	m := new(dns.Msg)
 	m.SetQuestion(dotName(name), dnsType)
@@ -76,22 +98,28 @@ func DoLookup(udp *dns.Client, tcp *dns.Client, nameServer string, parse ReadRes
 		return nil, zdns.STATUS_BAD_RCODE, nil
 	}
 	for _, ans := range r.Answer {
-		if innerRes, ok := parse(ans); ok {
-			res.Answers = append(res.Answers, innerRes)
+		inner := parseAnswer(ans)
+		if inner != nil {
+			res.Answers = append(res.Answers, *inner)
+		}
+	}
+	for _, ans := range r.Extra {
+		inner := parseAnswer(ans)
+		if inner != nil {
+			res.Additional = append(res.Additional, *inner)
+		}
+	}
+	for _, ans := range r.Ns {
+		inner := parseAnswer(ans)
+		if inner != nil {
+			res.Authorities = append(res.Authorities, *inner)
 		}
 	}
 	return res, zdns.STATUS_SUCCESS, nil
 }
 
-func ParseTXT(res dns.RR) (Answer, bool) {
-	if a, ok := res.(*dns.TXT); ok {
-		return Answer{a.Hdr.Ttl, dns.Type(a.Hdr.Rrtype).String(), strings.Join(a.Txt, "\n")}, true
-	}
-	return Answer{}, false
-}
-
 func DoTxtLookup(udp *dns.Client, tcp *dns.Client, nameServer string, prefix string, name string) (string, zdns.Status, error) {
-	res, status, err := DoLookup(udp, tcp, nameServer, ParseTXT, dns.TypeTXT, name)
+	res, status, err := DoLookup(udp, tcp, nameServer, dns.TypeTXT, name)
 	if status != zdns.STATUS_SUCCESS {
 		return "", status, err
 	}
