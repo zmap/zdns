@@ -15,6 +15,8 @@
 package alookup
 
 import (
+	"flag"
+
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/modules/miekg"
@@ -34,31 +36,39 @@ type Lookup struct {
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	nameServer := s.Factory.Factory.RandomNameServer()
-	miekgResult, status, err := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dns.TypeA, name)
-	if status != zdns.STATUS_SUCCESS {
-		return nil, status, err
+	requests := []uint16{}
+	if s.Factory.Factory.IPv6Lookup {
+		requests = append(requests, dns.TypeAAAA)
+	}
+	if s.Factory.Factory.IPv4Lookup {
+		requests = append(requests, dns.TypeA)
 	}
 	res := Result{}
-	names := map[string]bool{name: true}
-	searchSet := []miekg.Answer{}
-	searchSet = append(searchSet, miekgResult.(miekg.Result).Additional...)
-	searchSet = append(searchSet, miekgResult.(miekg.Result).Answers...)
-
-	for _, add := range searchSet {
-		if add.Type == "CNAME" {
-			if _, ok := names[add.Name]; ok {
-				names[add.Answer] = true
+	for _, dnsType := range requests {
+		miekgResult, status, err := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dnsType, name)
+		if status != zdns.STATUS_SUCCESS || err != nil {
+			return nil, status, err
+		}
+		names := map[string]bool{name: true}
+		searchSet := []miekg.Answer{}
+		searchSet = append(searchSet, miekgResult.(miekg.Result).Additional...)
+		searchSet = append(searchSet, miekgResult.(miekg.Result).Answers...)
+		for _, add := range searchSet {
+			if add.Type == "CNAME" {
+				if _, ok := names[add.Name]; ok {
+					names[add.Answer] = true
+				}
+			}
+		}
+		for _, add := range searchSet {
+			if add.Type == dns.Type(dnsType).String() {
+				if _, ok := names[add.Name]; ok {
+					res.Answers = append(res.Answers, add)
+				}
 			}
 		}
 	}
-	for _, add := range searchSet {
-		if add.Type == "A" {
-			if _, ok := names[add.Name]; ok {
-				res.Answers = append(res.Answers, add)
-			}
-		}
-	}
-	return res, status, err
+	return res, zdns.STATUS_SUCCESS, nil
 }
 
 // Per GoRoutine Factory ======================================================
@@ -77,6 +87,13 @@ func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 //
 type GlobalLookupFactory struct {
 	zdns.BaseGlobalLookupFactory
+	IPv4Lookup bool
+	IPv6Lookup bool
+}
+
+func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
+	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", false, "perform A lookups for each server")
+	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", false, "perform AAAA record lookups for each server")
 }
 
 // Command-line Help Documentation. This is the descriptive text what is
