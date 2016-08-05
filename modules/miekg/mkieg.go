@@ -55,13 +55,13 @@ func parseAnswer(ans dns.RR) *Answer {
 	} else if aaaa, ok := ans.(*dns.AAAA); ok {
 		retv = &Answer{aaaa.Hdr.Ttl, dns.Type(aaaa.Hdr.Rrtype).String(), aaaa.Hdr.Name, aaaa.AAAA.String()}
 	} else if cname, ok := ans.(*dns.CNAME); ok {
-		retv = &Answer{cname.Hdr.Ttl, dns.Type(cname.Hdr.Rrtype).String(), a.Hdr.Name, cname.Target}
+		retv = &Answer{cname.Hdr.Ttl, dns.Type(cname.Hdr.Rrtype).String(), cname.Hdr.Name, cname.Target}
 	} else if txt, ok := ans.(*dns.TXT); ok {
-		retv = &Answer{txt.Hdr.Ttl, dns.Type(a.Hdr.Rrtype).String(), a.Hdr.Name, strings.Join(txt.Txt, "\n")}
+		retv = &Answer{txt.Hdr.Ttl, dns.Type(txt.Hdr.Rrtype).String(), txt.Hdr.Name, strings.Join(txt.Txt, "\n")}
 	} else if ns, ok := ans.(*dns.NS); ok {
 		retv = &Answer{ns.Hdr.Ttl, dns.Type(ns.Hdr.Rrtype).String(), ns.Hdr.Name, ns.Ns}
-	} else if ns, ok := ans.(*dns.MX); ok {
-		retv = &Answer{ns.Hdr.Ttl, dns.Type(ns.Hdr.Rrtype).String(), ns.Hdr.Name, ns.Mx}
+	} else if mx, ok := ans.(*dns.MX); ok {
+		retv = &Answer{mx.Hdr.Ttl, dns.Type(mx.Hdr.Rrtype).String(), mx.Hdr.Name, mx.Mx}
 	}
 	if retv != nil {
 		retv.Name = strings.TrimSuffix(retv.Name, ".")
