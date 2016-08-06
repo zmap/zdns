@@ -49,10 +49,9 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-func (s *Lookup) lookupIPs(name string, dnsType uint16) []string {
+func lookupIPs(name string, dnsType uint16, nameServer string, client *dns.Client, tcpClient *dns.Client) []string {
 	var addresses []string
-	nameServer := s.Factory.Factory.RandomNameServer()
-	res, status, _ := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dnsType, name)
+	res, status, _ := miekg.DoLookup(client, tcpClient, nameServer, dnsType, name)
 	if status == zdns.STATUS_SUCCESS {
 		cast, _ := res.(miekg.Result)
 		for _, innerRes := range cast.Answers {
@@ -62,9 +61,8 @@ func (s *Lookup) lookupIPs(name string, dnsType uint16) []string {
 	return addresses
 }
 
-func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
-	nameServer := s.Factory.Factory.RandomNameServer()
-	res, status, err := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dns.TypeNS, name)
+func DoNSLookup(name string, nameServer string, client *dns.Client, tcpClient *dns.Client, lookupIPv4 bool, lookupIPv6 bool) (interface{}, zdns.Status, error) {
+	res, status, err := miekg.DoLookup(client, tcpClient, nameServer, dns.TypeNS, name)
 	if status != zdns.STATUS_SUCCESS || err != nil {
 		return res, status, nil
 	}
@@ -87,15 +85,15 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 		rec.Type = a.Type
 		rec.Name = strings.TrimSuffix(a.Answer, ".")
 		rec.TTL = a.Ttl
-		if s.Factory.Factory.IPv4Lookup {
-			rec.IPv4Addresses = s.lookupIPs(rec.Name, dns.TypeA)
+		if lookupIPv4 {
+			rec.IPv4Addresses = lookupIPs(rec.Name, dns.TypeA, nameServer, client, tcpClient)
 		} else if ip, ok := ipv4s[rec.Name]; ok {
 			rec.IPv4Addresses = []string{ip}
 		} else {
 			rec.IPv4Addresses = []string{}
 		}
-		if s.Factory.Factory.IPv6Lookup {
-			rec.IPv6Addresses = s.lookupIPs(rec.Name, dns.TypeAAAA)
+		if lookupIPv6 {
+			rec.IPv6Addresses = lookupIPs(rec.Name, dns.TypeAAAA, nameServer, client, tcpClient)
 		} else if ip, ok := ipv6s[rec.Name]; ok {
 			rec.IPv6Addresses = []string{ip}
 		} else {
@@ -104,6 +102,12 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 		retv.Servers = append(retv.Servers, rec)
 	}
 	return retv, zdns.STATUS_SUCCESS, nil
+
+}
+
+func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
+	nameServer := s.Factory.Factory.RandomNameServer()
+	return DoNSLookup(name, nameServer, s.Factory.Client, s.Factory.TCPClient, s.Factory.Factory.IPv4Lookup, s.Factory.Factory.IPv6Lookup)
 }
 
 // Per GoRoutine Factory ======================================================
