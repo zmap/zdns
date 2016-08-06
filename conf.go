@@ -32,6 +32,8 @@ type GlobalConf struct {
 	MetadataFilePath string
 
 	NamePrefix string
+
+	Module string
 }
 
 type Metadata struct {

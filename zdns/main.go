@@ -56,7 +56,8 @@ func main() {
 	if len(os.Args) < 2 {
 		log.Fatal("No lookup module specified. Valid modules: ", zdns.ValidlookupsString())
 	}
-	factory := zdns.GetLookup(strings.ToUpper(os.Args[1]))
+	gc.Module = strings.ToUpper(os.Args[1])
+	factory := zdns.GetLookup(gc.Module)
 	if factory == nil {
 		log.Fatal("Invalid lookup module specified. Valid modules: ", zdns.ValidlookupsString())
 	}
