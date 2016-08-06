@@ -53,6 +53,11 @@ type Result struct {
 	Data        interface{} `json:"data,omitempty"`
 }
 
+type TargetedDomain struct {
+	Domain     string `json:"domain"`
+	Nameserver string `json:"nameserver"`
+}
+
 type Status string
 
 const (

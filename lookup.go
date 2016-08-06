@@ -73,17 +73,35 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan string, outpu
 		var res Result
 		var rawName string
 		var rank int
-		if gc.AlexaFormat == true {
-			rawName, rank = parseAlexa(line)
-			res.AlexaRank = rank
+		var lookupName string
+		if gc.Module == "ZONE" {
+			var targeted TargetedDomain
+			json.Unmarshal([]byte(line), &targeted)
+			rawName = targeted.Domain
+			prefixedName, changed := makeName(rawName, gc.NamePrefix)
+			if changed {
+				res.AlteredName = prefixedName
+				targeted.Domain = prefixedName
+			}
+
+			query, err := json.Marshal(targeted)
+			lookupName = string(query)
+			if err != nil {
+				log.Fatal("Internal Error: %s", err)
+			}
 		} else {
-			rawName = line
+			if gc.AlexaFormat == true {
+				rawName, rank = parseAlexa(line)
+				res.AlexaRank = rank
+			} else {
+				rawName = line
+			}
+			lookupName, changed := makeName(rawName, gc.NamePrefix)
+			if changed {
+				res.AlteredName = lookupName
+			}
 		}
-		lookupName, changed := makeName(rawName, gc.NamePrefix)
 		res.Name = rawName
-		if changed {
-			res.AlteredName = lookupName
-		}
 		l, err := f.MakeLookup()
 		if err != nil {
 			log.Fatal("Unable to build lookup instance", err)
@@ -129,7 +147,7 @@ func doOutput(out <-chan string, path string, wg *sync.WaitGroup) error {
 }
 
 // read input file and put results into channel
-func doInput(in chan<- string, path string, wg *sync.WaitGroup) error {
+func doInput(in chan<- string, path string, wg *sync.WaitGroup, moduleType string) error {
 	var f *os.File
 	if path == "" || path == "-" {
 		f = os.Stdin
@@ -140,12 +158,35 @@ func doInput(in chan<- string, path string, wg *sync.WaitGroup) error {
 			log.Fatal("unable to open output file:", err.Error())
 		}
 	}
-	s := bufio.NewScanner(f)
-	for s.Scan() {
-		in <- s.Text()
-	}
-	if err := s.Err(); err != nil {
-		log.Fatal("input unable to read file", err)
+	if moduleType == "ZONE" {
+		tokens := dns.ParseZone(f, ".", path)
+		for t := range tokens {
+			if t.Error != nil {
+				continue
+			}
+			switch record := t.RR.(type) {
+			case *dns.NS:
+				if strings.Count(t.RR.Header().Name, ".") < 2 {
+					continue
+				}
+				targeted := TargetedDomain{t.RR.Header().Name, record.Ns}
+				query, err := json.Marshal(targeted)
+				if err != nil {
+					log.Fatal("Internal Error: %s", err)
+				}
+				in <- string(query)
+			default:
+				continue
+			}
+		}
+	} else {
+		s := bufio.NewScanner(f)
+		for s.Scan() {
+			in <- s.Text()
+		}
+		if err := s.Err(); err != nil {
+			log.Fatal("input unable to read file", err)
+		}
 	}
 	close(in)
 	(*wg).Done()
@@ -178,7 +219,7 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	metaChan := make(chan routineMetadata, c.Threads)
 	var routineWG sync.WaitGroup
 	go doOutput(outChan, c.OutputFilePath, &routineWG)
-	go doInput(inChan, c.InputFilePath, &routineWG)
+	go doInput(inChan, c.InputFilePath, &routineWG, c.Module)
 	routineWG.Add(2)
 	// create pool of worker goroutines
 	var lookupWG sync.WaitGroup
