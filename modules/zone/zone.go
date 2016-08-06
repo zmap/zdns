@@ -27,14 +27,9 @@ import (
 	"github.com/zmap/zdns/modules/miekg"
 )
 
-type Domain struct {
-	Name          string   `json:"name"`
+type Result struct {
 	IPv4Addresses []string `json:"ipv4_addresses,omitempty"`
 	IPv6Addresses []string `json:"ipv6_addresses,omitempty"`
-}
-
-type Result struct {
-	Subdomains []Domain `json:"subdomains"`
 }
 
 // Per Connection Lookup ======================================================
@@ -64,25 +59,21 @@ func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 //
 type GlobalLookupFactory struct {
 	zdns.BaseGlobalLookupFactory
-	IPv4Lookup      bool
-	IPv6Lookup      bool
-	Subdomains      []string
-	SubdomainString string
-	Glue            *map[string][]string
-	GlueLock        sync.Mutex
+	IPv4Lookup bool
+	IPv6Lookup bool
+	Glue       *map[string][]string
+	GlueLock   sync.Mutex
 }
 
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
 	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", true, "perform A lookups for each server")
 	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", true, "perform AAAA record lookups for each server")
-	f.StringVar(&s.SubdomainString, "subdomains", ",www", "specify which subdomains to search for (default \"\" and \"www\")")
 }
 
 func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	s.GlobalConf = c
-	s.Subdomains = strings.Split(s.SubdomainString, ",")
 	if c.InputFilePath == "-" {
-		return errors.New("Input to ZONELOOKUP must be a file, not STDIN")
+		return errors.New("Input to ZONE must be a file, not STDIN")
 	}
 	return s.ParseGlue(c.InputFilePath)
 }
