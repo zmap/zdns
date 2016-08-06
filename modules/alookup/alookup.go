@@ -22,15 +22,9 @@ import (
 	"github.com/zmap/zdns/modules/miekg"
 )
 
-// result to be returned by scan of host
-type ALOOKUPRecord struct {
-	Name          string   `json:"name"`
+type Result struct {
 	IPv4Addresses []string `json:"ipv4_addresses,omitempty"`
 	IPv6Addresses []string `json:"ipv6_addresses,omitempty"`
-}
-
-type Result struct {
-	Servers []ALOOKUPRecord `json:"exchanges"`
 }
 
 // Per Connection Lookup ======================================================
@@ -55,29 +49,25 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 		if status != zdns.STATUS_SUCCESS || err != nil {
 			return nil, status, err
 		}
-		nameRecord := ALOOKUPRecord{name, []string{}, []string{}}
-		res.Servers = append(res.Servers, nameRecord)
-		names := map[string]*ALOOKUPRecord{name: &res.Servers[len(res.Servers)-1]}
+		names := map[string]bool{name: true}
 		searchSet := []miekg.Answer{}
 		searchSet = append(searchSet, miekgResult.(miekg.Result).Additional...)
 		searchSet = append(searchSet, miekgResult.(miekg.Result).Answers...)
 		for _, add := range searchSet {
 			if add.Type == "CNAME" {
 				if _, ok := names[add.Name]; ok {
-					nameRecord := ALOOKUPRecord{add.Answer, []string{}, []string{}}
-					res.Servers = append(res.Servers, nameRecord)
-					names[add.Answer] = &res.Servers[len(res.Servers)-1]
+					names[add.Answer] = true
 				}
 			}
 		}
 		for _, add := range searchSet {
 			if add.Type == dns.Type(dnsType).String() {
-				if rec, ok := names[add.Name]; ok {
+				if _, ok := names[add.Name]; ok {
 					if add.Type == dns.Type(dns.TypeA).String() {
-						rec.IPv4Addresses = append(rec.IPv4Addresses, add.Answer)
+						res.IPv4Addresses = append(res.IPv4Addresses, add.Answer)
 					}
 					if add.Type == dns.Type(dns.TypeAAAA).String() {
-						rec.IPv6Addresses = append(rec.IPv6Addresses, add.Answer)
+						res.IPv6Addresses = append(res.IPv6Addresses, add.Answer)
 					}
 				}
 			}
