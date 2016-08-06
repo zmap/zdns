@@ -107,8 +107,8 @@ type GlobalLookupFactory struct {
 }
 
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
-	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", false, "perform A lookups for each server")
-	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", false, "perform AAAA record lookups for each server")
+	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", true, "perform A lookups for each server")
+	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", true, "perform AAAA record lookups for each server")
 }
 
 // Command-line Help Documentation. This is the descriptive text what is
