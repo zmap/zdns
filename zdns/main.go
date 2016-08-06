@@ -33,6 +33,7 @@ import (
 	_ "github.com/zmap/zdns/modules/ns"
 	_ "github.com/zmap/zdns/modules/spf"
 	_ "github.com/zmap/zdns/modules/txt"
+	_ "github.com/zmap/zdns/modules/zone"
 )
 
 func main() {
