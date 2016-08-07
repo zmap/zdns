@@ -61,10 +61,11 @@ func lookupIPs(name string, dnsType uint16, nameServer string, client *dns.Clien
 	return addresses
 }
 
-func DoNSLookup(name string, nameServer string, client *dns.Client, tcpClient *dns.Client, lookupIPv4 bool, lookupIPv6 bool) (interface{}, zdns.Status, error) {
+func DoNSLookup(name string, nameServer string, client *dns.Client, tcpClient *dns.Client, lookupIPv4 bool, lookupIPv6 bool) (Result, zdns.Status, error) {
+	var retv Result
 	res, status, err := miekg.DoLookup(client, tcpClient, nameServer, dns.TypeNS, name)
 	if status != zdns.STATUS_SUCCESS || err != nil {
-		return res, status, nil
+		return retv, status, nil
 	}
 	ns := res.(miekg.Result)
 	ipv4s := make(map[string]string)
@@ -76,7 +77,6 @@ func DoNSLookup(name string, nameServer string, client *dns.Client, tcpClient *d
 			ipv6s[a.Name] = a.Answer
 		}
 	}
-	var retv Result
 	for _, a := range ns.Answers {
 		if a.Type != "NS" {
 			continue

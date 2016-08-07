@@ -48,7 +48,7 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-func parseAnswer(ans dns.RR) *Answer {
+func ParseAnswer(ans dns.RR) *Answer {
 	var retv *Answer = nil
 	if a, ok := ans.(*dns.A); ok {
 		retv = &Answer{a.Hdr.Ttl, dns.Type(a.Hdr.Rrtype).String(), a.Hdr.Name, a.A.String()}
@@ -98,19 +98,19 @@ func DoLookup(udp *dns.Client, tcp *dns.Client, nameServer string, dnsType uint1
 		return nil, zdns.STATUS_BAD_RCODE, nil
 	}
 	for _, ans := range r.Answer {
-		inner := parseAnswer(ans)
+		inner := ParseAnswer(ans)
 		if inner != nil {
 			res.Answers = append(res.Answers, *inner)
 		}
 	}
 	for _, ans := range r.Extra {
-		inner := parseAnswer(ans)
+		inner := ParseAnswer(ans)
 		if inner != nil {
 			res.Additional = append(res.Additional, *inner)
 		}
 	}
 	for _, ans := range r.Ns {
-		inner := parseAnswer(ans)
+		inner := ParseAnswer(ans)
 		if inner != nil {
 			res.Authorities = append(res.Authorities, *inner)
 		}
