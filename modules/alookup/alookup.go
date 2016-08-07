@@ -16,6 +16,7 @@ package alookup
 
 import (
 	"flag"
+	"strings"
 
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
@@ -53,20 +54,20 @@ func (s *Lookup) DoTargetedLookup(name, nameServer string) (interface{}, zdns.St
 		if status != zdns.STATUS_SUCCESS || err != nil {
 			return nil, status, err
 		}
-		names := map[string]bool{name: true}
+		names := map[string]bool{strings.ToLower(name): true}
 		searchSet := []miekg.Answer{}
 		searchSet = append(searchSet, miekgResult.(miekg.Result).Additional...)
 		searchSet = append(searchSet, miekgResult.(miekg.Result).Answers...)
 		for _, add := range searchSet {
 			if add.Type == "CNAME" {
-				if _, ok := names[add.Name]; ok {
-					names[add.Answer] = true
+				if _, ok := names[strings.ToLower(add.Name)]; ok {
+					names[strings.ToLower(add.Answer)] = true
 				}
 			}
 		}
 		for _, add := range searchSet {
 			if add.Type == dns.Type(dnsType).String() {
-				if _, ok := names[add.Name]; ok {
+				if _, ok := names[strings.ToLower(add.Name)]; ok {
 					if add.Type == dns.Type(dns.TypeA).String() {
 						res.IPv4Addresses = append(res.IPv4Addresses, add.Answer)
 					}

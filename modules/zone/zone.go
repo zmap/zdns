@@ -39,9 +39,8 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	lookup, _ := s.Factory.Subfactory.MakeLookup()
 	var targeted zdns.TargetedDomain
 	json.Unmarshal([]byte(name), &targeted)
-	//nameServer := s.Factory.Factory.RandomNameServer()
-	return lookup.DoLookup(targeted.Domain)
-	//return lookup.(*alookup.Lookup).DoTargetedLookup(targeted.Domain, nameServer)
+	nameServer := s.Factory.Factory.RandomNameServer()
+	return lookup.(*alookup.Lookup).DoTargetedLookup(targeted.Domain, nameServer)
 }
 
 // Per GoRoutine Factory ======================================================
