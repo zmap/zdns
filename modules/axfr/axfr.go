@@ -39,7 +39,7 @@ type AXFRServerResult struct {
 }
 
 type AXFRResult struct {
-	Servers []AXFRServerResult
+	Servers []AXFRServerResult `json:"servers"`
 }
 
 func dotName(name string) string {
@@ -53,13 +53,17 @@ func (s *Lookup) DoAXFR(name string, server string) AXFRServerResult {
 	m.SetAxfr(dotName(name))
 	tr := new(dns.Transfer)
 	if a, err := tr.In(m, net.JoinHostPort(server, "53")); err != nil {
-		return AXFRServerResult{Server: server, Error: err.Error()}
+		retv.Status = "error"
+		retv.Error = err.Error()
+		return retv
 	} else {
 		for ex := range a {
 			if ex.Error != nil {
-				//fmt.Println("error %v", ex.Error)
-				break
+				retv.Status = "error"
+				retv.Error = ex.Error.Error()
+				return retv
 			} else {
+				retv.Status = "success"
 				for _, rr := range ex.RR {
 					ans := miekg.ParseAnswer(rr)
 					if ans != nil {
