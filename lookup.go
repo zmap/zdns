@@ -90,13 +90,14 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan string, outpu
 				log.Fatal("Internal Error: %s", err)
 			}
 		} else {
+			var changed bool
 			if gc.AlexaFormat == true {
 				rawName, rank = parseAlexa(line)
 				res.AlexaRank = rank
 			} else {
 				rawName = line
 			}
-			lookupName, changed := makeName(rawName, gc.NamePrefix)
+			lookupName, changed = makeName(rawName, gc.NamePrefix)
 			if changed {
 				res.AlteredName = lookupName
 			}
@@ -169,7 +170,11 @@ func doInput(in chan<- string, path string, wg *sync.WaitGroup, moduleType strin
 				if strings.Count(t.RR.Header().Name, ".") < 2 {
 					continue
 				}
-				targeted := TargetedDomain{t.RR.Header().Name, record.Ns}
+				name := t.RR.Header().Name
+				if name[len(name)-1] == '.' {
+					name = name[0 : len(name)-1]
+				}
+				targeted := TargetedDomain{name, record.Ns}
 				query, err := json.Marshal(targeted)
 				if err != nil {
 					log.Fatal("Internal Error: %s", err)

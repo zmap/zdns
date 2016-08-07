@@ -15,22 +15,18 @@
 package zone
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"log"
 	"os"
-	"strings"
 	"sync"
 
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
+	"github.com/zmap/zdns/modules/alookup"
 	"github.com/zmap/zdns/modules/miekg"
 )
-
-type Result struct {
-	IPv4Addresses []string `json:"ipv4_addresses,omitempty"`
-	IPv6Addresses []string `json:"ipv6_addresses,omitempty"`
-}
 
 // Per Connection Lookup ======================================================
 //
@@ -40,14 +36,20 @@ type Lookup struct {
 }
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
-	return nil, zdns.STATUS_SUCCESS, nil
+	lookup, _ := s.Factory.Subfactory.MakeLookup()
+	var targeted zdns.TargetedDomain
+	json.Unmarshal([]byte(name), &targeted)
+	//nameServer := s.Factory.Factory.RandomNameServer()
+	return lookup.DoLookup(targeted.Domain)
+	//return lookup.(*alookup.Lookup).DoTargetedLookup(targeted.Domain, nameServer)
 }
 
 // Per GoRoutine Factory ======================================================
 //
 type RoutineLookupFactory struct {
 	miekg.RoutineLookupFactory
-	Factory *GlobalLookupFactory
+	Factory    *GlobalLookupFactory
+	Subfactory zdns.RoutineLookupFactory
 }
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
@@ -59,21 +61,24 @@ func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 //
 type GlobalLookupFactory struct {
 	zdns.BaseGlobalLookupFactory
-	IPv4Lookup bool
-	IPv6Lookup bool
 	Glue       *map[string][]string
 	GlueLock   sync.Mutex
+	Subfactory alookup.GlobalLookupFactory
 }
 
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
-	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", true, "perform A lookups for each server")
-	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", true, "perform AAAA record lookups for each server")
+	f.BoolVar(&s.Subfactory.IPv4Lookup, "ipv4-lookup", true, "perform A lookups for each server")
+	f.BoolVar(&s.Subfactory.IPv6Lookup, "ipv6-lookup", true, "perform AAAA record lookups for each server")
 }
 
 func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	s.GlobalConf = c
 	if c.InputFilePath == "-" {
 		return errors.New("Input to ZONE must be a file, not STDIN")
+	}
+	err := s.Subfactory.Initialize(c)
+	if err != nil {
+		return err
 	}
 	return s.ParseGlue(c.InputFilePath)
 }
@@ -99,7 +104,6 @@ func (s *GlobalLookupFactory) ParseGlue(glueFile string) error {
 			continue
 		}
 	}
-
 	return nil
 }
 
@@ -110,10 +114,12 @@ func (s *GlobalLookupFactory) Help() string {
 }
 
 func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
+	var err error
 	r := new(RoutineLookupFactory)
 	r.Factory = s
 	r.Initialize(s.GlobalConf.Timeout)
-	return r, nil
+	r.Subfactory, err = s.Subfactory.MakeRoutineFactory()
+	return r, err
 }
 
 // Global Registration ========================================================
