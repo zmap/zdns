@@ -20,6 +20,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/miekg/dns"
@@ -58,7 +59,7 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	//First pass looking for a nameserver we know the IP for
 	s.Factory.Factory.GlueLock.RLock()
 	for _, nameserver := range targeted.Nameservers {
-		if locations, ok := (*s.Factory.Factory.Glue)[nameserver]; ok {
+		if locations, ok := (*s.Factory.Factory.Glue)[strings.ToLower(nameserver)]; ok {
 			result, status, err := LookupHelper(targeted.Domain, locations, lookup.(*alookup.Lookup))
 			if status == zdns.STATUS_SUCCESS && err == nil {
 				s.Factory.Factory.GlueLock.RUnlock()
@@ -70,13 +71,13 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	//Second pass performing lookups to find a nameserver
 	s.Factory.Factory.GlueLock.Lock()
 	for _, nameserver := range targeted.Nameservers {
-		if _, ok := (*s.Factory.Factory.Glue)[nameserver]; !ok {
+		if _, ok := (*s.Factory.Factory.Glue)[strings.ToLower(nameserver)]; !ok {
 			result, status, err := lookup.(*alookup.Lookup).DoLookup(nameserver[0 : len(nameserver)-1])
 			if status != zdns.STATUS_SUCCESS || err != nil {
 				continue
 			}
 			addresses := append(result.(alookup.Result).IPv4Addresses, result.(alookup.Result).IPv6Addresses...)
-			(*s.Factory.Factory.Glue)[nameserver] = addresses
+			(*s.Factory.Factory.Glue)[strings.ToLower(nameserver)] = addresses
 			result, status, err = LookupHelper(targeted.Domain, addresses, lookup.(*alookup.Lookup))
 			if status == zdns.STATUS_SUCCESS && err == nil {
 				s.Factory.Factory.GlueLock.Unlock()
@@ -141,9 +142,9 @@ func (s *GlobalLookupFactory) ParseGlue(glueFile string) error {
 		}
 		switch record := t.RR.(type) {
 		case *dns.AAAA:
-			(*s.Glue)[t.RR.Header().Name] = append((*s.Glue)[t.RR.Header().Name], record.AAAA.String())
+			(*s.Glue)[strings.ToLower(t.RR.Header().Name)] = append((*s.Glue)[strings.ToLower(t.RR.Header().Name)], record.AAAA.String())
 		case *dns.A:
-			(*s.Glue)[t.RR.Header().Name] = append((*s.Glue)[t.RR.Header().Name], record.A.String())
+			(*s.Glue)[strings.ToLower(t.RR.Header().Name)] = append((*s.Glue)[strings.ToLower(t.RR.Header().Name)], record.A.String())
 		default:
 			continue
 		}
