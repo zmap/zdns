@@ -161,6 +161,7 @@ func doInput(in chan<- string, path string, wg *sync.WaitGroup, moduleType strin
 	//TK caching
 	if moduleType == "ZONE" {
 		tokens := dns.ParseZone(f, ".", path)
+		cached := TargetedDomain{"", []string{}}
 		for t := range tokens {
 			if t.Error != nil {
 				continue
@@ -174,8 +175,16 @@ func doInput(in chan<- string, path string, wg *sync.WaitGroup, moduleType strin
 				if name[len(name)-1] == '.' {
 					name = name[0 : len(name)-1]
 				}
-				targeted := TargetedDomain{name, []string{record.Ns}}
-				query, err := json.Marshal(targeted)
+				if cached.Domain == "" {
+					cached = TargetedDomain{name, []string{record.Ns}}
+					continue
+				}
+				if name == cached.Domain {
+					cached.Nameservers = append(cached.Nameservers, record.Ns)
+					continue
+				}
+				query, err := json.Marshal(cached)
+				cached = TargetedDomain{name, []string{record.Ns}}
 				if err != nil {
 					log.Fatal("Internal Error: %s", err)
 				}
@@ -183,6 +192,13 @@ func doInput(in chan<- string, path string, wg *sync.WaitGroup, moduleType strin
 			default:
 				continue
 			}
+		}
+		if cached.Domain != "" {
+			query, err := json.Marshal(cached)
+			if err != nil {
+				log.Fatal("Internal Error: %s", err)
+			}
+			in <- string(query)
 		}
 	} else {
 		s := bufio.NewScanner(f)
