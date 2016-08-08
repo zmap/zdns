@@ -32,6 +32,8 @@ type GlobalConf struct {
 	MetadataFilePath string
 
 	NamePrefix string
+
+	Module string
 }
 
 type Metadata struct {
@@ -49,6 +51,11 @@ type Result struct {
 	Status      string      `json:"status,omitempty"`
 	Error       string      `json:"error,omitempty"`
 	Data        interface{} `json:"data,omitempty"`
+}
+
+type TargetedDomain struct {
+	Domain      string   `json:"domain"`
+	Nameservers []string `json:"nameservers"`
 }
 
 type Status string
