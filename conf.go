@@ -54,8 +54,8 @@ type Result struct {
 }
 
 type TargetedDomain struct {
-	Domain     string `json:"domain"`
-	Nameserver string `json:"nameserver"`
+	Domain      string   `json:"domain"`
+	Nameservers []string `json:"nameservers"`
 }
 
 type Status string

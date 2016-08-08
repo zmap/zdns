@@ -35,12 +35,59 @@ type Lookup struct {
 	miekg.Lookup
 }
 
+func LookupHelper(domain string, nsIPs []string, lookup alookup.Lookup) (interface{}, zdns.Status, error) {
+	var result interface{}
+	var status zdns.Status
+	var err error
+	for _, location := range locations {
+		result, status, err := lookup.(*alookup.Lookup).DoTargetedLookup(domain, location)
+		if status == zdns.STATUS_SUCCESS && err == nil {
+			return result, status, err
+		}
+	}
+	return result, status, err
+}
+
+//Lookup is an attempt to perform ALOOKUP directly from a domain nameserver.
+//It completes once a single result comes back, and will attempt lookups of
+//nameservers' IPs when no glue record was present.
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	lookup, _ := s.Factory.Subfactory.MakeLookup()
 	var targeted zdns.TargetedDomain
 	json.Unmarshal([]byte(name), &targeted)
-	nameServer := s.Factory.Factory.RandomNameServer()
-	return lookup.(*alookup.Lookup).DoTargetedLookup(targeted.Domain, nameServer)
+	//First pass looking for a nameserver we know the IP for
+	s.Factory.Factory.GlueLock.RLock()
+	for _, nameserver := range targeted.Nameservers {
+		if locations, ok := (*s.Factory.Factory.Glue)[nameserver]; ok {
+			result, status, err := LookupHelper(name, locations, lookup)
+			if status == zdns.STATUS_SUCCESS && err == nil {
+				s.Factory.Factory.GlueLock.RUnlock()
+				return result, status, err
+			}
+		}
+	}
+	s.Factory.Factory.GlueLock.RUnlock()
+	//Second pass performing lookups to find a nameserver
+	s.Factory.Factory.GlueLock.Lock()
+	for _, nameserver := range targeted.Nameservers {
+		if locations, ok := (*s.Factory.Factory.Glue)[nameserver]; !ok {
+			result, status, err := lookup.(*alookup.Lookup).DoLookup(nameserver)
+			if status != zdns.STATUS_SUCCESS || err != nil {
+				continue
+			}
+			addresses := append(result.(alookup.Result).IPv4Addresses, result.(alookup.Result).IPv6Addresses...)
+			(*s.Factory.Factory.Glue)[nameserver] = addresses
+			result, status, err := LookupHelper(name, addresses, lookup)
+			if status == zdns.STATUS_SUCCESS && err == nil {
+				s.Factory.Factory.GlueLock.Unlock()
+				return result, status, err
+			}
+		}
+	}
+	s.Factory.Factory.GlueLock.Unlock()
+
+	//TK list of nameservers from temp
+	return nil, zdns.STATUS_FAILURE, nil
 }
 
 // Per GoRoutine Factory ======================================================
@@ -61,7 +108,7 @@ func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 type GlobalLookupFactory struct {
 	zdns.BaseGlobalLookupFactory
 	Glue       *map[string][]string
-	GlueLock   sync.Mutex
+	GlueLock   sync.RWMutex
 	Subfactory alookup.GlobalLookupFactory
 }
 

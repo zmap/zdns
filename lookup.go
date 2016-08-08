@@ -83,7 +83,6 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan string, outpu
 				res.AlteredName = prefixedName
 				targeted.Domain = prefixedName
 			}
-
 			query, err := json.Marshal(targeted)
 			lookupName = string(query)
 			if err != nil {
@@ -159,6 +158,7 @@ func doInput(in chan<- string, path string, wg *sync.WaitGroup, moduleType strin
 			log.Fatal("unable to open output file:", err.Error())
 		}
 	}
+	//TK caching
 	if moduleType == "ZONE" {
 		tokens := dns.ParseZone(f, ".", path)
 		for t := range tokens {
@@ -174,7 +174,7 @@ func doInput(in chan<- string, path string, wg *sync.WaitGroup, moduleType strin
 				if name[len(name)-1] == '.' {
 					name = name[0 : len(name)-1]
 				}
-				targeted := TargetedDomain{name, record.Ns}
+				targeted := TargetedDomain{name, []string{record.Ns}}
 				query, err := json.Marshal(targeted)
 				if err != nil {
 					log.Fatal("Internal Error: %s", err)
