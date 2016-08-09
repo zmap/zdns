@@ -31,7 +31,7 @@ type Lookup struct {
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	nameServer := s.Factory.Factory.RandomNameServer()
-	name, err = dns.ReverseAddr(name)
+	name, err := dns.ReverseAddr(name)
 	if err != nil {
 		log.Fatal("Invalid IP address received:", name)
 	}
