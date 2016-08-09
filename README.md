@@ -1,4 +1,5 @@
-# ZDNS
+ZDNS
+====
 
 [![Build Status](https://travis-ci.org/zmap/zdns.svg?branch=master)](https://travis-ci.org/zmap/zdns)
 
@@ -11,14 +12,16 @@ IPs of MX servers for the domains in the Alexa Top Million:
 
 ZDNS is written in golang and is primarily based on https://github.com/miekg/dns.
 
-### Install
+Install
+=======
 
 ZDNS can be installed by running:
 
 	go get github.com/zmap/zdns/zdns
 
 
-### Usage
+Usage
+=====
 
 ZDNS provides several types of modules. The first provides raw JSON output for
 the response to a single DNS query. These include A, AAAA, AXFR, CNAME, DMARC,
@@ -26,7 +29,7 @@ MX, NS, PTR, TXT, and SPF. For example, running
 
 For example, the command:
 
-	echo "cesys.io" | zdns AAAA
+	echo "censys.io" | zdns A
 
 Will give you back the entire DNS response---similar to what you would expect
 from running dig:
@@ -111,7 +114,8 @@ performance.
 
 
 
-### License
+License
+=======
 
 ZDNS Copyright 2016 Regents of the University of Michigan
 
