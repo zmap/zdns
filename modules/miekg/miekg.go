@@ -71,6 +71,10 @@ func ParseAnswer(ans dns.RR) *Answer {
 	return retv
 }
 
+func TranslateMiekgErrorCode(err int) zdns.Status {
+	return zdns.Status(dns.RcodeToString[err])
+}
+
 func DoLookup(udp *dns.Client, tcp *dns.Client, nameServer string, dnsType uint16, name string) (interface{}, zdns.Status, error) {
 	// this is where we do scanning
 	res := Result{Answers: []Answer{}, Authorities: []Answer{}, Additional: []Answer{}}
@@ -97,7 +101,7 @@ func DoLookup(udp *dns.Client, tcp *dns.Client, nameServer string, dnsType uint1
 		return nil, zdns.STATUS_ERROR, err
 	}
 	if r.Rcode != dns.RcodeSuccess {
-		return nil, zdns.STATUS_BAD_RCODE, nil
+		return nil, TranslateMiekgErrorCode(r.Rcode), nil
 	}
 	for _, ans := range r.Answer {
 		inner := ParseAnswer(ans)

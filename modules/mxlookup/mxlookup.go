@@ -114,7 +114,7 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 		return nil, zdns.STATUS_ERROR, err
 	}
 	if r.Rcode != dns.RcodeSuccess {
-		return nil, zdns.STATUS_BAD_RCODE, nil
+		return nil, miekg.TranslateMiekgErrorCode(r.Rcode), nil
 	}
 	for _, ans := range r.Answer {
 		if a, ok := ans.(*dns.MX); ok {
