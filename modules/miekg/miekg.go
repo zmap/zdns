@@ -62,6 +62,8 @@ func ParseAnswer(ans dns.RR) *Answer {
 		retv = &Answer{ns.Hdr.Ttl, dns.Type(ns.Hdr.Rrtype).String(), ns.Hdr.Name, ns.Ns}
 	} else if mx, ok := ans.(*dns.MX); ok {
 		retv = &Answer{mx.Hdr.Ttl, dns.Type(mx.Hdr.Rrtype).String(), mx.Hdr.Name, mx.Mx}
+	} else if ptr, ok := ans.(*dns.PTR); ok {
+		retv = &Answer{ptr.Hdr.Ttl, dns.Type(ptr.Hdr.Rrtype).String(), ptr.Hdr.Name, ptr.Ptr}
 	}
 	if retv != nil {
 		retv.Name = strings.TrimSuffix(retv.Name, ".")
