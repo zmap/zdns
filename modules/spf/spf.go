@@ -28,6 +28,7 @@ type Result struct {
 //
 type Lookup struct {
 	Factory *RoutineLookupFactory
+	zdns.BaseLookup
 }
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {

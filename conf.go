@@ -66,4 +66,5 @@ const (
 	STATUS_ERROR     Status = "error"
 	STATUS_TIMEOUT   Status = "timeout"
 	STATUS_BAD_RCODE Status = "bad_r_code"
+	STATUS_NO_OUTPUT Status = "no_output"
 )

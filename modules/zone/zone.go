@@ -158,6 +158,14 @@ func (s *GlobalLookupFactory) Help() string {
 	return ""
 }
 
+func (s *GlobalLookupFactory) AllowStdIn() bool {
+	return false
+}
+
+func (s *GlobalLookupFactory) ZonefileInput() bool {
+	return true
+}
+
 func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
 	var err error
 	r := new(RoutineLookupFactory)

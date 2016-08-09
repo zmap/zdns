@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/miekg/dns"
 )
 
 /* Each lookup module registers a single GlobalLookupFactory, which is
@@ -44,6 +45,20 @@ import (
 //
 type Lookup interface {
 	DoLookup(name string) (interface{}, Status, error)
+	DoZonefileLookup(record *dns.Token) (interface{}, Status, error)
+}
+
+type BaseLookup struct {
+}
+
+func (base *BaseLookup) DoLookup(name string) (interface{}, Status, error) {
+	log.Fatal("Unimplemented DoLookup")
+	return nil, STATUS_ERROR, nil
+}
+
+func (base *BaseLookup) DoZonefileLookup(record *dns.Token) (interface{}, Status, error) {
+	log.Fatal("Unimplemented DoZonefileLookup")
+	return nil, STATUS_ERROR, nil
 }
 
 // one RoutineLookupFactory per goroutine =====================================
@@ -64,6 +79,8 @@ type GlobalLookupFactory interface {
 	// We can't set variables on an interface, so write functions
 	// that define any settings for the factory
 	AllowStdIn() bool
+	// Some modules have Zonefile inputs
+	ZonefileInput() bool
 	// Help text for the CLI
 	Help() string
 	// Return a single scanner which will scan a single host
@@ -100,6 +117,10 @@ func (f *BaseGlobalLookupFactory) RandomNameServer() string {
 
 func (s *BaseGlobalLookupFactory) AllowStdIn() bool {
 	return true
+}
+
+func (s *BaseGlobalLookupFactory) ZonefileInput() bool {
+	return false
 }
 
 // keep a mapping from name to factory

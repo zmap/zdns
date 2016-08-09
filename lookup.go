@@ -62,61 +62,54 @@ func makeName(name string, prefix string) (string, bool) {
 	}
 }
 
-func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan string, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
+func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
 	f, err := (*g).MakeRoutineFactory()
 	if err != nil {
 		log.Fatal("Unable to create new routine factory", err.Error())
 	}
 	var metadata routineMetadata
 	metadata.Status = make(map[Status]int)
-	for line := range input {
+	for genericInput := range input {
 		var res Result
-		var rawName string
-		var rank int
-		var lookupName string
-		if gc.Module == "ZONE" {
-			var targeted TargetedDomain
-			json.Unmarshal([]byte(line), &targeted)
-			rawName = targeted.Domain
-			prefixedName, changed := makeName(rawName, gc.NamePrefix)
-			if changed {
-				res.AlteredName = prefixedName
-				targeted.Domain = prefixedName
-			}
-			query, err := json.Marshal(targeted)
-			lookupName = string(query)
-			if err != nil {
-				log.Fatal("Internal Error: %s", err)
-			}
+		var innerRes interface{}
+		var status Status
+		var err error
+		l, err := f.MakeLookup()
+		if err != nil {
+			log.Fatal("Unable to build lookup instance", err)
+		}
+		if (*g).ZonefileInput() {
+			innerRes, status, err = l.DoZonefileLookup(genericInput.(*dns.Token))
 		} else {
+			line := genericInput.(string)
 			var changed bool
+			var rawName string
+			var rank int
 			if gc.AlexaFormat == true {
 				rawName, rank = parseAlexa(line)
 				res.AlexaRank = rank
 			} else {
 				rawName = line
 			}
-			lookupName, changed = makeName(rawName, gc.NamePrefix)
+			lookupName, changed := makeName(rawName, gc.NamePrefix)
 			if changed {
 				res.AlteredName = lookupName
 			}
+			res.Name = rawName
+			innerRes, status, err = l.DoLookup(lookupName)
 		}
-		res.Name = rawName
-		l, err := f.MakeLookup()
-		if err != nil {
-			log.Fatal("Unable to build lookup instance", err)
+		if status != STATUS_NO_OUTPUT {
+			res.Status = string(status)
+			res.Data = innerRes
+			if err != nil {
+				res.Error = err.Error()
+			}
+			jsonRes, err := json.Marshal(res)
+			if err != nil {
+				log.Fatal("Unable to marshal JSON result", err)
+			}
+			output <- string(jsonRes)
 		}
-		innerRes, status, err := l.DoLookup(lookupName)
-		res.Status = string(status)
-		res.Data = innerRes
-		if err != nil {
-			res.Error = err.Error()
-		}
-		jsonRes, err := json.Marshal(res)
-		if err != nil {
-			log.Fatal("Unable to marshal JSON result", err)
-		}
-		output <- string(jsonRes)
 		metadata.Names++
 		metadata.Status[status]++
 	}
@@ -147,7 +140,7 @@ func doOutput(out <-chan string, path string, wg *sync.WaitGroup) error {
 }
 
 // read input file and put results into channel
-func doInput(in chan<- string, path string, wg *sync.WaitGroup, moduleType string) error {
+func doInput(in chan<- interface{}, path string, wg *sync.WaitGroup, zonefileInput bool) error {
 	var f *os.File
 	if path == "" || path == "-" {
 		f = os.Stdin
@@ -158,47 +151,10 @@ func doInput(in chan<- string, path string, wg *sync.WaitGroup, moduleType strin
 			log.Fatal("unable to open output file:", err.Error())
 		}
 	}
-	//TK caching
-	if moduleType == "ZONE" {
+	if zonefileInput {
 		tokens := dns.ParseZone(f, ".", path)
-		cached := TargetedDomain{"", []string{}}
 		for t := range tokens {
-			if t.Error != nil {
-				continue
-			}
-			switch record := t.RR.(type) {
-			case *dns.NS:
-				if strings.Count(t.RR.Header().Name, ".") < 2 {
-					continue
-				}
-				name := t.RR.Header().Name
-				if name[len(name)-1] == '.' {
-					name = name[0 : len(name)-1]
-				}
-				if cached.Domain == "" {
-					cached = TargetedDomain{name, []string{record.Ns}}
-					continue
-				}
-				if name == cached.Domain {
-					cached.Nameservers = append(cached.Nameservers, record.Ns)
-					continue
-				}
-				query, err := json.Marshal(cached)
-				cached = TargetedDomain{name, []string{record.Ns}}
-				if err != nil {
-					log.Fatal("Internal Error: %s", err)
-				}
-				in <- string(query)
-			default:
-				continue
-			}
-		}
-		if cached.Domain != "" {
-			query, err := json.Marshal(cached)
-			if err != nil {
-				log.Fatal("Internal Error: %s", err)
-			}
-			in <- string(query)
+			in <- t
 		}
 	} else {
 		s := bufio.NewScanner(f)
@@ -235,12 +191,12 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	//	- process until inChan closes, then wg.done()
 	// Once we processing threads have all finished, wait until the
 	// output and metadata threads have completed
-	inChan := make(chan string)
+	inChan := make(chan interface{})
 	outChan := make(chan string)
 	metaChan := make(chan routineMetadata, c.Threads)
 	var routineWG sync.WaitGroup
 	go doOutput(outChan, c.OutputFilePath, &routineWG)
-	go doInput(inChan, c.InputFilePath, &routineWG, c.Module)
+	go doInput(inChan, c.InputFilePath, &routineWG, (*g).ZonefileInput())
 	routineWG.Add(2)
 	// create pool of worker goroutines
 	var lookupWG sync.WaitGroup
