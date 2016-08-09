@@ -54,9 +54,7 @@ type Result struct {
 type Status string
 
 const (
-	STATUS_SUCCESS   Status = "success"
-	STATUS_NO_RECORD Status = "norecord"
-	STATUS_ERROR     Status = "error"
-	STATUS_TIMEOUT   Status = "timeout"
-	STATUS_BAD_RCODE Status = "bad_r_code"
+	STATUS_SUCCESS   Status = "SUCCESS"
+	STATUS_ERROR     Status = "ERROR"
+	STATUS_NO_RECORD Status = "NORECORD"
 )
