@@ -20,14 +20,91 @@ ZDNS can be installed by running:
 
 ### Usage
 
-ZDNS provides several modules: A, AAAA, CNAME, MX, TXT, SPF, and SPF. For additional
-information about each, you can run:
+ZDNS provides several types of modules. The first provides raw JSON output for
+the response to a single DNS query. These include A, AAAA, AXFR, CNAME, DMARC,
+MX, NS, PTR, TXT, and SPF. For example, running
 
-	zdns CMD --help
+For example, the command:
 
-For example:
+	echo "cesys.io" | zdns AAAA
 
-	zdns AAAA --help
+Will give you back the entire DNS response---similar to what you would expect
+from running dig:
+
+	{
+	  "name": "censys.io",
+	  "status": "success",
+	  "data": {
+	    "answers": [
+	      {
+	        "ttl": 300,
+	        "type": "A",
+	        "name": "censys.io",
+	        "data": "216.239.38.21"
+	      }
+	    ],
+	    "additionals": [
+	      {
+	        "ttl": 34563,
+	        "type": "A",
+	        "name": "ns-cloud-e1.googledomains.com",
+	        "data": "216.239.32.110"
+	      },
+	    ],
+	    "authorities": [
+	      {
+	        "ttl": 53110,
+	        "type": "NS",
+	        "name": "censys.io",
+	        "data": "ns-cloud-e1.googledomains.com."
+	      },
+	    ],
+	    "protocol": "udp"
+	  }
+	}
+
+However, these modules will not help you if the server does not automatically
+what you return. For example, an MX query may or may not include the the IPs
+for the MX records in the additionals section. To address this gap and provide
+a friendlier interface, we also provide several "lookup" modules, which operate
+similar to nslookup. There are two of these modules: `alookup` and `mxlookup`.
+
+`mxlookup` will additionally do an A lookup for the IP addresses that
+correspond with an exchange record. `alookup` will do the same for A records
+(and will follow CNAME records.)
+
+For example,
+
+	echo "censys.io" | ./zdns mxlookup --ipv4-lookup
+
+will return:
+
+	{
+	  "name": "censys.io",
+	  "status": "success",
+	  "data": {
+	    "exchanges": [
+	      {
+	        "name": "aspmx.l.google.com",
+	        "type": "MX",
+	        "preference": 1,
+	        "ipv4_addresses": [
+	          "74.125.28.26"
+	        ],
+	        "ttl": 288
+	      },
+	      {
+	        "name": "alt1.aspmx.l.google.com",
+	        "type": "MX",
+	        "preference": 5,
+	        "ipv4_addresses": [
+	          "64.233.182.26"
+	        ],
+	        "ttl": 288
+	      }
+	    ]
+	  }
+	}
 
 Please note the --threads and --go-processes flags, which will dictate ZDNS's
 performance.
