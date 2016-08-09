@@ -15,6 +15,8 @@
 package ptr
 
 import (
+	"log"
+
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/modules/miekg"
@@ -29,6 +31,10 @@ type Lookup struct {
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	nameServer := s.Factory.Factory.RandomNameServer()
+	name, err := dns.ReverseAddr(name)
+	if err != nil {
+		log.Fatal("Invalid IP address received:", name)
+	}
 	name, _ = dns.ReverseAddr(name)
 	name = name[:len(name)-1]
 	return miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dns.TypePTR, name)
