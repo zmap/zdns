@@ -12,7 +12,7 @@ type Answer struct {
 	Ttl    uint32 `json:"ttl"`
 	Type   string `json:"type"`
 	Name   string `json:"name"`
-	Answer string `json:"rdata"`
+	Answer string `json:"data"`
 }
 
 // result to be returned by scan of host
@@ -48,7 +48,7 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-func parseAnswer(ans dns.RR) *Answer {
+func ParseAnswer(ans dns.RR) *Answer {
 	var retv *Answer = nil
 	if a, ok := ans.(*dns.A); ok {
 		retv = &Answer{a.Hdr.Ttl, dns.Type(a.Hdr.Rrtype).String(), a.Hdr.Name, a.A.String()}
@@ -62,11 +62,17 @@ func parseAnswer(ans dns.RR) *Answer {
 		retv = &Answer{ns.Hdr.Ttl, dns.Type(ns.Hdr.Rrtype).String(), ns.Hdr.Name, ns.Ns}
 	} else if mx, ok := ans.(*dns.MX); ok {
 		retv = &Answer{mx.Hdr.Ttl, dns.Type(mx.Hdr.Rrtype).String(), mx.Hdr.Name, mx.Mx}
+	} else if ptr, ok := ans.(*dns.PTR); ok {
+		retv = &Answer{ptr.Hdr.Ttl, dns.Type(ptr.Hdr.Rrtype).String(), ptr.Hdr.Name, ptr.Ptr}
 	}
 	if retv != nil {
 		retv.Name = strings.TrimSuffix(retv.Name, ".")
 	}
 	return retv
+}
+
+func TranslateMiekgErrorCode(err int) zdns.Status {
+	return zdns.Status(dns.RcodeToString[err])
 }
 
 func DoLookup(udp *dns.Client, tcp *dns.Client, nameServer string, dnsType uint16, name string) (interface{}, zdns.Status, error) {
@@ -95,22 +101,22 @@ func DoLookup(udp *dns.Client, tcp *dns.Client, nameServer string, dnsType uint1
 		return nil, zdns.STATUS_ERROR, err
 	}
 	if r.Rcode != dns.RcodeSuccess {
-		return nil, zdns.STATUS_BAD_RCODE, nil
+		return nil, TranslateMiekgErrorCode(r.Rcode), nil
 	}
 	for _, ans := range r.Answer {
-		inner := parseAnswer(ans)
+		inner := ParseAnswer(ans)
 		if inner != nil {
 			res.Answers = append(res.Answers, *inner)
 		}
 	}
 	for _, ans := range r.Extra {
-		inner := parseAnswer(ans)
+		inner := ParseAnswer(ans)
 		if inner != nil {
 			res.Additional = append(res.Additional, *inner)
 		}
 	}
 	for _, ans := range r.Ns {
-		inner := parseAnswer(ans)
+		inner := ParseAnswer(ans)
 		if inner != nil {
 			res.Authorities = append(res.Authorities, *inner)
 		}
