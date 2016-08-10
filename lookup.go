@@ -79,6 +79,11 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, 
 			log.Fatal("Unable to build lookup instance", err)
 		}
 		if (*g).ZonefileInput() {
+			length := len(genericInput.(*dns.Token).RR.Header().Name)
+			if length == 0 {
+				continue
+			}
+			res.Name = genericInput.(*dns.Token).RR.Header().Name[0 : length-1]
 			innerRes, status, err = l.DoZonefileLookup(genericInput.(*dns.Token))
 		} else {
 			line := genericInput.(string)
