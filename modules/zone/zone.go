@@ -40,7 +40,7 @@ func LookupHelper(domain string, nsIPs []string, lookup *alookup.Lookup) (interf
 	var status zdns.Status
 	var err error
 	for _, location := range nsIPs {
-		result, status, err := lookup.DoTargetedLookup(domain, location+":53")
+		result, status, err = lookup.DoTargetedLookup(domain, location+":53")
 		if status == zdns.STATUS_SUCCESS && err == nil {
 			return result, status, err
 		}
@@ -71,9 +71,12 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 		domain = domain[0 : len(domain)-1]
 	}
 	//First pass looking for a nameserver we know the IP for
+	var result interface{}
+	var status zdns.Status
+	var err error
 	s.Factory.Factory.GlueLock.RLock()
 	if locations, ok := (*s.Factory.Factory.Glue)[nameserver]; ok {
-		result, status, err := LookupHelper(domain, locations, lookup.(*alookup.Lookup))
+		result, status, err = LookupHelper(domain, locations, lookup.(*alookup.Lookup))
 		if status == zdns.STATUS_SUCCESS && err == nil {
 			s.Factory.Factory.GlueLock.RUnlock()
 			return result, status, err
@@ -82,9 +85,6 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 	s.Factory.Factory.GlueLock.RUnlock()
 	//Second pass performing lookups to find a nameserver
 	s.Factory.Factory.GlueLock.Lock()
-	var result interface{}
-	var status zdns.Status
-	var err error
 	if _, ok := (*s.Factory.Factory.Glue)[nameserver]; !ok {
 		result, status, err = lookup.(*alookup.Lookup).DoLookup(nameserver[0 : len(nameserver)-1])
 		if status == zdns.STATUS_SUCCESS && err == nil {
