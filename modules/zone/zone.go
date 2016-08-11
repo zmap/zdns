@@ -51,20 +51,20 @@ func LookupHelper(domain string, nsIPs []string, lookup *alookup.Lookup) (interf
 //Lookup is an attempt to perform ALOOKUP directly from a domain nameserver.
 //It completes once a single result comes back, and will attempt lookups of
 //nameservers' IPs when no glue record was present.
-//TK DoZonefileLookup
 func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, error) {
 	lookup, _ := s.Factory.Subfactory.MakeLookup()
-	//TK prefixing
 	var nameserver string
 	var domain string
+	prefix := s.Factory.Factory.GlobalConf.NamePrefix
 	switch typ := record.RR.(type) {
 	case *dns.NS:
 		nameserver = strings.ToLower(typ.Ns)
 		domain = record.RR.Header().Name
+		domain = strings.Join([]string{prefix, domain}, "")
 	default:
 		return nil, zdns.STATUS_NO_OUTPUT, nil
 	}
-	if strings.Count(domain, ".") < 2 {
+	if strings.Count(record.RR.Header().Name, ".") < 2 {
 		return nil, zdns.STATUS_NO_OUTPUT, nil
 	}
 	if domain[len(domain)-1] == '.' {
