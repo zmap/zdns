@@ -12,7 +12,7 @@
  * permissions and limitations under the License.
  */
 
-package mxlookup
+package nslookup
 
 import (
 	"flag"
@@ -27,23 +27,16 @@ import (
 
 // result to be returned by scan of host
 
-type CachedAddresses struct {
-	IPv4Addresses []string
-	IPv6Addresses []string
-}
-
-type MXRecord struct {
+type NSRecord struct {
 	Name          string   `json:"name"`
 	Type          string   `json:"type"`
-	Preference    uint16   `json:"preference"`
 	IPv4Addresses []string `json:"ipv4_addresses,omitempty"`
 	IPv6Addresses []string `json:"ipv6_addresses,omitempty"`
 	TTL           uint32   `json:"ttl"`
 }
 
 type Result struct {
-	Servers  []MXRecord `json:"exchanges"`
-	Protocol string
+	Servers []NSRecord `json:"servers"`
 }
 
 // Per Connection Lookup ======================================================
@@ -57,77 +50,65 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-func (s *Lookup) LookupIPs(name string) CachedAddresses {
-	s.Factory.Factory.CHmu.Lock()
-	res, found := s.Factory.Factory.CacheHash.Get(name)
-	s.Factory.Factory.CHmu.Unlock()
-	if found {
-		return res.(CachedAddresses)
-	}
-	var retv CachedAddresses
-	nameServer := s.Factory.Factory.RandomNameServer()
-	// ipv4
-	if s.Factory.Factory.IPv4Lookup {
-		res, status, _ := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dns.TypeA, name)
-		if status == zdns.STATUS_SUCCESS {
-			cast, _ := res.(miekg.Result)
-			for _, innerRes := range cast.Answers {
-				retv.IPv4Addresses = append(retv.IPv4Addresses, innerRes.Answer)
-			}
+func lookupIPs(name string, dnsType uint16, nameServer string, client *dns.Client, tcpClient *dns.Client) []string {
+	var addresses []string
+	res, status, _ := miekg.DoLookup(client, tcpClient, nameServer, dnsType, name)
+	if status == zdns.STATUS_SUCCESS {
+		cast, _ := res.(miekg.Result)
+		for _, innerRes := range cast.Answers {
+			addresses = append(addresses, innerRes.Answer)
 		}
 	}
-	// ipv6
-	if s.Factory.Factory.IPv6Lookup {
-		res, status, _ := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dns.TypeAAAA, name)
-		if status == zdns.STATUS_SUCCESS {
-			cast, _ := res.(miekg.Result)
-			for _, innerRes := range cast.Answers {
-				retv.IPv6Addresses = append(retv.IPv6Addresses, innerRes.Answer)
-			}
+	return addresses
+}
+
+func DoNSLookup(name string, nameServer string, client *dns.Client, tcpClient *dns.Client, lookupIPv4 bool, lookupIPv6 bool) (Result, zdns.Status, error) {
+	var retv Result
+	res, status, err := miekg.DoLookup(client, tcpClient, nameServer, dns.TypeNS, name)
+	if status != zdns.STATUS_SUCCESS || err != nil {
+		return retv, status, nil
+	}
+	ns := res.(miekg.Result)
+	ipv4s := make(map[string]string)
+	ipv6s := make(map[string]string)
+	for _, a := range ns.Additional {
+		if a.Type == "A" {
+			ipv4s[a.Name] = a.Answer
+		} else if a.Type == "AAAA" {
+			ipv6s[a.Name] = a.Answer
 		}
 	}
-	s.Factory.Factory.CHmu.Lock()
-	s.Factory.Factory.CacheHash.Add(name, retv)
-	s.Factory.Factory.CHmu.Unlock()
-	return retv
+	for _, a := range ns.Answers {
+		if a.Type != "NS" {
+			continue
+		}
+		var rec NSRecord
+		rec.Type = a.Type
+		rec.Name = strings.TrimSuffix(a.Answer, ".")
+		rec.TTL = a.Ttl
+		if lookupIPv4 {
+			rec.IPv4Addresses = lookupIPs(rec.Name, dns.TypeA, nameServer, client, tcpClient)
+		} else if ip, ok := ipv4s[rec.Name]; ok {
+			rec.IPv4Addresses = []string{ip}
+		} else {
+			rec.IPv4Addresses = []string{}
+		}
+		if lookupIPv6 {
+			rec.IPv6Addresses = lookupIPs(rec.Name, dns.TypeAAAA, nameServer, client, tcpClient)
+		} else if ip, ok := ipv6s[rec.Name]; ok {
+			rec.IPv6Addresses = []string{ip}
+		} else {
+			rec.IPv6Addresses = []string{}
+		}
+		retv.Servers = append(retv.Servers, rec)
+	}
+	return retv, zdns.STATUS_SUCCESS, nil
+
 }
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	nameServer := s.Factory.Factory.RandomNameServer()
-	res := Result{Servers: []MXRecord{}}
-
-	m := new(dns.Msg)
-	m.SetQuestion(dotName(name), dns.TypeMX)
-	m.RecursionDesired = true
-
-	useTCP := false
-	res.Protocol = "udp"
-	r, _, err := s.Factory.Client.Exchange(m, nameServer)
-	if err == dns.ErrTruncated {
-		r, _, err = s.Factory.TCPClient.Exchange(m, nameServer)
-		useTCP = true
-		res.Protocol = "tcp"
-	}
-	if r != nil && r.Rcode == dns.RcodeBadTrunc && !useTCP {
-		r, _, err = s.Factory.TCPClient.Exchange(m, nameServer)
-	}
-	if err != nil || r == nil {
-		return nil, zdns.STATUS_ERROR, err
-	}
-	if r.Rcode != dns.RcodeSuccess {
-		return nil, miekg.TranslateMiekgErrorCode(r.Rcode), nil
-	}
-	for _, ans := range r.Answer {
-		if a, ok := ans.(*dns.MX); ok {
-			name = strings.TrimSuffix(a.Mx, ".")
-			rec := MXRecord{TTL: a.Hdr.Ttl, Type: dns.Type(a.Hdr.Rrtype).String(), Name: name, Preference: a.Preference}
-			ips := s.LookupIPs(name)
-			rec.IPv4Addresses = ips.IPv4Addresses
-			rec.IPv6Addresses = ips.IPv6Addresses
-			res.Servers = append(res.Servers, rec)
-		}
-	}
-	return res, zdns.STATUS_SUCCESS, nil
+	return DoNSLookup(name, nameServer, s.Factory.Client, s.Factory.TCPClient, s.Factory.Factory.IPv4Lookup, s.Factory.Factory.IPv6Lookup)
 }
 
 // Per GoRoutine Factory ======================================================
@@ -156,13 +137,10 @@ type GlobalLookupFactory struct {
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
 	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", false, "perform A lookups for each MX server")
 	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", false, "perform AAAA record lookups for each MX server")
-	f.IntVar(&s.CacheSize, "cache-size", 1000, "number of records to store in MX -> A/AAAA cache")
 }
 
 func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	s.GlobalConf = c
-	s.CacheHash = new(cachehash.CacheHash)
-	s.CacheHash.Init(s.CacheSize)
 	return nil
 }
 
@@ -183,5 +161,5 @@ func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, e
 //
 func init() {
 	s := new(GlobalLookupFactory)
-	zdns.RegisterLookup("MXLOOKUP", s)
+	zdns.RegisterLookup("NSLOOKUP", s)
 }
