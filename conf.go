@@ -47,6 +47,7 @@ type Metadata struct {
 type Result struct {
 	AlteredName string      `json:"altered_name,omitempty"`
 	Name        string      `json:"name,omitempty"`
+	Nameserver  string      `json:"nameserver,omitempty"`
 	AlexaRank   int         `json:"alexa_rank,omitempty"`
 	Status      string      `json:"status,omitempty"`
 	Error       string      `json:"error,omitempty"`

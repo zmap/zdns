@@ -84,6 +84,11 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, 
 				continue
 			}
 			res.Name = genericInput.(*dns.Token).RR.Header().Name[0 : length-1]
+			switch typ := genericInput.(*dns.Token).RR.(type) {
+			case *dns.NS:
+				ns := strings.ToLower(typ.Ns)
+				res.Nameserver = ns[:len(ns)-1]
+			}
 			innerRes, status, err = l.DoZonefileLookup(genericInput.(*dns.Token))
 		} else {
 			line := genericInput.(string)
