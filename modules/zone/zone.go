@@ -24,6 +24,7 @@ import (
 
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
+	"github.com/zmap/zdns/cachehash"
 	"github.com/zmap/zdns/modules/alookup"
 	"github.com/zmap/zdns/modules/miekg"
 )
@@ -55,6 +56,7 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 	lookup, _ := s.Factory.Subfactory.MakeLookup()
 	var nameserver string
 	var domain string
+	var notify chan bool
 	prefix := s.Factory.Factory.GlobalConf.NamePrefix
 	switch typ := record.RR.(type) {
 	case *dns.NS:
@@ -70,6 +72,32 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 	if domain[len(domain)-1] == '.' {
 		domain = domain[0 : len(domain)-1]
 	}
+	//Verify this didn't succeed before
+	//Make sure it is in Cachehash- if we added it, proceed
+	//if we didn't add it, listen on the chan
+	//	new bool, true-> return no output, false-> proceed
+	//  closed channel-> return no output
+	proceed := false
+	s.Factory.Factory.CHmu.Lock()
+	tmp, found := s.Factory.Factory.CacheHash.Get(domain)
+	if !found {
+		notify = make(chan bool)
+		s.Factory.Factory.CacheHash.Add(domain, notify)
+		s.Factory.Factory.CHmu.Unlock()
+		proceed = true
+	} else {
+		notify = tmp.(chan bool)
+		s.Factory.Factory.CHmu.Unlock()
+		for solved := range notify {
+			if !solved {
+				proceed = true
+				break
+			}
+		}
+	}
+	if !proceed {
+		return nil, zdns.STATUS_NO_OUTPUT, nil
+	}
 	//First pass looking for a nameserver we know the IP for
 	var result interface{}
 	var status zdns.Status
@@ -79,6 +107,7 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 		result, status, err = LookupHelper(domain, locations, lookup.(*alookup.Lookup))
 		if status == zdns.STATUS_SUCCESS && err == nil {
 			s.Factory.Factory.GlueLock.RUnlock()
+			close(notify)
 			return result, status, err
 		}
 	}
@@ -93,11 +122,13 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 			result, status, err = LookupHelper(domain, addresses, lookup.(*alookup.Lookup))
 			if status == zdns.STATUS_SUCCESS && err == nil {
 				s.Factory.Factory.GlueLock.Unlock()
+				close(notify)
 				return result, status, err
 			}
 		}
 	}
 	s.Factory.Factory.GlueLock.Unlock()
+	notify <- false
 	return nil, status, err
 }
 
@@ -121,11 +152,15 @@ type GlobalLookupFactory struct {
 	Glue       *map[string][]string
 	GlueLock   sync.RWMutex
 	Subfactory alookup.GlobalLookupFactory
+	CacheSize  int
+	CacheHash  *cachehash.CacheHash
+	CHmu       sync.Mutex
 }
 
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
 	f.BoolVar(&s.Subfactory.IPv4Lookup, "ipv4-lookup", true, "perform A lookups for each server")
 	f.BoolVar(&s.Subfactory.IPv6Lookup, "ipv6-lookup", true, "perform AAAA record lookups for each server")
+	f.IntVar(&s.CacheSize, "cache-size", 100000, "number of records to store in cache of successes, preventing duplicate lookups")
 }
 
 func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
@@ -137,6 +172,8 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	if err != nil {
 		return err
 	}
+	s.CacheHash = new(cachehash.CacheHash)
+	s.CacheHash.Init(s.CacheSize)
 	return s.ParseGlue(c.InputFilePath)
 }
 
