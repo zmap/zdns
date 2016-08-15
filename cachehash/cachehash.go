@@ -43,7 +43,9 @@ func (c *CacheHash) Eject() {
 	}
 	e := c.l.Back()
 	kv := e.Value.(keyValue)
-	c.ejectCB(kv.Key, kv.Value)
+	if c.ejectCB != nil {
+		c.ejectCB(kv.Key, kv.Value)
+	}
 	delete(c.h, kv.Key)
 	c.l.Remove(e)
 	c.len--
