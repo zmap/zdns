@@ -142,8 +142,7 @@ func doOutput(out <-chan string, path string, wg *sync.WaitGroup) error {
 		defer f.Close()
 	}
 	for n := range out {
-		f.WriteString(n)
-		f.WriteString("\n")
+		f.WriteString(n + "\n")
 	}
 	(*wg).Done()
 	return nil

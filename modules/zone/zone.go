@@ -38,7 +38,8 @@ type Lookup struct {
 }
 
 type CallbackManager struct {
-	conf *zdns.GlobalConf
+	Conf       *zdns.GlobalConf
+	OutputFile *os.File
 }
 
 func (c *CallbackManager) Evict(key, value interface{}) {
@@ -69,7 +70,7 @@ EmptyChan:
 	if err != nil {
 		log.Fatal("Unable to marshal JSON result", err)
 	}
-	log.Println(string(jsonRes))
+	c.OutputFile.WriteString(string(jsonRes) + "\n")
 }
 
 func LookupHelper(domain string, nsIPs []string, lookup *alookup.Lookup) (interface{}, zdns.Status, error) {
@@ -191,6 +192,7 @@ type GlobalLookupFactory struct {
 	CacheSize  int
 	CacheHash  *cachehash.CacheHash
 	CHmu       sync.Mutex
+	Manager    CallbackManager
 }
 
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
@@ -210,8 +212,17 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	}
 	s.CacheHash = new(cachehash.CacheHash)
 	s.CacheHash.Init(s.CacheSize)
-	manager := CallbackManager{c}
-	s.CacheHash.RegisterCB(manager.Evict)
+	s.Manager = CallbackManager{c, nil}
+	if c.OutputFilePath == "" || c.OutputFilePath == "-" {
+		s.Manager.OutputFile = os.Stdout
+	} else {
+		var err error
+		s.Manager.OutputFile, err = os.OpenFile(c.OutputFilePath, os.O_WRONLY|os.O_APPEND, 0666)
+		if err != nil {
+			log.Fatal("unable to open metadata file:", err.Error())
+		}
+	}
+	s.CacheHash.RegisterCB(s.Manager.Evict)
 	return s.ParseGlue(c.InputFilePath)
 }
 
@@ -219,6 +230,7 @@ func (s *GlobalLookupFactory) Finalize() error {
 	for s.CacheHash.Len() > 0 {
 		s.CacheHash.Eject()
 	}
+	s.Manager.OutputFile.Close()
 	return nil
 }
 
