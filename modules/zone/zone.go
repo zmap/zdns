@@ -58,10 +58,10 @@ EmptyChan:
 			break EmptyChan
 		}
 	}
+	close(valChan)
 	if wasClosed {
 		return
 	}
-	close(valChan)
 	domain := key.(string)
 	var res zdns.Result
 	res.Name = domain
@@ -129,6 +129,9 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 			if unsolved {
 				proceed = true
 				break
+			} else {
+				notify <- false
+				break
 			}
 		}
 	}
@@ -144,7 +147,7 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 		result, status, err = LookupHelper(domain, locations, lookup.(*alookup.Lookup))
 		if status == zdns.STATUS_SUCCESS && err == nil {
 			s.Factory.Factory.GlueLock.RUnlock()
-			close(notify)
+			notify <- false
 			return result, status, err
 		}
 	}
@@ -159,7 +162,7 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 			result, status, err = LookupHelper(domain, addresses, lookup.(*alookup.Lookup))
 			if status == zdns.STATUS_SUCCESS && err == nil {
 				s.Factory.Factory.GlueLock.Unlock()
-				close(notify)
+				notify <- false
 				return result, status, err
 			}
 		}
@@ -198,11 +201,11 @@ type GlobalLookupFactory struct {
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
 	f.BoolVar(&s.Subfactory.IPv4Lookup, "ipv4-lookup", true, "perform A lookups for each server")
 	f.BoolVar(&s.Subfactory.IPv6Lookup, "ipv6-lookup", true, "perform AAAA record lookups for each server")
-	f.IntVar(&s.CacheSize, "cache-size", 100000, "number of records to store in cache of successes, preventing duplicate lookups")
 }
 
 func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	s.GlobalConf = c
+	s.CacheSize = c.Threads * 100
 	if c.InputFilePath == "-" {
 		return errors.New("Input to ZONE must be a file, not STDIN")
 	}
