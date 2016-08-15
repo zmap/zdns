@@ -76,6 +76,7 @@ type GlobalLookupFactory interface {
 	// global initialization. Gets called once globally
 	// This is called after command line flags have been parsed
 	Initialize(conf *GlobalConf) error
+	Finalize() error
 	// We can't set variables on an interface, so write functions
 	// that define any settings for the factory
 	AllowStdIn() bool
@@ -94,6 +95,10 @@ type BaseGlobalLookupFactory struct {
 
 func (f *BaseGlobalLookupFactory) Initialize(c *GlobalConf) error {
 	f.GlobalConf = c
+	return nil
+}
+
+func (f *BaseGlobalLookupFactory) Finalize() error {
 	return nil
 }
 

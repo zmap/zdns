@@ -17,10 +17,11 @@ package cachehash
 import "container/list"
 
 type CacheHash struct {
-	h      map[interface{}]*list.Element
-	l      *list.List
-	len    int
-	maxLen int
+	h       map[interface{}]*list.Element
+	l       *list.List
+	len     int
+	maxLen  int
+	ejectCB func(interface{}, interface{})
 }
 
 type keyValue struct {
@@ -42,6 +43,7 @@ func (c *CacheHash) Eject() {
 	}
 	e := c.l.Back()
 	kv := e.Value.(keyValue)
+	c.ejectCB(kv.Key, kv.Value)
 	delete(c.h, kv.Key)
 	c.l.Remove(e)
 	c.len--
@@ -123,4 +125,8 @@ func (c *CacheHash) Delete(k interface{}) (interface{}, bool) {
 
 func (c *CacheHash) Len() int {
 	return c.len
+}
+
+func (c *CacheHash) RegisterCB(newCB func(interface{}, interface{})) {
+	c.ejectCB = newCB
 }

@@ -110,4 +110,8 @@ func main() {
 	if err := zdns.DoLookups(&factory, &gc); err != nil {
 		log.Fatal("Unable to run lookups:", err.Error())
 	}
+	// allow the factory to initialize itself
+	if err := factory.Finalize(); err != nil {
+		log.Fatal("Factory was unable to finalize:", err.Error())
+	}
 }

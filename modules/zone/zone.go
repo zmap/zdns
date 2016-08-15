@@ -15,6 +15,7 @@
 package zone
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"log"
@@ -34,6 +35,41 @@ import (
 type Lookup struct {
 	Factory *RoutineLookupFactory
 	miekg.Lookup
+}
+
+type CallbackManager struct {
+	conf *zdns.GlobalConf
+}
+
+func (c *CallbackManager) Evict(key, value interface{}) {
+	valChan := value.(chan bool)
+	wasClosed := false
+EmptyChan:
+	for {
+		select {
+		case v := <-valChan:
+			if v {
+			} else {
+				wasClosed = true
+				break EmptyChan
+			}
+		default:
+			break EmptyChan
+		}
+	}
+	if wasClosed {
+		return
+	}
+	close(valChan)
+	domain := key.(string)
+	var res zdns.Result
+	res.Name = domain
+	res.Status = string(zdns.STATUS_ERROR)
+	jsonRes, err := json.Marshal(res)
+	if err != nil {
+		log.Fatal("Unable to marshal JSON result", err)
+	}
+	log.Println(string(jsonRes))
 }
 
 func LookupHelper(domain string, nsIPs []string, lookup *alookup.Lookup) (interface{}, zdns.Status, error) {
@@ -81,15 +117,15 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 	s.Factory.Factory.CHmu.Lock()
 	tmp, found := s.Factory.Factory.CacheHash.Get(domain)
 	if !found {
-		notify = make(chan bool)
+		notify = make(chan bool, 10)
 		s.Factory.Factory.CacheHash.Add(domain, notify)
 		s.Factory.Factory.CHmu.Unlock()
 		proceed = true
 	} else {
 		notify = tmp.(chan bool)
 		s.Factory.Factory.CHmu.Unlock()
-		for solved := range notify {
-			if !solved {
+		for unsolved := range notify {
+			if unsolved {
 				proceed = true
 				break
 			}
@@ -128,8 +164,8 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 		}
 	}
 	s.Factory.Factory.GlueLock.Unlock()
-	notify <- false
-	return nil, status, err
+	notify <- true
+	return nil, zdns.STATUS_NO_OUTPUT, nil
 }
 
 // Per GoRoutine Factory ======================================================
@@ -174,7 +210,16 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	}
 	s.CacheHash = new(cachehash.CacheHash)
 	s.CacheHash.Init(s.CacheSize)
+	manager := CallbackManager{c}
+	s.CacheHash.RegisterCB(manager.Evict)
 	return s.ParseGlue(c.InputFilePath)
+}
+
+func (s *GlobalLookupFactory) Finalize() error {
+	for s.CacheHash.Len() > 0 {
+		s.CacheHash.Eject()
+	}
+	return nil
 }
 
 func (s *GlobalLookupFactory) ParseGlue(glueFile string) error {
