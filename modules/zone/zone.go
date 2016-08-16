@@ -189,23 +189,24 @@ func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 //
 type GlobalLookupFactory struct {
 	zdns.BaseGlobalLookupFactory
-	Glue       *map[string][]string
-	GlueLock   sync.RWMutex
-	Subfactory alookup.GlobalLookupFactory
-	CacheSize  int
-	CacheHash  *cachehash.CacheHash
-	CHmu       sync.Mutex
-	Manager    CallbackManager
+	Glue        *map[string][]string
+	GlueLock    sync.RWMutex
+	Subfactory  alookup.GlobalLookupFactory
+	CacheFactor int
+	CacheHash   *cachehash.CacheHash
+	CHmu        sync.Mutex
+	Manager     CallbackManager
 }
 
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
 	f.BoolVar(&s.Subfactory.IPv4Lookup, "ipv4-lookup", true, "perform A lookups for each server")
 	f.BoolVar(&s.Subfactory.IPv6Lookup, "ipv6-lookup", true, "perform AAAA record lookups for each server")
+	f.IntVar(&s.CacheFactor, "cache-size-factor", 25, "number of times larger than the number of threads to make the cache of successes")
 }
 
 func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	s.GlobalConf = c
-	s.CacheSize = c.Threads * 100
+	cacheSize := c.Threads * s.CacheFactor
 	if c.InputFilePath == "-" {
 		return errors.New("Input to ZONE must be a file, not STDIN")
 	}
@@ -214,7 +215,7 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 		return err
 	}
 	s.CacheHash = new(cachehash.CacheHash)
-	s.CacheHash.Init(s.CacheSize)
+	s.CacheHash.Init(cacheSize)
 	s.Manager = CallbackManager{c, nil}
 	if c.OutputFilePath == "" || c.OutputFilePath == "-" {
 		s.Manager.OutputFile = os.Stdout
