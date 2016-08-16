@@ -62,43 +62,64 @@ func makeName(name string, prefix string) (string, bool) {
 	}
 }
 
-func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan string, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
+func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
 	f, err := (*g).MakeRoutineFactory()
 	if err != nil {
 		log.Fatal("Unable to create new routine factory", err.Error())
 	}
 	var metadata routineMetadata
 	metadata.Status = make(map[Status]int)
-	for line := range input {
+	for genericInput := range input {
 		var res Result
-		var rawName string
-		var rank int
-		if gc.AlexaFormat == true {
-			rawName, rank = parseAlexa(line)
-			res.AlexaRank = rank
-		} else {
-			rawName = line
-		}
-		lookupName, changed := makeName(rawName, gc.NamePrefix)
-		res.Name = rawName
-		if changed {
-			res.AlteredName = lookupName
-		}
+		var innerRes interface{}
+		var status Status
+		var err error
 		l, err := f.MakeLookup()
 		if err != nil {
 			log.Fatal("Unable to build lookup instance", err)
 		}
-		innerRes, status, err := l.DoLookup(lookupName)
-		res.Status = string(status)
-		res.Data = innerRes
-		if err != nil {
-			res.Error = err.Error()
+		if (*g).ZonefileInput() {
+			length := len(genericInput.(*dns.Token).RR.Header().Name)
+			if length == 0 {
+				continue
+			}
+			res.Name = genericInput.(*dns.Token).RR.Header().Name[0 : length-1]
+			switch typ := genericInput.(*dns.Token).RR.(type) {
+			case *dns.NS:
+				ns := strings.ToLower(typ.Ns)
+				res.Nameserver = ns[:len(ns)-1]
+			}
+			innerRes, status, err = l.DoZonefileLookup(genericInput.(*dns.Token))
+		} else {
+			line := genericInput.(string)
+			var changed bool
+			var rawName string
+			var rank int
+			if gc.AlexaFormat == true {
+				rawName, rank = parseAlexa(line)
+				res.AlexaRank = rank
+			} else {
+				rawName = line
+			}
+			lookupName, changed := makeName(rawName, gc.NamePrefix)
+			if changed {
+				res.AlteredName = lookupName
+			}
+			res.Name = rawName
+			innerRes, status, err = l.DoLookup(lookupName)
 		}
-		jsonRes, err := json.Marshal(res)
-		if err != nil {
-			log.Fatal("Unable to marshal JSON result", err)
+		if status != STATUS_NO_OUTPUT {
+			res.Status = string(status)
+			res.Data = innerRes
+			if err != nil {
+				res.Error = err.Error()
+			}
+			jsonRes, err := json.Marshal(res)
+			if err != nil {
+				log.Fatal("Unable to marshal JSON result", err)
+			}
+			output <- string(jsonRes)
 		}
-		output <- string(jsonRes)
 		metadata.Names++
 		metadata.Status[status]++
 	}
@@ -121,15 +142,14 @@ func doOutput(out <-chan string, path string, wg *sync.WaitGroup) error {
 		defer f.Close()
 	}
 	for n := range out {
-		f.WriteString(n)
-		f.WriteString("\n")
+		f.WriteString(n + "\n")
 	}
 	(*wg).Done()
 	return nil
 }
 
 // read input file and put results into channel
-func doInput(in chan<- string, path string, wg *sync.WaitGroup) error {
+func doInput(in chan<- interface{}, path string, wg *sync.WaitGroup, zonefileInput bool) error {
 	var f *os.File
 	if path == "" || path == "-" {
 		f = os.Stdin
@@ -140,12 +160,19 @@ func doInput(in chan<- string, path string, wg *sync.WaitGroup) error {
 			log.Fatal("unable to open output file:", err.Error())
 		}
 	}
-	s := bufio.NewScanner(f)
-	for s.Scan() {
-		in <- s.Text()
-	}
-	if err := s.Err(); err != nil {
-		log.Fatal("input unable to read file", err)
+	if zonefileInput {
+		tokens := dns.ParseZone(f, ".", path)
+		for t := range tokens {
+			in <- t
+		}
+	} else {
+		s := bufio.NewScanner(f)
+		for s.Scan() {
+			in <- s.Text()
+		}
+		if err := s.Err(); err != nil {
+			log.Fatal("input unable to read file", err)
+		}
 	}
 	close(in)
 	(*wg).Done()
@@ -173,12 +200,12 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	//	- process until inChan closes, then wg.done()
 	// Once we processing threads have all finished, wait until the
 	// output and metadata threads have completed
-	inChan := make(chan string)
+	inChan := make(chan interface{})
 	outChan := make(chan string)
 	metaChan := make(chan routineMetadata, c.Threads)
 	var routineWG sync.WaitGroup
 	go doOutput(outChan, c.OutputFilePath, &routineWG)
-	go doInput(inChan, c.InputFilePath, &routineWG)
+	go doInput(inChan, c.InputFilePath, &routineWG, (*g).ZonefileInput())
 	routineWG.Add(2)
 	// create pool of worker goroutines
 	var lookupWG sync.WaitGroup

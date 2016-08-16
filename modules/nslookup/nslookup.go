@@ -43,6 +43,7 @@ type Result struct {
 //
 type Lookup struct {
 	Factory *RoutineLookupFactory
+	zdns.BaseLookup
 }
 
 func dotName(name string) string {
