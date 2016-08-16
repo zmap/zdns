@@ -11,7 +11,6 @@ import (
 	logrus "github.com/Sirupsen/logrus"
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
-	_ "github.com/zmap/zdns/modules/zone"
 )
 
 const ZoneFile = "testdata/test.zone"
@@ -33,7 +32,7 @@ func TestRun(t *testing.T) {
 	servers_string := ""
 	config_file := "/etc/resolv.conf"
 	timeout := flags.Int("timeout", 10, "timeout for resolving an individual name")
-	factory := zdns.GetLookup("ZONE")
+	factory := new(GlobalLookupFactory)
 	factory.AddFlags(flags)
 
 	// complete post facto global initialization based on command line arguments
