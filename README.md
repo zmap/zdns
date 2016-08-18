@@ -37,37 +37,37 @@ For example, the command:
 
 returns:
 ```json
-	{
-	  "name": "censys.io",
-	  "status": "success",
-	  "data": {
-	    "answers": [
-	      {
-	        "ttl": 300,
-	        "type": "A",
-	        "name": "censys.io",
-	        "data": "216.239.38.21"
-	      }
-	    ],
-	    "additionals": [
-	      {
-	        "ttl": 34563,
-	        "type": "A",
-	        "name": "ns-cloud-e1.googledomains.com",
-	        "data": "216.239.32.110"
-	      },
-	    ],
-	    "authorities": [
-	      {
-	        "ttl": 53110,
-	        "type": "NS",
-	        "name": "censys.io",
-	        "data": "ns-cloud-e1.googledomains.com."
-	      },
-	    ],
-	    "protocol": "udp"
-	  }
-	}
+{
+  "name": "censys.io",
+  "status": "success",
+  "data": {
+    "answers": [
+      {
+        "ttl": 300,
+        "type": "A",
+        "name": "censys.io",
+        "data": "216.239.38.21"
+      }
+    ],
+    "additionals": [
+      {
+        "ttl": 34563,
+        "type": "A",
+        "name": "ns-cloud-e1.googledomains.com",
+        "data": "216.239.32.110"
+      },
+    ],
+    "authorities": [
+      {
+        "ttl": 53110,
+        "type": "NS",
+        "name": "censys.io",
+        "data": "ns-cloud-e1.googledomains.com."
+      },
+    ],
+    "protocol": "udp"
+  }
+}
 ```
 
 Lookup Modules
@@ -89,32 +89,32 @@ For example,
 
 returns:
 ```json
-	{
-	  "name": "censys.io",
-	  "status": "success",
-	  "data": {
-	    "exchanges": [
-	      {
-	        "name": "aspmx.l.google.com",
-	        "type": "MX",
-	        "preference": 1,
-	        "ipv4_addresses": [
-	          "74.125.28.26"
-	        ],
-	        "ttl": 288
-	      },
-	      {
-	        "name": "alt1.aspmx.l.google.com",
-	        "type": "MX",
-	        "preference": 5,
-	        "ipv4_addresses": [
-	          "64.233.182.26"
-	        ],
-	        "ttl": 288
-	      }
-	    ]
-	  }
-	}
+{
+  "name": "censys.io",
+  "status": "success",
+  "data": {
+    "exchanges": [
+      {
+        "name": "aspmx.l.google.com",
+        "type": "MX",
+        "preference": 1,
+        "ipv4_addresses": [
+          "74.125.28.26"
+        ],
+        "ttl": 288
+      },
+      {
+        "name": "alt1.aspmx.l.google.com",
+        "type": "MX",
+        "preference": 5,
+        "ipv4_addresses": [
+          "64.233.182.26"
+        ],
+        "ttl": 288
+      }
+    ]
+  }
+}
 ```
 
 Please note the --threads and --go-processes flags, which will dictate ZDNS's
