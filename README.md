@@ -109,6 +109,30 @@ will return:
 	  }
 	}
 
+
+The above modules are useful when we only have a list of domain names to perform queries
+for. However, in some instances we have a root zone file that indicates all domains in a 
+zone, and their nameservers. For this instance, we have the `zone` module.
+
+The `zone` module performs an `alookup` for each domain in the specified zone file, 
+skipping as much of the recursive lookup as is possible. This entails utilization of the
+glue records in the zone file to go directly to the domain's authoritative nameserver,
+as well as caching nameserver locations when lookups must be performed.
+
+For example, if the following two records are in a zonefile,
+
+	foo.com. NS ns.foo.com.
+	ns.foo.com. A XXX.XXX.XXX.XXX
+
+then the resulting lookup for foo.com will utilize the nameserver at XXX.XXX.XXX.XXX
+
+This is useful for performing many `alookup` calls without hammering the local and root
+nameservers. 
+
+Note: the `zone` module requires the --input-file flag be set, in order to allow it to 
+make two passes over the input.
+
+
 Please note the --threads and --go-processes flags, which will dictate ZDNS's
 performance.
 
