@@ -46,13 +46,13 @@ func (a *Answer) MarshalJSON() ([]byte, error) {
 			Ttl     uint32 `json:"ttl"`
 			Type    string `json:"type"`
 			Name    string `json:"name"`
-			Ns      string `json:"ns,omitempty"`
-			Mbox    string `json:"mbox,omitempty"`
-			Serial  uint32 `json:"serial,omitempty"`
-			Refresh uint32 `json:"refresh,omitempty"`
-			Retry   uint32 `json:"mbox,omitempty"`
-			Expire  uint32 `json:"mbox,omitempty"`
-			Minttl  uint32 `json:"mbox,omitempty"`
+			Ns      string `json:"ns"`
+			Mbox    string `json:"mbox"`
+			Serial  uint32 `json:"serial"`
+			Refresh uint32 `json:"refresh"`
+			Retry   uint32 `json:"retry"`
+			Expire  uint32 `json:"expire"`
+			Minttl  uint32 `json:"min_ttl"`
 		}{
 			Ttl:     a.Ttl,
 			Type:    a.Type,

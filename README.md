@@ -24,7 +24,7 @@ Usage
 =====
 
 ZDNS provides several types of modules. The first provides raw JSON output for
-the response to a single DNS query. These include A, AAAA, AXFR, CNAME, DMARC,
+the response to a single DNS query. These include A, AAAA, ANY, AXFR, CNAME, DMARC,
 MX, NS, PTR, TXT, SOA, and SPF.
 
 For example, the command:
