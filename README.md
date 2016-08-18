@@ -117,13 +117,19 @@ returns:
 }
 ```
 
-Please note the --threads and --go-processes flags, which will dictate ZDNS's
-performance.
-
 Zone File Modules
 -----------------
 
 The zone file modules help process zone files.
+
+Running ZDNS
+------------
+
+By default, ZDNS will operate with 1,000 light-weight go routines. If you're
+not careful, this will overwhelm many upstream DNS providers. We suggest that
+users coordinate with local network administrators before performing any scans.
+You can control the number of concurrent connections with the `--threads` and
+`--go-processes` command line arguments.
 
 
 License
