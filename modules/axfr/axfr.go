@@ -29,6 +29,7 @@ import (
 //
 type Lookup struct {
 	Factory *RoutineLookupFactory
+	zdns.BaseLookup
 }
 
 type AXFRServerResult struct {

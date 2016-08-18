@@ -32,6 +32,8 @@ type GlobalConf struct {
 	MetadataFilePath string
 
 	NamePrefix string
+
+	Module string
 }
 
 type Metadata struct {
@@ -45,10 +47,16 @@ type Metadata struct {
 type Result struct {
 	AlteredName string      `json:"altered_name,omitempty"`
 	Name        string      `json:"name,omitempty"`
+	Nameserver  string      `json:"nameserver,omitempty"`
 	AlexaRank   int         `json:"alexa_rank,omitempty"`
 	Status      string      `json:"status,omitempty"`
 	Error       string      `json:"error,omitempty"`
 	Data        interface{} `json:"data,omitempty"`
+}
+
+type TargetedDomain struct {
+	Domain      string   `json:"domain"`
+	Nameservers []string `json:"nameservers"`
 }
 
 type Status string
@@ -57,4 +65,5 @@ const (
 	STATUS_SUCCESS   Status = "SUCCESS"
 	STATUS_ERROR     Status = "ERROR"
 	STATUS_NO_RECORD Status = "NORECORD"
+	STATUS_NO_OUTPUT Status = "NO_OUTPUT"
 )

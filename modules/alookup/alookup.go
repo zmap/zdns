@@ -37,6 +37,10 @@ type Lookup struct {
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	nameServer := s.Factory.Factory.RandomNameServer()
+	return s.DoTargetedLookup(name, nameServer)
+}
+
+func (s *Lookup) DoTargetedLookup(name, nameServer string) (interface{}, zdns.Status, error) {
 	requests := []uint16{}
 	if s.Factory.Factory.IPv6Lookup {
 		requests = append(requests, dns.TypeAAAA)

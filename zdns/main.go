@@ -36,6 +36,7 @@ import (
 	_ "github.com/zmap/zdns/modules/ptr"
 	_ "github.com/zmap/zdns/modules/spf"
 	_ "github.com/zmap/zdns/modules/txt"
+	_ "github.com/zmap/zdns/modules/zone"
 )
 
 func main() {
@@ -59,7 +60,8 @@ func main() {
 	if len(os.Args) < 2 {
 		log.Fatal("No lookup module specified. Valid modules: ", zdns.ValidlookupsString())
 	}
-	factory := zdns.GetLookup(strings.ToUpper(os.Args[1]))
+	gc.Module = strings.ToUpper(os.Args[1])
+	factory := zdns.GetLookup(gc.Module)
 	if factory == nil {
 		log.Fatal("Invalid lookup module specified. Valid modules: ", zdns.ValidlookupsString())
 	}
@@ -107,5 +109,9 @@ func main() {
 	// run it.
 	if err := zdns.DoLookups(&factory, &gc); err != nil {
 		log.Fatal("Unable to run lookups:", err.Error())
+	}
+	// allow the factory to initialize itself
+	if err := factory.Finalize(); err != nil {
+		log.Fatal("Factory was unable to finalize:", err.Error())
 	}
 }

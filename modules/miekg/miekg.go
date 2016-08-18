@@ -26,6 +26,7 @@ type Result struct {
 type Lookup struct {
 	DNSType dns.Type
 	Prefix  string
+	zdns.BaseLookup
 }
 
 type GlobalLookupFactory struct {
