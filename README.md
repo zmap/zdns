@@ -117,6 +117,12 @@ returns:
 }
 ```
 
+Please note the --threads and --go-processes flags, which will dictate ZDNS's
+performance.
+
+
+Zone File Modules
+-----------------
 
 The above modules are useful when we only have a list of domain names to perform queries
 for. However, in some instances we have a root zone file that indicates all domains in a 
@@ -139,15 +145,6 @@ nameservers.
 
 Note: the `zone` module requires the --input-file flag be set, in order to allow it to 
 make two passes over the input.
-
-
-Please note the --threads and --go-processes flags, which will dictate ZDNS's
-performance.
-
-Zone File Modules
------------------
-
-The zone file modules help process zone files.
 
 
 License
