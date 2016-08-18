@@ -15,11 +15,14 @@
 package axfr
 
 import (
+	"flag"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/miekg/dns"
+	"github.com/zmap/go-iptree/blacklist"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/modules/miekg"
 	"github.com/zmap/zdns/modules/nslookup"
@@ -50,6 +53,22 @@ func dotName(name string) string {
 func (s *Lookup) DoAXFR(name string, server string) AXFRServerResult {
 	var retv AXFRServerResult
 	retv.Server = server
+	// check if the server address is blacklisted and if so, exclude
+	if s.Factory.Factory.Blacklist != nil {
+		s.Factory.Factory.BlMu.Lock()
+		if blacklisted, err := s.Factory.Factory.Blacklist.IsBlacklisted(server); err != nil {
+			s.Factory.Factory.BlMu.Unlock()
+			retv.Status = "error"
+			retv.Error = "blacklist-error"
+			return retv
+		} else if blacklisted {
+			s.Factory.Factory.BlMu.Unlock()
+			retv.Status = "error"
+			retv.Error = "blacklisted"
+			return retv
+		}
+		s.Factory.Factory.BlMu.Unlock()
+	}
 	m := new(dns.Msg)
 	m.SetAxfr(dotName(name))
 	tr := new(dns.Transfer)
@@ -113,6 +132,9 @@ func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 //
 type GlobalLookupFactory struct {
 	zdns.BaseGlobalLookupFactory
+	BlacklistPath string
+	Blacklist     *blacklist.Blacklist
+	BlMu          sync.Mutex
 }
 
 // Command-line Help Documentation. This is the descriptive text what is
@@ -121,11 +143,26 @@ func (s *GlobalLookupFactory) Help() string {
 	return ""
 }
 
+func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
+	f.StringVar(&s.BlacklistPath, "blacklist", "", "blacklist file for servers to exclude from AXFR lookups")
+}
+
 func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
 	r.Factory = s
 	r.Initialize(s.GlobalConf.Timeout)
 	return r, nil
+}
+
+func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
+	s.GlobalConf = c
+	if s.BlacklistPath != "" {
+		s.Blacklist = blacklist.New()
+		if err := s.Blacklist.ParseFromFile(s.BlacklistPath); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Global Registration ========================================================
