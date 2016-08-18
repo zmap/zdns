@@ -4,6 +4,8 @@ go:
 before_install:
 - go get github.com/Sirupsen/logrus
 - go get github.com/miekg/dns
+- go get github.com/zmap/go-iptree/iptree
+- go get github.com/zmap/go-iptree/blacklist
 before_script:
 - mkdir -p $GOPATH/src/github.com/zmap
 - ln -s $TRAVIS_BUILD_DIR $GOPATH/src/github.com/zmap || true
