@@ -23,91 +23,99 @@ ZDNS can be installed by running:
 Usage
 =====
 
-ZDNS provides several types of modules. The first provides raw JSON output for
-the response to a single DNS query. These include A, AAAA, ANY, AXFR, CNAME, DMARC,
-MX, NS, PTR, TXT, SOA, and SPF.
+ZDNS provides several types of modules.
+
+Raw DNS Modules
+---------------
+
+The `A`, `AAAA`, `ANY`, `AXFR`, `CNAME`, `DMARC`, `MX`, `NS`, `PTR`, `TXT`,
+`SOA`, and `SPF` modules provide the raw DNS response in JSON form, similar to dig.
 
 For example, the command:
 
 	echo "censys.io" | zdns A
 
-Will give you back the entire DNS response---similar to what you would expect
-from running dig:
+returns:
+```json
+{
+  "name": "censys.io",
+  "status": "success",
+  "data": {
+    "answers": [
+      {
+        "ttl": 300,
+        "type": "A",
+        "name": "censys.io",
+        "data": "216.239.38.21"
+      }
+    ],
+    "additionals": [
+      {
+        "ttl": 34563,
+        "type": "A",
+        "name": "ns-cloud-e1.googledomains.com",
+        "data": "216.239.32.110"
+      },
+    ],
+    "authorities": [
+      {
+        "ttl": 53110,
+        "type": "NS",
+        "name": "censys.io",
+        "data": "ns-cloud-e1.googledomains.com."
+      },
+    ],
+    "protocol": "udp"
+  }
+}
+```
 
-	{
-	  "name": "censys.io",
-	  "status": "success",
-	  "data": {
-	    "answers": [
-	      {
-	        "ttl": 300,
-	        "type": "A",
-	        "name": "censys.io",
-	        "data": "216.239.38.21"
-	      }
-	    ],
-	    "additionals": [
-	      {
-	        "ttl": 34563,
-	        "type": "A",
-	        "name": "ns-cloud-e1.googledomains.com",
-	        "data": "216.239.32.110"
-	      },
-	    ],
-	    "authorities": [
-	      {
-	        "ttl": 53110,
-	        "type": "NS",
-	        "name": "censys.io",
-	        "data": "ns-cloud-e1.googledomains.com."
-	      },
-	    ],
-	    "protocol": "udp"
-	  }
-	}
+Lookup Modules
+--------------
 
-However, these modules will not help you if the server does not automatically
-what you return. For example, an MX query may or may not include the the IPs
-for the MX records in the additionals section. To address this gap and provide
-a friendlier interface, we also provide several "lookup" modules, which operate
-similar to nslookup. There are two of these modules: `alookup` and `mxlookup`.
+Raw DNS responses frequently do not provide the data you _want_. For example,
+an MX response may not include the associated A records in the additionals
+section requiring an additional lookup. To address this gap and provide a
+friendlier interface, we also provide several _lookup_ modules: `alookup` and
+`mxlookup`.
 
 `mxlookup` will additionally do an A lookup for the IP addresses that
-correspond with an exchange record. `alookup` will do the same for A records
-(and will follow CNAME records.)
+correspond with an exchange record. `alookup` acts similar to nslookup and will
+follow CNAME records.
 
 For example,
 
 	echo "censys.io" | ./zdns mxlookup --ipv4-lookup
 
-will return:
-
-	{
-	  "name": "censys.io",
-	  "status": "success",
-	  "data": {
-	    "exchanges": [
-	      {
-	        "name": "aspmx.l.google.com",
-	        "type": "MX",
-	        "preference": 1,
-	        "ipv4_addresses": [
-	          "74.125.28.26"
-	        ],
-	        "ttl": 288
-	      },
-	      {
-	        "name": "alt1.aspmx.l.google.com",
-	        "type": "MX",
-	        "preference": 5,
-	        "ipv4_addresses": [
-	          "64.233.182.26"
-	        ],
-	        "ttl": 288
-	      }
-	    ]
-	  }
-	}
+returns:
+```json
+{
+  "name": "censys.io",
+  "status": "success",
+  "data": {
+    "exchanges": [
+      {
+        "name": "aspmx.l.google.com",
+        "type": "MX",
+        "preference": 1,
+        "ipv4_addresses": [
+          "74.125.28.26"
+        ],
+        "ttl": 288
+      },
+      {
+        "name": "alt1.aspmx.l.google.com",
+        "type": "MX",
+        "preference": 5,
+        "ipv4_addresses": [
+          "64.233.182.26"
+        ],
+        "ttl": 288
+      }
+    ]
+  }
+}
+```
 
 
 The above modules are useful when we only have a list of domain names to perform queries
@@ -136,6 +144,10 @@ make two passes over the input.
 Please note the --threads and --go-processes flags, which will dictate ZDNS's
 performance.
 
+Zone File Modules
+-----------------
+
+The zone file modules help process zone files.
 
 
 License
