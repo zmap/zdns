@@ -1,6 +1,7 @@
 package miekg
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -9,11 +10,73 @@ import (
 )
 
 type Answer struct {
-	Ttl        uint32 `json:"ttl"`
-	Type       string `json:"type"`
-	Name       string `json:"name"`
-	Answer     string `json:"data"`
-	Preference uint16 `json:"preference,omitempty"`
+	Ttl        uint32
+	Type       string
+	Name       string
+	Answer     string
+	Preference uint16
+	Ns         string
+	Mbox       string
+	Serial     uint32
+	Refresh    uint32
+	Retry      uint32
+	Expire     uint32
+	Minttl     uint32
+}
+
+func (a *Answer) MarshalJSON() ([]byte, error) {
+	// different types of DNS records have different sets of values. unfortunately,
+	// 0 is a real value for many of them so we can't jsut omitempty. So here we are
+	// with a custom marshaller.
+	if a.Type == "MX" {
+		return json.Marshal(&struct {
+			Ttl        uint32 `json:"ttl"`
+			Type       string `json:"type"`
+			Name       string `json:"name"`
+			Answer     string `json:"data"`
+			Preference uint16 `json:"preference"`
+		}{
+			Ttl:    a.Ttl,
+			Type:   a.Type,
+			Name:   a.Name,
+			Answer: a.Answer,
+		})
+	} else if a.Type == "SOA" {
+		return json.Marshal(&struct {
+			Ttl     uint32 `json:"ttl"`
+			Type    string `json:"type"`
+			Name    string `json:"name"`
+			Ns      string `json:"ns"`
+			Mbox    string `json:"mbox"`
+			Serial  uint32 `json:"serial"`
+			Refresh uint32 `json:"refresh"`
+			Retry   uint32 `json:"retry"`
+			Expire  uint32 `json:"expire"`
+			Minttl  uint32 `json:"min_ttl"`
+		}{
+			Ttl:     a.Ttl,
+			Type:    a.Type,
+			Name:    a.Name,
+			Ns:      a.Ns,
+			Mbox:    a.Mbox,
+			Serial:  a.Serial,
+			Refresh: a.Refresh,
+			Retry:   a.Retry,
+			Expire:  a.Expire,
+			Minttl:  a.Minttl,
+		})
+	}
+	return json.Marshal(&struct {
+		Ttl    uint32 `json:"ttl"`
+		Type   string `json:"type"`
+		Name   string `json:"name"`
+		Answer string `json:"data"`
+	}{
+		Ttl:    a.Ttl,
+		Type:   a.Type,
+		Name:   a.Name,
+		Answer: a.Answer,
+	})
 }
 
 // result to be returned by scan of host
@@ -66,6 +129,19 @@ func ParseAnswer(ans dns.RR) *Answer {
 		retv = &Answer{Ttl: mx.Hdr.Ttl, Type: dns.Type(mx.Hdr.Rrtype).String(), Name: mx.Hdr.Name, Answer: mx.Mx, Preference: mx.Preference}
 	} else if ptr, ok := ans.(*dns.PTR); ok {
 		retv = &Answer{Ttl: ptr.Hdr.Ttl, Type: dns.Type(ptr.Hdr.Rrtype).String(), Name: ptr.Hdr.Name, Answer: ptr.Ptr}
+	} else if soa, ok := ans.(*dns.SOA); ok {
+		retv = &Answer{
+			Ttl:     soa.Hdr.Ttl,
+			Type:    dns.Type(soa.Hdr.Rrtype).String(),
+			Name:    soa.Hdr.Name,
+			Ns:      strings.TrimSuffix(soa.Ns, "."),
+			Mbox:    soa.Mbox,
+			Serial:  soa.Serial,
+			Refresh: soa.Refresh,
+			Retry:   soa.Retry,
+			Expire:  soa.Expire,
+			Minttl:  soa.Minttl,
+		}
 	}
 	if retv != nil {
 		retv.Name = strings.TrimSuffix(retv.Name, ".")
