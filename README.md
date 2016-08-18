@@ -88,7 +88,7 @@ For example,
 	echo "censys.io" | ./zdns mxlookup --ipv4-lookup
 
 returns:
-
+```json
 	{
 	  "name": "censys.io",
 	  "status": "success",
@@ -115,6 +115,7 @@ returns:
 	    ]
 	  }
 	}
+```
 
 Please note the --threads and --go-processes flags, which will dictate ZDNS's
 performance.
