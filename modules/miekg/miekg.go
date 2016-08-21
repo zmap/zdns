@@ -2,6 +2,7 @@ package miekg
 
 import (
 	"encoding/json"
+	"net"
 	"strings"
 	"time"
 
@@ -170,6 +171,13 @@ func DoLookup(udp *dns.Client, tcp *dns.Client, nameServer string, dnsType uint1
 		res.Protocol = "tcp"
 	}
 	if err != nil || r == nil {
+		if nerr, ok := err.(net.Error); ok {
+			if nerr.Timeout() {
+				return nil, zdns.STATUS_TIMEOUT, nil
+			} else if nerr.Temporary() {
+				return nil, zdns.STATUS_TEMPORARY, err
+			}
+		}
 		return nil, zdns.STATUS_ERROR, err
 	}
 	if r.Rcode == dns.RcodeBadTrunc && !useTCP {
