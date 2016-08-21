@@ -149,7 +149,9 @@ By default, ZDNS will operate with 1,000 light-weight go routines. If you're
 not careful, this will overwhelm many upstream DNS providers. We suggest that
 users coordinate with local network administrators before performing any scans.
 You can control the number of concurrent connections with the `--threads` and
-`--go-processes` command line arguments.
+`--go-processes` command line arguments. Alternate name servers can be
+specified with `--name-servers`. ZDNS will rotate through these servers when
+making requests.
 
 
 License
