@@ -144,7 +144,7 @@ func (s *GlobalLookupFactory) Help() string {
 }
 
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
-	f.StringVar(&s.BlacklistPath, "blacklist", "", "blacklist file for servers to exclude from AXFR lookups")
+	f.StringVar(&s.BlacklistPath, "blacklist-file", "", "blacklist file for servers to exclude from AXFR lookups")
 }
 
 func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
