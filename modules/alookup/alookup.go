@@ -78,6 +78,9 @@ func (s *Lookup) DoTargetedLookup(name, nameServer string) (interface{}, zdns.St
 			}
 		}
 	}
+	if len(res.IPv4Addresses) == 0 && len(res.IPv6Addresses) == 0 {
+		return nil, zdns.STATUS_NO_ANSWER, nil
+	}
 	return res, zdns.STATUS_SUCCESS, nil
 }
 
