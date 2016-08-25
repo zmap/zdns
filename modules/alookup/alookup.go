@@ -16,6 +16,7 @@ package alookup
 
 import (
 	"flag"
+	"log"
 	"strings"
 
 	"github.com/miekg/dns"
@@ -56,8 +57,17 @@ func (s *Lookup) DoTargetedLookup(name, nameServer string) (interface{}, zdns.St
 		}
 		names := map[string]bool{strings.ToLower(name): true}
 		searchSet := []miekg.Answer{}
-		searchSet = append(searchSet, miekgResult.(miekg.Result).Additional...)
-		searchSet = append(searchSet, miekgResult.(miekg.Result).Answers...)
+		for _, a := range miekgResult.(miekg.Result).Additional {
+			ans, ok := a.(miekg.Answer)
+			if ok != true {
+				log.Fatal("unable to cast", a)
+			}
+			searchSet = append(searchSet, ans)
+		}
+		for _, a := range miekgResult.(miekg.Result).Answers {
+			ans, _ := a.(miekg.Answer)
+			searchSet = append(searchSet, ans)
+		}
 		for _, add := range searchSet {
 			if add.Type == "CNAME" {
 				if _, ok := names[strings.ToLower(add.Name)]; ok {
@@ -105,8 +115,8 @@ type GlobalLookupFactory struct {
 }
 
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
-	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", true, "perform A lookups for each server")
-	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", true, "perform AAAA record lookups for each server")
+	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", false, "perform A lookups for each server")
+	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", false, "perform AAAA record lookups for each server")
 }
 
 // Command-line Help Documentation. This is the descriptive text what is
