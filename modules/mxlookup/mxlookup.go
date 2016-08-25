@@ -72,7 +72,11 @@ func (s *Lookup) LookupIPs(name string) CachedAddresses {
 		if status == zdns.STATUS_SUCCESS {
 			cast, _ := res.(miekg.Result)
 			for _, innerRes := range cast.Answers {
-				retv.IPv4Addresses = append(retv.IPv4Addresses, innerRes.Answer)
+				castInnerRes, ok := innerRes.(miekg.Answer)
+				if !ok {
+					continue
+				}
+				retv.IPv4Addresses = append(retv.IPv4Addresses, castInnerRes.Answer)
 			}
 		}
 	}
@@ -82,7 +86,11 @@ func (s *Lookup) LookupIPs(name string) CachedAddresses {
 		if status == zdns.STATUS_SUCCESS {
 			cast, _ := res.(miekg.Result)
 			for _, innerRes := range cast.Answers {
-				retv.IPv6Addresses = append(retv.IPv6Addresses, innerRes.Answer)
+				castInnerRes, ok := innerRes.(miekg.Answer)
+				if !ok {
+					continue
+				}
+				retv.IPv6Addresses = append(retv.IPv6Addresses, castInnerRes.Answer)
 			}
 		}
 	}
