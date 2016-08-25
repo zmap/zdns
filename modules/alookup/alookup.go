@@ -16,7 +16,6 @@ package alookup
 
 import (
 	"flag"
-	"log"
 	"strings"
 
 	"github.com/miekg/dns"
@@ -59,13 +58,16 @@ func (s *Lookup) DoTargetedLookup(name, nameServer string) (interface{}, zdns.St
 		searchSet := []miekg.Answer{}
 		for _, a := range miekgResult.(miekg.Result).Additional {
 			ans, ok := a.(miekg.Answer)
-			if ok != true {
-				log.Fatal("unable to cast", a)
+			if !ok {
+				continue
 			}
 			searchSet = append(searchSet, ans)
 		}
 		for _, a := range miekgResult.(miekg.Result).Answers {
-			ans, _ := a.(miekg.Answer)
+			ans, ok := a.(miekg.Answer)
+			if !ok {
+				continue
+			}
 			searchSet = append(searchSet, ans)
 		}
 		for _, add := range searchSet {
