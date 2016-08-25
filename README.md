@@ -28,7 +28,7 @@ ZDNS provides several types of modules.
 Raw DNS Modules
 ---------------
 
-The `A`, `AAAA`, `ANY`, `AXFR`, `CNAME`, `DMARC`, `MX`, `NS`, `PTR`, `TXT`,
+The `A`, `AAAA`, `ANY`, `AXFR`, `CAA`, `CNAME`, `DMARC`, `MX`, `NS`, `PTR`, `TXT`,
 `SOA`, and `SPF` modules provide the raw DNS response in JSON form, similar to dig.
 
 For example, the command:
