@@ -16,6 +16,14 @@ type Answer struct {
 	Answer string `json:"answer,omitempty"`
 }
 
+type MXAnswer struct {
+	Ttl        uint32 `json:"ttl,omitempty"`
+	Type       string `json:"type,omitempty"`
+	Name       string `json:"name,omitempty"`
+	Answer     string `json:"answer,omitempty"`
+	Preference uint16 `json:"preference"`
+}
+
 // result to be returned by scan of host
 type Result struct {
 	Answers     []interface{} `json:"answers"`
@@ -65,13 +73,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 	} else if ptr, ok := ans.(*dns.PTR); ok {
 		retv = Answer{Ttl: ptr.Hdr.Ttl, Type: dns.Type(ptr.Hdr.Rrtype).String(), Name: ptr.Hdr.Name, Answer: ptr.Ptr}
 	} else if mx, ok := ans.(*dns.MX); ok {
-		return struct {
-			Ttl        uint32 `json:"ttl"`
-			Type       string `json:"type"`
-			Name       string `json:"name"`
-			Answer     string `json:"data"`
-			Preference uint16 `json:"preference"`
-		}{
+		return MXAnswer{
 			Ttl:        mx.Hdr.Ttl,
 			Type:       dns.Type(mx.Hdr.Rrtype).String(),
 			Name:       mx.Hdr.Name,

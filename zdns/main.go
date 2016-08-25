@@ -32,7 +32,7 @@ import (
 	_ "github.com/zmap/zdns/modules/cname"
 	_ "github.com/zmap/zdns/modules/dmarc"
 	_ "github.com/zmap/zdns/modules/mx"
-	//_ "github.com/zmap/zdns/modules/mxlookup"
+	_ "github.com/zmap/zdns/modules/mxlookup"
 	_ "github.com/zmap/zdns/modules/ns"
 	_ "github.com/zmap/zdns/modules/nslookup"
 	_ "github.com/zmap/zdns/modules/ptr"
