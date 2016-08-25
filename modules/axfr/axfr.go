@@ -36,10 +36,10 @@ type Lookup struct {
 }
 
 type AXFRServerResult struct {
-	Server  string         `json:"server"`
-	Status  string         `json:"status"`
-	Error   string         `json:"error,omitempty"`
-	Records []miekg.Answer `json:"records,omitempty"`
+	Server  string        `json:"server"`
+	Status  string        `json:"status"`
+	Error   string        `json:"error,omitempty"`
+	Records []interface{} `json:"records,omitempty"`
 }
 
 type AXFRResult struct {
@@ -86,9 +86,7 @@ func (s *Lookup) DoAXFR(name string, server string) AXFRServerResult {
 				retv.Status = "success"
 				for _, rr := range ex.RR {
 					ans := miekg.ParseAnswer(rr)
-					if ans != nil {
-						retv.Records = append(retv.Records, *ans)
-					}
+					retv.Records = append(retv.Records, ans)
 				}
 			}
 		}
