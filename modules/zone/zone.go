@@ -45,6 +45,7 @@ type CallbackManager struct {
 func (c *CallbackManager) Evict(key, value interface{}) {
 	valChan := value.(chan bool)
 	wasClosed := false
+	log.Printf("Clearing pipe for %s\n", key.(string))
 EmptyChan:
 	for {
 		select {
@@ -59,6 +60,7 @@ EmptyChan:
 		}
 	}
 	close(valChan)
+	log.Printf("Cleared pipe for %s\n", key.(string))
 	if wasClosed {
 		return
 	}
@@ -118,14 +120,18 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 	s.Factory.Factory.CHmu.Lock()
 	tmp, found := s.Factory.Factory.CacheHash.Get(domain)
 	if !found {
-		notify = make(chan bool, 10)
+		notify = make(chan bool, 1000)
 		s.Factory.Factory.CacheHash.Add(domain, notify)
 		s.Factory.Factory.CHmu.Unlock()
+		log.Printf("Did not find %s\n", domain)
 		proceed = true
 	} else {
 		notify = tmp.(chan bool)
+		log.Printf("Did find %s\n", domain)
 		s.Factory.Factory.CHmu.Unlock()
+		return nil, zdns.STATUS_NO_OUTPUT, nil
 		for unsolved := range notify {
+			log.Printf("Notification for %s %b\n", domain, unsolved)
 			if unsolved {
 				proceed = true
 				break
@@ -135,9 +141,11 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 			}
 		}
 	}
+	log.Printf("Testing proceed for %s\n", domain)
 	if !proceed {
 		return nil, zdns.STATUS_NO_OUTPUT, nil
 	}
+	log.Printf("Proceeding for %s\n", domain)
 	//First pass looking for a nameserver we know the IP for
 	var result interface{}
 	var status zdns.Status
@@ -147,7 +155,9 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 		result, status, err = LookupHelper(domain, locations, lookup.(*alookup.Lookup))
 		if status == zdns.STATUS_SUCCESS && err == nil {
 			s.Factory.Factory.GlueLock.RUnlock()
+			log.Printf("Sending notification for %s false\n", domain)
 			notify <- false
+			log.Printf("Sent notification for %s false\n", domain)
 			return result, status, err
 		}
 	}
@@ -162,13 +172,17 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 			result, status, err = LookupHelper(domain, addresses, lookup.(*alookup.Lookup))
 			if status == zdns.STATUS_SUCCESS && err == nil {
 				s.Factory.Factory.GlueLock.Unlock()
+				log.Printf("Sending notification for %s false\n", domain)
 				notify <- false
+				log.Printf("Sent notification for %s false\n", domain)
 				return result, status, err
 			}
 		}
 	}
 	s.Factory.Factory.GlueLock.Unlock()
+	log.Printf("Sending notification for %s true\n", domain)
 	notify <- true
+	log.Printf("Sent notification for %s true\n", domain)
 	return nil, zdns.STATUS_NO_OUTPUT, nil
 }
 
@@ -246,9 +260,15 @@ func (s *GlobalLookupFactory) ParseGlue(glueFile string) error {
 	glue := make(map[string][]string)
 	s.Glue = &glue
 	tokens := dns.ParseZone(f, ".", glueFile)
+	log.Printf("Beginning to parse zonefile\n")
+	i := 0
 	for t := range tokens {
 		if t.Error != nil {
 			continue
+		}
+		i++
+		if i%100000 == 0 {
+			log.Printf("Processed %d records\n", i)
 		}
 		switch record := t.RR.(type) {
 		case *dns.AAAA:
@@ -259,6 +279,7 @@ func (s *GlobalLookupFactory) ParseGlue(glueFile string) error {
 			continue
 		}
 	}
+	log.Printf("Ending parse zonefile\n")
 	return nil
 }
 
