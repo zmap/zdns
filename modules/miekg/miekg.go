@@ -72,6 +72,9 @@ func ParseAnswer(ans dns.RR) interface{} {
 		retv = Answer{Ttl: ns.Hdr.Ttl, Type: dns.Type(ns.Hdr.Rrtype).String(), Name: ns.Hdr.Name, Answer: ns.Ns}
 	} else if ptr, ok := ans.(*dns.PTR); ok {
 		retv = Answer{Ttl: ptr.Hdr.Ttl, Type: dns.Type(ptr.Hdr.Rrtype).String(), Name: ptr.Hdr.Name, Answer: ptr.Ptr}
+	} else if spf, ok := ans.(*dns.SPF); ok {
+		retv = Answer{Ttl: spf.Hdr.Ttl, Type: dns.Type(spf.Hdr.Rrtype).String(), Name: spf.Hdr.Name, Answer: spf.String()}
+
 	} else if mx, ok := ans.(*dns.MX); ok {
 		return MXAnswer{
 			Ttl:        mx.Hdr.Ttl,

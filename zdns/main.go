@@ -38,6 +38,7 @@ import (
 	_ "github.com/zmap/zdns/modules/ptr"
 	_ "github.com/zmap/zdns/modules/soa"
 	_ "github.com/zmap/zdns/modules/spf"
+	_ "github.com/zmap/zdns/modules/spfrr"
 	_ "github.com/zmap/zdns/modules/txt"
 	_ "github.com/zmap/zdns/modules/zone"
 )
