@@ -223,7 +223,7 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 		var err error
 		s.Manager.OutputFile, err = os.OpenFile(c.OutputFilePath, os.O_WRONLY|os.O_APPEND, 0666)
 		if err != nil {
-			log.Fatal("unable to open metadata file:", err.Error())
+			log.Fatal("unable to open output file:", err.Error())
 		}
 	}
 	s.CacheHash.RegisterCB(s.Manager.Evict)
@@ -241,7 +241,7 @@ func (s *GlobalLookupFactory) Finalize() error {
 func (s *GlobalLookupFactory) ParseGlue(glueFile string) error {
 	f, err := os.Open(glueFile)
 	if err != nil {
-		log.Fatal("unable to open output file:", err.Error())
+		log.Fatal("unable to open input file:", err.Error())
 	}
 	glue := make(map[string][]string)
 	s.Glue = &glue
