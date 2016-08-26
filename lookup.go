@@ -137,7 +137,7 @@ func doOutput(out <-chan string, path string, wg *sync.WaitGroup) error {
 		var err error
 		f, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
-			log.Fatal("unable to open metadata file:", err.Error())
+			log.Fatal("unable to open output file:", err.Error())
 		}
 		defer f.Close()
 	}
@@ -157,7 +157,7 @@ func doInput(in chan<- interface{}, path string, wg *sync.WaitGroup, zonefileInp
 		var err error
 		f, err = os.Open(path)
 		if err != nil {
-			log.Fatal("unable to open output file:", err.Error())
+			log.Fatal("unable to open input file:", err.Error())
 		}
 	}
 	if zonefileInput {
