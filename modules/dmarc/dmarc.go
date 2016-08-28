@@ -35,11 +35,11 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	var res Result
 	nameServer := s.Factory.Factory.RandomNameServer()
 	innerRes, status, err := miekg.DoTxtLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, "v=DMARC", name)
-	if status != zdns.STATUS_SUCCESS {
+	if status != zdns.STATUS_NOERROR {
 		return res, status, err
 	}
 	res.Dmarc = innerRes
-	return res, zdns.STATUS_SUCCESS, nil
+	return res, zdns.STATUS_NOERROR, nil
 }
 
 // Per GoRoutine Factory ======================================================

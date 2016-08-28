@@ -39,7 +39,7 @@ returns:
 ```json
 {
   "name": "censys.io",
-  "status": "success",
+  "status": "NOERROR",
   "data": {
     "answers": [
       {
@@ -91,7 +91,7 @@ returns:
 ```json
 {
   "name": "censys.io",
-  "status": "success",
+  "status": "NOERROR",
   "data": {
     "exchanges": [
       {
