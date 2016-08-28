@@ -51,7 +51,7 @@ func (s *Lookup) DoTargetedLookup(name, nameServer string) (interface{}, zdns.St
 	res := Result{}
 	for _, dnsType := range requests {
 		miekgResult, status, err := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dnsType, name)
-		if status != zdns.STATUS_SUCCESS || err != nil {
+		if status != zdns.STATUS_NOERROR || err != nil {
 			return nil, status, err
 		}
 		names := map[string]bool{strings.ToLower(name): true}
@@ -93,7 +93,7 @@ func (s *Lookup) DoTargetedLookup(name, nameServer string) (interface{}, zdns.St
 	if len(res.IPv4Addresses) == 0 && len(res.IPv6Addresses) == 0 {
 		return nil, zdns.STATUS_NO_ANSWER, nil
 	}
-	return res, zdns.STATUS_SUCCESS, nil
+	return res, zdns.STATUS_NOERROR, nil
 }
 
 // Per GoRoutine Factory ======================================================

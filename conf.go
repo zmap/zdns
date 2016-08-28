@@ -62,7 +62,7 @@ type TargetedDomain struct {
 type Status string
 
 const (
-	STATUS_SUCCESS       Status = "SUCCESS"
+	STATUS_NOERROR       Status = "NOERROR"
 	STATUS_ERROR         Status = "ERROR"
 	STATUS_NO_RECORD     Status = "NORECORD"
 	STATUS_BLACKLIST     Status = "BLACKLIST"

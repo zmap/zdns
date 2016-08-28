@@ -69,7 +69,7 @@ func (s *Lookup) LookupIPs(name string) CachedAddresses {
 	// ipv4
 	if s.Factory.Factory.IPv4Lookup {
 		res, status, _ := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dns.TypeA, name)
-		if status == zdns.STATUS_SUCCESS {
+		if status == zdns.STATUS_NOERROR {
 			cast, _ := res.(miekg.Result)
 			for _, innerRes := range cast.Answers {
 				castInnerRes, ok := innerRes.(miekg.Answer)
@@ -83,7 +83,7 @@ func (s *Lookup) LookupIPs(name string) CachedAddresses {
 	// ipv6
 	if s.Factory.Factory.IPv6Lookup {
 		res, status, _ := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dns.TypeAAAA, name)
-		if status == zdns.STATUS_SUCCESS {
+		if status == zdns.STATUS_NOERROR {
 			cast, _ := res.(miekg.Result)
 			for _, innerRes := range cast.Answers {
 				castInnerRes, ok := innerRes.(miekg.Answer)
@@ -135,7 +135,7 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 			res.Servers = append(res.Servers, rec)
 		}
 	}
-	return res, zdns.STATUS_SUCCESS, nil
+	return res, zdns.STATUS_NOERROR, nil
 }
 
 // Per GoRoutine Factory ======================================================
