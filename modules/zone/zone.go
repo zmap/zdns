@@ -24,6 +24,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
+	"github.com/zmap/zdns/cachehash"
 	"github.com/zmap/zdns/modules/alookup"
 	"github.com/zmap/zdns/modules/miekg"
 )
@@ -90,25 +91,26 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 		var result interface{}
 		var status zdns.Status
 		var err error
-		s.Factory.Factory.GlueLock.RLock()
+		s.Factory.Factory.GlueLock.Lock()
 		locations, ok := (*s.Factory.Factory.Glue)[nameserver]
-		s.Factory.Factory.GlueLock.RUnlock()
+		if !ok {
+			tmp, ok := s.Factory.Factory.GlueCache.Get(nameserver)
+			if ok {
+				locations = tmp.([]string)
+			}
+		}
+		s.Factory.Factory.GlueLock.Unlock()
 		if ok {
 			result, status, err = LookupHelper(domain, locations, lookup.(*alookup.Lookup))
 			if status == zdns.STATUS_SUCCESS && err == nil {
 				return result, status, err
 			}
-		}
-		//Second pass performing lookups to find a nameserver
-		s.Factory.Factory.GlueLock.Lock()
-		_, ok = (*s.Factory.Factory.Glue)[nameserver]
-		s.Factory.Factory.GlueLock.Unlock()
-		if !ok {
+		} else {
 			result, status, err = lookup.(*alookup.Lookup).DoLookup(nameserver[0 : len(nameserver)-1])
 			if status == zdns.STATUS_SUCCESS && err == nil {
 				addresses := append(result.(alookup.Result).IPv4Addresses, result.(alookup.Result).IPv6Addresses...)
 				s.Factory.Factory.GlueLock.Lock()
-				(*s.Factory.Factory.Glue)[nameserver] = addresses
+				s.Factory.Factory.GlueCache.Add(nameserver, addresses)
 				s.Factory.Factory.GlueLock.Unlock()
 				result, status, err = LookupHelper(domain, []string{}, lookup.(*alookup.Lookup))
 				if status == zdns.STATUS_SUCCESS && err == nil {
@@ -157,18 +159,19 @@ func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 type GlobalLookupFactory struct {
 	zdns.BaseGlobalLookupFactory
 	Glue         *map[string][]string
-	GlueLock     sync.RWMutex
+	GlueLock     sync.Mutex
 	Subfactory   alookup.GlobalLookupFactory
 	CacheFactor  int
 	GlueFilePath string
 	Hash         map[string]interface{}
+	GlueCache    *cachehash.CacheHash
 	CHmu         sync.Mutex
 }
 
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
 	f.BoolVar(&s.Subfactory.IPv4Lookup, "ipv4-lookup", true, "perform A lookups for each server")
 	f.BoolVar(&s.Subfactory.IPv6Lookup, "ipv6-lookup", true, "perform AAAA record lookups for each server")
-	f.IntVar(&s.CacheFactor, "cache-size-factor", 25, "number of times larger than the number of threads to make the cache of successes")
+	f.IntVar(&s.CacheFactor, "cache-size-factor", 25, "number of times larger than the number of threads to make the cache for looked up nameservers")
 	f.StringVar(&s.GlueFilePath, "glue-file", "", "glue file path")
 }
 
@@ -182,6 +185,9 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 		return err
 	}
 	s.Hash = make(map[string]interface{})
+	s.GlueCache = new(cachehash.CacheHash)
+	cacheSize := c.Threads * s.CacheFactor
+	s.GlueCache.Init(cacheSize)
 	if s.GlueFilePath == "" {
 		s.GlueFilePath = c.InputFilePath
 	}
