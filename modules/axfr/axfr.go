@@ -96,7 +96,10 @@ func (s *Lookup) DoAXFR(name string, server string) AXFRServerResult {
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	nameServer := s.Factory.Factory.RandomNameServer()
-	parsedNS, _, _ := nslookup.DoNSLookup(name, nameServer, s.Factory.Client, s.Factory.TCPClient, true, false)
+	parsedNS, status, err := nslookup.DoNSLookup(name, nameServer, s.Factory.Client, s.Factory.TCPClient, true, false)
+	if status != zdns.STATUS_NOERROR {
+		return nil, status, err
+	}
 	var retv AXFRResult
 	for _, server := range parsedNS.Servers {
 		if len(server.IPv4Addresses) > 0 {
