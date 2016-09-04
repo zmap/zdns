@@ -75,15 +75,15 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 			domain = domain[0 : len(domain)-1]
 		}
 		s.Factory.Factory.CHmu.Lock()
-		tmp, found := s.Factory.Factory.Hash[domain]
+		tmp, found := s.Factory.Factory.Hash.Get(domain)
 		if !found {
 			waiting = []*dns.Token{}
-			s.Factory.Factory.Hash[domain] = waiting
+			s.Factory.Factory.Hash.Add(domain, waiting)
 			s.Factory.Factory.CHmu.Unlock()
 		} else {
 			waiting = tmp.([]*dns.Token)
 			waiting = append(waiting, record)
-			s.Factory.Factory.Hash[domain] = waiting
+			s.Factory.Factory.Hash.Add(domain, waiting)
 			s.Factory.Factory.CHmu.Unlock()
 			return nil, zdns.STATUS_NO_OUTPUT, nil
 		}
@@ -112,20 +112,20 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 				s.Factory.Factory.GlueLock.Lock()
 				s.Factory.Factory.GlueCache.Add(nameserver, addresses)
 				s.Factory.Factory.GlueLock.Unlock()
-				result, status, err = LookupHelper(domain, []string{}, lookup.(*alookup.Lookup))
+				result, status, err = LookupHelper(domain, addresses, lookup.(*alookup.Lookup))
 				if status == zdns.STATUS_SUCCESS && err == nil {
 					return result, status, err
 				}
 			}
 		}
 		s.Factory.Factory.CHmu.Lock()
-		tmp, found = s.Factory.Factory.Hash[domain]
+		tmp, found = s.Factory.Factory.Hash.Get(domain)
 		if found {
 			waiting = tmp.([]*dns.Token)
 			if len(waiting) > 0 {
 				record = waiting[0]
 				waiting = waiting[1:]
-				s.Factory.Factory.Hash[domain] = waiting
+				s.Factory.Factory.Hash.Add(domain, waiting)
 				s.Factory.Factory.CHmu.Unlock()
 				continue
 			} else {
@@ -163,7 +163,7 @@ type GlobalLookupFactory struct {
 	Subfactory   alookup.GlobalLookupFactory
 	CacheFactor  int
 	GlueFilePath string
-	Hash         map[string]interface{}
+	Hash         *cachehash.CacheHash
 	GlueCache    *cachehash.CacheHash
 	CHmu         sync.Mutex
 }
@@ -184,9 +184,10 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	if err != nil {
 		return err
 	}
-	s.Hash = make(map[string]interface{})
+	s.Hash = new(cachehash.CacheHash)
 	s.GlueCache = new(cachehash.CacheHash)
 	cacheSize := c.Threads * s.CacheFactor
+	s.Hash.Init(cacheSize)
 	s.GlueCache.Init(cacheSize)
 	if s.GlueFilePath == "" {
 		s.GlueFilePath = c.InputFilePath
