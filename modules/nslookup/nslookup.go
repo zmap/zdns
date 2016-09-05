@@ -36,7 +36,7 @@ type NSRecord struct {
 }
 
 type Result struct {
-	Servers []NSRecord `json:"servers"`
+	Servers []NSRecord `json:"servers,omitempty"`
 }
 
 // Per Connection Lookup ======================================================
@@ -53,10 +53,11 @@ func dotName(name string) string {
 func lookupIPs(name string, dnsType uint16, nameServer string, client *dns.Client, tcpClient *dns.Client) []string {
 	var addresses []string
 	res, status, _ := miekg.DoLookup(client, tcpClient, nameServer, dnsType, name)
-	if status == zdns.STATUS_SUCCESS {
+	if status == zdns.STATUS_NOERROR {
 		cast, _ := res.(miekg.Result)
 		for _, innerRes := range cast.Answers {
-			addresses = append(addresses, innerRes.Answer)
+			castInnerRes := innerRes.(miekg.Answer)
+			addresses = append(addresses, castInnerRes.Answer)
 		}
 	}
 	return addresses
@@ -65,20 +66,29 @@ func lookupIPs(name string, dnsType uint16, nameServer string, client *dns.Clien
 func DoNSLookup(name string, nameServer string, client *dns.Client, tcpClient *dns.Client, lookupIPv4 bool, lookupIPv6 bool) (Result, zdns.Status, error) {
 	var retv Result
 	res, status, err := miekg.DoLookup(client, tcpClient, nameServer, dns.TypeNS, name)
-	if status != zdns.STATUS_SUCCESS || err != nil {
+	if status != zdns.STATUS_NOERROR || err != nil {
 		return retv, status, nil
 	}
 	ns := res.(miekg.Result)
 	ipv4s := make(map[string]string)
 	ipv6s := make(map[string]string)
-	for _, a := range ns.Additional {
+	for _, ans := range ns.Additional {
+		a, ok := ans.(miekg.Answer)
+		if !ok {
+			continue
+		}
 		if a.Type == "A" {
 			ipv4s[a.Name] = a.Answer
 		} else if a.Type == "AAAA" {
 			ipv6s[a.Name] = a.Answer
 		}
 	}
-	for _, a := range ns.Answers {
+	for _, ans := range ns.Answers {
+		a, ok := ans.(miekg.Answer)
+		if !ok {
+			continue
+		}
+
 		if a.Type != "NS" {
 			continue
 		}
@@ -102,7 +112,11 @@ func DoNSLookup(name string, nameServer string, client *dns.Client, tcpClient *d
 		}
 		retv.Servers = append(retv.Servers, rec)
 	}
-	return retv, zdns.STATUS_SUCCESS, nil
+	if len(retv.Servers) == 0 {
+		return retv, zdns.STATUS_NO_RECORD, nil
+	}
+
+	return retv, zdns.STATUS_NOERROR, nil
 
 }
 

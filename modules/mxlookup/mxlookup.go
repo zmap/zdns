@@ -69,20 +69,28 @@ func (s *Lookup) LookupIPs(name string) CachedAddresses {
 	// ipv4
 	if s.Factory.Factory.IPv4Lookup {
 		res, status, _ := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dns.TypeA, name)
-		if status == zdns.STATUS_SUCCESS {
+		if status == zdns.STATUS_NOERROR {
 			cast, _ := res.(miekg.Result)
 			for _, innerRes := range cast.Answers {
-				retv.IPv4Addresses = append(retv.IPv4Addresses, innerRes.Answer)
+				castInnerRes, ok := innerRes.(miekg.Answer)
+				if !ok {
+					continue
+				}
+				retv.IPv4Addresses = append(retv.IPv4Addresses, castInnerRes.Answer)
 			}
 		}
 	}
 	// ipv6
 	if s.Factory.Factory.IPv6Lookup {
 		res, status, _ := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dns.TypeAAAA, name)
-		if status == zdns.STATUS_SUCCESS {
+		if status == zdns.STATUS_NOERROR {
 			cast, _ := res.(miekg.Result)
 			for _, innerRes := range cast.Answers {
-				retv.IPv6Addresses = append(retv.IPv6Addresses, innerRes.Answer)
+				castInnerRes, ok := innerRes.(miekg.Answer)
+				if !ok {
+					continue
+				}
+				retv.IPv6Addresses = append(retv.IPv6Addresses, castInnerRes.Answer)
 			}
 		}
 	}
@@ -127,7 +135,7 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 			res.Servers = append(res.Servers, rec)
 		}
 	}
-	return res, zdns.STATUS_SUCCESS, nil
+	return res, zdns.STATUS_NOERROR, nil
 }
 
 // Per GoRoutine Factory ======================================================

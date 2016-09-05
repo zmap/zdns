@@ -51,13 +51,25 @@ func (s *Lookup) DoTargetedLookup(name, nameServer string) (interface{}, zdns.St
 	res := Result{}
 	for _, dnsType := range requests {
 		miekgResult, status, err := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dnsType, name)
-		if status != zdns.STATUS_SUCCESS || err != nil {
+		if status != zdns.STATUS_NOERROR || err != nil {
 			return nil, status, err
 		}
 		names := map[string]bool{strings.ToLower(name): true}
 		searchSet := []miekg.Answer{}
-		searchSet = append(searchSet, miekgResult.(miekg.Result).Additional...)
-		searchSet = append(searchSet, miekgResult.(miekg.Result).Answers...)
+		for _, a := range miekgResult.(miekg.Result).Additional {
+			ans, ok := a.(miekg.Answer)
+			if !ok {
+				continue
+			}
+			searchSet = append(searchSet, ans)
+		}
+		for _, a := range miekgResult.(miekg.Result).Answers {
+			ans, ok := a.(miekg.Answer)
+			if !ok {
+				continue
+			}
+			searchSet = append(searchSet, ans)
+		}
 		for _, add := range searchSet {
 			if add.Type == "CNAME" {
 				if _, ok := names[strings.ToLower(add.Name)]; ok {
@@ -81,7 +93,7 @@ func (s *Lookup) DoTargetedLookup(name, nameServer string) (interface{}, zdns.St
 	if len(res.IPv4Addresses) == 0 && len(res.IPv6Addresses) == 0 {
 		return nil, zdns.STATUS_NO_ANSWER, nil
 	}
-	return res, zdns.STATUS_SUCCESS, nil
+	return res, zdns.STATUS_NOERROR, nil
 }
 
 // Per GoRoutine Factory ======================================================
@@ -105,8 +117,8 @@ type GlobalLookupFactory struct {
 }
 
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
-	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", true, "perform A lookups for each server")
-	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", true, "perform AAAA record lookups for each server")
+	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", false, "perform A lookups for each server")
+	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", false, "perform AAAA record lookups for each server")
 }
 
 // Command-line Help Documentation. This is the descriptive text what is

@@ -88,7 +88,7 @@ func TestRun(t *testing.T) {
 		if err != nil {
 			logrus.Fatal("Fatal error:", err.Error())
 		}
-		if status != zdns.STATUS_SUCCESS && status != zdns.STATUS_NO_OUTPUT {
+		if status != zdns.STATUS_NOERROR && status != zdns.STATUS_NO_OUTPUT {
 			t.Error("failed lookup")
 		}
 	}

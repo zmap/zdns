@@ -42,7 +42,7 @@ func LookupHelper(domain string, nsIPs []string, lookup *alookup.Lookup) (interf
 	var err error
 	for _, location := range nsIPs {
 		result, status, err = lookup.DoTargetedLookup(domain, location+":53")
-		if status == zdns.STATUS_SUCCESS && err == nil {
+		if status == zdns.STATUS_NOERROR && err == nil {
 			return result, status, err
 		}
 	}
@@ -58,7 +58,6 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 	var domain string
 	var waiting []*dns.Token
 	prefix := s.Factory.Factory.GlobalConf.NamePrefix
-	iterations := 0
 	for {
 		switch typ := record.RR.(type) {
 		case *dns.NS:
@@ -102,18 +101,18 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 		s.Factory.Factory.GlueLock.Unlock()
 		if ok {
 			result, status, err = LookupHelper(domain, locations, lookup.(*alookup.Lookup))
-			if status == zdns.STATUS_SUCCESS && err == nil {
+			if status == zdns.STATUS_NOERROR && err == nil {
 				return result, status, err
 			}
 		} else {
 			result, status, err = lookup.(*alookup.Lookup).DoLookup(nameserver[0 : len(nameserver)-1])
-			if status == zdns.STATUS_SUCCESS && err == nil {
+			if status == zdns.STATUS_NOERROR && err == nil {
 				addresses := append(result.(alookup.Result).IPv4Addresses, result.(alookup.Result).IPv6Addresses...)
 				s.Factory.Factory.GlueLock.Lock()
 				s.Factory.Factory.GlueCache.Add(nameserver, addresses)
 				s.Factory.Factory.GlueLock.Unlock()
 				result, status, err = LookupHelper(domain, addresses, lookup.(*alookup.Lookup))
-				if status == zdns.STATUS_SUCCESS && err == nil {
+				if status == zdns.STATUS_NOERROR && err == nil {
 					return result, status, err
 				}
 			}
@@ -136,7 +135,6 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 			s.Factory.Factory.CHmu.Unlock()
 			return nil, status, err
 		}
-		iterations++
 	}
 	return nil, zdns.STATUS_NO_OUTPUT, nil
 }
@@ -202,7 +200,7 @@ func (s *GlobalLookupFactory) Finalize() error {
 func (s *GlobalLookupFactory) ParseGlue(glueFile string) error {
 	f, err := os.Open(glueFile)
 	if err != nil {
-		log.Fatal("unable to open output file:", err.Error())
+		log.Fatal("unable to open input file:", err.Error())
 	}
 	glue := make(map[string][]string)
 	s.Glue = &glue

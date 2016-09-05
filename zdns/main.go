@@ -28,6 +28,7 @@ import (
 	_ "github.com/zmap/zdns/modules/alookup"
 	_ "github.com/zmap/zdns/modules/any"
 	_ "github.com/zmap/zdns/modules/axfr"
+	_ "github.com/zmap/zdns/modules/caa"
 	_ "github.com/zmap/zdns/modules/cname"
 	_ "github.com/zmap/zdns/modules/dmarc"
 	_ "github.com/zmap/zdns/modules/mx"
@@ -37,6 +38,7 @@ import (
 	_ "github.com/zmap/zdns/modules/ptr"
 	_ "github.com/zmap/zdns/modules/soa"
 	_ "github.com/zmap/zdns/modules/spf"
+	_ "github.com/zmap/zdns/modules/spfrr"
 	_ "github.com/zmap/zdns/modules/txt"
 	_ "github.com/zmap/zdns/modules/zone"
 )

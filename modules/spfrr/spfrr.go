@@ -12,34 +12,24 @@
  * permissions and limitations under the License.
  */
 
-package spf
+package spfrr
 
 import (
+	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/modules/miekg"
 )
-
-// result to be returned by scan of host
-type Result struct {
-	Dmarc string `json:"dmarc,omitempty"`
-}
 
 // Per Connection Lookup ======================================================
 //
 type Lookup struct {
 	Factory *RoutineLookupFactory
-	zdns.BaseLookup
+	miekg.Lookup
 }
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
-	var res Result
 	nameServer := s.Factory.Factory.RandomNameServer()
-	innerRes, status, err := miekg.DoTxtLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, "v=DMARC", name)
-	if status != zdns.STATUS_NOERROR {
-		return res, status, err
-	}
-	res.Dmarc = innerRes
-	return res, zdns.STATUS_NOERROR, nil
+	return miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dns.TypeSPF, name)
 }
 
 // Per GoRoutine Factory ======================================================
@@ -60,10 +50,16 @@ type GlobalLookupFactory struct {
 	zdns.BaseGlobalLookupFactory
 }
 
+// Command-line Help Documentation. This is the descriptive text what is
+// returned when you run zdns module --help
+func (s *GlobalLookupFactory) Help() string {
+	return ""
+}
+
 func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
-	r.Initialize(s.GlobalConf.Timeout)
 	r.Factory = s
+	r.Initialize(s.GlobalConf.Timeout)
 	return r, nil
 }
 
@@ -71,5 +67,5 @@ func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, e
 //
 func init() {
 	s := new(GlobalLookupFactory)
-	zdns.RegisterLookup("DMARC", s)
+	zdns.RegisterLookup("SPFRR", s)
 }
