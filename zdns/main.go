@@ -86,9 +86,9 @@ func main() {
 		log.SetLevel(log.FatalLevel)
 	case 2: // Error
 		log.SetLevel(log.ErrorLevel)
-	case 3: // Warnings
+	case 3: // Warnings  (default)
 		log.SetLevel(log.WarnLevel)
-	case 4: // Information (default)
+	case 4: // Information
 		log.SetLevel(log.InfoLevel)
 	case 5: // Debugging
 		log.SetLevel(log.DebugLevel)
