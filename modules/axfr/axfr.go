@@ -58,12 +58,12 @@ func (s *Lookup) DoAXFR(name string, server string) AXFRServerResult {
 		s.Factory.Factory.BlMu.Lock()
 		if blacklisted, err := s.Factory.Factory.Blacklist.IsBlacklisted(server); err != nil {
 			s.Factory.Factory.BlMu.Unlock()
-			retv.Status = "error"
+			retv.Status = "ERROR"
 			retv.Error = "blacklist-error"
 			return retv
 		} else if blacklisted {
 			s.Factory.Factory.BlMu.Unlock()
-			retv.Status = "error"
+			retv.Status = "ERROR"
 			retv.Error = "blacklisted"
 			return retv
 		}
@@ -73,17 +73,17 @@ func (s *Lookup) DoAXFR(name string, server string) AXFRServerResult {
 	m.SetAxfr(dotName(name))
 	tr := new(dns.Transfer)
 	if a, err := tr.In(m, net.JoinHostPort(server, "53")); err != nil {
-		retv.Status = "error"
+		retv.Status = "ERROR"
 		retv.Error = err.Error()
 		return retv
 	} else {
 		for ex := range a {
 			if ex.Error != nil {
-				retv.Status = "error"
+				retv.Status = "ERROR"
 				retv.Error = ex.Error.Error()
 				return retv
 			} else {
-				retv.Status = "success"
+				retv.Status = "NOERROR"
 				for _, rr := range ex.RR {
 					ans := miekg.ParseAnswer(rr)
 					retv.Records = append(retv.Records, ans)
@@ -96,14 +96,17 @@ func (s *Lookup) DoAXFR(name string, server string) AXFRServerResult {
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	nameServer := s.Factory.Factory.RandomNameServer()
-	parsedNS, _, _ := nslookup.DoNSLookup(name, nameServer, s.Factory.Client, s.Factory.TCPClient, true, false)
+	parsedNS, status, err := nslookup.DoNSLookup(name, nameServer, s.Factory.Client, s.Factory.TCPClient, true, false)
+	if status != zdns.STATUS_NOERROR {
+		return nil, status, err
+	}
 	var retv AXFRResult
 	for _, server := range parsedNS.Servers {
 		if len(server.IPv4Addresses) > 0 {
 			retv.Servers = append(retv.Servers, s.DoAXFR(name, server.IPv4Addresses[0]))
 		}
 	}
-	return retv, zdns.STATUS_SUCCESS, nil
+	return retv, zdns.STATUS_NOERROR, nil
 }
 
 // Per GoRoutine Factory ======================================================

@@ -189,19 +189,19 @@ func DoLookup(udp *dns.Client, tcp *dns.Client, nameServer string, dnsType uint1
 			res.Authorities = append(res.Authorities, inner)
 		}
 	}
-	return res, zdns.STATUS_SUCCESS, nil
+	return res, zdns.STATUS_NOERROR, nil
 }
 
 func DoTxtLookup(udp *dns.Client, tcp *dns.Client, nameServer string, prefix string, name string) (string, zdns.Status, error) {
 	res, status, err := DoLookup(udp, tcp, nameServer, dns.TypeTXT, name)
-	if status != zdns.STATUS_SUCCESS {
+	if status != zdns.STATUS_NOERROR {
 		return "", status, err
 	}
 	if parsedResult, ok := res.(Result); ok {
 		for _, a := range parsedResult.Answers {
 			ans, _ := a.(Answer)
 			if strings.HasPrefix(ans.Answer, prefix) {
-				return ans.Answer, zdns.STATUS_SUCCESS, err
+				return ans.Answer, zdns.STATUS_NOERROR, err
 			}
 		}
 	}

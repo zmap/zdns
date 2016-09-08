@@ -53,7 +53,7 @@ func dotName(name string) string {
 func lookupIPs(name string, dnsType uint16, nameServer string, client *dns.Client, tcpClient *dns.Client) []string {
 	var addresses []string
 	res, status, _ := miekg.DoLookup(client, tcpClient, nameServer, dnsType, name)
-	if status == zdns.STATUS_SUCCESS {
+	if status == zdns.STATUS_NOERROR {
 		cast, _ := res.(miekg.Result)
 		for _, innerRes := range cast.Answers {
 			castInnerRes := innerRes.(miekg.Answer)
@@ -66,7 +66,7 @@ func lookupIPs(name string, dnsType uint16, nameServer string, client *dns.Clien
 func DoNSLookup(name string, nameServer string, client *dns.Client, tcpClient *dns.Client, lookupIPv4 bool, lookupIPv6 bool) (Result, zdns.Status, error) {
 	var retv Result
 	res, status, err := miekg.DoLookup(client, tcpClient, nameServer, dns.TypeNS, name)
-	if status != zdns.STATUS_SUCCESS || err != nil {
+	if status != zdns.STATUS_NOERROR || err != nil {
 		return retv, status, nil
 	}
 	ns := res.(miekg.Result)
@@ -116,7 +116,7 @@ func DoNSLookup(name string, nameServer string, client *dns.Client, tcpClient *d
 		return retv, zdns.STATUS_NO_RECORD, nil
 	}
 
-	return retv, zdns.STATUS_SUCCESS, nil
+	return retv, zdns.STATUS_NOERROR, nil
 
 }
 
