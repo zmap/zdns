@@ -56,7 +56,7 @@ func main() {
 	flags.StringVar(&gc.OutputFilePath, "output-file", "-", "comma-delimited list of DNS servers to use")
 	flags.StringVar(&gc.MetadataFilePath, "metadata-file", "", "where should JSON metadata be saved")
 	flags.StringVar(&gc.LogFilePath, "log-file", "", "where should JSON metadata be saved")
-	flags.IntVar(&gc.Verbosity, "verbosity", 3, "log verbosity: 1--5")
+	flags.IntVar(&gc.Verbosity, "verbosity", 3, "log verbosity: 1 (lowest)--5 (highest)")
 	servers_string := flags.String("name-servers", "", "comma-delimited list of DNS servers to use")
 	config_file := flags.String("conf-file", "/etc/resolv.conf", "config file for DNS servers")
 	timeout := flags.Int("timeout", 10, "timeout for resolving an individual name")
@@ -74,11 +74,26 @@ func main() {
 	// Do some basic sanity checking
 	// setup global logging
 	if gc.LogFilePath != "" {
-		f, err := os.Open(gc.LogFilePath)
+		f, err := os.OpenFile(gc.LogFilePath, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
 			log.Fatalf("Unable to open log file (%s): %s", gc.LogFilePath, err.Error())
 		}
 		log.SetOutput(f)
+	}
+	// Translate the assigned verbosity level to a logrus log level.
+	switch gc.Verbosity {
+	case 1: // Fatal
+		log.SetLevel(log.FatalLevel)
+	case 2: // Error
+		log.SetLevel(log.ErrorLevel)
+	case 3: // Warnings  (default)
+		log.SetLevel(log.WarnLevel)
+	case 4: // Information
+		log.SetLevel(log.InfoLevel)
+	case 5: // Debugging
+		log.SetLevel(log.DebugLevel)
+	default:
+		log.Fatal("Unknown verbosity level specified. Must be between 1 (lowest)--5 (highest)")
 	}
 	// complete post facto global initialization based on command line arguments
 	gc.Timeout = time.Duration(time.Second * time.Duration(*timeout))
