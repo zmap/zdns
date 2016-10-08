@@ -66,6 +66,8 @@ func ParseAnswer(ans dns.RR) interface{} {
 		retv = Answer{Ttl: aaaa.Hdr.Ttl, Type: dns.Type(aaaa.Hdr.Rrtype).String(), Name: aaaa.Hdr.Name, Answer: aaaa.AAAA.String()}
 	} else if cname, ok := ans.(*dns.CNAME); ok {
 		retv = Answer{Ttl: cname.Hdr.Ttl, Type: dns.Type(cname.Hdr.Rrtype).String(), Name: cname.Hdr.Name, Answer: cname.Target}
+	} else if dname, ok := ans.(*dns.DNAME); ok {
+		retv = Answer{Ttl: dname.Hdr.Ttl, Type: dns.Type(dname.Hdr.Rrtype).String(), Name: dname.Hdr.Name, Answer: dname.Target}
 	} else if txt, ok := ans.(*dns.TXT); ok {
 		retv = Answer{Ttl: txt.Hdr.Ttl, Type: dns.Type(txt.Hdr.Rrtype).String(), Name: txt.Hdr.Name, Answer: strings.Join(txt.Txt, "\n")}
 	} else if ns, ok := ans.(*dns.NS); ok {
