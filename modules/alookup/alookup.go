@@ -15,6 +15,7 @@
 package alookup
 
 import (
+	"errors"
 	"flag"
 	"strings"
 
@@ -40,55 +41,71 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	return s.DoTargetedLookup(name, nameServer)
 }
 
-func (s *Lookup) DoTargetedLookup(name, nameServer string) (interface{}, zdns.Status, error) {
-	requests := []uint16{}
-	if s.Factory.Factory.IPv6Lookup {
-		requests = append(requests, dns.TypeAAAA)
+func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16, searchSet *map[string][]miekg.Answer, origName string, depth int) ([]string, zdns.Status, error) {
+	// avoid infinite loops
+	if name == origName && depth != 0 {
+		return nil, zdns.STATUS_ERROR, errors.New("Infinite redirection loop")
 	}
-	if s.Factory.Factory.IPv4Lookup {
-		requests = append(requests, dns.TypeA)
+	if depth > 10 {
+		return nil, zdns.STATUS_ERROR, errors.New("Max recursion depth reached")
 	}
-	res := Result{}
-	for _, dnsType := range requests {
+	// check if the record is already in our cache. if not, perform normal A lookup and
+	// see what comes back. Then iterate over results and if needed, perform further lookups
+	if _, ok := (*searchSet)[name]; !ok {
 		miekgResult, status, err := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dnsType, name)
 		if status != zdns.STATUS_NOERROR || err != nil {
 			return nil, status, err
-		}
-		names := map[string]bool{strings.ToLower(name): true}
-		searchSet := []miekg.Answer{}
-		for _, a := range miekgResult.(miekg.Result).Additional {
-			ans, ok := a.(miekg.Answer)
-			if !ok {
-				continue
-			}
-			searchSet = append(searchSet, ans)
 		}
 		for _, a := range miekgResult.(miekg.Result).Answers {
 			ans, ok := a.(miekg.Answer)
 			if !ok {
 				continue
 			}
-			searchSet = append(searchSet, ans)
+			(*searchSet)[ans.Name] = append((*searchSet)[ans.Name], ans)
 		}
-		for _, add := range searchSet {
-			if add.Type == "CNAME" {
-				if _, ok := names[strings.ToLower(add.Name)]; ok {
-					names[strings.ToLower(add.Answer[0:len(add.Answer)-1])] = true
-				}
+		for _, a := range miekgResult.(miekg.Result).Additional {
+			ans, ok := a.(miekg.Answer)
+			if !ok {
+				continue
 			}
+			(*searchSet)[ans.Name] = append((*searchSet)[ans.Name], ans)
 		}
-		for _, add := range searchSet {
-			if add.Type == dns.Type(dnsType).String() {
-				if _, ok := names[strings.ToLower(add.Name)]; ok {
-					if add.Type == dns.Type(dns.TypeA).String() {
-						res.IPv4Addresses = append(res.IPv4Addresses, add.Answer)
-					}
-					if add.Type == dns.Type(dns.TypeAAAA).String() {
-						res.IPv6Addresses = append(res.IPv6Addresses, add.Answer)
-					}
-				}
-			}
+	}
+	// our cache should now have any data that exists about the current name
+	res, ok := (*searchSet)[name]
+	if !ok || len(res) == 0 {
+		// we have no data whatsoever about this name. return an empty recordset to the user
+		var ips []string
+		return ips, zdns.STATUS_NO_ANSWER, nil
+	} else if res[0].Type == dns.Type(dnsType).String() {
+		// we have IP addresses to hand back to the user. let's make an easy-to-use array of strings
+		var ips []string
+		for _, answer := range res {
+			ips = append(ips, answer.Answer)
 		}
+		return ips, zdns.STATUS_NOERROR, nil
+	} else if res[0].Type == dns.Type(dns.TypeCNAME).String() {
+		// we have a CNAME and need to further recurse to find IPs
+		shortName := strings.ToLower(res[0].Answer[0 : len(res[0].Answer)-1])
+		return s.doLookupProtocol(shortName, nameServer, dnsType, searchSet, origName, depth+1)
+	} else {
+		return nil, zdns.STATUS_ERROR, errors.New("Unexpected record type received")
+	}
+}
+
+func (s *Lookup) DoTargetedLookup(name string, nameServer string) (interface{}, zdns.Status, error) {
+	res := Result{}
+	searchSet := map[string][]miekg.Answer{}
+	if s.Factory.Factory.IPv4Lookup {
+		ipv4, _, _ := s.doLookupProtocol(name, nameServer, dns.TypeA, &searchSet, name, 0)
+		res.IPv4Addresses = make([]string, len(ipv4))
+		copy(res.IPv4Addresses, ipv4)
+	}
+	searchSet = map[string][]miekg.Answer{}
+	if s.Factory.Factory.IPv6Lookup {
+		ipv6, _, _ := s.doLookupProtocol(name, nameServer, dns.TypeAAAA, &searchSet, name, 0)
+		res.IPv6Addresses = make([]string, len(ipv6))
+		copy(res.IPv6Addresses, ipv6)
 	}
 	if len(res.IPv4Addresses) == 0 && len(res.IPv6Addresses) == 0 {
 		return nil, zdns.STATUS_NO_ANSWER, nil
