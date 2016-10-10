@@ -74,7 +74,7 @@ func main() {
 	// Do some basic sanity checking
 	// setup global logging
 	if gc.LogFilePath != "" {
-		f, err := os.Open(gc.LogFilePath)
+		f, err := os.OpenFile(gc.LogFilePath, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
 			log.Fatalf("Unable to open log file (%s): %s", gc.LogFilePath, err.Error())
 		}
