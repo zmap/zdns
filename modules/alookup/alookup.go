@@ -41,7 +41,7 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	return s.DoTargetedLookup(name, nameServer)
 }
 
-func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16, searchSet *map[string][]miekg.Answer, origName string, depth int) ([]string, zdns.Status, error) {
+func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16, searchSet map[string][]miekg.Answer, origName string, depth int) ([]string, zdns.Status, error) {
 	// avoid infinite loops
 	if name == origName && depth != 0 {
 		return nil, zdns.STATUS_ERROR, errors.New("Infinite redirection loop")
@@ -51,7 +51,7 @@ func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16
 	}
 	// check if the record is already in our cache. if not, perform normal A lookup and
 	// see what comes back. Then iterate over results and if needed, perform further lookups
-	if _, ok := (*searchSet)[name]; !ok {
+	if _, ok := searchSet[name]; !ok {
 		miekgResult, status, err := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dnsType, name)
 		if status != zdns.STATUS_NOERROR || err != nil {
 			return nil, status, err
@@ -61,18 +61,18 @@ func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16
 			if !ok {
 				continue
 			}
-			(*searchSet)[ans.Name] = append((*searchSet)[ans.Name], ans)
+			searchSet[ans.Name] = append(searchSet[ans.Name], ans)
 		}
 		for _, a := range miekgResult.(miekg.Result).Additional {
 			ans, ok := a.(miekg.Answer)
 			if !ok {
 				continue
 			}
-			(*searchSet)[ans.Name] = append((*searchSet)[ans.Name], ans)
+			searchSet[ans.Name] = append(searchSet[ans.Name], ans)
 		}
 	}
 	// our cache should now have any data that exists about the current name
-	res, ok := (*searchSet)[name]
+	res, ok := searchSet[name]
 	if !ok || len(res) == 0 {
 		// we have no data whatsoever about this name. return an empty recordset to the user
 		var ips []string
@@ -97,13 +97,13 @@ func (s *Lookup) DoTargetedLookup(name string, nameServer string) (interface{}, 
 	res := Result{}
 	searchSet := map[string][]miekg.Answer{}
 	if s.Factory.Factory.IPv4Lookup {
-		ipv4, _, _ := s.doLookupProtocol(name, nameServer, dns.TypeA, &searchSet, name, 0)
+		ipv4, _, _ := s.doLookupProtocol(name, nameServer, dns.TypeA, searchSet, name, 0)
 		res.IPv4Addresses = make([]string, len(ipv4))
 		copy(res.IPv4Addresses, ipv4)
 	}
 	searchSet = map[string][]miekg.Answer{}
 	if s.Factory.Factory.IPv6Lookup {
-		ipv6, _, _ := s.doLookupProtocol(name, nameServer, dns.TypeAAAA, &searchSet, name, 0)
+		ipv6, _, _ := s.doLookupProtocol(name, nameServer, dns.TypeAAAA, searchSet, name, 0)
 		res.IPv6Addresses = make([]string, len(ipv6))
 		copy(res.IPv6Addresses, ipv6)
 	}
