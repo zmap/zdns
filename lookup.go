@@ -39,7 +39,7 @@ func GetDNSServers(path string) ([]string, error) {
 	}
 	var servers []string
 	for _, s := range c.Servers {
-		if strings.Contains(s, ":") {
+		if s[0:1] != "[" && strings.Contains(s, ":") {
 			s = "[" + s + "]"
 		}
 		full := strings.Join([]string{s, c.Port}, ":")

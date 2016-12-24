@@ -78,6 +78,9 @@ func LookupHelper(domain string, nsIPs []string, lookup *alookup.Lookup) (interf
 	var status zdns.Status
 	var err error
 	for _, location := range nsIPs {
+		if location[0:1] != "[" && strings.Contains(location, ":") {
+			location = "[" + location + "]"
+		}
 		result, status, err = lookup.DoTargetedLookup(domain, location+":53")
 		if status == zdns.STATUS_NOERROR && err == nil {
 			return result, status, err
