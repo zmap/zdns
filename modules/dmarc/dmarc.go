@@ -12,7 +12,7 @@
  * permissions and limitations under the License.
  */
 
-package spf
+package dmarc
 
 import (
 	"github.com/zmap/zdns"
