@@ -150,6 +150,9 @@ func DoLookup(udp *dns.Client, tcp *dns.Client, nameServer string, dnsType uint1
 	res.Protocol = "udp"
 	r, _, err := udp.Exchange(m, nameServer)
 	if err == dns.ErrTruncated {
+		if tcp == nil {
+			return nil, zdns.STATUS_TRUNCATED, err
+		}
 		r, _, err = tcp.Exchange(m, nameServer)
 		useTCP = true
 		res.Protocol = "tcp"
