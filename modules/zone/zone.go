@@ -15,14 +15,13 @@
 package zone
 
 import (
-	"encoding/json"
 	"errors"
 	"flag"
-	"log"
 	"os"
 	"strings"
 	"sync"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/cachehash"
@@ -35,42 +34,6 @@ import (
 type Lookup struct {
 	Factory *RoutineLookupFactory
 	miekg.Lookup
-}
-
-type CallbackManager struct {
-	Conf       *zdns.GlobalConf
-	OutputFile *os.File
-}
-
-func (c *CallbackManager) Evict(key, value interface{}) {
-	valChan := value.(chan bool)
-	wasClosed := false
-EmptyChan:
-	for {
-		select {
-		case v := <-valChan:
-			if v {
-			} else {
-				wasClosed = true
-				break EmptyChan
-			}
-		default:
-			break EmptyChan
-		}
-	}
-	close(valChan)
-	if wasClosed {
-		return
-	}
-	domain := key.(string)
-	var res zdns.Result
-	res.Name = domain
-	res.Status = string(zdns.STATUS_ERROR)
-	jsonRes, err := json.Marshal(res)
-	if err != nil {
-		log.Fatal("Unable to marshal JSON result", err)
-	}
-	c.OutputFile.WriteString(string(jsonRes) + "\n")
 }
 
 func LookupHelper(domain string, nsIPs []string, lookup *alookup.Lookup) (interface{}, zdns.Status, error) {
@@ -96,82 +59,86 @@ func (s *Lookup) DoZonefileLookup(record *dns.Token) (interface{}, zdns.Status, 
 	lookup, _ := s.Factory.Subfactory.MakeLookup()
 	var nameserver string
 	var domain string
-	var notify chan bool
+	var waiting []*dns.Token
 	prefix := s.Factory.Factory.GlobalConf.NamePrefix
-	switch typ := record.RR.(type) {
-	case *dns.NS:
-		nameserver = strings.ToLower(typ.Ns)
-		domain = record.RR.Header().Name
-		domain = strings.Join([]string{prefix, domain}, "")
-	default:
-		return nil, zdns.STATUS_NO_OUTPUT, nil
-	}
-	if strings.Count(record.RR.Header().Name, ".") < 2 {
-		return nil, zdns.STATUS_NO_OUTPUT, nil
-	}
-	if domain[len(domain)-1] == '.' {
-		domain = domain[0 : len(domain)-1]
-	}
-	//Verify this didn't succeed before
-	//Make sure it is in Cachehash- if we added it, proceed
-	//if we didn't add it, listen on the chan
-	//	new bool, true-> return no output, false-> proceed
-	//  closed channel-> return no output
-	proceed := false
-	s.Factory.Factory.CHmu.Lock()
-	tmp, found := s.Factory.Factory.CacheHash.Get(domain)
-	if !found {
-		notify = make(chan bool, 10)
-		s.Factory.Factory.CacheHash.Add(domain, notify)
-		s.Factory.Factory.CHmu.Unlock()
-		proceed = true
-	} else {
-		notify = tmp.(chan bool)
-		s.Factory.Factory.CHmu.Unlock()
-		for unsolved := range notify {
-			if unsolved {
-				proceed = true
-				break
-			} else {
-				notify <- false
-				break
+	for {
+		switch typ := record.RR.(type) {
+		case *dns.NS:
+			nameserver = strings.ToLower(typ.Ns)
+			domain = record.RR.Header().Name
+			domain = strings.Join([]string{prefix, domain}, "")
+		default:
+			return nil, zdns.STATUS_NO_OUTPUT, nil
+		}
+		if strings.Count(record.RR.Header().Name, ".") < 2 {
+			return nil, zdns.STATUS_NO_OUTPUT, nil
+		}
+		if domain[len(domain)-1] == '.' {
+			domain = domain[0 : len(domain)-1]
+		}
+		s.Factory.Factory.CHmu.Lock()
+		tmp, found := s.Factory.Factory.Hash.Get(domain)
+		if !found {
+			waiting = []*dns.Token{}
+			s.Factory.Factory.Hash.Add(domain, waiting)
+			s.Factory.Factory.CHmu.Unlock()
+		} else {
+			waiting = tmp.([]*dns.Token)
+			waiting = append(waiting, record)
+			s.Factory.Factory.Hash.Add(domain, waiting)
+			s.Factory.Factory.CHmu.Unlock()
+			return nil, zdns.STATUS_NO_OUTPUT, nil
+		}
+		//First pass looking for a nameserver we know the IP for
+		var result interface{}
+		var status zdns.Status
+		var err error
+		s.Factory.Factory.GlueLock.Lock()
+		locations, ok := (*s.Factory.Factory.Glue)[nameserver]
+		if !ok {
+			tmp, ok := s.Factory.Factory.GlueCache.Get(nameserver)
+			if ok {
+				locations = tmp.([]string)
 			}
 		}
-	}
-	if !proceed {
-		return nil, zdns.STATUS_NO_OUTPUT, nil
-	}
-	//First pass looking for a nameserver we know the IP for
-	var result interface{}
-	var status zdns.Status
-	var err error
-	s.Factory.Factory.GlueLock.RLock()
-	if locations, ok := (*s.Factory.Factory.Glue)[nameserver]; ok {
-		result, status, err = LookupHelper(domain, locations, lookup.(*alookup.Lookup))
-		if status == zdns.STATUS_NOERROR && err == nil {
-			s.Factory.Factory.GlueLock.RUnlock()
-			notify <- false
-			return result, status, err
-		}
-	}
-	s.Factory.Factory.GlueLock.RUnlock()
-	//Second pass performing lookups to find a nameserver
-	s.Factory.Factory.GlueLock.Lock()
-	if _, ok := (*s.Factory.Factory.Glue)[nameserver]; !ok {
-		result, status, err = lookup.(*alookup.Lookup).DoLookup(nameserver[0 : len(nameserver)-1])
-		if status == zdns.STATUS_NOERROR && err == nil {
-			addresses := append(result.(alookup.Result).IPv4Addresses, result.(alookup.Result).IPv6Addresses...)
-			(*s.Factory.Factory.Glue)[nameserver] = addresses
-			result, status, err = LookupHelper(domain, addresses, lookup.(*alookup.Lookup))
+		s.Factory.Factory.GlueLock.Unlock()
+		if ok {
+			result, status, err = LookupHelper(domain, locations, lookup.(*alookup.Lookup))
 			if status == zdns.STATUS_NOERROR && err == nil {
-				s.Factory.Factory.GlueLock.Unlock()
-				notify <- false
 				return result, status, err
 			}
+		} else {
+			result, status, err = lookup.(*alookup.Lookup).DoLookup(nameserver[0 : len(nameserver)-1])
+			if status == zdns.STATUS_NOERROR && err == nil {
+				addresses := append(result.(alookup.Result).IPv4Addresses, result.(alookup.Result).IPv6Addresses...)
+				s.Factory.Factory.GlueLock.Lock()
+				s.Factory.Factory.GlueCache.Add(nameserver, addresses)
+				s.Factory.Factory.GlueLock.Unlock()
+				result, status, err = LookupHelper(domain, addresses, lookup.(*alookup.Lookup))
+				if status == zdns.STATUS_NOERROR && err == nil {
+					return result, status, err
+				}
+			}
+		}
+		s.Factory.Factory.CHmu.Lock()
+		tmp, found = s.Factory.Factory.Hash.Get(domain)
+		if found {
+			waiting = tmp.([]*dns.Token)
+			if len(waiting) > 0 {
+				record = waiting[0]
+				waiting = waiting[1:]
+				s.Factory.Factory.Hash.Add(domain, waiting)
+				s.Factory.Factory.CHmu.Unlock()
+				continue
+			} else {
+				s.Factory.Factory.CHmu.Unlock()
+				return nil, status, err
+			}
+		} else {
+			s.Factory.Factory.CHmu.Unlock()
+			return nil, status, err
 		}
 	}
-	s.Factory.Factory.GlueLock.Unlock()
-	notify <- true
 	return nil, zdns.STATUS_NO_OUTPUT, nil
 }
 
@@ -192,24 +159,25 @@ func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 //
 type GlobalLookupFactory struct {
 	zdns.BaseGlobalLookupFactory
-	Glue        *map[string][]string
-	GlueLock    sync.RWMutex
-	Subfactory  alookup.GlobalLookupFactory
-	CacheFactor int
-	CacheHash   *cachehash.CacheHash
-	CHmu        sync.Mutex
-	Manager     CallbackManager
+	Glue         *map[string][]string
+	GlueLock     sync.Mutex
+	Subfactory   alookup.GlobalLookupFactory
+	CacheFactor  int
+	GlueFilePath string
+	Hash         *cachehash.CacheHash
+	GlueCache    *cachehash.CacheHash
+	CHmu         sync.Mutex
 }
 
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
 	f.BoolVar(&s.Subfactory.IPv4Lookup, "ipv4-lookup", true, "perform A lookups for each server")
 	f.BoolVar(&s.Subfactory.IPv6Lookup, "ipv6-lookup", true, "perform AAAA record lookups for each server")
-	f.IntVar(&s.CacheFactor, "cache-size-factor", 25, "number of times larger than the number of threads to make the cache of successes")
+	f.IntVar(&s.CacheFactor, "cache-size-factor", 25, "number of times larger than the number of threads to make the cache for looked up nameservers")
+	f.StringVar(&s.GlueFilePath, "glue-file", "", "glue file path")
 }
 
 func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	s.GlobalConf = c
-	cacheSize := c.Threads * s.CacheFactor
 	if c.InputFilePath == "-" {
 		return errors.New("Input to ZONE must be a file, not STDIN")
 	}
@@ -217,27 +185,18 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	if err != nil {
 		return err
 	}
-	s.CacheHash = new(cachehash.CacheHash)
-	s.CacheHash.Init(cacheSize)
-	s.Manager = CallbackManager{c, nil}
-	if c.OutputFilePath == "" || c.OutputFilePath == "-" {
-		s.Manager.OutputFile = os.Stdout
-	} else {
-		var err error
-		s.Manager.OutputFile, err = os.OpenFile(c.OutputFilePath, os.O_WRONLY|os.O_APPEND, 0666)
-		if err != nil {
-			log.Fatal("unable to open output file:", err.Error())
-		}
+	s.Hash = new(cachehash.CacheHash)
+	s.GlueCache = new(cachehash.CacheHash)
+	cacheSize := c.Threads * s.CacheFactor
+	s.Hash.Init(cacheSize)
+	s.GlueCache.Init(cacheSize)
+	if s.GlueFilePath == "" {
+		s.GlueFilePath = c.InputFilePath
 	}
-	s.CacheHash.RegisterCB(s.Manager.Evict)
-	return s.ParseGlue(c.InputFilePath)
+	return s.ParseGlue(s.GlueFilePath)
 }
 
 func (s *GlobalLookupFactory) Finalize() error {
-	for s.CacheHash.Len() > 0 {
-		s.CacheHash.Eject()
-	}
-	s.Manager.OutputFile.Close()
 	return nil
 }
 
@@ -249,9 +208,15 @@ func (s *GlobalLookupFactory) ParseGlue(glueFile string) error {
 	glue := make(map[string][]string)
 	s.Glue = &glue
 	tokens := dns.ParseZone(f, ".", glueFile)
+	log.Info("Beginning to parse glue file")
+	i := 0
 	for t := range tokens {
 		if t.Error != nil {
 			continue
+		}
+		i++
+		if i%100000 == 0 {
+			log.Infof("Processed %d glue records", i)
 		}
 		switch record := t.RR.(type) {
 		case *dns.AAAA:
@@ -262,6 +227,7 @@ func (s *GlobalLookupFactory) ParseGlue(glueFile string) error {
 			continue
 		}
 	}
+	log.Info("Ending parse zonefile")
 	return nil
 }
 
