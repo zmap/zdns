@@ -153,6 +153,15 @@ You can control the number of concurrent connections with the `--threads` and
 specified with `--name-servers`. ZDNS will rotate through these servers when
 making requests.
 
+Unsupported Types
+------------
+If zdns encounters a record type it does not support it will generate an output
+record with the `type` field set correctly and a representation of the
+underlying data structure in the `unparsed_rr` field. Do not rely on the
+presence or structure of this field. This field (and its existence) may change
+at any time as we expand support for additional record types. If you find
+yourself using this field, please consider submitting a pull-request adding
+parser support.
 
 License
 =======
