@@ -123,11 +123,13 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Expire:  soa.Expire,
 			Minttl:  soa.Minttl,
 		}
-	} else if any, ok := ans.(*dns.ANY); ok {
+	} else {
 		return struct {
-			Type string
+			Type string `json:"type"`
+			Unparsed dns.RR `json:"unparsed_rr"`
 		}{
-			Type: dns.Type(any.Hdr.Rrtype).String(),
+			Type: dns.Type(ans.Header().Rrtype).String(),
+			Unparsed: ans,
 		}
 	}
 	retv.Name = strings.TrimSuffix(retv.Name, ".")
