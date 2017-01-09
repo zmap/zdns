@@ -289,7 +289,7 @@ func (s *Lookup) extractAuthority(res Result) (string, zdns.Status, error) {
 		}
 	}
 
-	return "", zdns.STATUS_NOERROR, nil
+	return "", zdns.STATUS_SERVFAIL, nil
 }
 
 func (s *Lookup) iterativeLookup(name string, nameServer string, depth int) (interface{}, zdns.Status, error) {
@@ -306,12 +306,14 @@ func (s *Lookup) iterativeLookup(name string, nameServer string, depth int) (int
 		// find an appropriate name server and continue the recursion
 		ns, ns_status, _ := s.extractAuthority(result)
 		if ns_status != zdns.STATUS_NOERROR {
-			return result, zdns.STATUS_ERROR, errors.New("could not find authoritative name server")
+			empty := new(interface{})
+			return empty, zdns.STATUS_ERROR, errors.New("could not find authoritative name server")
 		}
 		return s.iterativeLookup(name, ns, depth+1)
 	} else {
 		return result, zdns.STATUS_ERROR, errors.New("NOERROR record without any answers or authorities")
 	}
+	return "", zdns.STATUS_SERVFAIL, errors.New("no valid name servers")
 }
 
 func (s *Lookup) DoMiekgLookup(name string) (interface{}, zdns.Status, error) {
