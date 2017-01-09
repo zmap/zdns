@@ -24,23 +24,23 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/zmap/zdns"
 	_ "github.com/zmap/zdns/modules/a"
-	_ "github.com/zmap/zdns/modules/aaaa"
-	_ "github.com/zmap/zdns/modules/alookup"
-	_ "github.com/zmap/zdns/modules/any"
-	_ "github.com/zmap/zdns/modules/axfr"
-	_ "github.com/zmap/zdns/modules/caa"
-	_ "github.com/zmap/zdns/modules/cname"
-	_ "github.com/zmap/zdns/modules/dmarc"
-	_ "github.com/zmap/zdns/modules/mx"
-	_ "github.com/zmap/zdns/modules/mxlookup"
-	_ "github.com/zmap/zdns/modules/ns"
-	_ "github.com/zmap/zdns/modules/nslookup"
-	_ "github.com/zmap/zdns/modules/ptr"
-	_ "github.com/zmap/zdns/modules/soa"
-	_ "github.com/zmap/zdns/modules/spf"
-	_ "github.com/zmap/zdns/modules/spfrr"
-	_ "github.com/zmap/zdns/modules/txt"
-	_ "github.com/zmap/zdns/modules/zone"
+	//_ "github.com/zmap/zdns/modules/aaaa"
+	//_ "github.com/zmap/zdns/modules/alookup"
+	//_ "github.com/zmap/zdns/modules/any"
+	//_ "github.com/zmap/zdns/modules/axfr"
+	//_ "github.com/zmap/zdns/modules/caa"
+	//_ "github.com/zmap/zdns/modules/cname"
+	//_ "github.com/zmap/zdns/modules/dmarc"
+	//_ "github.com/zmap/zdns/modules/mx"
+	//_ "github.com/zmap/zdns/modules/mxlookup"
+	//_ "github.com/zmap/zdns/modules/ns"
+	//_ "github.com/zmap/zdns/modules/nslookup"
+	//_ "github.com/zmap/zdns/modules/ptr"
+	//_ "github.com/zmap/zdns/modules/soa"
+	//_ "github.com/zmap/zdns/modules/spf"
+	//_ "github.com/zmap/zdns/modules/spfrr"
+	//_ "github.com/zmap/zdns/modules/txt"
+	//_ "github.com/zmap/zdns/modules/zone"
 )
 
 func main() {
@@ -52,11 +52,15 @@ func main() {
 	flags.IntVar(&gc.GoMaxProcs, "go-processes", 0, "number of OS processes (GOMAXPROCS)")
 	flags.StringVar(&gc.NamePrefix, "prefix", "", "name to be prepended to what's passed in (e.g., www.)")
 	flags.BoolVar(&gc.AlexaFormat, "alexa", false, "is input file from Alexa Top Million download")
+	flags.BoolVar(&gc.IterativeResolution, "iterative", false, "Perform own iteration instead of relying on recursive resolver")
 	flags.StringVar(&gc.InputFilePath, "input-file", "-", "names to read")
 	flags.StringVar(&gc.OutputFilePath, "output-file", "-", "where should JSON output be saved")
 	flags.StringVar(&gc.MetadataFilePath, "metadata-file", "", "where should JSON metadata be saved")
 	flags.StringVar(&gc.LogFilePath, "log-file", "", "where should JSON logs be saved")
 	flags.IntVar(&gc.Verbosity, "verbosity", 3, "log verbosity: 1 (lowest)--5 (highest)")
+	flags.IntVar(&gc.Retries, "retries", 1, "how many times should zdns retry query if timeout or temporary failure")
+	flags.IntVar(&gc.MaxDepth, "max-depth", 10, "how deep should we recurse when performing iterative lookups")
+	flags.IntVar(&gc.CacheSize, "cache-size", 10000, "how many items can be stored in internal recursive cache")
 	servers_string := flags.String("name-servers", "", "comma-delimited list of DNS servers to use")
 	config_file := flags.String("conf-file", "/etc/resolv.conf", "config file for DNS servers")
 	timeout := flags.Int("timeout", 10, "timeout for resolving an individual name")
@@ -99,12 +103,17 @@ func main() {
 	// complete post facto global initialization based on command line arguments
 	gc.Timeout = time.Duration(time.Second * time.Duration(*timeout))
 	if *servers_string == "" {
-		// figure out default OS name servers
-		ns, err := zdns.GetDNSServers(*config_file)
-		if err != nil {
-			log.Fatal("Unable to fetch correct name servers:", err.Error())
+		// if we're doing recursive resolution, figure out default OS name servers
+		// otherwise, use the set of 13 root name servers
+		if gc.IterativeResolution {
+			gc.NameServers = zdns.RootServers[:]
+		} else {
+			ns, err := zdns.GetDNSServers(*config_file)
+			if err != nil {
+				log.Fatal("Unable to fetch correct name servers:", err.Error())
+			}
+			gc.NameServers = ns
 		}
-		gc.NameServers = ns
 		gc.NameServersSpecified = false
 		log.Info("no name servers specified. will use: ", strings.Join(gc.NameServers, ", "))
 	} else {

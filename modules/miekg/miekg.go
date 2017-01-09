@@ -1,12 +1,15 @@
 package miekg
 
 import (
+	"errors"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
+	"github.com/zmap/zdns/cachehash"
 )
 
 type Answer struct {
@@ -32,27 +35,7 @@ type Result struct {
 	Protocol    string        `json:"protocol"`
 }
 
-type Lookup struct {
-	DNSType dns.Type
-	Prefix  string
-	zdns.BaseLookup
-}
-
-type GlobalLookupFactory struct {
-}
-
-type RoutineLookupFactory struct {
-	Client    *dns.Client
-	TCPClient *dns.Client
-}
-
-func (s *RoutineLookupFactory) Initialize(t time.Duration) {
-	s.Client = new(dns.Client)
-	s.Client.Timeout = t
-	s.TCPClient = new(dns.Client)
-	s.TCPClient.Net = "tcp"
-	s.TCPClient.Timeout = t
-}
+// Helpers
 
 func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
@@ -125,10 +108,10 @@ func ParseAnswer(ans dns.RR) interface{} {
 		}
 	} else {
 		return struct {
-			Type string `json:"type"`
+			Type     string `json:"type"`
 			Unparsed dns.RR `json:"unparsed_rr"`
 		}{
-			Type: dns.Type(ans.Header().Rrtype).String(),
+			Type:     dns.Type(ans.Header().Rrtype).String(),
 			Unparsed: ans,
 		}
 	}
@@ -140,43 +123,106 @@ func TranslateMiekgErrorCode(err int) zdns.Status {
 	return zdns.Status(dns.RcodeToString[err])
 }
 
-func DoLookup(udp *dns.Client, tcp *dns.Client, nameServer string, dnsType uint16, name string) (interface{}, zdns.Status, error) {
+// ZDNS Module
+
+type GlobalLookupFactory struct {
+	zdns.BaseGlobalLookupFactory
+	IterativeCache cachehash.CacheHash
+	CacheMutex     sync.RWMutex
+}
+
+func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
+	s.GlobalConf = c
+	s.IterativeCache.Init(c.CacheSize)
+	return nil
+}
+
+func (s *GlobalLookupFactory) AddCachedAuthority(name string, authorities []string, ttl int) error {
+	return nil
+}
+
+func (s *GlobalLookupFactory) GetCachedAuthority(name string) ([]string, error) {
+	var retv []string
+	return retv, nil
+}
+
+type RoutineLookupFactory struct {
+	Client              *dns.Client
+	TCPClient           *dns.Client
+	Retries             int
+	MaxDepth            int
+	Timeout             time.Duration
+	IterativeResolution bool
+	DNSType             uint16
+}
+
+func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
+	s.Client = new(dns.Client)
+	s.Client.Timeout = c.Timeout
+
+	s.TCPClient = new(dns.Client)
+	s.TCPClient.Net = "tcp"
+	s.TCPClient.Timeout = c.Timeout
+
+	s.Timeout = c.Timeout
+	s.Retries = c.Retries
+	s.MaxDepth = c.MaxDepth
+	s.IterativeResolution = c.IterativeResolution
+}
+
+type Lookup struct {
+	zdns.BaseLookup
+
+	Factory    *RoutineLookupFactory
+	DNSType    uint16
+	Prefix     string
+	NameServer string
+}
+
+func (s *Lookup) Initialize(nameServer string, dnsType uint16, factory *RoutineLookupFactory) error {
+	s.Factory = factory
+	s.NameServer = nameServer
+	s.DNSType = dnsType
+	return nil
+}
+
+func (s *Lookup) doLookup(name string, recursive bool) (Result, zdns.Status, error) {
 	// this is where we do scanning
 	res := Result{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 
 	m := new(dns.Msg)
-	m.SetQuestion(dotName(name), dnsType)
-	m.RecursionDesired = true
+	m.SetQuestion(dotName(name), s.DNSType)
+	m.RecursionDesired = recursive
 
 	useTCP := false
 	res.Protocol = "udp"
-	r, _, err := udp.Exchange(m, nameServer)
+	r, _, err := s.Factory.Client.Exchange(m, s.NameServer)
 	if err == dns.ErrTruncated {
-		if tcp == nil {
-			return nil, zdns.STATUS_TRUNCATED, err
+		if s.Factory.TCPClient == nil {
+			return res, zdns.STATUS_TRUNCATED, err
 		}
-		r, _, err = tcp.Exchange(m, nameServer)
+		r, _, err = s.Factory.TCPClient.Exchange(m, s.NameServer)
 		useTCP = true
 		res.Protocol = "tcp"
 	}
 	if err != nil || r == nil {
 		if nerr, ok := err.(net.Error); ok {
 			if nerr.Timeout() {
-				return nil, zdns.STATUS_TIMEOUT, nil
+				return res, zdns.STATUS_TIMEOUT, nil
 			} else if nerr.Temporary() {
-				return nil, zdns.STATUS_TEMPORARY, err
+				return res, zdns.STATUS_TEMPORARY, err
 			}
 		}
-		return nil, zdns.STATUS_ERROR, err
+		return res, zdns.STATUS_ERROR, err
 	}
 	if r.Rcode == dns.RcodeBadTrunc && !useTCP {
-		r, _, err = tcp.Exchange(m, nameServer)
+		r, _, err = s.Factory.TCPClient.Exchange(m, s.NameServer)
 	}
 	if err != nil || r == nil {
-		return nil, zdns.STATUS_ERROR, err
+		return res, zdns.STATUS_ERROR, err
 	}
 	if r.Rcode != dns.RcodeSuccess {
-		return nil, TranslateMiekgErrorCode(r.Rcode), nil
+		return res, TranslateMiekgErrorCode(r.Rcode), nil
 	}
 	for _, ans := range r.Answer {
 		inner := ParseAnswer(ans)
@@ -199,15 +245,63 @@ func DoLookup(udp *dns.Client, tcp *dns.Client, nameServer string, dnsType uint1
 	return res, zdns.STATUS_NOERROR, nil
 }
 
-func DoTxtLookup(udp *dns.Client, tcp *dns.Client, nameServer string, prefix string, name string) (string, zdns.Status, error) {
-	res, status, err := DoLookup(udp, tcp, nameServer, dns.TypeTXT, name)
+func (s *Lookup) retryingLookup(name string, recursive bool) (Result, zdns.Status, error) {
+	origTimeout := s.Factory.Client.Timeout
+	for i := 0; i < s.Factory.Retries; i++ {
+		result, status, err := s.doLookup(name, recursive)
+		if (status != zdns.STATUS_TIMEOUT && status != zdns.STATUS_TEMPORARY) || i+1 == s.Factory.Retries {
+			s.Factory.Client.Timeout = origTimeout
+			s.Factory.TCPClient.Timeout = origTimeout
+			return result, status, err
+		}
+		s.Factory.Client.Timeout = 2 * s.Factory.Client.Timeout
+		s.Factory.TCPClient.Timeout = 2 * s.Factory.TCPClient.Timeout
+	}
+	panic("loop must return")
+}
+
+func (s *Lookup) extractAuthority(res Result) (string, zdns.Status, error) {
+	return "", zdns.STATUS_NOERROR, nil
+}
+
+func (s *Lookup) iterativeLookup(name string, nameServer string, depth int) (interface{}, zdns.Status, error) {
+	if depth > 10 {
+		return nil, zdns.STATUS_ERROR, errors.New("Max recursion depth reached")
+	}
+	result, status, err := s.retryingLookup(name, false)
+	if status != zdns.STATUS_NOERROR {
+		return result, status, err
+	} else if len(result.Answers) != 0 {
+		return result, status, err
+	} else if len(result.Authorities) != 0 {
+		// find an appropriate name server and continue the recursion
+		ns, ns_status, _ := s.extractAuthority(result)
+		if ns_status != zdns.STATUS_NOERROR {
+			return result, zdns.STATUS_ERROR, errors.New("could not find authoritative name server")
+		}
+		return s.iterativeLookup(name, ns, depth+1)
+	} else {
+		return result, zdns.STATUS_ERROR, errors.New("NOERROR record without any answers or authorities")
+	}
+}
+
+func (s *Lookup) DoMiekgLookup(name string) (interface{}, zdns.Status, error) {
+	if s.Factory.IterativeResolution {
+		return s.iterativeLookup(name, s.NameServer, 0)
+	} else {
+		return s.retryingLookup(name, true)
+	}
+}
+
+func (s *Lookup) DoTxtLookup(name string) (string, zdns.Status, error) {
+	res, status, err := s.DoLookup(name)
 	if status != zdns.STATUS_NOERROR {
 		return "", status, err
 	}
 	if parsedResult, ok := res.(Result); ok {
 		for _, a := range parsedResult.Answers {
 			ans, _ := a.(Answer)
-			if strings.HasPrefix(ans.Answer, prefix) {
+			if strings.HasPrefix(ans.Answer, s.Prefix) {
 				return ans.Answer, zdns.STATUS_NOERROR, err
 			}
 		}

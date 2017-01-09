@@ -226,6 +226,11 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	metadata.StartTime = startTime
 	metadata.EndTime = time.Now().Format(time.RFC3339)
 	metadata.NameServers = c.NameServers
+	metadata.Retries = c.Retries
+	// Seconds() returns a float. However, timeout is passed in as an integer
+	// command line argument, so there should be no loss of data when casting
+	// back to an integer here.
+	metadata.Timeout = int(c.Timeout.Seconds())
 	// add global lookup-related metadata
 	// write out metadata
 	if c.MetadataFilePath != "" {
