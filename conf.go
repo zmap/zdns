@@ -70,6 +70,7 @@ type Status string
 const (
 	STATUS_NOERROR       Status = "NOERROR"
 	STATUS_ERROR         Status = "ERROR"
+	STATUS_SERVFAIL      Status = "SERVFAIL"
 	STATUS_NO_RECORD     Status = "NORECORD"
 	STATUS_BLACKLIST     Status = "BLACKLIST"
 	STATUS_NO_OUTPUT     Status = "NO_OUTPUT"

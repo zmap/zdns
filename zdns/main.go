@@ -63,7 +63,7 @@ func main() {
 	flags.IntVar(&gc.CacheSize, "cache-size", 10000, "how many items can be stored in internal recursive cache")
 	servers_string := flags.String("name-servers", "", "comma-delimited list of DNS servers to use")
 	config_file := flags.String("conf-file", "/etc/resolv.conf", "config file for DNS servers")
-	timeout := flags.Int("timeout", 10, "timeout for resolving an individual name")
+	timeout := flags.Int("timeout", 15, "timeout for resolving an individual name")
 	// allow module to initialize and add its own flags before we parse
 	if len(os.Args) < 2 {
 		log.Fatal("No lookup module specified. Valid modules: ", zdns.ValidlookupsString())
