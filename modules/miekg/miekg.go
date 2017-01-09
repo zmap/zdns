@@ -2,6 +2,7 @@ package miekg
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"strings"
 	"sync"
@@ -186,7 +187,7 @@ func (s *Lookup) Initialize(nameServer string, dnsType uint16, factory *RoutineL
 	return nil
 }
 
-func (s *Lookup) doLookup(name string, recursive bool) (Result, zdns.Status, error) {
+func (s *Lookup) doLookup(name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
 	// this is where we do scanning
 	res := Result{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 
@@ -196,12 +197,12 @@ func (s *Lookup) doLookup(name string, recursive bool) (Result, zdns.Status, err
 
 	useTCP := false
 	res.Protocol = "udp"
-	r, _, err := s.Factory.Client.Exchange(m, s.NameServer)
+	r, _, err := s.Factory.Client.Exchange(m, nameServer)
 	if err == dns.ErrTruncated {
 		if s.Factory.TCPClient == nil {
 			return res, zdns.STATUS_TRUNCATED, err
 		}
-		r, _, err = s.Factory.TCPClient.Exchange(m, s.NameServer)
+		r, _, err = s.Factory.TCPClient.Exchange(m, nameServer)
 		useTCP = true
 		res.Protocol = "tcp"
 	}
@@ -245,10 +246,10 @@ func (s *Lookup) doLookup(name string, recursive bool) (Result, zdns.Status, err
 	return res, zdns.STATUS_NOERROR, nil
 }
 
-func (s *Lookup) retryingLookup(name string, recursive bool) (Result, zdns.Status, error) {
+func (s *Lookup) retryingLookup(name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
 	origTimeout := s.Factory.Client.Timeout
 	for i := 0; i < s.Factory.Retries; i++ {
-		result, status, err := s.doLookup(name, recursive)
+		result, status, err := s.doLookup(name, nameServer, recursive)
 		if (status != zdns.STATUS_TIMEOUT && status != zdns.STATUS_TEMPORARY) || i+1 == s.Factory.Retries {
 			s.Factory.Client.Timeout = origTimeout
 			s.Factory.TCPClient.Timeout = origTimeout
@@ -261,14 +262,42 @@ func (s *Lookup) retryingLookup(name string, recursive bool) (Result, zdns.Statu
 }
 
 func (s *Lookup) extractAuthority(res Result) (string, zdns.Status, error) {
+	// most reasonable servers will include the A or AAAA record for a DNS
+	// server in the additionals. Put all into a hash table that we can check
+	// when we iterate over the records in the authorities section
+	searchSet := make(map[string][]Answer)
+	for _, a := range res.Additional {
+		ans, ok := a.(Answer)
+		if !ok {
+			continue
+		}
+		if ans.Type == "A" {
+			name := dotName(ans.Name)
+			searchSet[name] = append(searchSet[name], ans)
+		}
+	}
+	//fmt.Println(searchSet)
+	// check if we have the IP address for any of the authorities
+	for _, a := range res.Authorities {
+		ans, ok := a.(Answer)
+		if !ok {
+			continue
+		}
+		if ip, ok := searchSet[ans.Answer]; ok {
+			server := strings.TrimSuffix(ip[0].Answer, ".") + ":53"
+			return server, zdns.STATUS_NOERROR, nil
+		}
+	}
+
 	return "", zdns.STATUS_NOERROR, nil
 }
 
 func (s *Lookup) iterativeLookup(name string, nameServer string, depth int) (interface{}, zdns.Status, error) {
+	fmt.Println("iterativeLookup", nameServer, " looking up ", name)
 	if depth > 10 {
 		return nil, zdns.STATUS_ERROR, errors.New("Max recursion depth reached")
 	}
-	result, status, err := s.retryingLookup(name, false)
+	result, status, err := s.retryingLookup(name, nameServer, false)
 	if status != zdns.STATUS_NOERROR {
 		return result, status, err
 	} else if len(result.Answers) != 0 {
@@ -289,7 +318,7 @@ func (s *Lookup) DoMiekgLookup(name string) (interface{}, zdns.Status, error) {
 	if s.Factory.IterativeResolution {
 		return s.iterativeLookup(name, s.NameServer, 0)
 	} else {
-		return s.retryingLookup(name, true)
+		return s.retryingLookup(name, s.NameServer, true)
 	}
 }
 
