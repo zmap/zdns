@@ -51,7 +51,7 @@ type Result struct {
 	AlexaRank   int         `json:"alexa_rank,omitempty"`
 	Status      string      `json:"status,omitempty"`
 	Error       string      `json:"error,omitempty"`
-	Timestamp   time.Time   `json:"timestamp"`
+	Timestamp   string      `json:"timestamp,omitempty"`
 	Data        interface{} `json:"data,omitempty"`
 }
 
