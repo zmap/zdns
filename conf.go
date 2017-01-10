@@ -17,12 +17,11 @@ package zdns
 import "time"
 
 type GlobalConf struct {
-	Threads      int
-	Timeout      time.Duration
-	AlexaFormat  bool
-	LogTimestamp bool
-	GoMaxProcs   int
-	Verbosity    int
+	Threads     int
+	Timeout     time.Duration
+	AlexaFormat bool
+	GoMaxProcs  int
+	Verbosity   int
 
 	NameServersSpecified bool
 	NameServers          []string
@@ -52,7 +51,7 @@ type Result struct {
 	AlexaRank   int         `json:"alexa_rank,omitempty"`
 	Status      string      `json:"status,omitempty"`
 	Error       string      `json:"error,omitempty"`
-	Timestamp   *time.Time  `json:"timestamp,omitempty"`
+	Timestamp   time.Time   `json:"timestamp"`
 	Data        interface{} `json:"data,omitempty"`
 }
 

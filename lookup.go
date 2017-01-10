@@ -111,10 +111,7 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, 
 			res.Name = rawName
 			innerRes, status, err = l.DoLookup(lookupName)
 		}
-		if gc.LogTimestamp {
-			now := time.Now()
-			res.Timestamp = &now
-		}
+		res.Timestamp = time.Now()
 		if status != STATUS_NO_OUTPUT {
 			res.Status = string(status)
 			res.Data = innerRes
