@@ -28,12 +28,26 @@ type MXAnswer struct {
 	Preference uint16 `json:"preference"`
 }
 
+type DNSFlags struct {
+	Response           bool
+	Opcode             int
+	Authoritative      bool
+	Truncated          bool
+	RecursionDesired   bool
+	RecursionAvailable bool
+	Reserved           bool
+	Authenticated      bool
+	CheckingDisabled   bool
+	ErrorCode          int
+}
+
 // result to be returned by scan of host
 type Result struct {
 	Answers     []interface{} `json:"answers"`
 	Additional  []interface{} `json:"additionals"`
 	Authorities []interface{} `json:"authorities"`
 	Protocol    string        `json:"protocol"`
+	Flags       DNSFlags
 }
 
 // Helpers
@@ -187,16 +201,17 @@ func (s *Lookup) Initialize(nameServer string, dnsType uint16, factory *RoutineL
 	return nil
 }
 
-func (s *Lookup) doLookup(name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
+func (s *Lookup) doLookup(dnsType uint16, name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
 	// this is where we do scanning
 	res := Result{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 
 	m := new(dns.Msg)
-	m.SetQuestion(dotName(name), s.DNSType)
+	m.SetQuestion(dotName(name), dnsType)
 	m.RecursionDesired = recursive
 
 	useTCP := false
 	res.Protocol = "udp"
+
 	r, _, err := s.Factory.Client.Exchange(m, nameServer)
 	if err == dns.ErrTruncated {
 		if s.Factory.TCPClient == nil {
@@ -225,6 +240,17 @@ func (s *Lookup) doLookup(name string, nameServer string, recursive bool) (Resul
 	if r.Rcode != dns.RcodeSuccess {
 		return res, TranslateMiekgErrorCode(r.Rcode), nil
 	}
+
+	res.Flags.Response = r.Response
+	res.Flags.Opcode = r.Opcode
+	res.Flags.Authoritative = r.Authoritative
+	res.Flags.Truncated = r.Truncated
+	res.Flags.RecursionDesired = r.RecursionDesired
+	res.Flags.RecursionAvailable = r.RecursionAvailable
+	res.Flags.Authenticated = r.AuthenticatedData
+	res.Flags.CheckingDisabled = r.CheckingDisabled
+	res.Flags.ErrorCode = r.Rcode
+
 	for _, ans := range r.Answer {
 		inner := ParseAnswer(ans)
 		if inner != nil {
@@ -246,10 +272,10 @@ func (s *Lookup) doLookup(name string, nameServer string, recursive bool) (Resul
 	return res, zdns.STATUS_NOERROR, nil
 }
 
-func (s *Lookup) retryingLookup(name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
+func (s *Lookup) retryingLookup(dnsType uint16, name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
 	origTimeout := s.Factory.Client.Timeout
 	for i := 0; i < s.Factory.Retries; i++ {
-		result, status, err := s.doLookup(name, nameServer, recursive)
+		result, status, err := s.doLookup(dnsType, name, nameServer, recursive)
 		if (status != zdns.STATUS_TIMEOUT && status != zdns.STATUS_TEMPORARY) || i+1 == s.Factory.Retries {
 			s.Factory.Client.Timeout = origTimeout
 			s.Factory.TCPClient.Timeout = origTimeout
@@ -262,6 +288,10 @@ func (s *Lookup) retryingLookup(name string, nameServer string, recursive bool) 
 }
 
 func (s *Lookup) extractAuthority(res Result) (string, zdns.Status, error) {
+	if len(res.Authorities) == 0 {
+		// this is a lost cause.
+		return "", zdns.STATUS_SERVFAIL, nil
+	}
 	// most reasonable servers will include the A or AAAA record for a DNS
 	// server in the additionals. Put all into a hash table that we can check
 	// when we iterate over the records in the authorities section
@@ -289,16 +319,40 @@ func (s *Lookup) extractAuthority(res Result) (string, zdns.Status, error) {
 		}
 	}
 
+	// nothing was found. we need to lookup the A record for one of the NS servers. Quit once
+	// we've found one.
+	for _, a := range res.Authorities {
+		_, ok := a.(Answer)
+		if !ok {
+			continue
+		}
+		fmt.Println("Hi2!")
+		//res, status, _ := s.retryingLookup(dns.TypeA, ans.Answer, s.NameServer, false)
+		//if status == zdns.STATUS_NOERROR {
+		//	for _, inner_a := range res.Additional {
+		//		inner_ans, ok := inner_a.(Answer)
+		//		if !ok {
+		//			continue
+		//		}
+		//		if inner_ans.Type == "A" {
+		//			return ans.Name, zdns.STATUS_NOERROR, nil
+		//		}
+		//	}
+		//}
+	}
 	return "", zdns.STATUS_SERVFAIL, nil
 }
 
-func (s *Lookup) iterativeLookup(name string, nameServer string, depth int) (interface{}, zdns.Status, error) {
+func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string, depth int) (interface{}, zdns.Status, error) {
 	fmt.Println("iterativeLookup", nameServer, " looking up ", name)
 	if depth > 10 {
 		return nil, zdns.STATUS_ERROR, errors.New("Max recursion depth reached")
 	}
-	result, status, err := s.retryingLookup(name, nameServer, false)
+	result, status, err := s.retryingLookup(dnsType, name, nameServer, false)
+	fmt.Println(result)
 	if status != zdns.STATUS_NOERROR {
+		return result, status, err
+	} else if result.Flags.Authoritative == true {
 		return result, status, err
 	} else if len(result.Answers) != 0 {
 		return result, status, err
@@ -309,7 +363,7 @@ func (s *Lookup) iterativeLookup(name string, nameServer string, depth int) (int
 			empty := new(interface{})
 			return empty, zdns.STATUS_ERROR, errors.New("could not find authoritative name server")
 		}
-		return s.iterativeLookup(name, ns, depth+1)
+		return s.iterativeLookup(dnsType, name, ns, depth+1)
 	} else {
 		return result, zdns.STATUS_ERROR, errors.New("NOERROR record without any answers or authorities")
 	}
@@ -318,9 +372,9 @@ func (s *Lookup) iterativeLookup(name string, nameServer string, depth int) (int
 
 func (s *Lookup) DoMiekgLookup(name string) (interface{}, zdns.Status, error) {
 	if s.Factory.IterativeResolution {
-		return s.iterativeLookup(name, s.NameServer, 0)
+		return s.iterativeLookup(s.DNSType, name, s.NameServer, 0)
 	} else {
-		return s.retryingLookup(name, s.NameServer, true)
+		return s.retryingLookup(s.DNSType, name, s.NameServer, true)
 	}
 }
 
