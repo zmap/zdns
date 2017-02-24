@@ -286,11 +286,10 @@ func (s *Lookup) retryingLookup(dnsType uint16, name string, nameServer string, 
 	panic("loop must return")
 }
 
-func (s *Lookup) extractAuthority(res Result) (string, zdns.Status, error) {
-	//fmt.Println("extract authority called on", res)
+func (s *Lookup) extractAdditionals(res Result) map[string][]Answer {
 	if len(res.Authorities) == 0 {
 		// this is a lost cause.
-		return "", zdns.STATUS_SERVFAIL, nil
+		return nil
 	}
 	// most reasonable servers will include the A or AAAA record for a DNS
 	// server in the additionals. Put all into a hash table that we can check
@@ -306,40 +305,37 @@ func (s *Lookup) extractAuthority(res Result) (string, zdns.Status, error) {
 			searchSet[name] = append(searchSet[name], ans)
 		}
 	}
+	return searchSet
+}
+
+func (s *Lookup) extractAuthority(searchSet map[string][]Answer, authority interface{}) (string, zdns.Status) {
 	// check if we have the IP address for any of the authorities
-	for _, a := range res.Authorities {
-		ans, ok := a.(Answer)
-		if !ok {
-			continue
-		}
-		if ip, ok := searchSet[ans.Answer]; ok {
-			server := strings.TrimSuffix(ip[0].Answer, ".") + ":53"
-			return server, zdns.STATUS_NOERROR, nil
-		}
+	ans, ok := authority.(Answer)
+	if !ok {
+		return "", zdns.STATUS_SERVFAIL
+	}
+
+	if ip, ok := searchSet[ans.Answer]; ok {
+		server := strings.TrimSuffix(ip[0].Answer, ".") + ":53"
+		return server, zdns.STATUS_NOERROR
 	}
 	// nothing was found. we need to lookup the A record for one of the NS servers. Quit once
 	// we've found one.
-	for _, a := range res.Authorities {
-		ans, ok := a.(Answer)
-		if !ok {
-			continue
-		}
-		server := strings.TrimSuffix(ans.Answer, ".")
-		res, status, _ := s.iterativeLookup(dns.TypeA, server, s.NameServer, 0)
-		if status == zdns.STATUS_NOERROR {
-			for _, inner_a := range res.Answers {
-				inner_ans, ok := inner_a.(Answer)
-				if !ok {
-					continue
-				}
-				if inner_ans.Type == "A" {
-					server := strings.TrimSuffix(inner_ans.Answer, ".") + ":53"
-					return server, zdns.STATUS_NOERROR, nil
-				}
+	server := strings.TrimSuffix(ans.Answer, ".")
+	res, status, _ := s.iterativeLookup(dns.TypeA, server, s.NameServer, 0)
+	if status == zdns.STATUS_NOERROR {
+		for _, inner_a := range res.Answers {
+			inner_ans, ok := inner_a.(Answer)
+			if !ok {
+				continue
+			}
+			if inner_ans.Type == "A" {
+				server := strings.TrimSuffix(inner_ans.Answer, ".") + ":53"
+				return server, zdns.STATUS_NOERROR
 			}
 		}
 	}
-	return "", zdns.STATUS_SERVFAIL, nil
+	return "", zdns.STATUS_SERVFAIL
 }
 
 func makeDepthPadding(depth int) string {
@@ -368,6 +364,31 @@ func debugExtractAuthorityInput(result Result, depth int) {
 	}
 }
 
+func (s *Lookup) iterateOnAuthorities(dnsType uint16, name string, depth int, result Result) (Result, zdns.Status, error) {
+	if len(result.Authorities) == 0 {
+		var r Result
+		return r, zdns.STATUS_SERVFAIL, nil
+	}
+	searchSet := s.extractAdditionals(result)
+	for _, elem := range result.Authorities {
+		// XXX log stuff
+		ns, ns_status := s.extractAuthority(searchSet, elem)
+		log.Debug(makeDepthPadding(depth+1), "   Output from extract authorities: ", ns)
+		if ns_status != zdns.STATUS_NOERROR {
+			// XXX Log stuff
+			continue
+		}
+		r, status, err := s.iterativeLookup(dnsType, name, ns, depth+1)
+		if ns_status != zdns.STATUS_NOERROR {
+			// XXX Log stuff
+			continue
+		}
+		return r, status, err
+	}
+	var r Result
+	return r, zdns.STATUS_ERROR, errors.New("could not find authoritative name server")
+}
+
 func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string, depth int) (Result, zdns.Status, error) {
 	if log.GetLevel() == log.DebugLevel {
 		log.Debug(makeDepthPadding(depth), "iterative lookup for ", name, " (", dnsType, ") against ", nameServer, " (", debugReverseLookup(nameServer), ")")
@@ -387,14 +408,7 @@ func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string,
 		log.Debug(makeDepthPadding(depth+1), "-> answers found")
 		return result, status, err
 	} else if len(result.Authorities) != 0 {
-		debugExtractAuthorityInput(result, depth)
-		ns, ns_status, _ := s.extractAuthority(result)
-		log.Debug(makeDepthPadding(depth+1), "   Output from extract authorities: ", ns)
-		if ns_status != zdns.STATUS_NOERROR {
-			var r Result
-			return r, zdns.STATUS_ERROR, errors.New("could not find authoritative name server")
-		}
-		return s.iterativeLookup(dnsType, name, ns, depth+1)
+		return s.iterateOnAuthorities(dnsType, name, depth, result)
 	} else {
 		return result, zdns.STATUS_ERROR, errors.New("NOERROR record without any answers or authorities")
 	}
