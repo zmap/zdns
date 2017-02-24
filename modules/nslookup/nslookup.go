@@ -134,6 +134,8 @@ type RoutineLookupFactory struct {
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 	a := Lookup{Factory: s}
+	nameServer := s.Factory.RandomNameServer()
+	a.Initialize(nameServer, dns.TypeA, &s.RoutineLookupFactory)
 	return &a, nil
 }
 
@@ -166,7 +168,7 @@ func (s *GlobalLookupFactory) Help() string {
 
 func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
-	r.Initialize(s.GlobalConf.Timeout)
+	r.Initialize(s.GlobalConf)
 	r.Factory = s
 	return r, nil
 }
