@@ -346,15 +346,31 @@ func makeDepthPadding(depth int) string {
 	return strings.Repeat("  ", depth)
 }
 
+func debugReverseLookup(name string) string {
+	nameServerNoPort := strings.Split(name, ":")[0]
+	nameServers, err := net.LookupAddr(nameServerNoPort)
+	if err == nil && len(nameServers) > 0 {
+		return strings.TrimSuffix(nameServers[0], ".")
+	}
+	return "unknown"
+}
+
+func debugExtractAuthorityInput(result Result, depth int) {
+	log.Debug(makeDepthPadding(depth+1), "-> authorities found. will attempt to extract IP of an authority")
+	log.Debug(makeDepthPadding(depth+1), "   Intput to extract authorities: ")
+	log.Debug(makeDepthPadding(depth+1), "    - Authorities:")
+	for _, elem := range result.Authorities {
+		log.Debug(makeDepthPadding(depth+1), "      - ", elem)
+	}
+	log.Debug(makeDepthPadding(depth+1), "    - Additionals:")
+	for _, elem := range result.Additional {
+		log.Debug(makeDepthPadding(depth+1), "      - ", elem)
+	}
+}
+
 func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string, depth int) (Result, zdns.Status, error) {
 	if log.GetLevel() == log.DebugLevel {
-		nameServerReverse := "unknown"
-		nameServerNoPort := strings.Split(nameServer, ":")[0]
-		nameServers, err := net.LookupAddr(nameServerNoPort)
-		if err == nil && len(nameServers) > 0 {
-			nameServerReverse = strings.TrimSuffix(nameServers[0], ".")
-		}
-		log.Debug(makeDepthPadding(depth), "iterative lookup for ", name, " (", dnsType, ") against ", nameServerNoPort, " (", nameServerReverse, ")")
+		log.Debug(makeDepthPadding(depth), "iterative lookup for ", name, " (", dnsType, ") against ", nameServer, " (", debugReverseLookup(nameServer), ")")
 	}
 	if depth > s.Factory.MaxDepth {
 		var r Result
@@ -371,16 +387,7 @@ func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string,
 		log.Debug(makeDepthPadding(depth+1), "-> answers found")
 		return result, status, err
 	} else if len(result.Authorities) != 0 {
-		log.Debug(makeDepthPadding(depth+1), "-> authorities found. will attempt to extract IP of an authority")
-		log.Debug(makeDepthPadding(depth+1), "   Intput to extract authorities: ")
-		log.Debug(makeDepthPadding(depth+1), "    - Authorities:")
-		for _, elem := range result.Authorities {
-			log.Debug(makeDepthPadding(depth+1), "      - ", elem)
-		}
-		log.Debug(makeDepthPadding(depth+1), "    - Additionals:")
-		for _, elem := range result.Additional {
-			log.Debug(makeDepthPadding(depth+1), "      - ", elem)
-		}
+		debugExtractAuthorityInput(result, depth)
 		ns, ns_status, _ := s.extractAuthority(result)
 		log.Debug(makeDepthPadding(depth+1), "   Output from extract authorities: ", ns)
 		if ns_status != zdns.STATUS_NOERROR {
