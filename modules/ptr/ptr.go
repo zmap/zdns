@@ -28,13 +28,12 @@ type Lookup struct {
 }
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
-	nameServer := s.Factory.Factory.RandomNameServer()
 	name, err := dns.ReverseAddr(name)
 	if err != nil {
 		return nil, zdns.STATUS_ILLEGAL_INPUT, err
 	}
 	name = name[:len(name)-1]
-	return miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dns.TypePTR, name)
+	return s.DoMiekgLookup(name)
 }
 
 // Per GoRoutine Factory ======================================================
@@ -46,6 +45,8 @@ type RoutineLookupFactory struct {
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 	a := Lookup{Factory: s}
+	nameServer := s.Factory.RandomNameServer()
+	a.Initialize(nameServer, dns.TypePTR, &s.RoutineLookupFactory)
 	return &a, nil
 }
 
@@ -64,7 +65,7 @@ func (s *GlobalLookupFactory) Help() string {
 func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
 	r.Factory = s
-	r.Initialize(s.GlobalConf.Timeout)
+	r.Initialize(s.GlobalConf)
 	return r, nil
 }
 

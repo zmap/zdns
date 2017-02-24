@@ -122,6 +122,8 @@ type RoutineLookupFactory struct {
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 	a := Lookup{Factory: s}
+	nameServer := s.Factory.RandomNameServer()
+	a.Initialize(nameServer, dns.TypeA, &s.RoutineLookupFactory)
 	return &a, nil
 }
 
