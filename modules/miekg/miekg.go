@@ -1,13 +1,13 @@
 package miekg
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net"
 	"strings"
 	"sync"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
 
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
@@ -202,7 +202,6 @@ func (s *Lookup) Initialize(nameServer string, dnsType uint16, factory *RoutineL
 }
 
 func (s *Lookup) doLookup(dnsType uint16, name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
-	// this is where we do scanning
 	res := Result{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 
 	m := new(dns.Msg)
@@ -288,7 +287,7 @@ func (s *Lookup) retryingLookup(dnsType uint16, name string, nameServer string, 
 }
 
 func (s *Lookup) extractAuthority(res Result) (string, zdns.Status, error) {
-	fmt.Println("extract authority called on", res)
+	//fmt.Println("extract authority called on", res)
 	if len(res.Authorities) == 0 {
 		// this is a lost cause.
 		return "", zdns.STATUS_SERVFAIL, nil
@@ -343,14 +342,22 @@ func (s *Lookup) extractAuthority(res Result) (string, zdns.Status, error) {
 }
 
 func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string, depth int) (Result, zdns.Status, error) {
-	fmt.Println("iterativeLookup", nameServer, " looking up ", name, " type", dnsType)
+	if log.GetLevel() == log.DebugLevel {
+		nameServerReverse := "unknown"
+		nameServerNoPort := strings.Split(nameServer, ":")[0]
+		nameServers, err := net.LookupAddr(nameServerNoPort)
+		if err == nil && len(nameServers) > 0 {
+			nameServerReverse = strings.TrimSuffix(nameServers[0], ".")
+		}
+		log.Debug("iterative lookup for ", name, " (", dnsType, ") against ", nameServerNoPort, " (", nameServerReverse, ")")
+	}
 	if depth > 10 {
 		var r Result
 		return r, zdns.STATUS_ERROR, errors.New("Max recursion depth reached")
 	}
 	result, status, err := s.retryingLookup(dnsType, name, nameServer, false)
-	j, _ := json.Marshal(result)
-	fmt.Println(string(j))
+	//j, _ := json.Marshal(result)
+	//fmt.Println(string(j))
 	if status != zdns.STATUS_NOERROR {
 		return result, status, err
 	} else if result.Flags.Authoritative == true {
@@ -360,7 +367,7 @@ func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string,
 	} else if len(result.Authorities) != 0 {
 		// find an appropriate name server and continue the recursion
 		ns, ns_status, _ := s.extractAuthority(result)
-		fmt.Println(">>>>>", ns)
+		//fmt.Println(">>>>>", ns)
 		if ns_status != zdns.STATUS_NOERROR {
 			var r Result
 			return r, zdns.STATUS_ERROR, errors.New("could not find authoritative name server")
