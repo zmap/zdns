@@ -62,7 +62,7 @@ type GlobalLookupFactory struct {
 
 func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
-	r.Initialize(s.GlobalConf.Timeout)
+	r.Initialize(s.GlobalConf)
 	r.Factory = s
 	return r, nil
 }
