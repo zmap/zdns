@@ -341,6 +341,10 @@ func (s *Lookup) extractAuthority(res Result) (string, zdns.Status, error) {
 	return "", zdns.STATUS_SERVFAIL, nil
 }
 
+func makeDepthPadding(depth int) string {
+	return strings.Repeat("  ", depth)
+}
+
 func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string, depth int) (Result, zdns.Status, error) {
 	if log.GetLevel() == log.DebugLevel {
 		nameServerReverse := "unknown"
@@ -349,25 +353,35 @@ func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string,
 		if err == nil && len(nameServers) > 0 {
 			nameServerReverse = strings.TrimSuffix(nameServers[0], ".")
 		}
-		log.Debug("iterative lookup for ", name, " (", dnsType, ") against ", nameServerNoPort, " (", nameServerReverse, ")")
+		log.Debug(makeDepthPadding(depth), "iterative lookup for ", name, " (", dnsType, ") against ", nameServerNoPort, " (", nameServerReverse, ")")
 	}
 	if depth > 10 {
 		var r Result
 		return r, zdns.STATUS_ERROR, errors.New("Max recursion depth reached")
 	}
 	result, status, err := s.retryingLookup(dnsType, name, nameServer, false)
-	//j, _ := json.Marshal(result)
-	//fmt.Println(string(j))
 	if status != zdns.STATUS_NOERROR {
+		log.Debug(makeDepthPadding(depth+1), "-> error occurred during lookup")
 		return result, status, err
 	} else if result.Flags.Authoritative == true {
+		log.Debug(makeDepthPadding(depth+1), "-> authoritative response found")
 		return result, status, err
 	} else if len(result.Answers) != 0 {
+		log.Debug(makeDepthPadding(depth+1), "-> answers found")
 		return result, status, err
 	} else if len(result.Authorities) != 0 {
-		// find an appropriate name server and continue the recursion
+		log.Debug(makeDepthPadding(depth+1), "-> authorities found. will attempt to extract IP of an authority")
+		log.Debug(makeDepthPadding(depth+1), "   Intput to extract authorities: ")
+		log.Debug(makeDepthPadding(depth+1), "    - Authorities:")
+		for _, elem := range result.Authorities {
+			log.Debug(makeDepthPadding(depth+1), "      - ", elem)
+		}
+		log.Debug(makeDepthPadding(depth+1), "    - Additionals:")
+		for _, elem := range result.Additional {
+			log.Debug(makeDepthPadding(depth+1), "      - ", elem)
+		}
 		ns, ns_status, _ := s.extractAuthority(result)
-		//fmt.Println(">>>>>", ns)
+		log.Debug(makeDepthPadding(depth+1), "   Output from extract authorities: ", ns)
 		if ns_status != zdns.STATUS_NOERROR {
 			var r Result
 			return r, zdns.STATUS_ERROR, errors.New("could not find authoritative name server")
