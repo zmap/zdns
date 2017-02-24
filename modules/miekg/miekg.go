@@ -325,7 +325,7 @@ func (s *Lookup) extractAuthority(res Result) (string, zdns.Status, error) {
 			continue
 		}
 		server := strings.TrimSuffix(ans.Answer, ".")
-		res, status, _ := s.iterativeLookup(dns.TypeA, server, s.NameServer, s.Factory.MaxDepth)
+		res, status, _ := s.iterativeLookup(dns.TypeA, server, s.NameServer, 0)
 		if status == zdns.STATUS_NOERROR {
 			for _, inner_a := range res.Answers {
 				inner_ans, ok := inner_a.(Answer)
@@ -333,7 +333,8 @@ func (s *Lookup) extractAuthority(res Result) (string, zdns.Status, error) {
 					continue
 				}
 				if inner_ans.Type == "A" {
-					return ans.Name, zdns.STATUS_NOERROR, nil
+					server := strings.TrimSuffix(inner_ans.Answer, ".") + ":53"
+					return server, zdns.STATUS_NOERROR, nil
 				}
 			}
 		}
@@ -351,7 +352,7 @@ func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string,
 		}
 		log.Debug("iterative lookup for ", name, " (", dnsType, ") against ", nameServerNoPort, " (", nameServerReverse, ")")
 	}
-	if depth > 10 {
+	if depth > s.Factory.MaxDepth {
 		var r Result
 		return r, zdns.STATUS_ERROR, errors.New("Max recursion depth reached")
 	}
