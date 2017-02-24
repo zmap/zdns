@@ -422,8 +422,16 @@ func (s *Lookup) DoMiekgLookup(name string) (interface{}, zdns.Status, error) {
 	}
 }
 
+func (s *Lookup) DoTypedMiekgLookup(name string, dnsType uint16) (interface{}, zdns.Status, error) {
+	if s.Factory.IterativeResolution {
+		return s.iterativeLookup(dnsType, name, s.NameServer, 0)
+	} else {
+		return s.retryingLookup(dnsType, name, s.NameServer, true)
+	}
+}
+
 func (s *Lookup) DoTxtLookup(name string) (string, zdns.Status, error) {
-	res, status, err := s.DoLookup(name)
+	res, status, err := s.DoMiekgLookup(name)
 	if status != zdns.STATUS_NOERROR {
 		return "", status, err
 	}

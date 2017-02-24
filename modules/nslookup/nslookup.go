@@ -43,16 +43,16 @@ type Result struct {
 //
 type Lookup struct {
 	Factory *RoutineLookupFactory
-	zdns.BaseLookup
+	miekg.Lookup
 }
 
 func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-func lookupIPs(name string, dnsType uint16, nameServer string, client *dns.Client, tcpClient *dns.Client) []string {
+func (s *Lookup) lookupIPs(name string, dnsType uint16) []string {
 	var addresses []string
-	res, status, _ := miekg.DoLookup(client, tcpClient, nameServer, dnsType, name)
+	res, status, _ := s.DoTypedMiekgLookup(name, dnsType)
 	if status == zdns.STATUS_NOERROR {
 		cast, _ := res.(miekg.Result)
 		for _, innerRes := range cast.Answers {
@@ -63,9 +63,9 @@ func lookupIPs(name string, dnsType uint16, nameServer string, client *dns.Clien
 	return addresses
 }
 
-func DoNSLookup(name string, nameServer string, client *dns.Client, tcpClient *dns.Client, lookupIPv4 bool, lookupIPv6 bool) (Result, zdns.Status, error) {
+func (s *Lookup) DoNSLookup(name string, lookupIPv4 bool, lookupIPv6 bool) (Result, zdns.Status, error) {
 	var retv Result
-	res, status, err := miekg.DoLookup(client, tcpClient, nameServer, dns.TypeNS, name)
+	res, status, err := s.DoTypedMiekgLookup(name, dns.TypeNS)
 	if status != zdns.STATUS_NOERROR || err != nil {
 		return retv, status, nil
 	}
@@ -97,14 +97,14 @@ func DoNSLookup(name string, nameServer string, client *dns.Client, tcpClient *d
 		rec.Name = strings.TrimSuffix(a.Answer, ".")
 		rec.TTL = a.Ttl
 		if lookupIPv4 {
-			rec.IPv4Addresses = lookupIPs(rec.Name, dns.TypeA, nameServer, client, tcpClient)
+			rec.IPv4Addresses = s.lookupIPs(rec.Name, dns.TypeA)
 		} else if ip, ok := ipv4s[rec.Name]; ok {
 			rec.IPv4Addresses = []string{ip}
 		} else {
 			rec.IPv4Addresses = []string{}
 		}
 		if lookupIPv6 {
-			rec.IPv6Addresses = lookupIPs(rec.Name, dns.TypeAAAA, nameServer, client, tcpClient)
+			rec.IPv6Addresses = s.lookupIPs(rec.Name, dns.TypeAAAA)
 		} else if ip, ok := ipv6s[rec.Name]; ok {
 			rec.IPv6Addresses = []string{ip}
 		} else {
@@ -121,8 +121,7 @@ func DoNSLookup(name string, nameServer string, client *dns.Client, tcpClient *d
 }
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
-	nameServer := s.Factory.Factory.RandomNameServer()
-	return DoNSLookup(name, nameServer, s.Factory.Client, s.Factory.TCPClient, s.Factory.Factory.IPv4Lookup, s.Factory.Factory.IPv6Lookup)
+	return s.DoNSLookup(name, s.Factory.Factory.IPv4Lookup, s.Factory.Factory.IPv6Lookup)
 }
 
 // Per GoRoutine Factory ======================================================
