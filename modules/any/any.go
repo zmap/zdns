@@ -60,7 +60,7 @@ func (s *GlobalLookupFactory) Help() string {
 func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
 	r.Factory = s
-	r.Initialize(s.GlobalConf.Timeout)
+	r.Initialize(s.GlobalConf)
 	return r, nil
 }
 
