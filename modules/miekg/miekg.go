@@ -167,47 +167,49 @@ func makeCacheKey(name string, dnsType uint16) interface{} {
 	}
 }
 
-func (s *GlobalLookupFactory) AddCachedResult(name string, dnsType uint16, ttl int, result Result) {
-	key := makeCacheKey(name, dnsType)
-	expiresAt := time.Now().Add(time.Duration(ttl))
-	s.CacheMutex.Lock()
-	s.IterativeCache.Add(key, CachedResult{Result: result, ExpiresAt: expiresAt})
-	s.CacheMutex.Unlock()
-	log.Debug("cache entry added: ", name, " (", dnsType, ") expires at ", expiresAt, ":")
-	for _, ans := range result.Answers {
-		log.Debug(" - ", ans)
-	}
+func (s *GlobalLookupFactory) AddCachedResult(name string, dnsType uint16, answer interface{}) {
+	return
+	//key := makeCacheKey(name, dnsType)
+	//expiresAt := time.Now().Add(time.Duration(ttl))
+	//s.CacheMutex.Lock()
+	//s.IterativeCache.Add(key, CachedResult{Result: result, ExpiresAt: expiresAt})
+	//s.CacheMutex.Unlock()
+	//log.Debug("cache entry added: ", name, " (", dnsType, ") expires at ", expiresAt, ":")
+	//for _, ans := range result.Answers {
+	//	log.Debug(" - ", ans)
+	//}
 }
 
 func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16) (Result, bool) {
 	log.Debug("cache request for: ", name, " (", dnsType, "):")
 	var retv Result
-	key := makeCacheKey(name, dnsType)
-	s.CacheMutex.RLock()
-	unres, ok := s.IterativeCache.Get(key)
-	s.CacheMutex.RUnlock()
-	if !ok {
-		log.Debug(" -> no entry found in cache")
-		return retv, false
-	}
-	res, ok := unres.(CachedResult)
-	if !ok {
-		panic("bad cache entry")
-	}
-	// great we have a result. let's check if it's expired and we need to remove it
-	now := time.Now()
-	if res.ExpiresAt.After(now) {
-		s.CacheMutex.Lock()
-		s.IterativeCache.Delete(key)
-		s.CacheMutex.Unlock()
-		log.Debug(" -> cache entry expired. removed.")
-		return retv, false
-	}
-	log.Debug(" -> cached answers found")
-	for _, ans := range res.Result.Answers {
-		log.Debug("      - ", ans)
-	}
-	return res.Result, true
+	return retv, false
+	//key := makeCacheKey(name, dnsType)
+	//s.CacheMutex.RLock()
+	//unres, ok := s.IterativeCache.Get(key)
+	//s.CacheMutex.RUnlock()
+	//if !ok {
+	//	log.Debug(" -> no entry found in cache")
+	//	return retv, false
+	//}
+	//res, ok := unres.(CachedResult)
+	//if !ok {
+	//	panic("bad cache entry")
+	//}
+	//// great we have a result. let's check if it's expired and we need to remove it
+	//now := time.Now()
+	//if res.ExpiresAt.After(now) {
+	//	s.CacheMutex.Lock()
+	//	s.IterativeCache.Delete(key)
+	//	s.CacheMutex.Unlock()
+	//	log.Debug(" -> cache entry expired. removed.")
+	//	return retv, false
+	//}
+	//log.Debug(" -> cached answers found")
+	//for _, ans := range res.Result.Answers {
+	//	log.Debug("      - ", ans)
+	//}
+	//return res.Result, true
 }
 
 type RoutineLookupFactory struct {
