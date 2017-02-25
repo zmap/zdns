@@ -167,7 +167,9 @@ func makeCacheKey(name string, dnsType uint16) interface{} {
 	}
 }
 
-func (s *GlobalLookupFactory) AddCachedResult(name string, dnsType uint16, answer interface{}) {
+func (s *Lookup) AddCachedAnswer(answer interface{}) {
+	a := answer.(Answer)
+	log.Debug("cache entry fake added: ", a.Name, " (", a.Type, ") ", a.Answer, " (", a.Ttl, ")")
 	return
 	//key := makeCacheKey(name, dnsType)
 	//expiresAt := time.Now().Add(time.Duration(ttl))
@@ -180,7 +182,7 @@ func (s *GlobalLookupFactory) AddCachedResult(name string, dnsType uint16, answe
 	//}
 }
 
-func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16) (Result, bool) {
+func (s *Lookup) GetCachedResult(name string, dnsType uint16) (Result, bool) {
 	log.Debug("cache request for: ", name, " (", dnsType, "):")
 	var retv Result
 	return retv, false
@@ -322,6 +324,70 @@ func (s *Lookup) doLookup(dnsType uint16, name string, nameServer string, recurs
 	return res, zdns.STATUS_NOERROR, nil
 }
 
+func (s *Lookup) cacheUpdate(dnstype uint16, name string, layer string, result Result) {
+	for _, a := range result.Additional {
+		ans, ok := a.(Answer)
+		if !ok {
+			// XXX add logging
+			continue
+		}
+
+		ok, _ = s.nameIsBeneath(ans.Name, layer)
+		if !ok {
+			// XXX add logging
+			continue
+		}
+		s.AddCachedAnswer(a)
+	}
+
+	for _, a := range result.Authorities {
+		ans, ok := a.(Answer)
+		if !ok {
+			// XXX add logging
+			continue
+		}
+
+		ok, _ = s.nameIsBeneath(ans.Name, layer)
+		if !ok {
+			// XXX add logging
+			continue
+		}
+		s.AddCachedAnswer(a)
+	}
+
+	for _, a := range result.Answers {
+		// XXX This is broken for not A records! We need to handle
+		// this with inheritance
+		ans, ok := a.(Answer)
+		if !ok {
+			// XXX add logging
+			continue
+		}
+
+		ok, _ = s.nameIsBeneath(ans.Name, layer)
+		if !ok {
+			// XXX add logging
+			continue
+		}
+		s.AddCachedAnswer(a)
+	}
+}
+
+func (s *Lookup) cachedRetryingLookup(dnsType uint16, name string, nameServer string, layer string) (Result, zdns.Status, error) {
+
+	cachedResult, ok := s.GetCachedResult(name, dnsType)
+	if ok {
+		// XXX Add cache hit status?
+		return cachedResult, zdns.STATUS_NOERROR, nil
+	}
+
+	result, status, err := s.retryingLookup(dnsType, name, nameServer, false)
+
+	s.cacheUpdate(dnsType, name, layer, result)
+
+	return result, status, err
+}
+
 func (s *Lookup) retryingLookup(dnsType uint16, name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
 	origTimeout := s.Factory.Client.Timeout
 	for i := 0; i < s.Factory.Retries; i++ {
@@ -349,6 +415,7 @@ func (s *Lookup) extractAdditionals(res Result) map[string][]Answer {
 	for _, a := range res.Additional {
 		ans, ok := a.(Answer)
 		if !ok {
+			// XXX add logging
 			continue
 		}
 		if ans.Type == "A" {
@@ -359,21 +426,38 @@ func (s *Lookup) extractAdditionals(res Result) map[string][]Answer {
 	return searchSet
 }
 
-func (s *Lookup) extractAuthority(searchSet map[string][]Answer, authority interface{}) (string, zdns.Status) {
+func (s *Lookup) nameIsBeneath(name string, layer string) (bool, string) {
+	name = strings.TrimSuffix(name, ".")
+	if layer == "." {
+		return true, name
+	}
+
+	if strings.HasSuffix(name, "."+layer) || name == layer {
+		return true, name
+	}
+	return false, ""
+}
+
+func (s *Lookup) extractAuthority(searchSet map[string][]Answer, authority interface{}, layer string) (string, zdns.Status, string) {
 	// check if we have the IP address for any of the authorities
 	ans, ok := authority.(Answer)
 	if !ok {
-		return "", zdns.STATUS_SERVFAIL
+		return "", zdns.STATUS_SERVFAIL, layer
+	}
+
+	ok, layer = s.nameIsBeneath(ans.Name, layer)
+	if !ok {
+		return "", zdns.STATUS_AUTHFAIL, layer
 	}
 
 	if ip, ok := searchSet[ans.Answer]; ok {
 		server := strings.TrimSuffix(ip[0].Answer, ".") + ":53"
-		return server, zdns.STATUS_NOERROR
+		return server, zdns.STATUS_NOERROR, layer
 	}
 	// nothing was found. we need to lookup the A record for one of the NS servers. Quit once
 	// we've found one.
 	server := strings.TrimSuffix(ans.Answer, ".")
-	res, status, _ := s.iterativeLookup(dns.TypeA, server, s.NameServer, 0)
+	res, status, _ := s.iterativeLookup(dns.TypeA, server, s.NameServer, 0, ".")
 	if status == zdns.STATUS_NOERROR {
 		for _, inner_a := range res.Answers {
 			inner_ans, ok := inner_a.(Answer)
@@ -382,11 +466,11 @@ func (s *Lookup) extractAuthority(searchSet map[string][]Answer, authority inter
 			}
 			if inner_ans.Type == "A" {
 				server := strings.TrimSuffix(inner_ans.Answer, ".") + ":53"
-				return server, zdns.STATUS_NOERROR
+				return server, zdns.STATUS_NOERROR, layer
 			}
 		}
 	}
-	return "", zdns.STATUS_SERVFAIL
+	return "", zdns.STATUS_SERVFAIL, layer
 }
 
 func makeDepthPadding(depth int) string {
@@ -415,7 +499,7 @@ func debugExtractAuthorityInput(result Result, depth int) {
 	}
 }
 
-func (s *Lookup) iterateOnAuthorities(dnsType uint16, name string, depth int, result Result) (Result, zdns.Status, error) {
+func (s *Lookup) iterateOnAuthorities(dnsType uint16, name string, depth int, result Result, layer string) (Result, zdns.Status, error) {
 	if len(result.Authorities) == 0 {
 		var r Result
 		return r, zdns.STATUS_SERVFAIL, nil
@@ -423,13 +507,13 @@ func (s *Lookup) iterateOnAuthorities(dnsType uint16, name string, depth int, re
 	searchSet := s.extractAdditionals(result)
 	for _, elem := range result.Authorities {
 		// XXX log stuff
-		ns, ns_status := s.extractAuthority(searchSet, elem)
+		ns, ns_status, layer := s.extractAuthority(searchSet, elem, layer)
 		log.Debug(makeDepthPadding(depth+1), "   Output from extract authorities: ", ns)
 		if ns_status != zdns.STATUS_NOERROR {
 			// XXX Log stuff
 			continue
 		}
-		r, status, err := s.iterativeLookup(dnsType, name, ns, depth+1)
+		r, status, err := s.iterativeLookup(dnsType, name, ns, depth+1, layer)
 		if ns_status != zdns.STATUS_NOERROR {
 			// XXX Log stuff
 			continue
@@ -440,15 +524,15 @@ func (s *Lookup) iterateOnAuthorities(dnsType uint16, name string, depth int, re
 	return r, zdns.STATUS_ERROR, errors.New("could not find authoritative name server")
 }
 
-func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string, depth int) (Result, zdns.Status, error) {
+func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string, depth int, layer string) (Result, zdns.Status, error) {
 	if log.GetLevel() == log.DebugLevel {
-		log.Debug(makeDepthPadding(depth), "iterative lookup for ", name, " (", dnsType, ") against ", nameServer, " (", debugReverseLookup(nameServer), ")")
+		log.Debug(makeDepthPadding(depth), "iterative lookup for ", name, " (", dnsType, ") against ", nameServer, " (", debugReverseLookup(nameServer), ") layer ", layer)
 	}
 	if depth > s.Factory.MaxDepth {
 		var r Result
 		return r, zdns.STATUS_ERROR, errors.New("Max recursion depth reached")
 	}
-	result, status, err := s.retryingLookup(dnsType, name, nameServer, false)
+	result, status, err := s.cachedRetryingLookup(dnsType, name, nameServer, layer)
 	if status != zdns.STATUS_NOERROR {
 		log.Debug(makeDepthPadding(depth+1), "-> error occurred during lookup")
 		return result, status, err
@@ -459,7 +543,7 @@ func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string,
 		log.Debug(makeDepthPadding(depth+1), "-> answers found")
 		return result, status, err
 	} else if len(result.Authorities) != 0 {
-		return s.iterateOnAuthorities(dnsType, name, depth, result)
+		return s.iterateOnAuthorities(dnsType, name, depth, result, layer)
 	} else {
 		return result, zdns.STATUS_ERROR, errors.New("NOERROR record without any answers or authorities")
 	}
@@ -467,7 +551,7 @@ func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string,
 
 func (s *Lookup) DoMiekgLookup(name string) (interface{}, zdns.Status, error) {
 	if s.Factory.IterativeResolution {
-		return s.iterativeLookup(s.DNSType, name, s.NameServer, 0)
+		return s.iterativeLookup(s.DNSType, name, s.NameServer, 0, ".")
 	} else {
 		return s.retryingLookup(s.DNSType, name, s.NameServer, true)
 	}
@@ -475,7 +559,7 @@ func (s *Lookup) DoMiekgLookup(name string) (interface{}, zdns.Status, error) {
 
 func (s *Lookup) DoTypedMiekgLookup(name string, dnsType uint16) (interface{}, zdns.Status, error) {
 	if s.Factory.IterativeResolution {
-		return s.iterativeLookup(dnsType, name, s.NameServer, 0)
+		return s.iterativeLookup(dnsType, name, s.NameServer, 0, ".")
 	} else {
 		return s.retryingLookup(dnsType, name, s.NameServer, true)
 	}
