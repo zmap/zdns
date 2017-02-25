@@ -50,6 +50,11 @@ type Result struct {
 	Flags       DNSFlags      `json:"flags"`
 }
 
+type CachedResult struct {
+	Answers   []interface{}
+	ExpiresAt time.Time
+}
+
 // Helpers
 
 func dotName(name string) string {
@@ -152,13 +157,41 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	return nil
 }
 
-func (s *GlobalLookupFactory) AddCachedAuthority(name string, authorities []string, ttl int) error {
+func makeCacheKey(name string, dnsType uint16) interface{} {
+	return struct {
+		Name    string
+		DnsType uint16
+	}{
+		Name:    name,
+		DnsType: dnsType,
+	}
+}
+
+func (s *GlobalLookupFactory) AddCachedResult(name string, dnsType uint16, ttl int, result Result) error {
 	return nil
 }
 
-func (s *GlobalLookupFactory) GetCachedAuthority(name string) ([]string, error) {
-	var retv []string
-	return retv, nil
+func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16) ([]interface{}, bool) {
+	key := makeCacheKey(name, dnsType)
+	s.CacheMutex.RLock()
+	unres, ok := s.IterativeCache.Get(key)
+	s.CacheMutex.RUnlock()
+	if !ok {
+		return nil, false
+	}
+	res, ok := unres.(CachedResult)
+	if !ok {
+		panic("bad cache entry")
+	}
+	// great we have a result. let's check if it's expired and we need to remove it
+	now := time.Now()
+	if res.ExpiresAt.After(now) {
+		s.CacheMutex.Lock()
+		s.IterativeCache.Delete(key)
+		s.CacheMutex.Unlock()
+		return nil, false
+	}
+	return res.Answers, true
 }
 
 type RoutineLookupFactory struct {
