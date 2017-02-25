@@ -51,7 +51,7 @@ type Result struct {
 }
 
 type CachedResult struct {
-	Answers   []interface{}
+	Result    Result
 	ExpiresAt time.Time
 }
 
@@ -171,7 +171,7 @@ func (s *GlobalLookupFactory) AddCachedResult(name string, dnsType uint16, ttl i
 	key := makeCacheKey(name, dnsType)
 	expiresAt := time.Now().Add(time.Duration(ttl))
 	s.CacheMutex.Lock()
-	s.IterativeCache.Add(key, CachedResult{Answers: result.Answers, ExpiresAt: expiresAt})
+	s.IterativeCache.Add(key, CachedResult{Result: result, ExpiresAt: expiresAt})
 	s.CacheMutex.Unlock()
 	log.Debug("cache entry added: ", name, " (", dnsType, ") expires at ", expiresAt, ":")
 	for _, ans := range result.Answers {
@@ -204,11 +204,10 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16) (Resu
 		return retv, false
 	}
 	log.Debug(" -> cached answers found")
-	for _, ans := range res.Answers {
+	for _, ans := range res.Result.Answers {
 		log.Debug("      - ", ans)
 	}
-	retv.Answers = res.Answers
-	return retv, true
+	return res.Result, true
 }
 
 type RoutineLookupFactory struct {
