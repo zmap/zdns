@@ -173,14 +173,20 @@ func (s *GlobalLookupFactory) AddCachedResult(name string, dnsType uint16, ttl i
 	s.CacheMutex.Lock()
 	s.IterativeCache.Add(key, CachedResult{Answers: answers, ExpiresAt: expiresAt})
 	s.CacheMutex.Unlock()
+	log.Debug("cache entry added: ", name, " (", dnsType, ") expires at ", expiresAt, ":")
+	for _, ans := range answers {
+		log.Debug(" - ", ans)
+	}
 }
 
 func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16) ([]interface{}, bool) {
+	log.Debug("cache request for: ", name, " (", dnsType, "):")
 	key := makeCacheKey(name, dnsType)
 	s.CacheMutex.RLock()
 	unres, ok := s.IterativeCache.Get(key)
 	s.CacheMutex.RUnlock()
 	if !ok {
+		log.Debug(" -> no entry found in cache")
 		return nil, false
 	}
 	res, ok := unres.(CachedResult)
@@ -193,7 +199,12 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16) ([]in
 		s.CacheMutex.Lock()
 		s.IterativeCache.Delete(key)
 		s.CacheMutex.Unlock()
+		log.Debug(" -> cache entry expired. removed.")
 		return nil, false
+	}
+	log.Debug(" -> cached answers found")
+	for _, ans := range res.Answers {
+		log.Debug("      - ", ans)
 	}
 	return res.Answers, true
 }
