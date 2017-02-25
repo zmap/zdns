@@ -167,8 +167,12 @@ func makeCacheKey(name string, dnsType uint16) interface{} {
 	}
 }
 
-func (s *GlobalLookupFactory) AddCachedResult(name string, dnsType uint16, ttl int, result Result) error {
-	return nil
+func (s *GlobalLookupFactory) AddCachedResult(name string, dnsType uint16, ttl int, answers []interface{}) {
+	key := makeCacheKey(name, dnsType)
+	expiresAt := time.Now().Add(time.Duration(ttl))
+	s.CacheMutex.Lock()
+	s.IterativeCache.Add(key, CachedResult{Answers: answers, ExpiresAt: expiresAt})
+	s.CacheMutex.Unlock()
 }
 
 func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16) ([]interface{}, bool) {
