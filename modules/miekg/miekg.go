@@ -22,11 +22,26 @@ type Answer struct {
 }
 
 type MXAnswer struct {
-	Ttl        uint32 `json:"ttl,omitempty"`
-	Type       string `json:"type,omitempty"`
-	Name       string `json:"name,omitempty"`
-	Answer     string `json:"answer,omitempty"`
+	Answer
 	Preference uint16 `json:"preference"`
+}
+
+type CAAAnswer struct {
+	Answer
+	Tag   string `json:"tag"`
+	Value string `json:"value"`
+	Flag  uint8  `json:"flag"`
+}
+
+type SOAAnswer struct {
+	Answer
+	Ns      string `json:"ns"`
+	Mbox    string `json:"mbox"`
+	Serial  uint32 `json:"serial"`
+	Refresh uint32 `json:"refresh"`
+	Retry   uint32 `json:"retry"`
+	Expire  uint32 `json:"expire"`
+	Minttl  uint32 `json:"min_ttl"`
 }
 
 type DNSFlags struct {
@@ -82,42 +97,32 @@ func ParseAnswer(ans dns.RR) interface{} {
 
 	} else if mx, ok := ans.(*dns.MX); ok {
 		return MXAnswer{
-			Ttl:        mx.Hdr.Ttl,
-			Type:       dns.Type(mx.Hdr.Rrtype).String(),
-			Name:       mx.Hdr.Name,
-			Answer:     mx.Mx,
+			Answer: Answer{
+				Name:   mx.Hdr.Name,
+				Type:   dns.Type(mx.Hdr.Rrtype).String(),
+				Ttl:    mx.Hdr.Ttl,
+				Answer: mx.Mx,
+			},
 			Preference: mx.Preference,
 		}
 	} else if caa, ok := ans.(*dns.CAA); ok {
-		return struct {
-			Ttl   uint32 `json:"ttl"`
-			Type  string `json:"type"`
-			Tag   string `json:"tag"`
-			Value string `json:"value"`
-			Flag  uint8  `json:"flag"`
-		}{
-			Ttl:   caa.Hdr.Ttl,
-			Type:  dns.Type(caa.Hdr.Rrtype).String(),
+		return CAAAnswer{
+			Answer: Answer{
+				Name: caa.Hdr.Name,
+				Ttl:  caa.Hdr.Ttl,
+				Type: dns.Type(caa.Hdr.Rrtype).String(),
+			},
 			Tag:   caa.Tag,
 			Value: caa.Value,
 			Flag:  caa.Flag,
 		}
 	} else if soa, ok := ans.(*dns.SOA); ok {
-		return struct {
-			Ttl     uint32 `json:"ttl"`
-			Type    string `json:"type"`
-			Name    string `json:"name"`
-			Ns      string `json:"ns"`
-			Mbox    string `json:"mbox"`
-			Serial  uint32 `json:"serial"`
-			Refresh uint32 `json:"refresh"`
-			Retry   uint32 `json:"retry"`
-			Expire  uint32 `json:"expire"`
-			Minttl  uint32 `json:"min_ttl"`
-		}{
-			Ttl:     soa.Hdr.Ttl,
-			Type:    dns.Type(soa.Hdr.Rrtype).String(),
-			Name:    soa.Hdr.Name,
+		return SOAAnswer{
+			Answer: Answer{
+				Name: soa.Hdr.Name,
+				Type: dns.Type(soa.Hdr.Rrtype).String(),
+				Ttl:  soa.Hdr.Ttl,
+			},
 			Ns:      strings.TrimSuffix(soa.Ns, "."),
 			Mbox:    soa.Mbox,
 			Serial:  soa.Serial,
