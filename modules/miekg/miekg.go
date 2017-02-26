@@ -220,6 +220,7 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16) (Resu
 }
 
 type RoutineLookupFactory struct {
+	Factory             *GlobalLookupFactory
 	Client              *dns.Client
 	TCPClient           *dns.Client
 	Retries             int
@@ -340,7 +341,7 @@ func (s *Lookup) SafeAddCachedAnswer(name string, dnsType uint16, a interface{},
 		log.Info("detected poison ", debugType, ": ", name, " (", dnsType, "): ", a)
 		return
 	}
-	s.AddCachedAnswer(a)
+	s.Factory.Factory.AddCachedAnswer(a)
 }
 
 func (s *Lookup) cacheUpdate(dnsType uint16, name string, layer string, result Result) {
@@ -371,7 +372,7 @@ func (s *Lookup) retryingLookup(dnsType uint16, name string, nameServer string, 
 }
 
 func (s *Lookup) cachedRetryingLookup(dnsType uint16, name string, nameServer string, layer string) (Result, zdns.Status, error) {
-	cachedResult, ok := s.GetCachedResult(name, dnsType)
+	cachedResult, ok := s.Factory.Factory.GetCachedResult(name, dnsType)
 	if ok {
 		return cachedResult, zdns.STATUS_NOERROR, nil
 	}
