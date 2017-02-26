@@ -71,8 +71,7 @@ type TimedAnswer struct {
 }
 
 type CachedResult struct {
-	TimedAnswers []TimedAnswer
-	AnswerCache  map[interface{}]bool
+	Answers map[interface{}]TimedAnswer
 }
 
 // Helpers
@@ -99,7 +98,6 @@ func ParseAnswer(ans dns.RR) interface{} {
 		retv = Answer{Ttl: ptr.Hdr.Ttl, Type: dns.Type(ptr.Hdr.Rrtype).String(), Name: ptr.Hdr.Name, Answer: ptr.Ptr}
 	} else if spf, ok := ans.(*dns.SPF); ok {
 		retv = Answer{Ttl: spf.Hdr.Ttl, Type: dns.Type(spf.Hdr.Rrtype).String(), Name: spf.Hdr.Name, Answer: spf.String()}
-
 	} else if mx, ok := ans.(*dns.MX); ok {
 		return MXAnswer{
 			Answer: Answer{
@@ -177,15 +175,29 @@ func makeCacheKey(name string, dnsType string) interface{} {
 	}
 }
 
-func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}) {
-	//	a, ok := answer.(Answer)
-	//	if !ok {
-	//		// we can't cache this entry because we have no idea what to name it
-	//		return
-	//	}
-	//key := makeCacheKey(a.Name, a.Type)
-	//expiresAt := time.Now().Add(time.Duration(a.Ttl))
-	//s.CacheMutex.RLock()
+func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, dnsType string, ttl uint32) {
+	a, ok := answer.(Answer)
+	if !ok {
+		// we can't cache this entry because we have no idea what to name it
+		return
+	}
+	key := makeCacheKey(name, dnsType)
+	expiresAt := time.Now().Add(time.Duration(ttl))
+	s.CacheMutex.Lock()
+	i, ok := s.IterativeCache.GetNoMove(key)
+	ca, ok := i.(CachedResult)
+	if !ok {
+		panic("unable to cast cached result")
+	}
+	if ok {
+		// we have an existing record. Let's add this answer to it.
+		ta := TimedAnswer{
+			Answer:    answer,
+			ExpiresAt: expiresAt}
+		ca.Answers[a] = ta
+		s.CacheMutex.Unlock()
+		return
+	}
 	return
 	//s.CacheMutex.Lock()
 	//s.IterativeCache.Add(key, CachedResult{Result: result, ExpiresAt: expiresAt})
@@ -350,7 +362,7 @@ func (s *Lookup) SafeAddCachedAnswer(name string, dnsType uint16, a interface{},
 		log.Info("detected poison ", debugType, ": ", name, " (", dnsType, "): ", a)
 		return
 	}
-	s.Factory.Factory.AddCachedAnswer(a)
+	s.Factory.Factory.AddCachedAnswer(a, ans.Name, ans.Type, ans.Ttl)
 }
 
 func (s *Lookup) cacheUpdate(dnsType uint16, name string, layer string, result Result) {
