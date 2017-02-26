@@ -162,10 +162,10 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	return nil
 }
 
-func makeCacheKey(name string, dnsType uint16) interface{} {
+func makeCacheKey(name string, dnsType string) interface{} {
 	return struct {
 		Name    string
-		DnsType uint16
+		DnsType string
 	}{
 		Name:    name,
 		DnsType: dnsType,
@@ -173,11 +173,15 @@ func makeCacheKey(name string, dnsType uint16) interface{} {
 }
 
 func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}) {
-	a := answer.(Answer)
-	log.Debug("cache entry fake added: ", a.Name, " (", a.Type, ") ", a.Answer, " (", a.Ttl, ")")
+	//	a, ok := answer.(Answer)
+	//	if !ok {
+	//		// we can't cache this entry because we have no idea what to name it
+	//		return
+	//	}
+	//key := makeCacheKey(a.Name, a.Type)
+	//expiresAt := time.Now().Add(time.Duration(a.Ttl))
+	//s.CacheMutex.RLock()
 	return
-	//key := makeCacheKey(name, dnsType)
-	//expiresAt := time.Now().Add(time.Duration(ttl))
 	//s.CacheMutex.Lock()
 	//s.IterativeCache.Add(key, CachedResult{Result: result, ExpiresAt: expiresAt})
 	//s.CacheMutex.Unlock()
