@@ -329,29 +329,29 @@ func (s *Lookup) doLookup(dnsType uint16, name string, nameServer string, recurs
 	return res, zdns.STATUS_NOERROR, nil
 }
 
-func (s *Lookup) SafeAddCachedAnswer(name string, dnstype uint16, a interface{}, layer string, debugType string) {
+func (s *Lookup) SafeAddCachedAnswer(name string, dnsType uint16, a interface{}, layer string, debugType string) {
 	ans, ok := a.(Answer)
 	if !ok {
-		log.Debug("unable to cast ", debugType, ": ", name, " (", dnstype, "): ", a)
+		log.Debug("unable to cast ", debugType, ": ", name, " (", dnsType, "): ", a)
 		return
 	}
 	ok, _ = s.nameIsBeneath(ans.Name, layer)
 	if !ok {
-		log.Info("detected poison ", debugType, ": ", name, " (", dnstype, "): ", a)
+		log.Info("detected poison ", debugType, ": ", name, " (", dnsType, "): ", a)
 		return
 	}
 	s.AddCachedAnswer(a)
 }
 
-func (s *Lookup) cacheUpdate(dnstype uint16, name string, layer string, result Result) {
+func (s *Lookup) cacheUpdate(dnsType uint16, name string, layer string, result Result) {
 	for _, a := range result.Additional {
-		s.SafeAddCachedAnswer(name, dnstype, a, layer, "additional")
+		s.SafeAddCachedAnswer(name, dnsType, a, layer, "additional")
 	}
 	for _, a := range result.Authorities {
-		s.SafeAddCachedAnswer(name, dnstype, a, layer, "authority")
+		s.SafeAddCachedAnswer(name, dnsType, a, layer, "authority")
 	}
 	for _, a := range result.Answers {
-		s.SafeAddCachedAnswer(name, dnstype, a, layer, "anwer")
+		s.SafeAddCachedAnswer(name, dnsType, a, layer, "anwer")
 	}
 }
 
@@ -359,14 +359,10 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, name string, nameServer st
 
 	cachedResult, ok := s.GetCachedResult(name, dnsType)
 	if ok {
-		// XXX Add cache hit status?
 		return cachedResult, zdns.STATUS_NOERROR, nil
 	}
-
 	result, status, err := s.retryingLookup(dnsType, name, nameServer, false)
-
 	s.cacheUpdate(dnsType, name, layer, result)
-
 	return result, status, err
 }
 
