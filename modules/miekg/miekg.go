@@ -172,7 +172,7 @@ func makeCacheKey(name string, dnsType uint16) interface{} {
 	}
 }
 
-func (s *Lookup) AddCachedAnswer(answer interface{}) {
+func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}) {
 	a := answer.(Answer)
 	log.Debug("cache entry fake added: ", a.Name, " (", a.Type, ") ", a.Answer, " (", a.Ttl, ")")
 	return
@@ -187,7 +187,7 @@ func (s *Lookup) AddCachedAnswer(answer interface{}) {
 	//}
 }
 
-func (s *Lookup) GetCachedResult(name string, dnsType uint16) (Result, bool) {
+func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16) (Result, bool) {
 	log.Debug("cache request for: ", name, " (", dnsType, "):")
 	var retv Result
 	return retv, false
@@ -329,52 +329,29 @@ func (s *Lookup) doLookup(dnsType uint16, name string, nameServer string, recurs
 	return res, zdns.STATUS_NOERROR, nil
 }
 
+func (s *Lookup) SafeAddCachedAnswer(name string, dnstype uint16, a interface{}, layer string, debugType string) {
+	ans, ok := a.(Answer)
+	if !ok {
+		log.Debug("unable to cast ", debugType, ": ", name, " (", dnstype, "): ", a)
+		return
+	}
+	ok, _ = s.nameIsBeneath(ans.Name, layer)
+	if !ok {
+		log.Info("detected poison ", debugType, ": ", name, " (", dnstype, "): ", a)
+		return
+	}
+	s.AddCachedAnswer(a)
+}
+
 func (s *Lookup) cacheUpdate(dnstype uint16, name string, layer string, result Result) {
 	for _, a := range result.Additional {
-		ans, ok := a.(Answer)
-		if !ok {
-			// XXX add logging
-			continue
-		}
-
-		ok, _ = s.nameIsBeneath(ans.Name, layer)
-		if !ok {
-			// XXX add logging
-			continue
-		}
-		s.AddCachedAnswer(a)
+		s.SafeAddCachedAnswer(name, dnstype, a, layer, "additional")
 	}
-
 	for _, a := range result.Authorities {
-		ans, ok := a.(Answer)
-		if !ok {
-			// XXX add logging
-			continue
-		}
-
-		ok, _ = s.nameIsBeneath(ans.Name, layer)
-		if !ok {
-			// XXX add logging
-			continue
-		}
-		s.AddCachedAnswer(a)
+		s.SafeAddCachedAnswer(name, dnstype, a, layer, "authority")
 	}
-
 	for _, a := range result.Answers {
-		// XXX This is broken for not A records! We need to handle
-		// this with inheritance
-		ans, ok := a.(Answer)
-		if !ok {
-			// XXX add logging
-			continue
-		}
-
-		ok, _ = s.nameIsBeneath(ans.Name, layer)
-		if !ok {
-			// XXX add logging
-			continue
-		}
-		s.AddCachedAnswer(a)
+		s.SafeAddCachedAnswer(name, dnstype, a, layer, "anwer")
 	}
 }
 
