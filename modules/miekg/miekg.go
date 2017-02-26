@@ -65,10 +65,14 @@ type Result struct {
 	Flags       DNSFlags      `json:"flags"`
 }
 
+type TimedAnswer struct {
+	Answer    interface{}
+	ExpiresAt time.Time
+}
+
 type CachedResult struct {
-	Answers     []interface{}
-	AnswerCache map[interface{}]bool
-	ExpiresAt   time.Time
+	TimedAnswers []TimedAnswer
+	AnswerCache  map[interface{}]bool
 }
 
 // Helpers
