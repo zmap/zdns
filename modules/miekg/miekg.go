@@ -66,8 +66,9 @@ type Result struct {
 }
 
 type CachedResult struct {
-	Result    Result
-	ExpiresAt time.Time
+	Answers     []interface{}
+	AnswerCache map[interface{}]bool
+	ExpiresAt   time.Time
 }
 
 // Helpers
