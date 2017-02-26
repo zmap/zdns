@@ -355,17 +355,6 @@ func (s *Lookup) cacheUpdate(dnsType uint16, name string, layer string, result R
 	}
 }
 
-func (s *Lookup) cachedRetryingLookup(dnsType uint16, name string, nameServer string, layer string) (Result, zdns.Status, error) {
-
-	cachedResult, ok := s.GetCachedResult(name, dnsType)
-	if ok {
-		return cachedResult, zdns.STATUS_NOERROR, nil
-	}
-	result, status, err := s.retryingLookup(dnsType, name, nameServer, false)
-	s.cacheUpdate(dnsType, name, layer, result)
-	return result, status, err
-}
-
 func (s *Lookup) retryingLookup(dnsType uint16, name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
 	origTimeout := s.Factory.Client.Timeout
 	for i := 0; i < s.Factory.Retries; i++ {
@@ -379,6 +368,16 @@ func (s *Lookup) retryingLookup(dnsType uint16, name string, nameServer string, 
 		s.Factory.TCPClient.Timeout = 2 * s.Factory.TCPClient.Timeout
 	}
 	panic("loop must return")
+}
+
+func (s *Lookup) cachedRetryingLookup(dnsType uint16, name string, nameServer string, layer string) (Result, zdns.Status, error) {
+	cachedResult, ok := s.GetCachedResult(name, dnsType)
+	if ok {
+		return cachedResult, zdns.STATUS_NOERROR, nil
+	}
+	result, status, err := s.retryingLookup(dnsType, name, nameServer, false)
+	s.cacheUpdate(dnsType, name, layer, result)
+	return result, status, err
 }
 
 func (s *Lookup) extractAdditionals(res Result) map[string][]Answer {
