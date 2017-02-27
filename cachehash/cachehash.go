@@ -103,7 +103,7 @@ func (c *CacheHash) Get(k interface{}) (interface{}, bool) {
 func (c *CacheHash) GetNoMove(k interface{}) (interface{}, bool) {
 	e, ok := c.h[k]
 	if ok {
-		return e.Value, ok
+		return e.Value.(keyValue).Value, ok
 	}
 	return nil, ok
 }
