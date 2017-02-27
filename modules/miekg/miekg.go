@@ -238,7 +238,6 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, wLock
 			if wLock {
 				delete(cachedRes.Answers, k)
 			} else {
-				s.CacheMutex.RUnlock()
 				return s.GetCachedResult(name, dnsType, true)
 			}
 		} else {
