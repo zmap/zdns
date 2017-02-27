@@ -156,26 +156,28 @@ func TranslateMiekgErrorCode(err int) zdns.Status {
 type GlobalLookupFactory struct {
 	zdns.BaseGlobalLookupFactory
 	IterativeCache cachehash.CacheHash
-	CacheMutex     sync.RWMutex
+	CacheMutex     *sync.RWMutex
 }
 
 func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	s.GlobalConf = c
 	s.IterativeCache.Init(c.CacheSize)
+	s.CacheMutex = &sync.RWMutex{}
+
 	return nil
 }
 
-func makeCacheKey(name string, dnsType string) interface{} {
+func makeCacheKey(name string, dnsType uint16) interface{} {
 	return struct {
 		Name    string
-		DnsType string
+		DnsType uint16
 	}{
 		Name:    name,
 		DnsType: dnsType,
 	}
 }
 
-func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, dnsType string, ttl uint32) {
+func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, dnsType uint16, ttl uint32) {
 	a, ok := answer.(Answer)
 	if !ok {
 		// we can't cache this entry because we have no idea what to name it
@@ -184,48 +186,66 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, d
 	key := makeCacheKey(name, dnsType)
 	expiresAt := time.Now().Add(time.Duration(ttl))
 	s.CacheMutex.Lock()
+	// don't bother to move this to the top of the linked list. we're going
+	// to add this record back in momentarily and that will take care of this
 	i, ok := s.IterativeCache.GetNoMove(key)
 	ca, ok := i.(CachedResult)
 	if !ok {
 		panic("unable to cast cached result")
 	}
-	if ok {
-		// we have an existing record. Let's add this answer to it.
-		ta := TimedAnswer{
-			Answer:    answer,
-			ExpiresAt: expiresAt}
-		ca.Answers[a] = ta
-		s.CacheMutex.Unlock()
-		return
+	if !ok {
+		ca := CachedResult{}
+		ca.Answers = make(map[interface{}]TimedAnswer)
 	}
-	return
-	//s.CacheMutex.Lock()
-	//s.IterativeCache.Add(key, CachedResult{Result: result, ExpiresAt: expiresAt})
-	//s.CacheMutex.Unlock()
-	//log.Debug("cache entry added: ", name, " (", dnsType, ") expires at ", expiresAt, ":")
-	//for _, ans := range result.Answers {
-	//	log.Debug(" - ", ans)
-	//}
+	// we have an existing record. Let's add this answer to it.
+	ta := TimedAnswer{
+		Answer:    answer,
+		ExpiresAt: expiresAt}
+	ca.Answers[a] = ta
+	s.IterativeCache.Add(key, ca)
+	s.CacheMutex.Unlock()
 }
 
-func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16) (Result, bool) {
+func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, wLock bool) (Result, bool) {
 	log.Debug("cache request for: ", name, " (", dnsType, "):")
 	var retv Result
-	return retv, false
-	//key := makeCacheKey(name, dnsType)
-	//s.CacheMutex.RLock()
-	//unres, ok := s.IterativeCache.Get(key)
-	//s.CacheMutex.RUnlock()
-	//if !ok {
-	//	log.Debug(" -> no entry found in cache")
-	//	return retv, false
-	//}
-	//res, ok := unres.(CachedResult)
-	//if !ok {
-	//	panic("bad cache entry")
-	//}
-	//// great we have a result. let's check if it's expired and we need to remove it
-	//now := time.Now()
+	key := makeCacheKey(name, dnsType)
+	if wLock {
+		s.CacheMutex.Lock()
+	} else {
+		s.CacheMutex.RLock()
+	}
+	unres, ok := s.IterativeCache.Get(key)
+	if !wLock {
+		s.CacheMutex.RUnlock()
+	}
+	if !ok { // nothing found
+		log.Debug(" -> no entry found in cache")
+		return retv, false
+	}
+	cachedRes, ok := unres.(CachedResult)
+	if !ok {
+		panic("bad cache entry")
+	}
+	// great we have a result. let's go through the entries and build
+	// and build a result. In the process, throw away anything that's expired
+	now := time.Now()
+	for k, cachedAnswer := range cachedRes.Answers {
+		if cachedAnswer.ExpiresAt.Before(now) {
+			// if we have a write lock, we can perform the necessary actions
+			// and then write this back to the cache. However, if we don't,
+			// we need to start this process over with a write lock
+			if wLock {
+				delete(cachedRes.Answers, k)
+			} else {
+				s.CacheMutex.RUnlock()
+				return s.GetCachedResult(name, dnsType, true)
+			}
+		} else {
+			// this result is valid. append it to the Result we're going to hand to the user
+			retv.Answers = append(retv.Answers, cachedAnswer.Answer)
+		}
+	}
 	//if res.ExpiresAt.After(now) {
 	//	s.CacheMutex.Lock()
 	//	s.IterativeCache.Delete(key)
@@ -237,7 +257,7 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16) (Resu
 	//for _, ans := range res.Result.Answers {
 	//	log.Debug("      - ", ans)
 	//}
-	//return res.Result, true
+	return retv, true
 }
 
 type RoutineLookupFactory struct {
@@ -362,7 +382,7 @@ func (s *Lookup) SafeAddCachedAnswer(name string, dnsType uint16, a interface{},
 		log.Info("detected poison ", debugType, ": ", name, " (", dnsType, "): ", a)
 		return
 	}
-	s.Factory.Factory.AddCachedAnswer(a, ans.Name, ans.Type, ans.Ttl)
+	s.Factory.Factory.AddCachedAnswer(a, ans.Name, dnsType, ans.Ttl)
 }
 
 func (s *Lookup) cacheUpdate(dnsType uint16, name string, layer string, result Result) {
@@ -393,7 +413,7 @@ func (s *Lookup) retryingLookup(dnsType uint16, name string, nameServer string, 
 }
 
 func (s *Lookup) cachedRetryingLookup(dnsType uint16, name string, nameServer string, layer string) (Result, zdns.Status, error) {
-	cachedResult, ok := s.Factory.Factory.GetCachedResult(name, dnsType)
+	cachedResult, ok := s.Factory.Factory.GetCachedResult(name, dnsType, false)
 	if ok {
 		return cachedResult, zdns.STATUS_NOERROR, nil
 	}
