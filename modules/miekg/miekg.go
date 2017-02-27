@@ -184,7 +184,7 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, d
 		return
 	}
 	key := makeCacheKey(name, dnsType)
-	expiresAt := time.Now().Add(time.Duration(ttl))
+	expiresAt := time.Now().Add(time.Duration(ttl) * time.Second)
 	s.CacheMutex.Lock()
 	// don't bother to move this to the top of the linked list. we're going
 	// to add this record back in momentarily and that will take care of this
@@ -202,12 +202,13 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, d
 		Answer:    answer,
 		ExpiresAt: expiresAt}
 	ca.Answers[a] = ta
+	log.Debug("Add cached answer ", key, " ", ca)
 	s.IterativeCache.Add(key, ca)
 	s.CacheMutex.Unlock()
 }
 
 func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, wLock bool) (Result, bool) {
-	log.Debug("cache request for: ", name, " (", dnsType, "):")
+	log.Debug("cache request for: ", name, " (", dnsType, "), wlock (", wLock, "):")
 	var retv Result
 	key := makeCacheKey(name, dnsType)
 	if wLock {
@@ -236,8 +237,10 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, wLock
 			// and then write this back to the cache. However, if we don't,
 			// we need to start this process over with a write lock
 			if wLock {
+				log.Debug("Expiring cache entry ", k)
 				delete(cachedRes.Answers, k)
 			} else {
+				log.Debug("cache trying to expire. Retrying with lock")
 				return s.GetCachedResult(name, dnsType, true)
 			}
 		} else {
