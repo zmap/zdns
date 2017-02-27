@@ -245,6 +245,9 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, wLock
 			retv.Answers = append(retv.Answers, cachedAnswer.Answer)
 		}
 	}
+	if wLock {
+		s.CacheMutex.Unlock()
+	}
 	//if res.ExpiresAt.After(now) {
 	//	s.CacheMutex.Lock()
 	//	s.IterativeCache.Delete(key)
