@@ -190,11 +190,11 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, d
 	// to add this record back in momentarily and that will take care of this
 	i, ok := s.IterativeCache.GetNoMove(key)
 	ca, ok := i.(CachedResult)
-	if !ok {
+	if !ok && i != nil {
 		panic("unable to cast cached result")
 	}
 	if !ok {
-		ca := CachedResult{}
+		ca = CachedResult{}
 		ca.Answers = make(map[interface{}]TimedAnswer)
 	}
 	// we have an existing record. Let's add this answer to it.

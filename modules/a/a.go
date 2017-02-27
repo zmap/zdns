@@ -61,6 +61,7 @@ func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, e
 	r := new(RoutineLookupFactory)
 	r.Factory = s
 	r.Initialize(s.GlobalConf)
+	r.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
 	return r, nil
 }
 
