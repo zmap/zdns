@@ -481,7 +481,7 @@ func (s *Lookup) extractAuthority(searchSet map[string][]Answer, authority inter
 	// nothing was found. we need to lookup the A record for one of the NS servers. Quit once
 	// we've found one.
 	server := strings.TrimSuffix(ans.Answer, ".")
-	res, status, _ := s.iterativeLookup(dns.TypeA, server, s.NameServer, 0, ".")
+	res, status, _ := s.iterativeLookup(dns.TypeA, server, s.NameServer, depth+1, ".")
 	if status == zdns.STATUS_NOERROR {
 		for _, inner_a := range res.Answers {
 			inner_ans, ok := inner_a.(Answer)
