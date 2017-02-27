@@ -167,23 +167,25 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	return nil
 }
 
-func makeCacheKey(name string, dnsType uint16) interface{} {
+func makeCacheKey(name string, layer string, dnsType uint16) interface{} {
 	return struct {
 		Name    string
+		Layer   string
 		DnsType uint16
 	}{
 		Name:    name,
+		Layer:   layer,
 		DnsType: dnsType,
 	}
 }
 
-func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, dnsType uint16, ttl uint32) {
+func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, layer string, dnsType uint16, ttl uint32) {
 	a, ok := answer.(Answer)
 	if !ok {
 		// we can't cache this entry because we have no idea what to name it
 		return
 	}
-	key := makeCacheKey(name, dnsType)
+	key := makeCacheKey(name, layer, dnsType)
 	expiresAt := time.Now().Add(time.Duration(ttl) * time.Second)
 	s.CacheMutex.Lock()
 	// don't bother to move this to the top of the linked list. we're going
@@ -207,10 +209,10 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, d
 	s.CacheMutex.Unlock()
 }
 
-func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, wLock bool) (Result, bool) {
-	log.Debug("cache request for: ", name, " (", dnsType, "), wlock (", wLock, "):")
+func (s *GlobalLookupFactory) GetCachedResult(name string, layer string, dnsType uint16, wLock bool) (Result, bool) {
+	log.Debug("cache request for: ", name, " (", dnsType, "), layer: ", layer, " wlock (", wLock, "):")
 	var retv Result
-	key := makeCacheKey(name, dnsType)
+	key := makeCacheKey(name, layer, dnsType)
 	if wLock {
 		s.CacheMutex.Lock()
 	} else {
@@ -241,7 +243,7 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, wLock
 				delete(cachedRes.Answers, k)
 			} else {
 				log.Debug("cache trying to expire. Retrying with lock")
-				return s.GetCachedResult(name, dnsType, true)
+				return s.GetCachedResult(name, layer, dnsType, true)
 			}
 		} else {
 			// this result is valid. append it to the Result we're going to hand to the user
@@ -387,7 +389,7 @@ func (s *Lookup) SafeAddCachedAnswer(name string, dnsType uint16, a interface{},
 		log.Info("detected poison ", debugType, ": ", name, " (", dnsType, "): ", a)
 		return
 	}
-	s.Factory.Factory.AddCachedAnswer(a, ans.Name, dnsType, ans.Ttl)
+	s.Factory.Factory.AddCachedAnswer(a, ans.Name, layer, dnsType, ans.Ttl)
 }
 
 func (s *Lookup) cacheUpdate(dnsType uint16, name string, layer string, result Result) {
@@ -403,6 +405,7 @@ func (s *Lookup) cacheUpdate(dnsType uint16, name string, layer string, result R
 }
 
 func (s *Lookup) retryingLookup(dnsType uint16, name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
+	log.Debug("****WIRE***")
 	origTimeout := s.Factory.Client.Timeout
 	for i := 0; i < s.Factory.Retries; i++ {
 		result, status, err := s.doLookup(dnsType, name, nameServer, recursive)
@@ -418,7 +421,7 @@ func (s *Lookup) retryingLookup(dnsType uint16, name string, nameServer string, 
 }
 
 func (s *Lookup) cachedRetryingLookup(dnsType uint16, name string, nameServer string, layer string) (Result, zdns.Status, error) {
-	cachedResult, ok := s.Factory.Factory.GetCachedResult(name, dnsType, false)
+	cachedResult, ok := s.Factory.Factory.GetCachedResult(name, layer, dnsType, false)
 	if ok {
 		return cachedResult, zdns.STATUS_NOERROR, nil
 	}
@@ -462,7 +465,7 @@ func (s *Lookup) nameIsBeneath(name string, layer string) (bool, string) {
 	return false, ""
 }
 
-func (s *Lookup) extractAuthority(searchSet map[string][]Answer, authority interface{}, layer string) (string, zdns.Status, string) {
+func (s *Lookup) extractAuthority(searchSet map[string][]Answer, authority interface{}, layer string, depth int) (string, zdns.Status, string) {
 	// check if we have the IP address for any of the authorities
 	ans, ok := authority.(Answer)
 	if !ok {
@@ -531,7 +534,7 @@ func (s *Lookup) iterateOnAuthorities(dnsType uint16, name string, depth int, re
 	searchSet := s.extractAdditionals(result)
 	for _, elem := range result.Authorities {
 		// XXX log stuff
-		ns, ns_status, layer := s.extractAuthority(searchSet, elem, layer)
+		ns, ns_status, layer := s.extractAuthority(searchSet, elem, layer, depth)
 		log.Debug(makeDepthPadding(depth+1), "   Output from extract authorities: ", ns)
 		if ns_status != zdns.STATUS_NOERROR {
 			// XXX Log stuff
