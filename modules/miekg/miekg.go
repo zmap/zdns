@@ -17,6 +17,7 @@ import (
 type Answer struct {
 	Ttl    uint32 `json:"ttl,omitempty"`
 	Type   string `json:"type,omitempty"`
+	rrType uint16
 	Name   string `json:"name,omitempty"`
 	Answer string `json:"answer,omitempty"`
 }
@@ -83,26 +84,27 @@ func dotName(name string) string {
 func ParseAnswer(ans dns.RR) interface{} {
 	var retv Answer
 	if a, ok := ans.(*dns.A); ok {
-		retv = Answer{Ttl: a.Hdr.Ttl, Type: dns.Type(a.Hdr.Rrtype).String(), Name: a.Hdr.Name, Answer: a.A.String()}
+		retv = Answer{Ttl: a.Hdr.Ttl, Type: dns.Type(a.Hdr.Rrtype).String(), rrType: a.Hdr.Rrtype, Name: a.Hdr.Name, Answer: a.A.String()}
 	} else if aaaa, ok := ans.(*dns.AAAA); ok {
-		retv = Answer{Ttl: aaaa.Hdr.Ttl, Type: dns.Type(aaaa.Hdr.Rrtype).String(), Name: aaaa.Hdr.Name, Answer: aaaa.AAAA.String()}
+		retv = Answer{Ttl: aaaa.Hdr.Ttl, Type: dns.Type(aaaa.Hdr.Rrtype).String(), rrType: aaaa.Hdr.Rrtype, Name: aaaa.Hdr.Name, Answer: aaaa.AAAA.String()}
 	} else if cname, ok := ans.(*dns.CNAME); ok {
-		retv = Answer{Ttl: cname.Hdr.Ttl, Type: dns.Type(cname.Hdr.Rrtype).String(), Name: cname.Hdr.Name, Answer: cname.Target}
+		retv = Answer{Ttl: cname.Hdr.Ttl, Type: dns.Type(cname.Hdr.Rrtype).String(), rrType: cname.Hdr.Rrtype, Name: cname.Hdr.Name, Answer: cname.Target}
 	} else if dname, ok := ans.(*dns.DNAME); ok {
-		retv = Answer{Ttl: dname.Hdr.Ttl, Type: dns.Type(dname.Hdr.Rrtype).String(), Name: dname.Hdr.Name, Answer: dname.Target}
+		retv = Answer{Ttl: dname.Hdr.Ttl, Type: dns.Type(dname.Hdr.Rrtype).String(), rrType: dname.Hdr.Rrtype, Name: dname.Hdr.Name, Answer: dname.Target}
 	} else if txt, ok := ans.(*dns.TXT); ok {
-		retv = Answer{Ttl: txt.Hdr.Ttl, Type: dns.Type(txt.Hdr.Rrtype).String(), Name: txt.Hdr.Name, Answer: strings.Join(txt.Txt, "\n")}
+		retv = Answer{Ttl: txt.Hdr.Ttl, Type: dns.Type(txt.Hdr.Rrtype).String(), rrType: txt.Hdr.Rrtype, Name: txt.Hdr.Name, Answer: strings.Join(txt.Txt, "\n")}
 	} else if ns, ok := ans.(*dns.NS); ok {
-		retv = Answer{Ttl: ns.Hdr.Ttl, Type: dns.Type(ns.Hdr.Rrtype).String(), Name: ns.Hdr.Name, Answer: ns.Ns}
+		retv = Answer{Ttl: ns.Hdr.Ttl, Type: dns.Type(ns.Hdr.Rrtype).String(), rrType: ns.Hdr.Rrtype, Name: ns.Hdr.Name, Answer: ns.Ns}
 	} else if ptr, ok := ans.(*dns.PTR); ok {
-		retv = Answer{Ttl: ptr.Hdr.Ttl, Type: dns.Type(ptr.Hdr.Rrtype).String(), Name: ptr.Hdr.Name, Answer: ptr.Ptr}
+		retv = Answer{Ttl: ptr.Hdr.Ttl, Type: dns.Type(ptr.Hdr.Rrtype).String(), rrType: ptr.Hdr.Rrtype, Name: ptr.Hdr.Name, Answer: ptr.Ptr}
 	} else if spf, ok := ans.(*dns.SPF); ok {
-		retv = Answer{Ttl: spf.Hdr.Ttl, Type: dns.Type(spf.Hdr.Rrtype).String(), Name: spf.Hdr.Name, Answer: spf.String()}
+		retv = Answer{Ttl: spf.Hdr.Ttl, Type: dns.Type(spf.Hdr.Rrtype).String(), rrType: spf.Hdr.Rrtype, Name: spf.Hdr.Name, Answer: spf.String()}
 	} else if mx, ok := ans.(*dns.MX); ok {
 		return MXAnswer{
 			Answer: Answer{
 				Name:   mx.Hdr.Name,
 				Type:   dns.Type(mx.Hdr.Rrtype).String(),
+				rrType: mx.Hdr.Rrtype,
 				Ttl:    mx.Hdr.Ttl,
 				Answer: mx.Mx,
 			},
@@ -111,9 +113,10 @@ func ParseAnswer(ans dns.RR) interface{} {
 	} else if caa, ok := ans.(*dns.CAA); ok {
 		return CAAAnswer{
 			Answer: Answer{
-				Name: caa.Hdr.Name,
-				Ttl:  caa.Hdr.Ttl,
-				Type: dns.Type(caa.Hdr.Rrtype).String(),
+				Name:   caa.Hdr.Name,
+				Ttl:    caa.Hdr.Ttl,
+				Type:   dns.Type(caa.Hdr.Rrtype).String(),
+				rrType: caa.Hdr.Rrtype,
 			},
 			Tag:   caa.Tag,
 			Value: caa.Value,
@@ -122,9 +125,10 @@ func ParseAnswer(ans dns.RR) interface{} {
 	} else if soa, ok := ans.(*dns.SOA); ok {
 		return SOAAnswer{
 			Answer: Answer{
-				Name: soa.Hdr.Name,
-				Type: dns.Type(soa.Hdr.Rrtype).String(),
-				Ttl:  soa.Hdr.Ttl,
+				Name:   soa.Hdr.Name,
+				Type:   dns.Type(soa.Hdr.Rrtype).String(),
+				rrType: soa.Hdr.Rrtype,
+				Ttl:    soa.Hdr.Ttl,
 			},
 			Ns:      strings.TrimSuffix(soa.Ns, "."),
 			Mbox:    soa.Mbox,
@@ -137,9 +141,11 @@ func ParseAnswer(ans dns.RR) interface{} {
 	} else {
 		return struct {
 			Type     string `json:"type"`
+			rrType   uint16
 			Unparsed dns.RR `json:"unparsed_rr"`
 		}{
 			Type:     dns.Type(ans.Header().Rrtype).String(),
+			rrType:   ans.Header().Rrtype,
 			Unparsed: ans,
 		}
 	}
@@ -167,25 +173,23 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	return nil
 }
 
-func makeCacheKey(name string, layer string, dnsType uint16) interface{} {
+func makeCacheKey(name string, dnsType uint16) interface{} {
 	return struct {
 		Name    string
-		Layer   string
 		DnsType uint16
 	}{
 		Name:    name,
-		Layer:   layer,
 		DnsType: dnsType,
 	}
 }
 
-func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, layer string, dnsType uint16, ttl uint32) {
+func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, dnsType uint16, ttl uint32, depth int) {
 	a, ok := answer.(Answer)
 	if !ok {
 		// we can't cache this entry because we have no idea what to name it
 		return
 	}
-	key := makeCacheKey(name, layer, dnsType)
+	key := makeCacheKey(name, dnsType)
 	expiresAt := time.Now().Add(time.Duration(ttl) * time.Second)
 	s.CacheMutex.Lock()
 	// don't bother to move this to the top of the linked list. we're going
@@ -204,15 +208,15 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, l
 		Answer:    answer,
 		ExpiresAt: expiresAt}
 	ca.Answers[a] = ta
-	log.Debug("Add cached answer ", key, " ", ca)
+	log.Debug(makeDepthPadding(depth+1), "Add cached answer ", key, " ", ca)
 	s.IterativeCache.Add(key, ca)
 	s.CacheMutex.Unlock()
 }
 
-func (s *GlobalLookupFactory) GetCachedResult(name string, layer string, dnsType uint16, wLock bool) (Result, bool) {
-	log.Debug("cache request for: ", name, " (", dnsType, "), layer: ", layer, " wlock (", wLock, "):")
+func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, wLock bool, depth int) (Result, bool) {
+	log.Debug(makeDepthPadding(depth+1), "cache request for: ", name, " (", dnsType, "), wlock (", wLock, "):")
 	var retv Result
-	key := makeCacheKey(name, layer, dnsType)
+	key := makeCacheKey(name, dnsType)
 	if wLock {
 		s.CacheMutex.Lock()
 	} else {
@@ -223,7 +227,7 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, layer string, dnsType
 		s.CacheMutex.RUnlock()
 	}
 	if !ok { // nothing found
-		log.Debug(" -> no entry found in cache")
+		log.Debug(makeDepthPadding(depth+1), " -> no entry found in cache")
 		return retv, false
 	}
 	cachedRes, ok := unres.(CachedResult)
@@ -239,15 +243,19 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, layer string, dnsType
 			// and then write this back to the cache. However, if we don't,
 			// we need to start this process over with a write lock
 			if wLock {
-				log.Debug("Expiring cache entry ", k)
+				log.Debug(makeDepthPadding(depth+1), "Expiring cache entry ", k)
 				delete(cachedRes.Answers, k)
 			} else {
-				log.Debug("cache trying to expire. Retrying with lock")
-				return s.GetCachedResult(name, layer, dnsType, true)
+				log.Debug(makeDepthPadding(depth+1), "cache trying to expire. Retrying with lock")
+				return s.GetCachedResult(name, dnsType, true, depth)
 			}
 		} else {
 			// this result is valid. append it to the Result we're going to hand to the user
-			retv.Answers = append(retv.Answers, cachedAnswer.Answer)
+			if dnsType == dns.TypeNS {
+				retv.Authorities = append(retv.Authorities, cachedAnswer.Answer)
+			} else {
+				retv.Answers = append(retv.Answers, cachedAnswer.Answer)
+			}
 		}
 	}
 	if wLock {
@@ -378,29 +386,31 @@ func (s *Lookup) doLookup(dnsType uint16, name string, nameServer string, recurs
 	return res, zdns.STATUS_NOERROR, nil
 }
 
-func (s *Lookup) SafeAddCachedAnswer(name string, dnsType uint16, a interface{}, layer string, debugType string) {
+func (s *Lookup) SafeAddCachedAnswer(a interface{}, layer string, debugType string, depth int) {
 	ans, ok := a.(Answer)
 	if !ok {
-		log.Debug("unable to cast ", debugType, ": ", name, " (", dnsType, "): ", a)
+		log.Debug(makeDepthPadding(depth+1), "unable to cast ", debugType, ": ", layer, ": ", a)
 		return
 	}
-	ok, _ = s.nameIsBeneath(ans.Name, layer)
+	ok, _ = nameIsBeneath(ans.Name, layer)
 	if !ok {
-		log.Info("detected poison ", debugType, ": ", name, " (", dnsType, "): ", a)
+		log.Info("detected poison ", debugType, ": ", ans.Name, ": ", ans.Type, ": ", a)
 		return
 	}
-	s.Factory.Factory.AddCachedAnswer(a, ans.Name, layer, dnsType, ans.Ttl)
+	s.Factory.Factory.AddCachedAnswer(a, ans.Name, ans.rrType, ans.Ttl, depth)
 }
 
-func (s *Lookup) cacheUpdate(dnsType uint16, name string, layer string, result Result) {
+func (s *Lookup) cacheUpdate(layer string, result Result, depth int) {
 	for _, a := range result.Additional {
-		s.SafeAddCachedAnswer(name, dnsType, a, layer, "additional")
+		s.SafeAddCachedAnswer(a, layer, "additional", depth)
 	}
 	for _, a := range result.Authorities {
-		s.SafeAddCachedAnswer(name, dnsType, a, layer, "authority")
+		s.SafeAddCachedAnswer(a, layer, "authority", depth)
 	}
-	for _, a := range result.Answers {
-		s.SafeAddCachedAnswer(name, dnsType, a, layer, "anwer")
+	if result.Flags.Authoritative == true {
+		for _, a := range result.Answers {
+			s.SafeAddCachedAnswer(a, layer, "anwer", depth)
+		}
 	}
 }
 
@@ -420,40 +430,35 @@ func (s *Lookup) retryingLookup(dnsType uint16, name string, nameServer string, 
 	panic("loop must return")
 }
 
-func (s *Lookup) cachedRetryingLookup(dnsType uint16, name string, nameServer string, layer string) (Result, zdns.Status, error) {
-	cachedResult, ok := s.Factory.Factory.GetCachedResult(name, layer, dnsType, false)
+func (s *Lookup) cachedRetryingLookup(dnsType uint16, name string, nameServer string, layer string, depth int) (Result, zdns.Status, error) {
+	// First, we check the answer
+	cachedResult, ok := s.Factory.Factory.GetCachedResult(name, dnsType, false, depth)
 	if ok {
 		return cachedResult, zdns.STATUS_NOERROR, nil
 	}
+	// Now, we check the authoritative:
+	if name != layer {
+		authName := nextAuthority(name, layer)
+		if authName == "" {
+			log.Debug(makeDepthPadding(depth+1), "-> Can't parse name to authority properly. name: ", name, ", layer: ", layer)
+			var r Result
+			return r, zdns.STATUS_AUTHFAIL, nil
+		}
+		log.Debug(makeDepthPadding(depth+1), "-> auth check for ", authName)
+		cachedResult, ok = s.Factory.Factory.GetCachedResult(authName, dns.TypeNS, false, depth)
+		if ok {
+			return cachedResult, zdns.STATUS_NOERROR, nil
+		}
+	}
+
+	// Alright, we're not sure what to do, go to the wire.
 	result, status, err := s.retryingLookup(dnsType, name, nameServer, false)
-	s.cacheUpdate(dnsType, name, layer, result)
+
+	s.cacheUpdate(layer, result, depth)
 	return result, status, err
 }
 
-func (s *Lookup) extractAdditionals(res Result) map[string][]Answer {
-	if len(res.Authorities) == 0 {
-		// this is a lost cause.
-		return nil
-	}
-	// most reasonable servers will include the A or AAAA record for a DNS
-	// server in the additionals. Put all into a hash table that we can check
-	// when we iterate over the records in the authorities section
-	searchSet := make(map[string][]Answer)
-	for _, a := range res.Additional {
-		ans, ok := a.(Answer)
-		if !ok {
-			// XXX add logging
-			continue
-		}
-		if ans.Type == "A" {
-			name := dotName(ans.Name)
-			searchSet[name] = append(searchSet[name], ans)
-		}
-	}
-	return searchSet
-}
-
-func (s *Lookup) nameIsBeneath(name string, layer string) (bool, string) {
+func nameIsBeneath(name string, layer string) (bool, string) {
 	name = strings.TrimSuffix(name, ".")
 	if layer == "." {
 		return true, name
@@ -465,24 +470,32 @@ func (s *Lookup) nameIsBeneath(name string, layer string) (bool, string) {
 	return false, ""
 }
 
-func (s *Lookup) extractAuthority(searchSet map[string][]Answer, authority interface{}, layer string, depth int) (string, zdns.Status, string) {
+func nextAuthority(name string, layer string) string {
+	idx := strings.LastIndex(name, ".")
+	if idx < 0 || (idx+1) >= len(name) {
+		return ""
+	}
+	if layer != "." {
+		idx = strings.LastIndex(name[0:idx], ".")
+		if idx < 0 || (idx+1) >= len(name) {
+			return name
+		}
+	}
+	return name[idx+1:]
+}
+
+func (s *Lookup) extractAuthority(authority interface{}, layer string, depth int) (string, zdns.Status, string) {
 	// check if we have the IP address for any of the authorities
 	ans, ok := authority.(Answer)
 	if !ok {
 		return "", zdns.STATUS_SERVFAIL, layer
 	}
 
-	ok, layer = s.nameIsBeneath(ans.Name, layer)
+	ok, layer = nameIsBeneath(ans.Name, layer)
 	if !ok {
 		return "", zdns.STATUS_AUTHFAIL, layer
 	}
 
-	if ip, ok := searchSet[ans.Answer]; ok {
-		server := strings.TrimSuffix(ip[0].Answer, ".") + ":53"
-		return server, zdns.STATUS_NOERROR, layer
-	}
-	// nothing was found. we need to lookup the A record for one of the NS servers. Quit once
-	// we've found one.
 	server := strings.TrimSuffix(ans.Answer, ".")
 	res, status, _ := s.iterativeLookup(dns.TypeA, server, s.NameServer, depth+1, ".")
 	if status == zdns.STATUS_NOERROR {
@@ -501,7 +514,7 @@ func (s *Lookup) extractAuthority(searchSet map[string][]Answer, authority inter
 }
 
 func makeDepthPadding(depth int) string {
-	return strings.Repeat("  ", depth)
+	return strings.Repeat("  ", 2*depth)
 }
 
 func debugReverseLookup(name string) string {
@@ -531,10 +544,9 @@ func (s *Lookup) iterateOnAuthorities(dnsType uint16, name string, depth int, re
 		var r Result
 		return r, zdns.STATUS_SERVFAIL, nil
 	}
-	searchSet := s.extractAdditionals(result)
 	for _, elem := range result.Authorities {
 		// XXX log stuff
-		ns, ns_status, layer := s.extractAuthority(searchSet, elem, layer, depth)
+		ns, ns_status, layer := s.extractAuthority(elem, layer, depth)
 		log.Debug(makeDepthPadding(depth+1), "   Output from extract authorities: ", ns)
 		if ns_status != zdns.STATUS_NOERROR {
 			// XXX Log stuff
@@ -559,7 +571,7 @@ func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string,
 		var r Result
 		return r, zdns.STATUS_ERROR, errors.New("Max recursion depth reached")
 	}
-	result, status, err := s.cachedRetryingLookup(dnsType, name, nameServer, layer)
+	result, status, err := s.cachedRetryingLookup(dnsType, name, nameServer, layer, depth)
 	if status != zdns.STATUS_NOERROR {
 		log.Debug(makeDepthPadding(depth+1), "-> error occurred during lookup")
 		return result, status, err
