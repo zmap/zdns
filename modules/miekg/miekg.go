@@ -2,6 +2,7 @@ package miekg
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"strings"
 	"sync"
@@ -214,7 +215,7 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, d
 }
 
 func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, wLock bool, depth int) (Result, bool) {
-	log.Debug(makeDepthPadding(depth+1), "cache request for: ", name, " (", dnsType, "), wlock (", wLock, "):")
+	log.Debug(makeDepthPadding(depth+1), "Cache request for: ", name, " (", dnsType, "), wlock (", wLock, "):")
 	var retv Result
 	key := makeCacheKey(name, dnsType)
 	if wLock {
@@ -227,7 +228,7 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, wLock
 		s.CacheMutex.RUnlock()
 	}
 	if !ok { // nothing found
-		log.Debug(makeDepthPadding(depth+1), " -> no entry found in cache")
+		log.Debug(makeDepthPadding(depth+2), "-> no entry found in cache")
 		return retv, false
 	}
 	cachedRes, ok := unres.(CachedResult)
@@ -243,10 +244,10 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, wLock
 			// and then write this back to the cache. However, if we don't,
 			// we need to start this process over with a write lock
 			if wLock {
-				log.Debug(makeDepthPadding(depth+1), "Expiring cache entry ", k)
+				log.Debug(makeDepthPadding(depth+2), "Expiring cache entry ", k)
 				delete(cachedRes.Answers, k)
 			} else {
-				log.Debug(makeDepthPadding(depth+1), "cache trying to expire. Retrying with lock")
+				log.Debug(makeDepthPadding(depth+2), "cache trying to expire. Retrying with lock")
 				return s.GetCachedResult(name, dnsType, true, depth)
 			}
 		} else {
@@ -272,6 +273,7 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, wLock
 	//for _, ans := range res.Result.Answers {
 	//	log.Debug("      - ", ans)
 	//}
+	log.Debug(makeDepthPadding(depth+2), "Cache hit: ", retv)
 	return retv, true
 }
 
@@ -415,7 +417,7 @@ func (s *Lookup) cacheUpdate(layer string, result Result, depth int) {
 }
 
 func (s *Lookup) retryingLookup(dnsType uint16, name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
-	log.Debug("****WIRE***")
+	log.Debug("****WIRE LOOKUP***")
 	origTimeout := s.Factory.Client.Timeout
 	for i := 0; i < s.Factory.Retries; i++ {
 		result, status, err := s.doLookup(dnsType, name, nameServer, recursive)
@@ -431,30 +433,32 @@ func (s *Lookup) retryingLookup(dnsType uint16, name string, nameServer string, 
 }
 
 func (s *Lookup) cachedRetryingLookup(dnsType uint16, name string, nameServer string, layer string, depth int) (Result, zdns.Status, error) {
+	log.Debug(makeDepthPadding(depth+1), "Cached retrying lookup. Name: ", name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 	// First, we check the answer
-	cachedResult, ok := s.Factory.Factory.GetCachedResult(name, dnsType, false, depth)
+	cachedResult, ok := s.Factory.Factory.GetCachedResult(name, dnsType, false, depth+1)
 	if ok {
 		return cachedResult, zdns.STATUS_NOERROR, nil
 	}
 	// Now, we check the authoritative:
-	if name != layer {
-		authName := nextAuthority(name, layer)
+	authName := nextAuthority(name, layer)
+	if name != layer && authName != layer {
 		if authName == "" {
-			log.Debug(makeDepthPadding(depth+1), "-> Can't parse name to authority properly. name: ", name, ", layer: ", layer)
+			log.Debug(makeDepthPadding(depth+2), "Can't parse name to authority properly. name: ", name, ", layer: ", layer)
 			var r Result
 			return r, zdns.STATUS_AUTHFAIL, nil
 		}
-		log.Debug(makeDepthPadding(depth+1), "-> auth check for ", authName)
-		cachedResult, ok = s.Factory.Factory.GetCachedResult(authName, dns.TypeNS, false, depth)
+		log.Debug(makeDepthPadding(depth+2), "Cache auth check for ", authName)
+		cachedResult, ok = s.Factory.Factory.GetCachedResult(authName, dns.TypeNS, false, depth+2)
 		if ok {
 			return cachedResult, zdns.STATUS_NOERROR, nil
 		}
 	}
 
+	log.Debug(makeDepthPadding(depth+2), "Wire lookup for name: ", name, " (", dnsType, ") at nameserver: ", nameServer)
 	// Alright, we're not sure what to do, go to the wire.
 	result, status, err := s.retryingLookup(dnsType, name, nameServer, false)
 
-	s.cacheUpdate(layer, result, depth)
+	s.cacheUpdate(layer, result, depth+2)
 	return result, status, err
 }
 
@@ -514,7 +518,7 @@ func (s *Lookup) extractAuthority(authority interface{}, layer string, depth int
 }
 
 func makeDepthPadding(depth int) string {
-	return strings.Repeat("  ", 2*depth)
+	return fmt.Sprintf("%v", depth) + ":" + strings.Repeat("  ", 2*depth)
 }
 
 func debugReverseLookup(name string) string {
@@ -547,7 +551,7 @@ func (s *Lookup) iterateOnAuthorities(dnsType uint16, name string, depth int, re
 	for _, elem := range result.Authorities {
 		// XXX log stuff
 		ns, ns_status, layer := s.extractAuthority(elem, layer, depth)
-		log.Debug(makeDepthPadding(depth+1), "   Output from extract authorities: ", ns)
+		log.Debug(makeDepthPadding(depth+1), "Output from extract authorities: ", ns)
 		if ns_status != zdns.STATUS_NOERROR {
 			// XXX Log stuff
 			continue
