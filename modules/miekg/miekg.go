@@ -231,6 +231,9 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, wLock
 		log.Debug(makeDepthPadding(depth+2), "-> no entry found in cache")
 		return retv, false
 	}
+	retv.Authorities = make([]interface{}, 0)
+	retv.Answers = make([]interface{}, 0)
+	retv.Additional = make([]interface{}, 0)
 	cachedRes, ok := unres.(CachedResult)
 	if !ok {
 		panic("bad cache entry")
@@ -417,7 +420,7 @@ func (s *Lookup) cacheUpdate(layer string, result Result, depth int) {
 }
 
 func (s *Lookup) retryingLookup(dnsType uint16, name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
-	log.Debug("****WIRE LOOKUP***")
+	log.Debug("****WIRE LOOKUP***", name, " ", nameServer)
 	origTimeout := s.Factory.Client.Timeout
 	for i := 0; i < s.Factory.Retries; i++ {
 		result, status, err := s.doLookup(dnsType, name, nameServer, recursive)
