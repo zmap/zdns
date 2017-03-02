@@ -582,11 +582,20 @@ func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string,
 	if status != zdns.STATUS_NOERROR {
 		log.Debug(makeDepthPadding(depth+1), "-> error occurred during lookup")
 		return result, status, err
-	} else if result.Flags.Authoritative == true {
-		log.Debug(makeDepthPadding(depth+1), "-> authoritative response found")
-		return result, status, err
-	} else if len(result.Answers) != 0 {
-		log.Debug(makeDepthPadding(depth+1), "-> answers found")
+	} else if len(result.Answers) != 0 || result.Flags.Authoritative == true {
+		if len(result.Answers) != 0 {
+			log.Debug(makeDepthPadding(depth+1), "-> answers found")
+			if len(result.Authorities) > 0 {
+				log.Debug(makeDepthPadding(depth+2), "Dropping ", len(result.Authorities), " authority answers from output")
+				result.Authorities = make([]interface{}, 0)
+			}
+			if len(result.Additional) > 0 {
+				log.Debug(makeDepthPadding(depth+2), "Dropping ", len(result.Additional), " additional answers from output")
+				result.Additional = make([]interface{}, 0)
+			}
+		} else {
+			log.Debug(makeDepthPadding(depth+1), "-> authoritative response found")
+		}
 		return result, status, err
 	} else if len(result.Authorities) != 0 {
 		return s.iterateOnAuthorities(dnsType, name, depth, result, layer)
