@@ -287,6 +287,7 @@ type RoutineLookupFactory struct {
 	Retries             int
 	MaxDepth            int
 	Timeout             time.Duration
+	IterativeTimeout    time.Duration
 	IterativeResolution bool
 	DNSType             uint16
 }
@@ -300,6 +301,7 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 	s.TCPClient.Timeout = c.Timeout
 
 	s.Timeout = c.Timeout
+	s.IterativeTimeout = c.IterativeTimeout
 	s.Retries = c.Retries
 	s.MaxDepth = c.MaxDepth
 	s.IterativeResolution = c.IterativeResolution
@@ -308,10 +310,11 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 type Lookup struct {
 	zdns.BaseLookup
 
-	Factory    *RoutineLookupFactory
-	DNSType    uint16
-	Prefix     string
-	NameServer string
+	Factory       *RoutineLookupFactory
+	DNSType       uint16
+	Prefix        string
+	NameServer    string
+	IterativeStop time.Time
 }
 
 func (s *Lookup) Initialize(nameServer string, dnsType uint16, factory *RoutineLookupFactory) error {
@@ -437,6 +440,11 @@ func (s *Lookup) retryingLookup(dnsType uint16, name string, nameServer string, 
 
 func (s *Lookup) cachedRetryingLookup(dnsType uint16, name string, nameServer string, layer string, depth int) (Result, zdns.Status, error) {
 	log.Debug(makeDepthPadding(depth+1), "Cached retrying lookup. Name: ", name, ", Layer: ", layer, ", Nameserver: ", nameServer)
+	if s.IterativeStop.Before(time.Now()) {
+		log.Debug(makeDepthPadding(depth+2), "TIMEOUT ", name, ", Layer: ", layer, ", Nameserver: ", nameServer)
+		var r Result
+		return r, zdns.STATUS_ITER_TIMEOUT, nil
+	}
 	// First, we check the answer
 	cachedResult, ok := s.Factory.Factory.GetCachedResult(name, dnsType, false, depth+1)
 	if ok {
@@ -610,6 +618,9 @@ func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string,
 
 func (s *Lookup) DoMiekgLookup(name string) (interface{}, zdns.Status, error) {
 	if s.Factory.IterativeResolution {
+		log.Debug(time.Now())
+		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
+		log.Debug(s.IterativeStop)
 		return s.iterativeLookup(s.DNSType, name, s.NameServer, 0, ".")
 	} else {
 		return s.retryingLookup(s.DNSType, name, s.NameServer, true)
@@ -618,6 +629,7 @@ func (s *Lookup) DoMiekgLookup(name string) (interface{}, zdns.Status, error) {
 
 func (s *Lookup) DoTypedMiekgLookup(name string, dnsType uint16) (interface{}, zdns.Status, error) {
 	if s.Factory.IterativeResolution {
+		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
 		return s.iterativeLookup(dnsType, name, s.NameServer, 0, ".")
 	} else {
 		return s.retryingLookup(dnsType, name, s.NameServer, true)

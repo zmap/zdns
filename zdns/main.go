@@ -64,6 +64,7 @@ func main() {
 	servers_string := flags.String("name-servers", "", "comma-delimited list of DNS servers to use")
 	config_file := flags.String("conf-file", "/etc/resolv.conf", "config file for DNS servers")
 	timeout := flags.Int("timeout", 15, "timeout for resolving an individual name")
+	iterativeTimeout := flags.Int("iterative-timeout", 15, "timeout for resolving an individual name, iteratively")
 	// allow module to initialize and add its own flags before we parse
 	if len(os.Args) < 2 {
 		log.Fatal("No lookup module specified. Valid modules: ", zdns.ValidlookupsString())
@@ -102,6 +103,7 @@ func main() {
 	}
 	// complete post facto global initialization based on command line arguments
 	gc.Timeout = time.Duration(time.Second * time.Duration(*timeout))
+	gc.IterativeTimeout = time.Duration(time.Second * time.Duration(*iterativeTimeout))
 	if *servers_string == "" {
 		// if we're doing recursive resolution, figure out default OS name servers
 		// otherwise, use the set of 13 root name servers

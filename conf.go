@@ -19,6 +19,7 @@ import "time"
 type GlobalConf struct {
 	Threads             int
 	Timeout             time.Duration
+	IterativeTimeout    time.Duration
 	Retries             int
 	AlexaFormat         bool
 	IterativeResolution bool
@@ -78,6 +79,7 @@ const (
 	STATUS_NO_ANSWER     Status = "NO_ANSWER"
 	STATUS_ILLEGAL_INPUT Status = "ILLEGAL_INPUT"
 	STATUS_TIMEOUT       Status = "TIMEOUT"
+	STATUS_ITER_TIMEOUT  Status = "ITERATIVE_TIMEOUT"
 	STATUS_TEMPORARY     Status = "TEMPORARY"
 	STATUS_TRUNCATED     Status = "TRUNCATED"
 )
