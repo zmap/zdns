@@ -214,21 +214,15 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, d
 	s.CacheMutex.Unlock()
 }
 
-func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, wLock bool, depth int) (Result, bool) {
-	log.Debug(makeDepthPadding(depth+1), "Cache request for: ", name, " (", dnsType, "), wlock (", wLock, "):")
+func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, depth int) (Result, bool) {
+	log.Debug(makeDepthPadding(depth+1), "Cache request for: ", name, " (", dnsType, ")")
 	var retv Result
 	key := makeCacheKey(name, dnsType)
-	if wLock {
-		s.CacheMutex.Lock()
-	} else {
-		s.CacheMutex.RLock()
-	}
+	s.CacheMutex.Lock()
 	unres, ok := s.IterativeCache.Get(key)
-	if !wLock {
-		s.CacheMutex.RUnlock()
-	}
 	if !ok { // nothing found
 		log.Debug(makeDepthPadding(depth+2), "-> no entry found in cache")
+		s.CacheMutex.Unlock()
 		return retv, false
 	}
 	retv.Authorities = make([]interface{}, 0)
@@ -246,13 +240,8 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, wLock
 			// if we have a write lock, we can perform the necessary actions
 			// and then write this back to the cache. However, if we don't,
 			// we need to start this process over with a write lock
-			if wLock {
-				log.Debug(makeDepthPadding(depth+2), "Expiring cache entry ", k)
-				delete(cachedRes.Answers, k)
-			} else {
-				log.Debug(makeDepthPadding(depth+2), "cache trying to expire. Retrying with lock")
-				return s.GetCachedResult(name, dnsType, true, depth)
-			}
+			log.Debug(makeDepthPadding(depth+2), "Expiring cache entry ", k)
+			delete(cachedRes.Answers, k)
 		} else {
 			// this result is valid. append it to the Result we're going to hand to the user
 			if dnsType == dns.TypeNS {
@@ -262,9 +251,7 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, wLock
 			}
 		}
 	}
-	if wLock {
-		s.CacheMutex.Unlock()
-	}
+	s.CacheMutex.Unlock()
 	//if res.ExpiresAt.After(now) {
 	//	s.CacheMutex.Lock()
 	//	s.IterativeCache.Delete(key)
@@ -446,7 +433,7 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, name string, nameServer st
 		return r, zdns.STATUS_ITER_TIMEOUT, nil
 	}
 	// First, we check the answer
-	cachedResult, ok := s.Factory.Factory.GetCachedResult(name, dnsType, false, depth+1)
+	cachedResult, ok := s.Factory.Factory.GetCachedResult(name, dnsType, depth+1)
 	if ok {
 		return cachedResult, zdns.STATUS_NOERROR, nil
 	}
@@ -461,7 +448,7 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, name string, nameServer st
 			return r, zdns.STATUS_AUTHFAIL, nil
 		}
 		log.Debug(makeDepthPadding(depth+2), "Cache auth check for ", authName)
-		cachedResult, ok = s.Factory.Factory.GetCachedResult(authName, dns.TypeNS, false, depth+2)
+		cachedResult, ok = s.Factory.Factory.GetCachedResult(authName, dns.TypeNS, depth+2)
 		if ok {
 			return cachedResult, zdns.STATUS_NOERROR, nil
 		}
