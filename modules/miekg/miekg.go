@@ -179,7 +179,7 @@ func makeCacheKey(name string, dnsType uint16) interface{} {
 		Name    string
 		DnsType uint16
 	}{
-		Name:    name,
+		Name:    strings.ToLower(name),
 		DnsType: dnsType,
 	}
 }
@@ -466,6 +466,8 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, name string, nameServer st
 }
 
 func nameIsBeneath(name string, layer string) (bool, string) {
+	name = strings.ToLower(name)
+	layer = strings.ToLower(layer)
 	name = strings.TrimSuffix(name, ".")
 	if layer == "." {
 		return true, name
