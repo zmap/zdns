@@ -443,6 +443,8 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, name string, nameServer st
 		return cachedResult, zdns.STATUS_NOERROR, nil
 	}
 	// Now, we check the authoritative:
+	name = strings.ToLower(name)
+	layer = strings.ToLower(name)
 	authName := nextAuthority(name, layer)
 	if name != layer && authName != layer {
 		if authName == "" {
