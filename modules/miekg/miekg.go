@@ -402,7 +402,7 @@ func (s *Lookup) SafeAddCachedAnswer(a interface{}, layer string, debugType stri
 	}
 	ok, _ = nameIsBeneath(ans.Name, layer)
 	if !ok {
-		log.Info("detected poison ", debugType, ": ", ans.Name, ": ", ans.Type, ": ", a)
+		log.Info("detected poison ", debugType, ": ", ans.Name, "(", ans.Type, "): ", layer, ": ", a)
 		return
 	}
 	s.Factory.Factory.AddCachedAnswer(a, ans.Name, ans.rrType, ans.Ttl, depth)
@@ -452,7 +452,7 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, name string, nameServer st
 	}
 	// Now, we check the authoritative:
 	name = strings.ToLower(name)
-	layer = strings.ToLower(name)
+	layer = strings.ToLower(layer)
 	authName := nextAuthority(name, layer)
 	if name != layer && authName != layer {
 		if authName == "" {
@@ -578,6 +578,7 @@ func (s *Lookup) iterateOnAuthorities(dnsType uint16, name string, depth int, re
 		}
 		return r, status, err
 	}
+	log.Debug(makeDepthPadding(depth+1), "Unable to find authoritative name server")
 	var r Result
 	return r, zdns.STATUS_ERROR, errors.New("could not find authoritative name server")
 }
