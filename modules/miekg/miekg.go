@@ -554,16 +554,16 @@ func (s *Lookup) iterateOnAuthorities(dnsType uint16, name string, depth int, re
 		return r, zdns.STATUS_SERVFAIL, nil
 	}
 	for _, elem := range result.Authorities {
-		// XXX log stuff
+		log.Debug(makeDepthPadding(depth+1), "Trying Authority: ", elem)
 		ns, ns_status, layer := s.extractAuthority(elem, layer, depth)
 		log.Debug(makeDepthPadding(depth+1), "Output from extract authorities: ", ns)
 		if ns_status != zdns.STATUS_NOERROR {
-			// XXX Log stuff
+			log.Debug(makeDepthPadding(depth+2), "--> Auth find Failed: ", ns_status)
 			continue
 		}
 		r, status, err := s.iterativeLookup(dnsType, name, ns, depth+1, layer)
-		if ns_status != zdns.STATUS_NOERROR {
-			// XXX Log stuff
+		if status != zdns.STATUS_NOERROR {
+			log.Debug(makeDepthPadding(depth+2), "--> Auth resolution of ", ns, " Failed: ", status)
 			continue
 		}
 		return r, status, err
