@@ -29,7 +29,6 @@ import (
 	_ "github.com/zmap/zdns/modules/mxlookup"
 	_ "github.com/zmap/zdns/modules/nslookup"
 	_ "github.com/zmap/zdns/modules/spf"
-	//_ "github.com/zmap/zdns/modules/zone"
 )
 
 func main() {
