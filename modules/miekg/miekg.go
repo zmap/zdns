@@ -636,6 +636,9 @@ func (s *Lookup) DoMiekgLookup(name string) (interface{}, zdns.Status, error) {
 }
 
 func (s *Lookup) DoTypedMiekgLookup(name string, dnsType uint16) (interface{}, zdns.Status, error) {
+	if s.Factory == nil {
+		panic("factory not defined")
+	}
 	if s.Factory.IterativeResolution {
 		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
 		return s.iterativeLookup(dnsType, name, s.NameServer, 0, ".")
