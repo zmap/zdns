@@ -109,9 +109,9 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 		panic("could not cast correctly")
 	}
 	for _, ans := range r.Answers {
-		if rec, ok := ans.(miekg.MXAnswer); ok {
-			name = strings.TrimSuffix(rec.Name, ".")
-			rec := MXRecord{TTL: rec.Ttl, Type: rec.Type, Name: name, Preference: rec.Preference}
+		if mxAns, ok := ans.(miekg.MXAnswer); ok {
+			name = strings.TrimSuffix(mxAns.Answer.Answer, ".")
+			rec := MXRecord{TTL: mxAns.Ttl, Type: mxAns.Type, Name: name, Preference: mxAns.Preference}
 			ips := s.LookupIPs(name)
 			rec.IPv4Addresses = ips.IPv4Addresses
 			rec.IPv6Addresses = ips.IPv6Addresses

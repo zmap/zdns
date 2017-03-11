@@ -103,11 +103,11 @@ func ParseAnswer(ans dns.RR) interface{} {
 	} else if mx, ok := ans.(*dns.MX); ok {
 		return MXAnswer{
 			Answer: Answer{
-				Name:   mx.Hdr.Name,
+				Name:   strings.TrimRight(mx.Hdr.Name, "."),
 				Type:   dns.Type(mx.Hdr.Rrtype).String(),
 				rrType: mx.Hdr.Rrtype,
 				Ttl:    mx.Hdr.Ttl,
-				Answer: mx.Mx,
+				Answer: strings.TrimRight(mx.Mx, "."),
 			},
 			Preference: mx.Preference,
 		}
