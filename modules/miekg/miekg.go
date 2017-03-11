@@ -85,7 +85,12 @@ func dotName(name string) string {
 func ParseAnswer(ans dns.RR) interface{} {
 	var retv Answer
 	if a, ok := ans.(*dns.A); ok {
-		retv = Answer{Ttl: a.Hdr.Ttl, Type: dns.Type(a.Hdr.Rrtype).String(), rrType: a.Hdr.Rrtype, Name: a.Hdr.Name, Answer: a.A.String()}
+		retv = Answer{
+			Ttl:    a.Hdr.Ttl,
+			Type:   dns.Type(a.Hdr.Rrtype).String(),
+			rrType: a.Hdr.Rrtype,
+			Name:   a.Hdr.Name,
+			Answer: a.A.String()}
 	} else if aaaa, ok := ans.(*dns.AAAA); ok {
 		retv = Answer{Ttl: aaaa.Hdr.Ttl, Type: dns.Type(aaaa.Hdr.Rrtype).String(), rrType: aaaa.Hdr.Rrtype, Name: aaaa.Hdr.Name, Answer: aaaa.AAAA.String()}
 	} else if cname, ok := ans.(*dns.CNAME); ok {
@@ -95,7 +100,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 	} else if txt, ok := ans.(*dns.TXT); ok {
 		retv = Answer{Ttl: txt.Hdr.Ttl, Type: dns.Type(txt.Hdr.Rrtype).String(), rrType: txt.Hdr.Rrtype, Name: txt.Hdr.Name, Answer: strings.Join(txt.Txt, "\n")}
 	} else if ns, ok := ans.(*dns.NS); ok {
-		retv = Answer{Ttl: ns.Hdr.Ttl, Type: dns.Type(ns.Hdr.Rrtype).String(), rrType: ns.Hdr.Rrtype, Name: ns.Hdr.Name, Answer: ns.Ns}
+		retv = Answer{Ttl: ns.Hdr.Ttl, Type: dns.Type(ns.Hdr.Rrtype).String(), rrType: ns.Hdr.Rrtype, Name: ns.Hdr.Name, Answer: strings.TrimRight(ns.Ns, ".")}
 	} else if ptr, ok := ans.(*dns.PTR); ok {
 		retv = Answer{Ttl: ptr.Hdr.Ttl, Type: dns.Type(ptr.Hdr.Rrtype).String(), rrType: ptr.Hdr.Rrtype, Name: ptr.Hdr.Name, Answer: ptr.Ptr}
 	} else if spf, ok := ans.(*dns.SPF); ok {
