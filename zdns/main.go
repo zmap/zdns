@@ -27,6 +27,7 @@ import (
 	//_ "github.com/zmap/zdns/modules/alookup"
 	//_ "github.com/zmap/zdns/modules/mxlookup"
 	//_ "github.com/zmap/zdns/modules/nslookup"
+	_ "github.com/zmap/zdns/modules/dmarc"
 	_ "github.com/zmap/zdns/modules/spf"
 	//_ "github.com/zmap/zdns/modules/zone"
 )
