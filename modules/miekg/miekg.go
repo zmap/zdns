@@ -131,13 +131,13 @@ func ParseAnswer(ans dns.RR) interface{} {
 	} else if soa, ok := ans.(*dns.SOA); ok {
 		return SOAAnswer{
 			Answer: Answer{
-				Name:   soa.Hdr.Name,
+				Name:   strings.TrimSuffix(soa.Hdr.Name, "."),
 				Type:   dns.Type(soa.Hdr.Rrtype).String(),
 				rrType: soa.Hdr.Rrtype,
 				Ttl:    soa.Hdr.Ttl,
 			},
 			Ns:      strings.TrimSuffix(soa.Ns, "."),
-			Mbox:    soa.Mbox,
+			Mbox:    strings.TrimSuffix(soa.Mbox, "."),
 			Serial:  soa.Serial,
 			Refresh: soa.Refresh,
 			Retry:   soa.Retry,
