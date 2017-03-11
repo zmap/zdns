@@ -42,8 +42,7 @@ type MXRecord struct {
 }
 
 type Result struct {
-	Servers  []MXRecord `json:"exchanges"`
-	Protocol string
+	Servers []MXRecord `json:"exchanges"`
 }
 
 // Per Connection Lookup ======================================================
@@ -100,41 +99,26 @@ func (s *Lookup) LookupIPs(name string) CachedAddresses {
 }
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
-	nameServer := s.Factory.Factory.RandomNameServer()
-	res := Result{Servers: []MXRecord{}}
-
-	m := new(dns.Msg)
-	m.SetQuestion(dotName(name), dns.TypeMX)
-	m.RecursionDesired = true
-
-	useTCP := false
-	res.Protocol = "udp"
-	r, _, err := s.Factory.Client.Exchange(m, nameServer)
-	if err == dns.ErrTruncated {
-		r, _, err = s.Factory.TCPClient.Exchange(m, nameServer)
-		useTCP = true
-		res.Protocol = "tcp"
+	retv := Result{Servers: []MXRecord{}}
+	res, status, err := s.DoTypedMiekgLookup(name, dns.TypeMX)
+	if status != zdns.STATUS_NOERROR {
+		return retv, status, err
 	}
-	if r != nil && r.Rcode == dns.RcodeBadTrunc && !useTCP {
-		r, _, err = s.Factory.TCPClient.Exchange(m, nameServer)
+	r, ok := res.(miekg.Result)
+	if !ok {
+		panic("could not cast correctly")
 	}
-	if err != nil || r == nil {
-		return nil, zdns.STATUS_ERROR, err
-	}
-	if r.Rcode != dns.RcodeSuccess {
-		return nil, miekg.TranslateMiekgErrorCode(r.Rcode), nil
-	}
-	for _, ans := range r.Answer {
-		if a, ok := ans.(*dns.MX); ok {
-			name = strings.TrimSuffix(a.Mx, ".")
-			rec := MXRecord{TTL: a.Hdr.Ttl, Type: dns.Type(a.Hdr.Rrtype).String(), Name: name, Preference: a.Preference}
+	for _, ans := range r.Answers {
+		if rec, ok := ans.(miekg.MXAnswer); ok {
+			name = strings.TrimSuffix(rec.Name, ".")
+			rec := MXRecord{TTL: rec.Ttl, Type: rec.Type, Name: name, Preference: rec.Preference}
 			ips := s.LookupIPs(name)
 			rec.IPv4Addresses = ips.IPv4Addresses
 			rec.IPv6Addresses = ips.IPv6Addresses
-			res.Servers = append(res.Servers, rec)
+			retv.Servers = append(retv.Servers, rec)
 		}
 	}
-	return res, zdns.STATUS_NOERROR, nil
+	return retv, zdns.STATUS_NOERROR, nil
 }
 
 // Per GoRoutine Factory ======================================================
