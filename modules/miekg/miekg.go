@@ -164,6 +164,7 @@ type GlobalLookupFactory struct {
 	zdns.BaseGlobalLookupFactory
 	IterativeCache cachehash.CacheHash
 	CacheMutex     *sync.RWMutex
+	DNSType        uint16
 }
 
 func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
@@ -172,6 +173,18 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	s.CacheMutex = &sync.RWMutex{}
 
 	return nil
+}
+
+func (s *GlobalLookupFactory) SetDNSType(dnsType uint16) {
+	s.DNSType = dnsType
+}
+
+func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
+	r := new(RoutineLookupFactory)
+	r.Factory = s
+	r.Initialize(s.GlobalConf)
+	r.DNSType = s.DNSType
+	return r, nil
 }
 
 func makeCacheKey(name string, dnsType uint16) interface{} {
@@ -292,6 +305,13 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 	s.Retries = c.Retries
 	s.MaxDepth = c.MaxDepth
 	s.IterativeResolution = c.IterativeResolution
+}
+
+func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
+	a := Lookup{Factory: s}
+	nameServer := s.Factory.RandomNameServer()
+	a.Initialize(nameServer, s.DNSType, s)
+	return &a, nil
 }
 
 type Lookup struct {
@@ -638,4 +658,61 @@ func (s *Lookup) DoTxtLookup(name string) (string, zdns.Status, error) {
 		}
 	}
 	return "", zdns.STATUS_NO_RECORD, nil
+}
+
+// allow miekg to be used as a ZDNS module
+func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
+	return s.DoMiekgLookup(name)
+}
+
+func (s *GlobalLookupFactory) Help() string {
+	return ""
+}
+
+// let's register some modules!
+func init() {
+	a := new(GlobalLookupFactory)
+	a.SetDNSType(dns.TypeA)
+	zdns.RegisterLookup("A", a)
+
+	aaaa := new(GlobalLookupFactory)
+	aaaa.SetDNSType(dns.TypeAAAA)
+	zdns.RegisterLookup("AAAA", aaaa)
+
+	any := new(GlobalLookupFactory)
+	any.SetDNSType(dns.TypeANY)
+	zdns.RegisterLookup("ANY", any)
+
+	caa := new(GlobalLookupFactory)
+	caa.SetDNSType(dns.TypeCAA)
+	zdns.RegisterLookup("CAA", caa)
+
+	cname := new(GlobalLookupFactory)
+	cname.SetDNSType(dns.TypeCAA)
+	zdns.RegisterLookup("CNAME", cname)
+
+	mx := new(GlobalLookupFactory)
+	mx.SetDNSType(dns.TypeMX)
+	zdns.RegisterLookup("MX", mx)
+
+	ns := new(GlobalLookupFactory)
+	ns.SetDNSType(dns.TypeNS)
+	zdns.RegisterLookup("NS", ns)
+
+	ptr := new(GlobalLookupFactory)
+	ptr.SetDNSType(dns.TypePTR)
+	zdns.RegisterLookup("PTR", ptr)
+
+	soa := new(GlobalLookupFactory)
+	soa.SetDNSType(dns.TypeSOA)
+	zdns.RegisterLookup("SOA", soa)
+
+	txt := new(GlobalLookupFactory)
+	txt.SetDNSType(dns.TypeTXT)
+	zdns.RegisterLookup("TXT", txt)
+
+	spf := new(GlobalLookupFactory)
+	spf.SetDNSType(dns.TypeSPF)
+	zdns.RegisterLookup("SPF", spf)
+
 }
