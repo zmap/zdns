@@ -60,12 +60,13 @@ func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 // Global Factory =============================================================
 //
 type GlobalLookupFactory struct {
-	zdns.BaseGlobalLookupFactory
+	miekg.GlobalLookupFactory
 }
 
 func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
 	r.Initialize(s.GlobalConf)
+	r.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
 	r.Factory = s
 	return r, nil
 }
