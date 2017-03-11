@@ -17,11 +17,9 @@ package nslookup
 import (
 	"flag"
 	"strings"
-	"sync"
 
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
-	"github.com/zmap/zdns/cachehash"
 	"github.com/zmap/zdns/modules/miekg"
 )
 
@@ -141,22 +139,14 @@ func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 // Global Factory =============================================================
 //
 type GlobalLookupFactory struct {
-	zdns.BaseGlobalLookupFactory
+	miekg.GlobalLookupFactory
 	IPv4Lookup bool
 	IPv6Lookup bool
-	CacheSize  int
-	CacheHash  *cachehash.CacheHash
-	CHmu       sync.Mutex
 }
 
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
-	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", false, "perform A lookups for each MX server")
-	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", false, "perform AAAA record lookups for each MX server")
-}
-
-func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
-	s.GlobalConf = c
-	return nil
+	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", false, "perform A lookups for each name server")
+	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", false, "perform AAAA record lookups for each name server")
 }
 
 // Command-line Help Documentation. This is the descriptive text what is
@@ -168,6 +158,7 @@ func (s *GlobalLookupFactory) Help() string {
 func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
 	r.Initialize(s.GlobalConf)
+	r.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
 	r.Factory = s
 	return r, nil
 }
