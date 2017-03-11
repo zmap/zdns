@@ -26,14 +26,22 @@ class Tests(unittest.TestCase):
         "fdb3:ac76:a577::3"
     ])
 
+    ROOT_AAAA_ANSWERS = [{"type":"AAAA", "answer":x,
+        "name":"zdns-testing.com"} for x in ROOT_AAAA]
+
     MX_SERVERS = [
             {"answer":"mx1.zdns-testing.com", "preference":1, "type":"MX", 'name':'zdns-testing.com'},
             {"answer":"mx2.zdns-testing.com", "preference":5, "type":"MX", 'name':'zdns-testing.com'},
             {"answer":"mx1.censys.io", "preference":10, "type":"MX", 'name':'zdns-testing.com'},
     ]
 
-    ROOT_AAAA_ANSWERS = [{"type":"AAAA", "answer":x,
-        "name":"zdns-testing.com"} for x in ROOT_AAAA]
+    NS_SERVERS = [
+            {"type": "NS", "name": "zdns-testing.com", "answer": "ns-cloud-b2.googledomains.com"},
+            {"type": "NS", "name": "zdns-testing.com", "answer": "ns-cloud-b3.googledomains.com"},
+            {"type": "NS", "name": "zdns-testing.com", "answer": "ns-cloud-b1.googledomains.com"},
+            {"type": "NS", "name": "zdns-testing.com", "answer": "ns-cloud-b4.googledomains.com"},
+    ]
+
 
     def assertSuccess(self, res):
         self.assertEqual(res["status"], "NOERROR")
@@ -85,7 +93,19 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res)
         self.assertEqualAnswers(res, self.MX_SERVERS)
 
+    def test_ns(self):
+        c = "./zdns/zdns NS"
+        name = "zdns-testing.com"
+        res = self.run_zdns(c, name)
+        self.assertSuccess(res)
+        self.assertEqualAnswers(res, self.NS_SERVERS)
 
+    def test_ns_iterative(self):
+        c = "./zdns/zdns NS --iterative"
+        name = "zdns-testing.com"
+        res = self.run_zdns(c, name)
+        self.assertSuccess(res)
+        self.assertEqualAnswers(res, self.NS_SERVERS)
 
 
 if __name__ == '__main__':
