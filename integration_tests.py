@@ -26,6 +26,12 @@ class Tests(unittest.TestCase):
         "fdb3:ac76:a577::3"
     ])
 
+    MX_SERVERS = [
+            {"answer":"mx1.zdns-testing.com", "preference":1, "type":"MX", 'name':'zdns-testing.com'},
+            {"answer":"mx2.zdns-testing.com", "preference":5, "type":"MX", 'name':'zdns-testing.com'},
+            {"answer":"mx1.censys.io", "preference":10, "type":"MX", 'name':'zdns-testing.com'},
+    ]
+
     ROOT_AAAA_ANSWERS = [{"type":"AAAA", "answer":x,
         "name":"zdns-testing.com"} for x in ROOT_AAAA]
 
@@ -64,6 +70,22 @@ class Tests(unittest.TestCase):
         res = self.run_zdns(c, name)
         self.assertSuccess(res)
         self.assertEqualAnswers(res, self.ROOT_AAAA_ANSWERS)
+
+    def test_mx(self):
+        c = "./zdns/zdns MX"
+        name = "zdns-testing.com"
+        res = self.run_zdns(c, name)
+        self.assertSuccess(res)
+        self.assertEqualAnswers(res, self.MX_SERVERS)
+
+    def test_mx_iterative(self):
+        c = "./zdns/zdns MX --iterative"
+        name = "zdns-testing.com"
+        res = self.run_zdns(c, name)
+        self.assertSuccess(res)
+        self.assertEqualAnswers(res, self.MX_SERVERS)
+
+
 
 
 if __name__ == '__main__':
