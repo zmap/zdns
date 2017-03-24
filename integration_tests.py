@@ -9,7 +9,7 @@ class Tests(unittest.TestCase):
     def run_zdns(self, command, name):
         c = "echo '%s' | %s" % (name, command)
         o = subprocess.check_output(c, shell=True)
-        return json.loads(o.rstrip())
+        return c, json.loads(o.rstrip())
 
     ROOT_A = set([
         "1.2.3.4",
@@ -43,69 +43,69 @@ class Tests(unittest.TestCase):
     ]
 
 
-    def assertSuccess(self, res):
-        self.assertEqual(res["status"], "NOERROR")
+    def assertSuccess(self, res, cmd):
+        self.assertEqual(res["status"], "NOERROR", cmd)
 
-    def assertEqualAnswers(self, res, correct):
+    def assertEqualAnswers(self, res, correct, cmd):
         for answer in res["data"]["answers"]:
             del answer["ttl"]
-        self.assertEqual(sorted(res["data"]["answers"]), sorted(correct))
+        self.assertEqual(sorted(res["data"]["answers"]), sorted(correct), cmd)
 
     def test_a(self):
         c = "./zdns/zdns A"
         name = "zdns-testing.com"
-        res = self.run_zdns(c, name)
-        self.assertSuccess(res)
-        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS)
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
 
     def test_a_iterative(self):
         c = "./zdns/zdns A --iterative"
         name = "zdns-testing.com"
-        res = self.run_zdns(c, name)
-        self.assertSuccess(res)
-        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS)
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
 
     def test_aaaa(self):
         c = "./zdns/zdns AAAA"
         name = "zdns-testing.com"
-        res = self.run_zdns(c, name)
-        self.assertSuccess(res)
-        self.assertEqualAnswers(res, self.ROOT_AAAA_ANSWERS)
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.ROOT_AAAA_ANSWERS, cmd)
 
     def test_aaaa_iterative(self):
         c = "./zdns/zdns AAAA --iterative"
         name = "zdns-testing.com"
-        res = self.run_zdns(c, name)
-        self.assertSuccess(res)
-        self.assertEqualAnswers(res, self.ROOT_AAAA_ANSWERS)
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.ROOT_AAAA_ANSWERS, cmd)
 
     def test_mx(self):
         c = "./zdns/zdns MX"
         name = "zdns-testing.com"
-        res = self.run_zdns(c, name)
-        self.assertSuccess(res)
-        self.assertEqualAnswers(res, self.MX_SERVERS)
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.MX_SERVERS, cmd)
 
     def test_mx_iterative(self):
         c = "./zdns/zdns MX --iterative"
         name = "zdns-testing.com"
-        res = self.run_zdns(c, name)
-        self.assertSuccess(res)
-        self.assertEqualAnswers(res, self.MX_SERVERS)
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.MX_SERVERS, cmd)
 
     def test_ns(self):
         c = "./zdns/zdns NS"
         name = "zdns-testing.com"
-        res = self.run_zdns(c, name)
-        self.assertSuccess(res)
-        self.assertEqualAnswers(res, self.NS_SERVERS)
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.NS_SERVERS, cmd)
 
     def test_ns_iterative(self):
         c = "./zdns/zdns NS --iterative"
         name = "zdns-testing.com"
-        res = self.run_zdns(c, name)
-        self.assertSuccess(res)
-        self.assertEqualAnswers(res, self.NS_SERVERS)
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.NS_SERVERS, cmd)
 
 
 if __name__ == '__main__':
