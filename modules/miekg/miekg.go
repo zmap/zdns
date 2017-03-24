@@ -232,7 +232,7 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, d
 	s.CacheMutex.Unlock()
 }
 
-func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, depth int) (Result, bool) {
+func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, origDnsType uint16, depth int) (Result, bool) {
 	log.Debug(makeDepthPadding(depth+1), "Cache request for: ", name, " (", dnsType, ")")
 	var retv Result
 	key := makeCacheKey(name, dnsType)
@@ -262,7 +262,7 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, depth
 			delete(cachedRes.Answers, k)
 		} else {
 			// this result is valid. append it to the Result we're going to hand to the user
-			if dnsType == dns.TypeNS {
+			if origDnsType != dns.TypeNS && dnsType == dns.TypeNS {
 				retv.Authorities = append(retv.Authorities, cachedAnswer.Answer)
 			} else {
 				retv.Answers = append(retv.Answers, cachedAnswer.Answer)
@@ -458,7 +458,7 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, name string, nameServer st
 		return r, zdns.STATUS_ITER_TIMEOUT, nil
 	}
 	// First, we check the answer
-	cachedResult, ok := s.Factory.Factory.GetCachedResult(name, dnsType, depth+1)
+	cachedResult, ok := s.Factory.Factory.GetCachedResult(name, dnsType, dnsType, depth+1)
 	if ok {
 		return cachedResult, zdns.STATUS_NOERROR, nil
 	}
@@ -473,7 +473,7 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, name string, nameServer st
 			return r, zdns.STATUS_AUTHFAIL, nil
 		}
 		log.Debug(makeDepthPadding(depth+2), "Cache auth check for ", authName)
-		cachedResult, ok = s.Factory.Factory.GetCachedResult(authName, dns.TypeNS, depth+2)
+		cachedResult, ok = s.Factory.Factory.GetCachedResult(authName, dns.TypeNS, dnsType, depth+2)
 		if ok {
 			return cachedResult, zdns.STATUS_NOERROR, nil
 		}
