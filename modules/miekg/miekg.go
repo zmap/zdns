@@ -515,21 +515,53 @@ func nextAuthority(name string, layer string) string {
 	return name[idx+1:]
 }
 
-func (s *Lookup) extractAuthority(authority interface{}, layer string, depth int) (string, zdns.Status, string) {
-	// check if we have the IP address for any of the authorities
+func (s *Lookup) checkGlue(server string, depth int, result Result) (Result, zdns.Status) {
+	for _, additional := range result.Additional {
+		ans, ok := additional.(Answer)
+		if !ok {
+			continue
+		}
+		if ans.Type == "A" && strings.TrimSuffix(ans.Name, ".") == server {
+			var retv Result
+			retv.Authorities = make([]interface{}, 0)
+			retv.Answers = make([]interface{}, 0)
+			retv.Additional = make([]interface{}, 0)
+			retv.Answers = append(retv.Answers, ans)
+			log.Debug(makeDepthPadding(depth+1), "Glue hit for Authority: ", server, ". ", ans)
+			return retv, zdns.STATUS_NOERROR
+		}
+	}
+
+	var r Result
+	return r, zdns.STATUS_SERVFAIL
+}
+
+func (s *Lookup) extractAuthority(authority interface{}, layer string, depth int, result Result) (string, zdns.Status, string) {
+
+	// Is it an answer
 	ans, ok := authority.(Answer)
 	if !ok {
 		return "", zdns.STATUS_SERVFAIL, layer
 	}
 
+	// Is the layering correct
 	ok, layer = nameIsBeneath(ans.Name, layer)
 	if !ok {
 		return "", zdns.STATUS_AUTHFAIL, layer
 	}
 
 	server := strings.TrimSuffix(ans.Answer, ".")
-	res, status, _ := s.iterativeLookup(dns.TypeA, server, s.NameServer, depth+1, ".")
+
+	// Short circuit a lookup from the glue
+	// Normally this would be handled by caching, but we want to support following glue
+	// that would normally be cache poison. Because it's "ok" and quite common
+	res, status := s.checkGlue(server, depth, result)
+	if status != zdns.STATUS_NOERROR {
+		// Fall through to normal query
+		res, status, _ = s.iterativeLookup(dns.TypeA, server, s.NameServer, depth+1, ".")
+	}
 	if status == zdns.STATUS_NOERROR {
+		// XXX we don't actually check the question here
 		for _, inner_a := range res.Answers {
 			inner_ans, ok := inner_a.(Answer)
 			if !ok {
@@ -557,19 +589,6 @@ func debugReverseLookup(name string) string {
 	return "unknown"
 }
 
-func debugExtractAuthorityInput(result Result, depth int) {
-	log.Debug(makeDepthPadding(depth+1), "-> authorities found. will attempt to extract IP of an authority")
-	log.Debug(makeDepthPadding(depth+1), "   Intput to extract authorities: ")
-	log.Debug(makeDepthPadding(depth+1), "    - Authorities:")
-	for _, elem := range result.Authorities {
-		log.Debug(makeDepthPadding(depth+1), "      - ", elem)
-	}
-	log.Debug(makeDepthPadding(depth+1), "    - Additionals:")
-	for _, elem := range result.Additional {
-		log.Debug(makeDepthPadding(depth+1), "      - ", elem)
-	}
-}
-
 func (s *Lookup) iterateOnAuthorities(dnsType uint16, name string, depth int, result Result, layer string) (Result, zdns.Status, error) {
 	if len(result.Authorities) == 0 {
 		var r Result
@@ -577,7 +596,7 @@ func (s *Lookup) iterateOnAuthorities(dnsType uint16, name string, depth int, re
 	}
 	for _, elem := range result.Authorities {
 		log.Debug(makeDepthPadding(depth+1), "Trying Authority: ", elem)
-		ns, ns_status, layer := s.extractAuthority(elem, layer, depth)
+		ns, ns_status, layer := s.extractAuthority(elem, layer, depth, result)
 		log.Debug(makeDepthPadding(depth+1), "Output from extract authorities: ", ns)
 		if ns_status != zdns.STATUS_NOERROR {
 			log.Debug(makeDepthPadding(depth+2), "--> Auth find Failed: ", ns_status)
