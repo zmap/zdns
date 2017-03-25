@@ -6,6 +6,8 @@ import unittest
 
 class Tests(unittest.TestCase):
 
+    maxDiff = None
+
     def run_zdns(self, command, name):
         c = "echo '%s' | %s" % (name, command)
         o = subprocess.check_output(c, shell=True)
@@ -42,6 +44,41 @@ class Tests(unittest.TestCase):
             {"type": "NS", "name": "zdns-testing.com", "answer": "ns-cloud-b4.googledomains.com"},
     ]
 
+    MX_LOOKUP_ANSWER = {
+      "name": "zdns-testing.com",
+      "status": "NOERROR",
+      "data": {
+        "exchanges": [
+          {
+            "name": "mx1.zdns-testing.com",
+            "type": "MX",
+            "preference": 1,
+            "ipv4_addresses": [
+              "1.2.3.4",
+              "2.3.4.5"
+            ],
+            "ipv6_addresses": [
+              "fdb3:ac76:a577::4",
+              "fdb3:ac76:a577::5"
+            ],
+
+          },
+          {
+            "name": "mx2.zdns-testing.com",
+            "type": "MX",
+            "preference": 5,
+            "ipv4_addresses": [
+              "5.6.7.8"
+            ],
+          },
+          {
+            "name": "mx1.censys.io",
+            "type": "MX",
+            "preference": 10,
+          }
+        ]
+      }
+    }
 
     def assertSuccess(self, res, cmd):
         self.assertEqual(res["status"], "NOERROR", cmd)
@@ -50,6 +87,14 @@ class Tests(unittest.TestCase):
         for answer in res["data"]["answers"]:
             del answer["ttl"]
         self.assertEqual(sorted(res["data"]["answers"]), sorted(correct), cmd)
+
+    def assertEqualMXLookup(self, res, correct):
+        self.assertEqual(res["name"], correct["name"])
+        self.assertEqual(res["status"], correct["status"])
+        for exchange in res["data"]["exchanges"]:
+            del exchange["ttl"]
+        self.assertEqual(sorted(res["data"]["exchanges"]),
+                sorted(correct["data"]["exchanges"]))
 
     def test_a(self):
         c = "./zdns/zdns A"
@@ -106,6 +151,20 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.NS_SERVERS, cmd)
+
+    def test_mx_lookup(self):
+        c = "./zdns/zdns mxlookup --ipv4-lookup --ipv6-lookup"
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualMXLookup(res, self.MX_LOOKUP_ANSWER)
+
+    def test_mx_lookup_iterative(self):
+        c = "./zdns/zdns mxlookup --ipv4-lookup --ipv6-lookup --iterative"
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualMXLookup(res, self.MX_LOOKUP_ANSWER)
 
 
 if __name__ == '__main__':
