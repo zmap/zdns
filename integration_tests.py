@@ -80,6 +80,26 @@ class Tests(unittest.TestCase):
       }
     }
 
+    ALOOKUP_WWW_ZDNS_TESTING = {
+      "name": "www.zdns-testing.com",
+      "status": "NOERROR",
+      "data": {
+        "ipv4_addresses": [
+          "1.2.3.4",
+          "2.3.4.5",
+          "3.4.5.6"
+        ],
+        "ipv6_addresses": [
+          "fde6:9bb3:dbd6::2",
+          "fd5a:3bce:8713::1",
+          "fdb3:ac76:a577::3"
+        ]
+      }
+    }
+
+
+
+
     def assertSuccess(self, res, cmd):
         self.assertEqual(res["status"], "NOERROR", cmd)
 
@@ -95,6 +115,14 @@ class Tests(unittest.TestCase):
             del exchange["ttl"]
         self.assertEqual(sorted(res["data"]["exchanges"]),
                 sorted(correct["data"]["exchanges"]))
+
+    def assertEqualALookup(self, res, correct):
+        self.assertEqual(res["name"], correct["name"])
+        self.assertEqual(res["status"], correct["status"])
+        self.assertEqual(sorted(res["data"]["ipv4_addresses"]),
+                sorted(correct["data"]["ipv4_addresses"]))
+        self.assertEqual(sorted(res["data"]["ipv6_addresses"]),
+                sorted(correct["data"]["ipv6_addresses"]))
 
     def test_a(self):
         c = "./zdns/zdns A"
@@ -165,6 +193,20 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualMXLookup(res, self.MX_LOOKUP_ANSWER)
+
+    def test_a_lookup(self):
+        c = "./zdns/zdns alookup --ipv4-lookup --ipv6-lookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualALookup(res, self.ALOOKUP_WWW_ZDNS_TESTING)
+
+    def test_a_lookup_iterative(self):
+        c = "./zdns/zdns alookup --ipv4-lookup --ipv6-lookup --iterative"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualALookup(res, self.ALOOKUP_WWW_ZDNS_TESTING)
 
 
 if __name__ == '__main__':
