@@ -646,8 +646,12 @@ func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string,
 
 func (s *Lookup) DoMiekgLookup(name string) (interface{}, zdns.Status, error) {
 	if s.Factory.IterativeResolution {
+		log.Debug(makeDepthPadding(0), "MIEKG-IN: iterative lookup for ", name, " (", s.DNSType, ")")
 		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
-		return s.iterativeLookup(s.DNSType, name, s.NameServer, 0, ".")
+		result, status, err := s.iterativeLookup(s.DNSType, name, s.NameServer, 1, ".")
+		log.Debug(makeDepthPadding(0), "MIEKG-OUT: iterative lookup for ", name, " (", s.DNSType, "): status: ", status, " , err: ", err)
+		return result, status, err
+
 	} else {
 		return s.retryingLookup(s.DNSType, name, s.NameServer, true)
 	}
@@ -658,8 +662,11 @@ func (s *Lookup) DoTypedMiekgLookup(name string, dnsType uint16) (interface{}, z
 		panic("factory not defined")
 	}
 	if s.Factory.IterativeResolution {
+		log.Debug(makeDepthPadding(0), "MIEKG-IN: iterative lookup for ", name, " (", dnsType, ")")
 		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
-		return s.iterativeLookup(dnsType, name, s.NameServer, 0, ".")
+		result, status, err := s.iterativeLookup(dnsType, name, s.NameServer, 1, ".")
+		log.Debug(makeDepthPadding(0), "MIEKG-OUT: iterative lookup for ", name, " (", dnsType, "): status: ", status, " , err: ", err)
+		return result, status, err
 	} else {
 		return s.retryingLookup(dnsType, name, s.NameServer, true)
 	}
