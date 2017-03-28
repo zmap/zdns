@@ -650,9 +650,7 @@ func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string,
 
 func (s *Lookup) DoMiekgLookup(name string) (interface{}, zdns.Status, error) {
 	if s.Factory.IterativeResolution {
-		log.Debug(time.Now())
 		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
-		log.Debug(s.IterativeStop)
 		return s.iterativeLookup(s.DNSType, name, s.NameServer, 0, ".")
 	} else {
 		return s.retryingLookup(s.DNSType, name, s.NameServer, true)
