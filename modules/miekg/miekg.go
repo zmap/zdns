@@ -270,17 +270,13 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, origD
 		}
 	}
 	s.CacheMutex.Unlock()
-	//if res.ExpiresAt.After(now) {
-	//	s.CacheMutex.Lock()
-	//	s.IterativeCache.Delete(key)
-	//	s.CacheMutex.Unlock()
-	//	log.Debug(" -> cache entry expired. removed.")
-	//	return retv, false
-	//}
-	//log.Debug(" -> cached answers found")
-	//for _, ans := range res.Result.Answers {
-	//	log.Debug("      - ", ans)
-	//}
+	// Don't return an empty response.
+	if len(retv.Answers) == 0 && len(retv.Authorities) == 0 && len(retv.Additional) == 0 {
+		log.Debug(makeDepthPadding(depth+2), "-> no entry found in cache, after expiration")
+		var emptyRetv Result
+		return emptyRetv, false
+	}
+
 	log.Debug(makeDepthPadding(depth+2), "Cache hit: ", retv)
 	return retv, true
 }
