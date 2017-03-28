@@ -184,11 +184,12 @@ func (s *GlobalLookupFactory) SetDNSType(dnsType uint16) {
 	s.DNSType = dnsType
 }
 
-func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
+func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
 	r.Factory = s
 	r.Initialize(s.GlobalConf)
 	r.DNSType = s.DNSType
+	r.ThreadID = threadID
 	return r, nil
 }
 
@@ -291,6 +292,7 @@ type RoutineLookupFactory struct {
 	IterativeTimeout    time.Duration
 	IterativeResolution bool
 	DNSType             uint16
+	ThreadID            int
 }
 
 func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {

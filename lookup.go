@@ -65,8 +65,8 @@ func makeName(name string, prefix string) (string, bool) {
 	}
 }
 
-func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
-	f, err := (*g).MakeRoutineFactory()
+func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup, threadID int) error {
+	f, err := (*g).MakeRoutineFactory(threadID)
 	if err != nil {
 		log.Fatal("Unable to create new routine factory", err.Error())
 	}
@@ -215,7 +215,7 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	lookupWG.Add(c.Threads)
 	startTime := time.Now().Format(time.RFC3339)
 	for i := 0; i < c.Threads; i++ {
-		go doLookup(g, c, inChan, outChan, metaChan, &lookupWG)
+		go doLookup(g, c, inChan, outChan, metaChan, &lookupWG, i)
 	}
 	lookupWG.Wait()
 	close(outChan)

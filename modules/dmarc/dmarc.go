@@ -46,7 +46,8 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 //
 type RoutineLookupFactory struct {
 	miekg.RoutineLookupFactory
-	Factory *GlobalLookupFactory
+	Factory  *GlobalLookupFactory
+	ThreadID int
 }
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
@@ -63,11 +64,12 @@ type GlobalLookupFactory struct {
 	miekg.GlobalLookupFactory
 }
 
-func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
+func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
 	r.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
 	r.Initialize(s.GlobalConf)
 	r.Factory = s
+	r.ThreadID = threadID
 	return r, nil
 }
 

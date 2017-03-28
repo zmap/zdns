@@ -85,7 +85,7 @@ type GlobalLookupFactory interface {
 	// Help text for the CLI
 	Help() string
 	// Return a single scanner which will scan a single host
-	MakeRoutineFactory() (RoutineLookupFactory, error)
+	MakeRoutineFactory(int) (RoutineLookupFactory, error)
 	RandomNameServer() string
 }
 
