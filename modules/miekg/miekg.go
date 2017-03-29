@@ -465,7 +465,7 @@ func (s *Lookup) retryingLookup(dnsType uint16, name string, nameServer string, 
 func (s *Lookup) cachedRetryingLookup(dnsType uint16, name string, nameServer string, layer string, depth int) (Result, zdns.Status, error) {
 	s.VerboseLog(depth+1, "Cached retrying lookup. Name: ", name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 	if s.IterativeStop.Before(time.Now()) {
-		s.VerboseLog(depth+2, "TIMEOUT ", name, ", Layer: ", layer, ", Nameserver: ", nameServer)
+		s.VerboseLog(depth+2, "ITERATIVE_TIMEOUT ", name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 		var r Result
 		return r, zdns.STATUS_ITER_TIMEOUT, nil
 	}
