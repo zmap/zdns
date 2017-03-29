@@ -319,6 +319,9 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 	s.Retries = c.Retries
 	s.MaxDepth = c.MaxDepth
 	s.IterativeResolution = c.IterativeResolution
+	if s.IterativeResolution {
+		s.Timeout = c.IterationTimeout
+	}
 }
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
@@ -608,6 +611,7 @@ func (s *Lookup) iterateOnAuthorities(dnsType uint16, name string, depth int, re
 		s.VerboseLog((depth + 1), "Output from extract authorities: ", ns)
 		if ns_status == zdns.STATUS_ITER_TIMEOUT {
 			var r Result
+			s.VerboseLog((depth + 2), "--> Hit iterative timeout: ")
 			return r, ns_status, nil
 		}
 		if ns_status != zdns.STATUS_NOERROR {
@@ -622,6 +626,7 @@ func (s *Lookup) iterateOnAuthorities(dnsType uint16, name string, depth int, re
 			s.VerboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed: ", status)
 			continue
 		}
+		s.VerboseLog((depth + 1), "--> Auth Resolution success: ", status)
 		return r, status, err
 	}
 	s.VerboseLog((depth + 1), "Unable to find authoritative name server")
@@ -635,6 +640,7 @@ func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string,
 	}
 	if depth > s.Factory.MaxDepth {
 		var r Result
+		s.VerboseLog((depth + 1), "-> Max recursion depth reached")
 		return r, zdns.STATUS_ERROR, errors.New("Max recursion depth reached")
 	}
 	result, status, err := s.cachedRetryingLookup(dnsType, name, nameServer, layer, depth)
@@ -657,8 +663,10 @@ func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string,
 		}
 		return result, status, err
 	} else if len(result.Authorities) != 0 {
+		s.VerboseLog((depth + 1), "-> Authority found, iterating")
 		return s.iterateOnAuthorities(dnsType, name, depth, result, layer)
 	} else {
+		s.VerboseLog((depth + 1), "-> No Authority found, error")
 		return result, zdns.STATUS_ERROR, errors.New("NOERROR record without any answers or authorities")
 	}
 }
