@@ -444,7 +444,7 @@ func (s *Lookup) cacheUpdate(layer string, result Result, depth int) {
 }
 
 func (s *Lookup) retryingLookup(dnsType uint16, name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
-	log.Debug("****WIRE LOOKUP***", name, " ", nameServer)
+	s.VerboseLog(1, "****WIRE LOOKUP***", name, " ", nameServer)
 	origTimeout := s.Factory.Client.Timeout
 	for i := 0; i < s.Factory.Retries; i++ {
 		result, status, err := s.doLookup(dnsType, name, nameServer, recursive)
@@ -569,6 +569,9 @@ func (s *Lookup) extractAuthority(authority interface{}, layer string, depth int
 		// Fall through to normal query
 		res, status, _ = s.iterativeLookup(dns.TypeA, server, s.NameServer, depth+1, ".")
 	}
+	if status == zdns.STATUS_ITER_TIMEOUT {
+		return "", status, ""
+	}
 	if status == zdns.STATUS_NOERROR {
 		// XXX we don't actually check the question here
 		for _, inner_a := range res.Answers {
@@ -603,11 +606,18 @@ func (s *Lookup) iterateOnAuthorities(dnsType uint16, name string, depth int, re
 		s.VerboseLog(depth+1, "Trying Authority: ", elem)
 		ns, ns_status, layer := s.extractAuthority(elem, layer, depth, result)
 		s.VerboseLog((depth + 1), "Output from extract authorities: ", ns)
+		if ns_status == zdns.STATUS_ITER_TIMEOUT {
+			var r Result
+			return r, ns_status, nil
+		}
 		if ns_status != zdns.STATUS_NOERROR {
 			s.VerboseLog((depth + 2), "--> Auth find Failed: ", ns_status)
 			continue
 		}
 		r, status, err := s.iterativeLookup(dnsType, name, ns, depth+1, layer)
+		if status == zdns.STATUS_ITER_TIMEOUT {
+			return r, status, err
+		}
 		if status != zdns.STATUS_NOERROR {
 			s.VerboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed: ", status)
 			continue
