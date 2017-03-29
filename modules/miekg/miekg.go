@@ -307,21 +307,23 @@ type RoutineLookupFactory struct {
 }
 
 func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
+	if c.IterativeResolution {
+		s.Timeout = c.IterationTimeout
+	} else {
+		s.Timeout = c.Timeout
+	}
+
 	s.Client = new(dns.Client)
-	s.Client.Timeout = c.Timeout
+	s.Client.Timeout = s.Timeout
 
 	s.TCPClient = new(dns.Client)
 	s.TCPClient.Net = "tcp"
-	s.TCPClient.Timeout = c.Timeout
+	s.TCPClient.Timeout = s.Timeout
 
-	s.Timeout = c.Timeout
 	s.IterativeTimeout = c.IterativeTimeout
 	s.Retries = c.Retries
 	s.MaxDepth = c.MaxDepth
 	s.IterativeResolution = c.IterativeResolution
-	if s.IterativeResolution {
-		s.Timeout = c.IterationTimeout
-	}
 }
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
@@ -636,7 +638,9 @@ func (s *Lookup) iterateOnAuthorities(dnsType uint16, name string, depth int, re
 
 func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string, depth int, layer string) (Result, zdns.Status, error) {
 	if log.GetLevel() == log.DebugLevel {
-		s.VerboseLog((depth), "iterative lookup for ", name, " (", dnsType, ") against ", nameServer, " (", debugReverseLookup(nameServer), ") layer ", layer)
+		// Performance?  What is that.
+		//s.VerboseLog((depth), "iterative lookup for ", name, " (", dnsType, ") against ", nameServer, " (", debugReverseLookup(nameServer), ") layer ", layer)
+		s.VerboseLog((depth), "iterative lookup for ", name, " (", dnsType, ") against ", nameServer, " layer ", layer)
 	}
 	if depth > s.Factory.MaxDepth {
 		var r Result
