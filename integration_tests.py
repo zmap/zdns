@@ -18,7 +18,7 @@ def recursiveSort(obj):
         assert(type(d) == type(dict()))
         for key in d:
             d[key] = recursiveSort(d[key])
-        return sorted(d)
+        return d
 
     if type(obj) == type(list()):
         return listSort(obj)
