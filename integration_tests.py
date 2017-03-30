@@ -4,6 +4,43 @@ import subprocess
 import json
 import unittest
 
+def listSort(l):
+    assert(type(l) == type(list()))
+    new_list = []
+    for item in l:
+        item = nestedSort(item)
+    new_list.append(item)
+    return sorted(new_list)
+
+def dictSort(d):
+    for key in d:
+        d[key] = nestedSort(d[key])
+    return sorted(d)
+
+def nestedSort(obj):
+
+    def listSort(l):
+        assert(type(l) == type(list()))
+        new_list = []
+        for item in l:
+            item = nestedSort(item)
+        new_list.append(item)
+        return sorted(new_list)
+
+    def dictSort(d):
+        for key in d:
+            d[key] = nestedSort(d[key])
+        return sorted(d)
+
+    if type(obj) == type(list()):
+        return listSort(obj)
+
+    elif type(obj) == type(dict()):
+        return dictSort(obj)
+    else:
+        return obj
+
+
 class Tests(unittest.TestCase):
 
     maxDiff = None
@@ -97,9 +134,6 @@ class Tests(unittest.TestCase):
       }
     }
 
-
-
-
     def assertSuccess(self, res, cmd):
         self.assertEqual(res["status"], u"NOERROR", cmd)
 
@@ -113,8 +147,8 @@ class Tests(unittest.TestCase):
         self.assertEqual(res["status"], correct["status"])
         for exchange in res["data"]["exchanges"]:
             del exchange["ttl"]
-        self.assertEqual(sorted(res["data"]["exchanges"]),
-                sorted(correct["data"]["exchanges"]))
+        self.assertEqual(nestedSort(res["data"]["exchanges"]),
+                nestedSort(correct["data"]["exchanges"]))
 
     def assertEqualALookup(self, res, correct):
         self.assertEqual(res["name"], correct["name"])
