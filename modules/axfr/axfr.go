@@ -147,10 +147,11 @@ func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
 	f.StringVar(&s.BlacklistPath, "blacklist-file", "", "blacklist file for servers to exclude from AXFR lookups")
 }
 
-func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
+func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
 	r.Factory = s
 	r.Initialize(s.GlobalConf.Timeout)
+	r.ThreadID = threadID
 	return r, nil
 }
 
