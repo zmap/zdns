@@ -11,7 +11,7 @@ def recursiveSort(obj):
         new_list = []
         for item in l:
             item = recursiveSort(item)
-        new_list.append(item)
+            new_list.append(item)
         return sorted(new_list)
 
     def dictSort(d):
