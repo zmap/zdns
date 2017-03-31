@@ -117,8 +117,7 @@ func (s *Lookup) DoTargetedLookup(name string, nameServer string) (interface{}, 
 //
 type RoutineLookupFactory struct {
 	miekg.RoutineLookupFactory
-	Factory  *GlobalLookupFactory
-	ThreadID int
+	Factory *GlobalLookupFactory
 }
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {

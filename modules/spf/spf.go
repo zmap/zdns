@@ -61,7 +61,6 @@ func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 //
 type GlobalLookupFactory struct {
 	miekg.GlobalLookupFactory
-	ThreadID int
 }
 
 func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
