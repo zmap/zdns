@@ -17,11 +17,9 @@ package nslookup
 import (
 	"flag"
 	"strings"
-	"sync"
 
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
-	"github.com/zmap/zdns/cachehash"
 	"github.com/zmap/zdns/modules/miekg"
 )
 
@@ -43,16 +41,16 @@ type Result struct {
 //
 type Lookup struct {
 	Factory *RoutineLookupFactory
-	zdns.BaseLookup
+	miekg.Lookup
 }
 
 func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-func lookupIPs(name string, dnsType uint16, nameServer string, client *dns.Client, tcpClient *dns.Client) []string {
+func (s *Lookup) lookupIPs(name string, dnsType uint16) []string {
 	var addresses []string
-	res, status, _ := miekg.DoLookup(client, tcpClient, nameServer, dnsType, name)
+	res, status, _ := s.DoTypedMiekgLookup(name, dnsType)
 	if status == zdns.STATUS_NOERROR {
 		cast, _ := res.(miekg.Result)
 		for _, innerRes := range cast.Answers {
@@ -63,9 +61,9 @@ func lookupIPs(name string, dnsType uint16, nameServer string, client *dns.Clien
 	return addresses
 }
 
-func DoNSLookup(name string, nameServer string, client *dns.Client, tcpClient *dns.Client, lookupIPv4 bool, lookupIPv6 bool) (Result, zdns.Status, error) {
+func (s *Lookup) DoNSLookup(name string, lookupIPv4 bool, lookupIPv6 bool) (Result, zdns.Status, error) {
 	var retv Result
-	res, status, err := miekg.DoLookup(client, tcpClient, nameServer, dns.TypeNS, name)
+	res, status, err := s.DoTypedMiekgLookup(name, dns.TypeNS)
 	if status != zdns.STATUS_NOERROR || err != nil {
 		return retv, status, nil
 	}
@@ -97,14 +95,14 @@ func DoNSLookup(name string, nameServer string, client *dns.Client, tcpClient *d
 		rec.Name = strings.TrimSuffix(a.Answer, ".")
 		rec.TTL = a.Ttl
 		if lookupIPv4 {
-			rec.IPv4Addresses = lookupIPs(rec.Name, dns.TypeA, nameServer, client, tcpClient)
+			rec.IPv4Addresses = s.lookupIPs(rec.Name, dns.TypeA)
 		} else if ip, ok := ipv4s[rec.Name]; ok {
 			rec.IPv4Addresses = []string{ip}
 		} else {
 			rec.IPv4Addresses = []string{}
 		}
 		if lookupIPv6 {
-			rec.IPv6Addresses = lookupIPs(rec.Name, dns.TypeAAAA, nameServer, client, tcpClient)
+			rec.IPv6Addresses = s.lookupIPs(rec.Name, dns.TypeAAAA)
 		} else if ip, ok := ipv6s[rec.Name]; ok {
 			rec.IPv6Addresses = []string{ip}
 		} else {
@@ -121,8 +119,7 @@ func DoNSLookup(name string, nameServer string, client *dns.Client, tcpClient *d
 }
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
-	nameServer := s.Factory.Factory.RandomNameServer()
-	return DoNSLookup(name, nameServer, s.Factory.Client, s.Factory.TCPClient, s.Factory.Factory.IPv4Lookup, s.Factory.Factory.IPv6Lookup)
+	return s.DoNSLookup(name, s.Factory.Factory.IPv4Lookup, s.Factory.Factory.IPv6Lookup)
 }
 
 // Per GoRoutine Factory ======================================================
@@ -134,28 +131,22 @@ type RoutineLookupFactory struct {
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 	a := Lookup{Factory: s}
+	nameServer := s.Factory.RandomNameServer()
+	a.Initialize(nameServer, dns.TypeA, &s.RoutineLookupFactory)
 	return &a, nil
 }
 
 // Global Factory =============================================================
 //
 type GlobalLookupFactory struct {
-	zdns.BaseGlobalLookupFactory
+	miekg.GlobalLookupFactory
 	IPv4Lookup bool
 	IPv6Lookup bool
-	CacheSize  int
-	CacheHash  *cachehash.CacheHash
-	CHmu       sync.Mutex
 }
 
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
-	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", false, "perform A lookups for each MX server")
-	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", false, "perform AAAA record lookups for each MX server")
-}
-
-func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
-	s.GlobalConf = c
-	return nil
+	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", false, "perform A lookups for each name server")
+	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", false, "perform AAAA record lookups for each name server")
 }
 
 // Command-line Help Documentation. This is the descriptive text what is
@@ -164,10 +155,12 @@ func (s *GlobalLookupFactory) Help() string {
 	return ""
 }
 
-func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
+func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
-	r.Initialize(s.GlobalConf.Timeout)
+	r.Initialize(s.GlobalConf)
+	r.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
 	r.Factory = s
+	r.ThreadID = threadID
 	return r, nil
 }
 

@@ -52,7 +52,7 @@ func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16
 	// check if the record is already in our cache. if not, perform normal A lookup and
 	// see what comes back. Then iterate over results and if needed, perform further lookups
 	if _, ok := searchSet[name]; !ok {
-		miekgResult, status, err := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dnsType, name)
+		miekgResult, status, err := s.DoTypedMiekgLookup(name, dnsType)
 		if status != zdns.STATUS_NOERROR || err != nil {
 			return nil, status, err
 		}
@@ -122,13 +122,15 @@ type RoutineLookupFactory struct {
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 	a := Lookup{Factory: s}
+	nameServer := s.Factory.RandomNameServer()
+	a.Initialize(nameServer, dns.TypeA, &s.RoutineLookupFactory)
 	return &a, nil
 }
 
 // Global Factory =============================================================
 //
 type GlobalLookupFactory struct {
-	zdns.BaseGlobalLookupFactory
+	miekg.GlobalLookupFactory
 	IPv4Lookup bool
 	IPv6Lookup bool
 }
@@ -144,10 +146,12 @@ func (s *GlobalLookupFactory) Help() string {
 	return ""
 }
 
-func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
+func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
 	r.Factory = s
-	r.Initialize(s.GlobalConf.Timeout)
+	r.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
+	r.Initialize(s.GlobalConf)
+	r.ThreadID = threadID
 	return r, nil
 }
 

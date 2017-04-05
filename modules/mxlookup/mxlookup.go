@@ -42,15 +42,14 @@ type MXRecord struct {
 }
 
 type Result struct {
-	Servers  []MXRecord `json:"exchanges"`
-	Protocol string
+	Servers []MXRecord `json:"exchanges"`
 }
 
 // Per Connection Lookup ======================================================
 //
 type Lookup struct {
 	Factory *RoutineLookupFactory
-	zdns.BaseLookup
+	miekg.Lookup
 }
 
 func dotName(name string) string {
@@ -65,10 +64,9 @@ func (s *Lookup) LookupIPs(name string) CachedAddresses {
 		return res.(CachedAddresses)
 	}
 	var retv CachedAddresses
-	nameServer := s.Factory.Factory.RandomNameServer()
 	// ipv4
 	if s.Factory.Factory.IPv4Lookup {
-		res, status, _ := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dns.TypeA, name)
+		res, status, _ := s.DoTypedMiekgLookup(name, dns.TypeA)
 		if status == zdns.STATUS_NOERROR {
 			cast, _ := res.(miekg.Result)
 			for _, innerRes := range cast.Answers {
@@ -82,7 +80,7 @@ func (s *Lookup) LookupIPs(name string) CachedAddresses {
 	}
 	// ipv6
 	if s.Factory.Factory.IPv6Lookup {
-		res, status, _ := miekg.DoLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, dns.TypeAAAA, name)
+		res, status, _ := s.DoTypedMiekgLookup(name, dns.TypeAAAA)
 		if status == zdns.STATUS_NOERROR {
 			cast, _ := res.(miekg.Result)
 			for _, innerRes := range cast.Answers {
@@ -101,41 +99,26 @@ func (s *Lookup) LookupIPs(name string) CachedAddresses {
 }
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
-	nameServer := s.Factory.Factory.RandomNameServer()
-	res := Result{Servers: []MXRecord{}}
-
-	m := new(dns.Msg)
-	m.SetQuestion(dotName(name), dns.TypeMX)
-	m.RecursionDesired = true
-
-	useTCP := false
-	res.Protocol = "udp"
-	r, _, err := s.Factory.Client.Exchange(m, nameServer)
-	if err == dns.ErrTruncated {
-		r, _, err = s.Factory.TCPClient.Exchange(m, nameServer)
-		useTCP = true
-		res.Protocol = "tcp"
+	retv := Result{Servers: []MXRecord{}}
+	res, status, err := s.DoTypedMiekgLookup(name, dns.TypeMX)
+	if status != zdns.STATUS_NOERROR {
+		return retv, status, err
 	}
-	if r != nil && r.Rcode == dns.RcodeBadTrunc && !useTCP {
-		r, _, err = s.Factory.TCPClient.Exchange(m, nameServer)
+	r, ok := res.(miekg.Result)
+	if !ok {
+		panic("could not cast correctly")
 	}
-	if err != nil || r == nil {
-		return nil, zdns.STATUS_ERROR, err
-	}
-	if r.Rcode != dns.RcodeSuccess {
-		return nil, miekg.TranslateMiekgErrorCode(r.Rcode), nil
-	}
-	for _, ans := range r.Answer {
-		if a, ok := ans.(*dns.MX); ok {
-			name = strings.TrimSuffix(a.Mx, ".")
-			rec := MXRecord{TTL: a.Hdr.Ttl, Type: dns.Type(a.Hdr.Rrtype).String(), Name: name, Preference: a.Preference}
+	for _, ans := range r.Answers {
+		if mxAns, ok := ans.(miekg.MXAnswer); ok {
+			name = strings.TrimSuffix(mxAns.Answer.Answer, ".")
+			rec := MXRecord{TTL: mxAns.Ttl, Type: mxAns.Type, Name: name, Preference: mxAns.Preference}
 			ips := s.LookupIPs(name)
 			rec.IPv4Addresses = ips.IPv4Addresses
 			rec.IPv6Addresses = ips.IPv6Addresses
-			res.Servers = append(res.Servers, rec)
+			retv.Servers = append(retv.Servers, rec)
 		}
 	}
-	return res, zdns.STATUS_NOERROR, nil
+	return retv, zdns.STATUS_NOERROR, nil
 }
 
 // Per GoRoutine Factory ======================================================
@@ -147,30 +130,33 @@ type RoutineLookupFactory struct {
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 	a := Lookup{Factory: s}
+	nameServer := s.Factory.RandomNameServer()
+	a.Initialize(nameServer, dns.TypeMX, &s.RoutineLookupFactory)
 	return &a, nil
 }
 
 // Global Factory =============================================================
 //
 type GlobalLookupFactory struct {
-	zdns.BaseGlobalLookupFactory
-	IPv4Lookup bool
-	IPv6Lookup bool
-	CacheSize  int
-	CacheHash  *cachehash.CacheHash
-	CHmu       sync.Mutex
+	miekg.GlobalLookupFactory
+	IPv4Lookup  bool
+	IPv6Lookup  bool
+	MXCacheSize int
+	CacheHash   *cachehash.CacheHash
+	CHmu        sync.Mutex
 }
 
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
 	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", false, "perform A lookups for each MX server")
 	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", false, "perform AAAA record lookups for each MX server")
-	f.IntVar(&s.CacheSize, "cache-size", 1000, "number of records to store in MX -> A/AAAA cache")
+	f.IntVar(&s.MXCacheSize, "mx-cache-size", 1000, "number of records to store in MX -> A/AAAA cache")
 }
 
 func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
+	s.GlobalLookupFactory.Initialize(c)
 	s.GlobalConf = c
 	s.CacheHash = new(cachehash.CacheHash)
-	s.CacheHash.Init(s.CacheSize)
+	s.CacheHash.Init(s.MXCacheSize)
 	return nil
 }
 
@@ -180,10 +166,12 @@ func (s *GlobalLookupFactory) Help() string {
 	return ""
 }
 
-func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
+func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
-	r.Initialize(s.GlobalConf.Timeout)
+	r.Initialize(s.GlobalConf)
+	r.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
 	r.Factory = s
+	r.ThreadID = threadID
 	return r, nil
 }
 

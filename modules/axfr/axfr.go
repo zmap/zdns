@@ -32,7 +32,7 @@ import (
 //
 type Lookup struct {
 	Factory *RoutineLookupFactory
-	zdns.BaseLookup
+	nslookup.Lookup
 }
 
 type AXFRServerResult struct {
@@ -95,8 +95,7 @@ func (s *Lookup) DoAXFR(name string, server string) AXFRServerResult {
 }
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
-	nameServer := s.Factory.Factory.RandomNameServer()
-	parsedNS, status, err := nslookup.DoNSLookup(name, nameServer, s.Factory.Client, s.Factory.TCPClient, true, false)
+	parsedNS, status, err := s.DoNSLookup(name, true, false)
 	if status != zdns.STATUS_NOERROR {
 		return nil, status, err
 	}
@@ -148,10 +147,11 @@ func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
 	f.StringVar(&s.BlacklistPath, "blacklist-file", "", "blacklist file for servers to exclude from AXFR lookups")
 }
 
-func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
+func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
 	r.Factory = s
 	r.Initialize(s.GlobalConf.Timeout)
+	r.ThreadID = threadID
 	return r, nil
 }
 

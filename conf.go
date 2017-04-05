@@ -17,11 +17,16 @@ package zdns
 import "time"
 
 type GlobalConf struct {
-	Threads     int
-	Timeout     time.Duration
-	AlexaFormat bool
-	GoMaxProcs  int
-	Verbosity   int
+	Threads             int
+	Timeout             time.Duration
+	IterationTimeout    time.Duration
+	Retries             int
+	AlexaFormat         bool
+	IterativeResolution bool
+	MaxDepth            int
+	CacheSize           int
+	GoMaxProcs          int
+	Verbosity           int
 
 	NameServersSpecified bool
 	NameServers          []string
@@ -42,6 +47,8 @@ type Metadata struct {
 	StartTime   string         `json:"start_time"`
 	EndTime     string         `json:"end_time"`
 	NameServers []string       `json:"name_servers"`
+	Timeout     int            `json:"timeout"`
+	Retries     int            `json:"retries"`
 }
 
 type Result struct {
@@ -66,12 +73,29 @@ const (
 	STATUS_NOERROR       Status = "NOERROR"
 	STATUS_ERROR         Status = "ERROR"
 	STATUS_SERVFAIL      Status = "SERVFAIL"
+	STATUS_AUTHFAIL      Status = "AUTHFAIL"
 	STATUS_NO_RECORD     Status = "NORECORD"
 	STATUS_BLACKLIST     Status = "BLACKLIST"
 	STATUS_NO_OUTPUT     Status = "NO_OUTPUT"
 	STATUS_NO_ANSWER     Status = "NO_ANSWER"
 	STATUS_ILLEGAL_INPUT Status = "ILLEGAL_INPUT"
 	STATUS_TIMEOUT       Status = "TIMEOUT"
+	STATUS_ITER_TIMEOUT  Status = "ITERATIVE_TIMEOUT"
 	STATUS_TEMPORARY     Status = "TEMPORARY"
 	STATUS_TRUNCATED     Status = "TRUNCATED"
 )
+
+var RootServers = [...]string{
+	"198.41.0.4:53",
+	"192.228.79.201:53",
+	"192.33.4.12:53",
+	"199.7.91.13:53",
+	"192.203.230.10:53",
+	"192.5.5.241:53",
+	"192.112.36.4:53",
+	"198.97.190.53:53",
+	"192.36.148.17:53",
+	"192.58.128.30:53",
+	"193.0.14.129:53",
+	"199.7.83.42:53",
+	"202.12.27.33:53"}

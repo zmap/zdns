@@ -15,6 +15,7 @@
 package dmarc
 
 import (
+	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/modules/miekg"
 )
@@ -28,13 +29,12 @@ type Result struct {
 //
 type Lookup struct {
 	Factory *RoutineLookupFactory
-	zdns.BaseLookup
+	miekg.Lookup
 }
 
 func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	var res Result
-	nameServer := s.Factory.Factory.RandomNameServer()
-	innerRes, status, err := miekg.DoTxtLookup(s.Factory.Client, s.Factory.TCPClient, nameServer, "v=DMARC", name)
+	innerRes, status, err := s.DoTxtLookup(name)
 	if status != zdns.STATUS_NOERROR {
 		return res, status, err
 	}
@@ -51,19 +51,24 @@ type RoutineLookupFactory struct {
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 	a := Lookup{Factory: s}
+	nameServer := s.Factory.RandomNameServer()
+	a.Initialize(nameServer, dns.TypeTXT, &s.RoutineLookupFactory)
+	a.Prefix = "v=DMARC"
 	return &a, nil
 }
 
 // Global Factory =============================================================
 //
 type GlobalLookupFactory struct {
-	zdns.BaseGlobalLookupFactory
+	miekg.GlobalLookupFactory
 }
 
-func (s *GlobalLookupFactory) MakeRoutineFactory() (zdns.RoutineLookupFactory, error) {
+func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
-	r.Initialize(s.GlobalConf.Timeout)
+	r.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
+	r.Initialize(s.GlobalConf)
 	r.Factory = s
+	r.ThreadID = threadID
 	return r, nil
 }
 

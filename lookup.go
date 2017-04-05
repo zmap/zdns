@@ -65,8 +65,8 @@ func makeName(name string, prefix string) (string, bool) {
 	}
 }
 
-func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
-	f, err := (*g).MakeRoutineFactory()
+func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup, threadID int) error {
+	f, err := (*g).MakeRoutineFactory(threadID)
 	if err != nil {
 		log.Fatal("Unable to create new routine factory", err.Error())
 	}
@@ -216,7 +216,7 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	lookupWG.Add(c.Threads)
 	startTime := time.Now().Format(time.RFC3339)
 	for i := 0; i < c.Threads; i++ {
-		go doLookup(g, c, inChan, outChan, metaChan, &lookupWG)
+		go doLookup(g, c, inChan, outChan, metaChan, &lookupWG, i)
 	}
 	lookupWG.Wait()
 	close(outChan)
@@ -227,6 +227,11 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	metadata.StartTime = startTime
 	metadata.EndTime = time.Now().Format(time.RFC3339)
 	metadata.NameServers = c.NameServers
+	metadata.Retries = c.Retries
+	// Seconds() returns a float. However, timeout is passed in as an integer
+	// command line argument, so there should be no loss of data when casting
+	// back to an integer here.
+	metadata.Timeout = int(c.Timeout.Seconds())
 	// add global lookup-related metadata
 	// write out metadata
 	if c.MetadataFilePath != "" {
