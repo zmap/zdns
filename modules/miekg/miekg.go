@@ -638,7 +638,6 @@ func (s *Lookup) iterateOnAuthorities(dnsType uint16, name string, depth int, re
 
 func (s *Lookup) iterativeLookup(dnsType uint16, name string, nameServer string, depth int, layer string) (Result, zdns.Status, error) {
 	if log.GetLevel() == log.DebugLevel {
-		// Performance?  What is that.
 		//s.VerboseLog((depth), "iterative lookup for ", name, " (", dnsType, ") against ", nameServer, " (", debugReverseLookup(nameServer), ") layer ", layer)
 		s.VerboseLog((depth), "iterative lookup for ", name, " (", dnsType, ") against ", nameServer, " layer ", layer)
 	}
