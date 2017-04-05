@@ -19,7 +19,6 @@ import "time"
 type GlobalConf struct {
 	Threads             int
 	Timeout             time.Duration
-	IterativeTimeout    time.Duration
 	IterationTimeout    time.Duration
 	Retries             int
 	AlexaFormat         bool

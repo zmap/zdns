@@ -320,7 +320,7 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 	s.TCPClient.Net = "tcp"
 	s.TCPClient.Timeout = s.Timeout
 
-	s.IterativeTimeout = c.IterativeTimeout
+	s.IterativeTimeout = c.Timeout
 	s.Retries = c.Retries
 	s.MaxDepth = c.MaxDepth
 	s.IterativeResolution = c.IterativeResolution
