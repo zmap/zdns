@@ -8,7 +8,7 @@ ZDNS is a command-line utility that provides high-speed DNS lookups. For
 example, the following will perform MX lookups and a secondary A lookup for the
 IPs of MX servers for the domains in the Alexa Top Million:
 
-	cat top-1m.csv | zdns MX --lookup-ipv4 --alexa
+	cat top-1m.csv | zdns MX --ipv4-lookup --alexa
 
 ZDNS is written in golang and is primarily based on https://github.com/miekg/dns.
 
@@ -117,30 +117,17 @@ returns:
 }
 ```
 
-Zone File Modules
------------------
+Local Recursion
+---------------
 
-The above modules are useful when we only have a list of domain names to perform queries
-for. However, in some instances we have a root zone file that indicates all domains in a
-zone, and their nameservers. For this instance, we have the `zone` module.
-
-The `zone` module performs an `alookup` for each domain in the specified zone file,
-skipping as much of the recursive lookup as is possible. This entails utilization of the
-glue records in the zone file to go directly to the domain's authoritative nameserver,
-as well as caching nameserver locations when lookups must be performed.
-
-For example, if the following two records are in a zonefile,
-
-	foo.com. NS ns.foo.com.
-	ns.foo.com. A XXX.XXX.XXX.XXX
-
-then the resulting lookup for foo.com will utilize the nameserver at XXX.XXX.XXX.XXX
-
-This is useful for performing many `alookup` calls without hammering the local and root
-nameservers.
-
-Note: the `zone` module requires the --input-file flag be set, in order to allow it to
-make two passes over the input.
+ZDNS can either operate against a recursive resolver (e.g., an organizational
+DNS server) [default behavior] or can perform its own recursion internally. To
+perform local recursion, run zdns with the `--iterative` flag. When this flag
+is used, ZDNS will round-robin between the published root servers (e.g.,
+198.41.0.4). In iterative mode, you can control the size of the local cache by
+specifying `--cache-size` and the timeout for individual iterations by setting
+`--iteration-timeout`. The `--timeout` flag controls the timeout of the entire
+resolution for a given input (i.e., the sum of all iterative steps).
 
 Running ZDNS
 ------------
@@ -154,7 +141,8 @@ specified with `--name-servers`. ZDNS will rotate through these servers when
 making requests.
 
 Unsupported Types
-------------
+-----------------
+
 If zdns encounters a record type it does not support it will generate an output
 record with the `type` field set correctly and a representation of the
 underlying data structure in the `unparsed_rr` field. Do not rely on the
