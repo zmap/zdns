@@ -19,7 +19,8 @@ import (
 	"net"
 	"strings"
 	"sync"
-	"time"
+
+	log "github.com/Sirupsen/logrus"
 
 	"github.com/miekg/dns"
 	"github.com/zmap/go-iptree/blacklist"
@@ -111,27 +112,29 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 // Per GoRoutine Factory ======================================================
 //
 type RoutineLookupFactory struct {
-	Factory *GlobalLookupFactory
 	miekg.RoutineLookupFactory
+	Factory *GlobalLookupFactory
 }
 
-func (s *RoutineLookupFactory) Initialize(t time.Duration) {
-	s.Client = new(dns.Client)
-	s.Client.Timeout = t
-	s.TCPClient = new(dns.Client)
-	s.TCPClient.Net = "tcp"
-	s.TCPClient.Timeout = t
-}
+//func (s *RoutineLookupFactory) Initialize(t time.Duration) {
+//	s.Client = new(dns.Client)
+//	s.Client.Timeout = t
+//	s.TCPClient = new(dns.Client)
+//	s.TCPClient.Net = "tcp"
+//	s.TCPClient.Timeout = t
+//}
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 	a := Lookup{Factory: s}
+	nameServer := s.Factory.RandomNameServer()
+	a.Initialize(nameServer, dns.TypeA, &s.RoutineLookupFactory)
 	return &a, nil
 }
 
 // Global Factory =============================================================
 //
 type GlobalLookupFactory struct {
-	zdns.BaseGlobalLookupFactory
+	miekg.GlobalLookupFactory
 	BlacklistPath string
 	Blacklist     *blacklist.Blacklist
 	BlMu          sync.Mutex
@@ -150,7 +153,8 @@ func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
 func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
 	r.Factory = s
-	r.Initialize(s.GlobalConf.Timeout)
+	r.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
+	r.Initialize(s.GlobalConf)
 	r.ThreadID = threadID
 	return r, nil
 }
@@ -162,6 +166,9 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 		if err := s.Blacklist.ParseFromFile(s.BlacklistPath); err != nil {
 			return err
 		}
+	}
+	if c.IterativeResolution == true {
+		log.Fatal("AXFR module does not support iterative resolution")
 	}
 	return nil
 }
