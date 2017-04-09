@@ -116,14 +116,6 @@ type RoutineLookupFactory struct {
 	Factory *GlobalLookupFactory
 }
 
-//func (s *RoutineLookupFactory) Initialize(t time.Duration) {
-//	s.Client = new(dns.Client)
-//	s.Client.Timeout = t
-//	s.TCPClient = new(dns.Client)
-//	s.TCPClient.Net = "tcp"
-//	s.TCPClient.Timeout = t
-//}
-
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 	a := Lookup{Factory: s}
 	nameServer := s.Factory.RandomNameServer()
