@@ -121,6 +121,16 @@ class Tests(unittest.TestCase):
       }
     }
 
+    CAA_RECORD = [
+      {
+        u"type": u"CAA",
+        u"name": u"zdns-testing.com.",
+        u"tag": u"issue",
+        u"value": u"letsencrypt.org",
+        "flag": 0
+      }
+    ]
+
     def assertSuccess(self, res, cmd):
         self.assertEqual(res["status"], u"NOERROR", cmd)
 
@@ -151,6 +161,13 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+
+    def test_caa(self):
+        c = u"./zdns/zdns CAA"
+        name = u"zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.CAA_RECORD, cmd)
 
     def test_a_iterative(self):
         c = u"./zdns/zdns A --iterative"
