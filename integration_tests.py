@@ -104,7 +104,7 @@ class Tests(unittest.TestCase):
       }
     }
 
-    ALOOKUP_WWW_ZDNS_TESTING = {
+    A_LOOKUP_WWW_ZDNS_TESTING = {
       u"name": u"www.zdns-testing.com",
       u"status": u"NOERROR",
       u"data": {
@@ -120,6 +120,13 @@ class Tests(unittest.TestCase):
         ]
       }
     }
+
+    PTR_LOOKUP_GOOGLE_PUB = [{
+        "type":"PTR",
+        "name":"8.8.8.8.in-addr.arpa",
+        "answer":"google-public-dns-a.google.com."
+        }
+    ]
 
     CAA_RECORD = [
       {
@@ -237,15 +244,28 @@ class Tests(unittest.TestCase):
         name = u"www.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
-        self.assertEqualALookup(res, self.ALOOKUP_WWW_ZDNS_TESTING)
+        self.assertEqualALookup(res, self.A_LOOKUP_WWW_ZDNS_TESTING)
 
     def test_a_lookup_iterative(self):
         c = u"./zdns/zdns alookup --ipv4-lookup --ipv6-lookup --iterative"
         name = u"www.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
-        self.assertEqualALookup(res, self.ALOOKUP_WWW_ZDNS_TESTING)
+        self.assertEqualALookup(res, self.A_LOOKUP_WWW_ZDNS_TESTING)
 
+    def test_ptr(self):
+        c = u"./zdns/zdns PTR"
+        name = u"8.8.8.8"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.PTR_LOOKUP_GOOGLE_PUB, cmd)
+
+    def test_ptr_iterative(self):
+        c = u"./zdns/zdns PTR --iterative"
+        name = u"8.8.8.8"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.PTR_LOOKUP_GOOGLE_PUB, cmd)
 
 if __name__ == '__main__':
     unittest.main()
