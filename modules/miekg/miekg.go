@@ -450,6 +450,17 @@ func (s *Lookup) cacheUpdate(layer string, result Result, depth int) {
 
 func (s *Lookup) retryingLookup(dnsType uint16, name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
 	s.VerboseLog(1, "****WIRE LOOKUP***", name, " ", nameServer)
+
+	if dnsType == dns.TypePTR {
+		var err error
+		name, err = dns.ReverseAddr(name)
+		if err != nil {
+			var r Result
+			return r, zdns.STATUS_ILLEGAL_INPUT, err
+		}
+		name = name[:len(name)-1]
+	}
+
 	origTimeout := s.Factory.Client.Timeout
 	for i := 0; i < s.Factory.Retries; i++ {
 		result, status, err := s.doLookup(dnsType, name, nameServer, recursive)
