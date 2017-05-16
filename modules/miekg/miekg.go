@@ -16,11 +16,13 @@ import (
 )
 
 type Answer struct {
-	Ttl    uint32 `json:"ttl,omitempty"`
-	Type   string `json:"type,omitempty"`
-	rrType uint16
-	Name   string `json:"name,omitempty"`
-	Answer string `json:"answer,omitempty"`
+	Ttl     uint32 `json:"ttl,omitempty"`
+	Type    string `json:"type,omitempty"`
+	rrType  uint16
+	Class   string `json:"class,omitempty"`
+	rrClass uint16
+	Name    string `json:"name,omitempty"`
+	Answer  string `json:"answer,omitempty"`
 }
 
 type MXAnswer struct {
@@ -97,43 +99,49 @@ func ParseAnswer(ans dns.RR) interface{} {
 	var retv Answer
 	if a, ok := ans.(*dns.A); ok {
 		retv = Answer{
-			Ttl:    a.Hdr.Ttl,
-			Type:   dns.Type(a.Hdr.Rrtype).String(),
-			rrType: a.Hdr.Rrtype,
-			Name:   a.Hdr.Name,
-			Answer: a.A.String()}
+			Ttl:     a.Hdr.Ttl,
+			Type:    dns.Type(a.Hdr.Rrtype).String(),
+			rrType:  a.Hdr.Rrtype,
+			Class:   dns.Class(a.Hdr.Class).String(),
+			rrClass: a.Hdr.Class,
+			Name:    a.Hdr.Name,
+			Answer:  a.A.String()}
 	} else if aaaa, ok := ans.(*dns.AAAA); ok {
-		retv = Answer{Ttl: aaaa.Hdr.Ttl, Type: dns.Type(aaaa.Hdr.Rrtype).String(), rrType: aaaa.Hdr.Rrtype, Name: aaaa.Hdr.Name, Answer: aaaa.AAAA.String()}
+		retv = Answer{Ttl: aaaa.Hdr.Ttl, Type: dns.Type(aaaa.Hdr.Rrtype).String(), rrType: aaaa.Hdr.Rrtype, Class: dns.Class(aaaa.Hdr.Class).String(), rrClass: aaaa.Hdr.Class, Name: aaaa.Hdr.Name, Answer: aaaa.AAAA.String()}
 	} else if cname, ok := ans.(*dns.CNAME); ok {
-		retv = Answer{Ttl: cname.Hdr.Ttl, Type: dns.Type(cname.Hdr.Rrtype).String(), rrType: cname.Hdr.Rrtype, Name: cname.Hdr.Name, Answer: cname.Target}
+		retv = Answer{Ttl: cname.Hdr.Ttl, Type: dns.Type(cname.Hdr.Rrtype).String(), rrType: cname.Hdr.Rrtype, Class: dns.Class(cname.Hdr.Class).String(), rrClass: cname.Hdr.Class, Name: cname.Hdr.Name, Answer: cname.Target}
 	} else if dname, ok := ans.(*dns.DNAME); ok {
-		retv = Answer{Ttl: dname.Hdr.Ttl, Type: dns.Type(dname.Hdr.Rrtype).String(), rrType: dname.Hdr.Rrtype, Name: dname.Hdr.Name, Answer: dname.Target}
+		retv = Answer{Ttl: dname.Hdr.Ttl, Type: dns.Type(dname.Hdr.Rrtype).String(), rrType: dname.Hdr.Rrtype, Class: dns.Class(dname.Hdr.Class).String(), rrClass: dname.Hdr.Class, Name: dname.Hdr.Name, Answer: dname.Target}
 	} else if txt, ok := ans.(*dns.TXT); ok {
-		retv = Answer{Ttl: txt.Hdr.Ttl, Type: dns.Type(txt.Hdr.Rrtype).String(), rrType: txt.Hdr.Rrtype, Name: txt.Hdr.Name, Answer: strings.Join(txt.Txt, "\n")}
+		retv = Answer{Ttl: txt.Hdr.Ttl, Type: dns.Type(txt.Hdr.Rrtype).String(), rrType: txt.Hdr.Rrtype, Class: dns.Class(txt.Hdr.Class).String(), rrClass: txt.Hdr.Class, Name: txt.Hdr.Name, Answer: strings.Join(txt.Txt, "\n")}
 	} else if ns, ok := ans.(*dns.NS); ok {
-		retv = Answer{Ttl: ns.Hdr.Ttl, Type: dns.Type(ns.Hdr.Rrtype).String(), rrType: ns.Hdr.Rrtype, Name: ns.Hdr.Name, Answer: strings.TrimRight(ns.Ns, ".")}
+		retv = Answer{Ttl: ns.Hdr.Ttl, Type: dns.Type(ns.Hdr.Rrtype).String(), rrType: ns.Hdr.Rrtype, Class: dns.Class(ns.Hdr.Class).String(), rrClass: ns.Hdr.Class, Name: ns.Hdr.Name, Answer: strings.TrimRight(ns.Ns, ".")}
 	} else if ptr, ok := ans.(*dns.PTR); ok {
-		retv = Answer{Ttl: ptr.Hdr.Ttl, Type: dns.Type(ptr.Hdr.Rrtype).String(), rrType: ptr.Hdr.Rrtype, Name: ptr.Hdr.Name, Answer: ptr.Ptr}
+		retv = Answer{Ttl: ptr.Hdr.Ttl, Type: dns.Type(ptr.Hdr.Rrtype).String(), rrType: ptr.Hdr.Rrtype, Class: dns.Class(ptr.Hdr.Class).String(), rrClass: ptr.Hdr.Class, Name: ptr.Hdr.Name, Answer: ptr.Ptr}
 	} else if spf, ok := ans.(*dns.SPF); ok {
-		retv = Answer{Ttl: spf.Hdr.Ttl, Type: dns.Type(spf.Hdr.Rrtype).String(), rrType: spf.Hdr.Rrtype, Name: spf.Hdr.Name, Answer: spf.String()}
+		retv = Answer{Ttl: spf.Hdr.Ttl, Type: dns.Type(spf.Hdr.Rrtype).String(), rrType: spf.Hdr.Rrtype, Class: dns.Class(spf.Hdr.Class).String(), rrClass: spf.Hdr.Class, Name: spf.Hdr.Name, Answer: spf.String()}
 	} else if mx, ok := ans.(*dns.MX); ok {
 		return MXAnswer{
 			Answer: Answer{
-				Name:   strings.TrimRight(mx.Hdr.Name, "."),
-				Type:   dns.Type(mx.Hdr.Rrtype).String(),
-				rrType: mx.Hdr.Rrtype,
-				Ttl:    mx.Hdr.Ttl,
-				Answer: strings.TrimRight(mx.Mx, "."),
+				Name:    strings.TrimRight(mx.Hdr.Name, "."),
+				Type:    dns.Type(mx.Hdr.Rrtype).String(),
+				rrType:  mx.Hdr.Rrtype,
+				Class:   dns.Type(mx.Hdr.Class).String(),
+				rrClass: mx.Hdr.Class,
+				Ttl:     mx.Hdr.Ttl,
+				Answer:  strings.TrimRight(mx.Mx, "."),
 			},
 			Preference: mx.Preference,
 		}
 	} else if caa, ok := ans.(*dns.CAA); ok {
 		return CAAAnswer{
 			Answer: Answer{
-				Name:   caa.Hdr.Name,
-				Ttl:    caa.Hdr.Ttl,
-				Type:   dns.Type(caa.Hdr.Rrtype).String(),
-				rrType: caa.Hdr.Rrtype,
+				Name:    caa.Hdr.Name,
+				Ttl:     caa.Hdr.Ttl,
+				Type:    dns.Type(caa.Hdr.Rrtype).String(),
+				rrType:  caa.Hdr.Rrtype,
+				Class:   dns.Type(mx.Hdr.Class).String(),
+				rrClass: mx.Hdr.Class,
 			},
 			Tag:   caa.Tag,
 			Value: caa.Value,
@@ -142,10 +150,12 @@ func ParseAnswer(ans dns.RR) interface{} {
 	} else if soa, ok := ans.(*dns.SOA); ok {
 		return SOAAnswer{
 			Answer: Answer{
-				Name:   strings.TrimSuffix(soa.Hdr.Name, "."),
-				Type:   dns.Type(soa.Hdr.Rrtype).String(),
-				rrType: soa.Hdr.Rrtype,
-				Ttl:    soa.Hdr.Ttl,
+				Name:    strings.TrimSuffix(soa.Hdr.Name, "."),
+				Type:    dns.Type(soa.Hdr.Rrtype).String(),
+				rrType:  soa.Hdr.Rrtype,
+				Class:   dns.Type(mx.Hdr.Class).String(),
+				rrClass: mx.Hdr.Class,
+				Ttl:     soa.Hdr.Ttl,
 			},
 			Ns:      strings.TrimSuffix(soa.Ns, "."),
 			Mbox:    strings.TrimSuffix(soa.Mbox, "."),
@@ -159,10 +169,14 @@ func ParseAnswer(ans dns.RR) interface{} {
 		return struct {
 			Type     string `json:"type"`
 			rrType   uint16
+			Class    string `json:"class"`
+			rrClass  uint16
 			Unparsed dns.RR `json:"unparsed_rr"`
 		}{
 			Type:     dns.Type(ans.Header().Rrtype).String(),
 			rrType:   ans.Header().Rrtype,
+			Class:    dns.Type(ans.Header().Class).String(),
+			rrClass:  ans.Header().Class,
 			Unparsed: ans,
 		}
 	}
