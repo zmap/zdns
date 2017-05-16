@@ -39,6 +39,7 @@ type GlobalConf struct {
 	NamePrefix string
 
 	Module string
+	Class  uint16
 }
 
 type Metadata struct {

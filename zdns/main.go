@@ -30,6 +30,7 @@ import (
 	_ "github.com/zmap/zdns/modules/mxlookup"
 	_ "github.com/zmap/zdns/modules/nslookup"
 	_ "github.com/zmap/zdns/modules/spf"
+	"github.com/miekg/dns"
 )
 
 func main() {
@@ -54,6 +55,7 @@ func main() {
 	config_file := flags.String("conf-file", "/etc/resolv.conf", "config file for DNS servers")
 	timeout := flags.Int("timeout", 15, "timeout for resolving an individual name")
 	iterationTimeout := flags.Int("iteration-timeout", 4, "timeout for resolving a single iteration in an iterative query")
+	class_string := flags.String("class", "INET", "DNS class to query (INET, CSNET, CHAOS, HESIOD, NONE, ANY (default INET)")
 	// allow module to initialize and add its own flags before we parse
 	if len(os.Args) < 2 {
 		log.Fatal("No lookup module specified. Valid modules: ", zdns.ValidlookupsString())
@@ -93,6 +95,24 @@ func main() {
 	// complete post facto global initialization based on command line arguments
 	gc.Timeout = time.Duration(time.Second * time.Duration(*timeout))
 	gc.IterationTimeout = time.Duration(time.Second * time.Duration(*iterationTimeout))
+	// class initialization
+	switch *class_string {
+	case "INET":
+		gc.Class = dns.ClassINET
+	case "CSNET":
+		gc.Class = dns.ClassCSNET
+	case "CHAOS":
+		gc.Class = dns.ClassCHAOS
+	case "HESIOD":
+		gc.Class = dns.ClassHESIOD
+	case "NONE":
+		gc.Class = dns.ClassNONE
+	case "ANY":
+		gc.Class = dns.ClassANY
+	default:
+		log.Fatal("Unknown record class specified. Valid valued are INET (default), CSNET, CHAOS, HESIOD, NONE, ANY")
+
+	}
 	if *servers_string == "" {
 		// if we're doing recursive resolution, figure out default OS name servers
 		// otherwise, use the set of 13 root name servers
