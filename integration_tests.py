@@ -43,7 +43,7 @@ class Tests(unittest.TestCase):
         u"3.4.5.6",
     ])
 
-    ROOT_A_ANSWERS = [{u"type":"A", u"answer":x,
+    ROOT_A_ANSWERS = [{u"type":"A", u"class":"IN", u"answer":x,
         u"name":"zdns-testing.com"} for x in ROOT_A]
 
     ROOT_AAAA = set([
@@ -52,30 +52,32 @@ class Tests(unittest.TestCase):
         u"fdb3:ac76:a577::3"
     ])
 
-    ROOT_AAAA_ANSWERS = [{u"type":"AAAA", u"answer":x,
+    ROOT_AAAA_ANSWERS = [{u"type":"AAAA", u"class":"IN", u"answer":x,
         u"name":"zdns-testing.com"} for x in ROOT_AAAA]
 
     MX_SERVERS = [
-            {u"answer":"mx1.zdns-testing.com", u"preference":1, u"type":"MX", 'name':'zdns-testing.com'},
-            {u"answer":"mx2.zdns-testing.com", u"preference":5, u"type":"MX", 'name':'zdns-testing.com'},
-            {u"answer":"mx1.censys.io", u"preference":10, u"type":"MX", 'name':'zdns-testing.com'},
+            {u"answer":"mx1.zdns-testing.com", u"preference":1, u"type":"MX", u"class":"IN", 'name':'zdns-testing.com'},
+            {u"answer":"mx2.zdns-testing.com", u"preference":5, u"type":"MX", u"class":"IN", 'name':'zdns-testing.com'},
+            {u"answer":"mx1.censys.io", u"preference":10, u"type":"MX", u"class":"IN", 'name':'zdns-testing.com'},
     ]
 
     NS_SERVERS = [
-            {u"type": u"NS", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-b2.googledomains.com"},
-            {u"type": u"NS", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-b3.googledomains.com"},
-            {u"type": u"NS", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-b1.googledomains.com"},
-            {u"type": u"NS", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-b4.googledomains.com"},
+            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-b2.googledomains.com"},
+            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-b3.googledomains.com"},
+            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-b1.googledomains.com"},
+            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-b4.googledomains.com"},
     ]
 
     MX_LOOKUP_ANSWER = {
-      u"name": u"zdns-testing.com",
+      u"name":   u"zdns-testing.com",
+      u"class":  u"IN",
       u"status": u"NOERROR",
       u"data": {
         u"exchanges": [
           {
-            u"name": u"mx1.zdns-testing.com",
-            u"type": u"MX",
+            u"name":  u"mx1.zdns-testing.com",
+            u"type":  u"MX",
+            u"class": u"IN",
             u"preference": 1,
             u"ipv4_addresses": [
               u"1.2.3.4",
@@ -88,16 +90,18 @@ class Tests(unittest.TestCase):
 
           },
           {
-            u"name": u"mx2.zdns-testing.com",
-            u"type": u"MX",
+            u"name":  u"mx2.zdns-testing.com",
+            u"type":  u"MX",
+            U"class": u"IN",
             u"preference": 5,
             u"ipv4_addresses": [
               u"5.6.7.8"
             ],
           },
           {
-            u"name": u"mx1.censys.io",
-            u"type": u"MX",
+            u"name":  u"mx1.censys.io",
+            u"type":  u"MX",
+            u"class": u"IN",
             u"preference": 10,
           }
         ]
@@ -106,6 +110,7 @@ class Tests(unittest.TestCase):
 
     A_LOOKUP_WWW_ZDNS_TESTING = {
       u"name": u"www.zdns-testing.com",
+      u"class": u"IN",
       u"status": u"NOERROR",
       u"data": {
         u"ipv4_addresses": [
@@ -123,6 +128,7 @@ class Tests(unittest.TestCase):
 
     PTR_LOOKUP_GOOGLE_PUB = [{
         "type":"PTR",
+        "class":"IN",
         "name":"8.8.8.8.in-addr.arpa",
         "answer":"google-public-dns-a.google.com."
         }
@@ -131,6 +137,7 @@ class Tests(unittest.TestCase):
     CAA_RECORD = [
       {
         u"type": u"CAA",
+        u"class": u"IN",
         u"name": u"zdns-testing.com.",
         u"tag": u"issue",
         u"value": u"letsencrypt.org",

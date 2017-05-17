@@ -52,7 +52,7 @@ type RoutineLookupFactory struct {
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 	a := Lookup{Factory: s}
 	nameServer := s.Factory.RandomNameServer()
-	a.Initialize(nameServer, dns.TypeTXT, &s.RoutineLookupFactory)
+	a.Initialize(nameServer, dns.TypeTXT, dns.ClassINET, &s.RoutineLookupFactory)
 	a.Prefix = "v=spf"
 	return &a, nil
 }

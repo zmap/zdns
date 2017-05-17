@@ -51,7 +51,7 @@ type Lookup interface {
 type BaseLookup struct {
 }
 
-func (base *BaseLookup) DoLookup(name string) (interface{}, Status, error) {
+func (base *BaseLookup) DoLookup(name string, class uint16) (interface{}, Status, error) {
 	log.Fatal("Unimplemented DoLookup")
 	return nil, STATUS_ERROR, nil
 }

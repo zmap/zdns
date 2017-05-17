@@ -35,6 +35,7 @@ type CachedAddresses struct {
 type MXRecord struct {
 	Name          string   `json:"name"`
 	Type          string   `json:"type"`
+	Class         string   `json:"class"`
 	Preference    uint16   `json:"preference"`
 	IPv4Addresses []string `json:"ipv4_addresses,omitempty"`
 	IPv6Addresses []string `json:"ipv6_addresses,omitempty"`
@@ -111,7 +112,7 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 	for _, ans := range r.Answers {
 		if mxAns, ok := ans.(miekg.MXAnswer); ok {
 			name = strings.TrimSuffix(mxAns.Answer.Answer, ".")
-			rec := MXRecord{TTL: mxAns.Ttl, Type: mxAns.Type, Name: name, Preference: mxAns.Preference}
+			rec := MXRecord{TTL: mxAns.Ttl, Type: mxAns.Type, Class: mxAns.Class, Name: name, Preference: mxAns.Preference}
 			ips := s.LookupIPs(name)
 			rec.IPv4Addresses = ips.IPv4Addresses
 			rec.IPv6Addresses = ips.IPv6Addresses
@@ -131,7 +132,7 @@ type RoutineLookupFactory struct {
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 	a := Lookup{Factory: s}
 	nameServer := s.Factory.RandomNameServer()
-	a.Initialize(nameServer, dns.TypeMX, &s.RoutineLookupFactory)
+	a.Initialize(nameServer, dns.TypeMX, dns.ClassINET, &s.RoutineLookupFactory)
 	return &a, nil
 }
 

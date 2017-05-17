@@ -87,6 +87,7 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, 
 				continue
 			}
 			res.Name = genericInput.(*dns.Token).RR.Header().Name[0 : length-1]
+			res.Class = dns.Class(gc.Class).String()
 			switch typ := genericInput.(*dns.Token).RR.(type) {
 			case *dns.NS:
 				ns := strings.ToLower(typ.Ns)
@@ -109,6 +110,7 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, 
 				res.AlteredName = lookupName
 			}
 			res.Name = rawName
+			res.Class = dns.Class(gc.Class).String()
 			innerRes, status, err = l.DoLookup(lookupName)
 		}
 		res.Timestamp = time.Now().Format(time.RFC3339)
