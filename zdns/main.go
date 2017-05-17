@@ -96,14 +96,14 @@ func main() {
 	gc.Timeout = time.Duration(time.Second * time.Duration(*timeout))
 	gc.IterationTimeout = time.Duration(time.Second * time.Duration(*iterationTimeout))
 	// class initialization
-	switch *class_string {
-	case "INET":
+	switch strings.ToUpper(*class_string) {
+	case "INET", "IN":
 		gc.Class = dns.ClassINET
-	case "CSNET":
+	case "CSNET", "CS":
 		gc.Class = dns.ClassCSNET
-	case "CHAOS":
+	case "CHAOS", "CH":
 		gc.Class = dns.ClassCHAOS
-	case "HESIOD":
+	case "HESIOD", "HS":
 		gc.Class = dns.ClassHESIOD
 	case "NONE":
 		gc.Class = dns.ClassNONE

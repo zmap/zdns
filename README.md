@@ -39,12 +39,14 @@ returns:
 ```json
 {
   "name": "censys.io",
+  "class": "IN",
   "status": "NOERROR",
   "data": {
     "answers": [
       {
         "ttl": 300,
         "type": "A",
+        "class": "IN",
         "name": "censys.io",
         "data": "216.239.38.21"
       }
@@ -53,6 +55,7 @@ returns:
       {
         "ttl": 34563,
         "type": "A",
+        "class": "IN",
         "name": "ns-cloud-e1.googledomains.com",
         "data": "216.239.32.110"
       },
@@ -61,6 +64,7 @@ returns:
       {
         "ttl": 53110,
         "type": "NS",
+        "class": "IN",
         "name": "censys.io",
         "data": "ns-cloud-e1.googledomains.com."
       },
@@ -97,6 +101,7 @@ returns:
       {
         "name": "aspmx.l.google.com",
         "type": "MX",
+        "class": "IN",
         "preference": 1,
         "ipv4_addresses": [
           "74.125.28.26"
@@ -106,6 +111,7 @@ returns:
       {
         "name": "alt1.aspmx.l.google.com",
         "type": "MX",
+        "class": "IN",
         "preference": 5,
         "ipv4_addresses": [
           "64.233.182.26"
