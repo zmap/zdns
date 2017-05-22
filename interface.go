@@ -141,7 +141,7 @@ func RegisterLookup(name string, s GlobalLookupFactory) {
 func ValidlookupsString() string {
 	valid := make([]string, len(lookups))
 	i := 0
-	for k, _ := range lookups {
+	for k := range lookups {
 		valid[i] = k
 		i++
 	}
