@@ -22,6 +22,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
 	_ "github.com/zmap/zdns/modules/alookup"
 	_ "github.com/zmap/zdns/modules/axfr"
@@ -30,7 +31,6 @@ import (
 	_ "github.com/zmap/zdns/modules/mxlookup"
 	_ "github.com/zmap/zdns/modules/nslookup"
 	_ "github.com/zmap/zdns/modules/spf"
-	"github.com/miekg/dns"
 )
 
 func main() {

@@ -323,7 +323,7 @@ type RoutineLookupFactory struct {
 	IterativeTimeout    time.Duration
 	IterativeResolution bool
 	DNSType             uint16
-	DNSClass	    uint16
+	DNSClass            uint16
 	ThreadID            int
 }
 
