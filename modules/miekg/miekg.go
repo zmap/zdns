@@ -376,6 +376,11 @@ func (s *Lookup) Initialize(nameServer string, dnsType uint16, dnsClass uint16, 
 }
 
 func (s *Lookup) doLookup(dnsType uint16, dnsClass uint16, name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
+	return DoLookupWorker(s.Factory.Client, s.Factory.TCPClient, dnsType, dnsClass, name, nameServer, recursive)
+}
+
+// Expose the inner logic so other tools can use it
+func DoLookupWorker(udp *dns.Client, tcp *dns.Client, dnsType uint16, dnsClass uint16, name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
 	res := Result{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 
 	m := new(dns.Msg)
@@ -386,12 +391,13 @@ func (s *Lookup) doLookup(dnsType uint16, dnsClass uint16, name string, nameServ
 	useTCP := false
 	res.Protocol = "udp"
 
-	r, _, err := s.Factory.Client.Exchange(m, nameServer)
+	r, _, err := udp.Exchange(m, nameServer)
 	if err == dns.ErrTruncated {
-		if s.Factory.TCPClient == nil {
+		if tcp == nil {
 			return res, zdns.STATUS_TRUNCATED, err
 		}
-		r, _, err = s.Factory.TCPClient.Exchange(m, nameServer)
+
+		r, _, err = tcp.Exchange(m, nameServer)
 		useTCP = true
 		res.Protocol = "tcp"
 	}
@@ -406,7 +412,10 @@ func (s *Lookup) doLookup(dnsType uint16, dnsClass uint16, name string, nameServ
 		return res, zdns.STATUS_ERROR, err
 	}
 	if r.Rcode == dns.RcodeBadTrunc && !useTCP {
-		r, _, err = s.Factory.TCPClient.Exchange(m, s.NameServer)
+		if tcp == nil {
+			return res, zdns.STATUS_TRUNCATED, err
+		}
+		r, _, err = tcp.Exchange(m, nameServer)
 	}
 	if err != nil || r == nil {
 		return res, zdns.STATUS_ERROR, err
