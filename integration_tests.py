@@ -145,12 +145,25 @@ class Tests(unittest.TestCase):
       }
     ]
 
+    TXT_RECORD = [
+      {
+        "ttl": 101,
+        "type": "TXT",
+        "class": "IN",
+        "name": "test_txt.zdns-testing.com",
+        "answer": "Hello World!"
+      }
+	]
+
     def assertSuccess(self, res, cmd):
         self.assertEqual(res["status"], u"NOERROR", cmd)
 
     def assertEqualAnswers(self, res, correct, cmd):
         for answer in res["data"]["answers"]:
             del answer["ttl"]
+        print "Received:", sorted(res["data"]["answers"])
+        print "\n\n"
+        print "Correct:", sorted(correct)
         self.assertEqual(sorted(res["data"]["answers"]), sorted(correct), cmd)
 
     def assertEqualMXLookup(self, res, correct):
