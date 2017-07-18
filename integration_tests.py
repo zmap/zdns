@@ -126,12 +126,13 @@ class Tests(unittest.TestCase):
       }
     }
 
-    PTR_LOOKUP_GOOGLE_PUB = [{
+    PTR_LOOKUP_GOOGLE_PUB = [
+      {
         "type":"PTR",
         "class":"IN",
         "name":"8.8.8.8.in-addr.arpa",
         "answer":"google-public-dns-a.google.com."
-        }
+      }
     ]
 
     CAA_RECORD = [
@@ -147,11 +148,19 @@ class Tests(unittest.TestCase):
 
     TXT_RECORD = [
       {
-        "ttl": 101,
         "type": "TXT",
         "class": "IN",
         "name": "test_txt.zdns-testing.com",
         "answer": "Hello World!"
+      }
+    ]
+
+    WWW_CNAME_ANSWERS = [
+      {
+        "type": "CNAME",
+        "class": "IN",
+        "name": "www.zdns-testing.com",
+        "answer": "zdns-testing.com."
       }
 	]
 
@@ -161,9 +170,6 @@ class Tests(unittest.TestCase):
     def assertEqualAnswers(self, res, correct, cmd):
         for answer in res["data"]["answers"]:
             del answer["ttl"]
-        print "Received:", sorted(res["data"]["answers"])
-        print "\n\n"
-        print "Correct:", sorted(correct)
         self.assertEqual(sorted(res["data"]["answers"]), sorted(correct), cmd)
 
     def assertEqualMXLookup(self, res, correct):
@@ -189,12 +195,26 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
 
+    def test_cname(self):
+        c = u"./zdns/zdns CNAME"
+        name = u"www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.WWW_CNAME_ANSWERS, cmd)
+
     def test_caa(self):
         c = u"./zdns/zdns CAA"
         name = u"zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.CAA_RECORD, cmd)
+
+    def test_txt(self):
+        c = u"./zdns/zdns TXT"
+        name = u"test_txt.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.TXT_RECORD, cmd)
 
     def test_a_iterative(self):
         c = u"./zdns/zdns A --iterative"
