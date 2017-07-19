@@ -162,7 +162,20 @@ class Tests(unittest.TestCase):
         "name": "www.zdns-testing.com",
         "answer": "zdns-testing.com."
       }
-	]
+    ]
+
+    DMARC_ANSWER = {
+      "data": {
+        "dmarc": "v=DMARC1; p=none; rua=mailto:postmaster@censys.io"
+      }
+    }
+
+    SPF_ANSWER = {
+      "data": {
+        "spf": "v=spf1 mx include:_spf.google.com -all"
+      }
+    }
+
 
     def assertSuccess(self, res, cmd):
         self.assertEqual(res["status"], u"NOERROR", cmd)
@@ -306,6 +319,23 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.PTR_LOOKUP_GOOGLE_PUB, cmd)
+
+    def test_spf(self):
+        c = u"./zdns/zdns SPF"
+        name = u"zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqual(res["data"], self.SPF_ANSWER["data"])
+
+    def test_dmarc(self):
+        c = u"./zdns/zdns DMARC"
+        name = u"_dmarc.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqual(res["data"], self.DMARC_ANSWER["data"])
+
+
+
 
 if __name__ == '__main__':
     unittest.main()
