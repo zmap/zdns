@@ -820,7 +820,7 @@ func init() {
 	zdns.RegisterLookup("CAA", caa)
 
 	cname := new(GlobalLookupFactory)
-	cname.SetDNSType(dns.TypeCAA)
+	cname.SetDNSType(dns.TypeCNAME)
 	zdns.RegisterLookup("CNAME", cname)
 
 	mx := new(GlobalLookupFactory)
