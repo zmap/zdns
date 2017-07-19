@@ -176,7 +176,21 @@ class Tests(unittest.TestCase):
       }
     }
 
+    SOA_ANSWERS = [
+      {
+        "type": "SOA",
+        "class": "IN",
+        "name": "zdns-testing.com",
+        "ns": "ns-cloud-b1.googledomains.com",
+        "mbox": "cloud-dns-hostmaster.google.com",
+        "serial": 1,
+        "refresh": 21600,
+        "retry": 3600,
+        "expire": 259200,
+        "min_ttl": 300
 
+      }
+	]
     def assertSuccess(self, res, cmd):
         self.assertEqual(res["status"], u"NOERROR", cmd)
 
@@ -334,6 +348,12 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd)
         self.assertEqual(res["data"], self.DMARC_ANSWER["data"])
 
+    def test_soa(self):
+        c = u"./zdns/zdns SOA"
+        name = u"zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.SOA_ANSWERS, cmd)
 
 
 
