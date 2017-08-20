@@ -76,7 +76,7 @@ type Trace struct {
 	DnsClass   uint16 `json:"class"`
 	Name       string `json:"name"`
 	NameServer string `json:"name_server"`
-	Depth      int    `json:"cached"`
+	Depth      int    `json:"depth"`
 	Layer      string `json:"layer"`
 	Cached     bool   `json:"cached"`
 }
