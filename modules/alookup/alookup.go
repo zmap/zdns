@@ -53,7 +53,10 @@ func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16
 	// see what comes back. Then iterate over results and if needed, perform further lookups
 	var trace []interface{}
 	if _, ok := searchSet[name]; !ok {
-		miekgResult, trace, status, err := s.DoTypedMiekgLookup(name, dnsType)
+		var miekgResult interface{}
+		var status zdns.Status
+		var err error
+		miekgResult, trace, status, err = s.DoTypedMiekgLookup(name, dnsType)
 		if status != zdns.STATUS_NOERROR || err != nil {
 			return nil, trace, status, err
 		}
