@@ -103,7 +103,7 @@ func (s *Lookup) DoTargetedLookup(name string, nameServer string) (interface{}, 
 	var ipv6 []string
 	var ipv4Trace []interface{}
 	var ipv6Trace []interface{}
-	if s.Factory.Factory.IPv4Lookup {
+	if s.Factory.Factory.IPv4Lookup || !s.Factory.Factory.IPv6Lookup {
 		ipv4, ipv4Trace, _, _ = s.doLookupProtocol(name, nameServer, dns.TypeA, searchSet, name, 0)
 		res.IPv4Addresses = make([]string, len(ipv4))
 		copy(res.IPv4Addresses, ipv4)

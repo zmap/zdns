@@ -68,7 +68,7 @@ func (s *Lookup) LookupIPs(name string) (CachedAddresses, []interface{}) {
 	var retv CachedAddresses
 	trace := make([]interface{}, 0)
 	// ipv4
-	if s.Factory.Factory.IPv4Lookup {
+	if s.Factory.Factory.IPv4Lookup || !s.Factory.Factory.IPv6Lookup {
 		res, secondTrace, status, _ := s.DoTypedMiekgLookup(name, dns.TypeA)
 		trace = append(trace, secondTrace...)
 		if status == zdns.STATUS_NOERROR {

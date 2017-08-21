@@ -94,7 +94,7 @@ func (s *Lookup) DoNSLookup(name string, lookupIPv4 bool, lookupIPv6 bool) (Resu
 		rec.Type = a.Type
 		rec.Name = strings.TrimSuffix(a.Answer, ".")
 		rec.TTL = a.Ttl
-		if lookupIPv4 {
+		if lookupIPv4 || !lookupIPv6 {
 			var secondTrace []interface{}
 			rec.IPv4Addresses, secondTrace = s.lookupIPs(rec.Name, dns.TypeA)
 			trace = append(trace, secondTrace...)
