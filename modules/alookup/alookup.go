@@ -44,10 +44,10 @@ func (s *Lookup) DoLookup(name string) (interface{}, interface{}, zdns.Status, e
 func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16, searchSet map[string][]miekg.Answer, origName string, depth int) ([]string, interface{}, zdns.Status, error) {
 	// avoid infinite loops
 	if name == origName && depth != 0 {
-		return nil, nil, zdns.STATUS_ERROR, errors.New("Infinite redirection loop")
+		return nil, make([]interface{}, 0), zdns.STATUS_ERROR, errors.New("Infinite redirection loop")
 	}
 	if depth > 10 {
-		return nil, nil, zdns.STATUS_ERROR, errors.New("Max recursion depth reached")
+		return nil, make([]interface{}, 0), zdns.STATUS_ERROR, errors.New("Max recursion depth reached")
 	}
 	// check if the record is already in our cache. if not, perform normal A lookup and
 	// see what comes back. Then iterate over results and if needed, perform further lookups

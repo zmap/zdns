@@ -504,7 +504,7 @@ func (s *Lookup) tracedRetryingLookup(dnsType uint16, dnsClass uint16, name stri
 
 	res, status, err := s.retryingLookup(dnsType, dnsClass, name, nameServer, recursive)
 
-	var trace Trace
+	trace := make([]TraceStep, 0)
 
 	if s.Factory.Trace {
 		var t TraceStep
@@ -516,7 +516,6 @@ func (s *Lookup) tracedRetryingLookup(dnsType uint16, dnsClass uint16, name stri
 		t.Layer = name
 		t.Depth = 1
 		t.Cached = false
-		trace = make([]TraceStep, 1)
 		trace = append(trace, t)
 	}
 
@@ -785,7 +784,7 @@ func (s *Lookup) DoMiekgLookup(name string) (interface{}, interface{}, zdns.Stat
 		if s.Factory.Trace {
 			return result, trace, status, err
 		}
-		return result, nil, status, err
+		return result, trace, status, err
 
 	} else {
 		return s.tracedRetryingLookup(s.DNSType, s.DNSClass, name, s.NameServer, true)
@@ -801,7 +800,7 @@ func (s *Lookup) DoMiekgLookupForClass(name string, dnsClass uint16) (interface{
 		if s.Factory.Trace {
 			return result, trace, status, err
 		}
-		return result, nil, status, err
+		return result, trace, status, err
 
 	} else {
 		return s.tracedRetryingLookup(s.DNSType, s.DNSClass, name, s.NameServer, true)
@@ -820,7 +819,7 @@ func (s *Lookup) DoTypedMiekgLookup(name string, dnsType uint16) (interface{}, i
 		if s.Factory.Trace {
 			return result, trace, status, err
 		}
-		return result, nil, status, err
+		return result, trace, status, err
 	} else {
 		return s.tracedRetryingLookup(dnsType, s.DNSClass, name, s.NameServer, true)
 	}
@@ -838,7 +837,7 @@ func (s *Lookup) DoTypedMiekgLookupInClass(name string, dnsType uint16, dnsClass
 		if s.Factory.Trace {
 			return result, trace, status, err
 		}
-		return result, nil, status, err
+		return result, trace, status, err
 	} else {
 		return s.tracedRetryingLookup(dnsType, dnsClass, name, s.NameServer, true)
 	}
@@ -847,7 +846,7 @@ func (s *Lookup) DoTypedMiekgLookupInClass(name string, dnsType uint16, dnsClass
 func (s *Lookup) DoTxtLookup(name string) (string, interface{}, zdns.Status, error) {
 	res, trace, status, err := s.DoMiekgLookup(name)
 	if status != zdns.STATUS_NOERROR {
-		return "", nil, status, err
+		return "", trace, status, err
 	}
 	if parsedResult, ok := res.(Result); ok {
 		for _, a := range parsedResult.Answers {
@@ -857,7 +856,7 @@ func (s *Lookup) DoTxtLookup(name string) (string, interface{}, zdns.Status, err
 			}
 		}
 	}
-	return "", nil, zdns.STATUS_NO_RECORD, nil
+	return "", trace, zdns.STATUS_NO_RECORD, nil
 }
 
 // allow miekg to be used as a ZDNS module

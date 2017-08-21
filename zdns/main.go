@@ -43,7 +43,7 @@ func main() {
 	flags.StringVar(&gc.NamePrefix, "prefix", "", "name to be prepended to what's passed in (e.g., www.)")
 	flags.BoolVar(&gc.AlexaFormat, "alexa", false, "is input file from Alexa Top Million download")
 	flags.BoolVar(&gc.IterativeResolution, "iterative", false, "Perform own iteration instead of relying on recursive resolver")
-	flags.BoolVar(&gc.Trace, "trace", false, "Output a trace of individual steps for iterative resolutions")
+	flags.BoolVar(&gc.Trace, "trace", false, "Output a trace of individual steps for each resolution")
 	flags.StringVar(&gc.InputFilePath, "input-file", "-", "names to read")
 	flags.StringVar(&gc.OutputFilePath, "output-file", "-", "where should JSON output be saved")
 	flags.StringVar(&gc.MetadataFilePath, "metadata-file", "", "where should JSON metadata be saved")
