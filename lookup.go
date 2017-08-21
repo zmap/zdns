@@ -75,7 +75,7 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, 
 	for genericInput := range input {
 		var res Result
 		var innerRes interface{}
-		var trace interface{}
+		var trace []interface{}
 		var status Status
 		var err error
 		l, err := f.MakeLookup()

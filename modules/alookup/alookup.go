@@ -36,12 +36,12 @@ type Lookup struct {
 	miekg.Lookup
 }
 
-func (s *Lookup) DoLookup(name string) (interface{}, interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name string) (interface{}, []interface{}, zdns.Status, error) {
 	nameServer := s.Factory.Factory.RandomNameServer()
 	return s.DoTargetedLookup(name, nameServer)
 }
 
-func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16, searchSet map[string][]miekg.Answer, origName string, depth int) ([]string, interface{}, zdns.Status, error) {
+func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16, searchSet map[string][]miekg.Answer, origName string, depth int) ([]string, []interface{}, zdns.Status, error) {
 	// avoid infinite loops
 	if name == origName && depth != 0 {
 		return nil, make([]interface{}, 0), zdns.STATUS_ERROR, errors.New("Infinite redirection loop")
@@ -51,7 +51,7 @@ func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16
 	}
 	// check if the record is already in our cache. if not, perform normal A lookup and
 	// see what comes back. Then iterate over results and if needed, perform further lookups
-	var trace interface{}
+	var trace []interface{}
 	if _, ok := searchSet[name]; !ok {
 		miekgResult, trace, status, err := s.DoTypedMiekgLookup(name, dnsType)
 		if status != zdns.STATUS_NOERROR || err != nil {
@@ -89,20 +89,20 @@ func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16
 		// we have a CNAME and need to further recurse to find IPs
 		shortName := strings.ToLower(res[0].Answer[0 : len(res[0].Answer)-1])
 		res, secondTrace, status, err := s.doLookupProtocol(shortName, nameServer, dnsType, searchSet, origName, depth+1)
-		trace = append(trace.([]interface{}), secondTrace.([]interface{})...)
+		trace = append(trace, secondTrace...)
 		return res, trace, status, err
 	} else {
 		return nil, trace, zdns.STATUS_ERROR, errors.New("Unexpected record type received")
 	}
 }
 
-func (s *Lookup) DoTargetedLookup(name string, nameServer string) (interface{}, interface{}, zdns.Status, error) {
+func (s *Lookup) DoTargetedLookup(name string, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
 	res := Result{}
 	searchSet := map[string][]miekg.Answer{}
 	var ipv4 []string
 	var ipv6 []string
-	var ipv4Trace interface{}
-	var ipv6Trace interface{}
+	var ipv4Trace []interface{}
+	var ipv6Trace []interface{}
 	if s.Factory.Factory.IPv4Lookup {
 		ipv4, ipv4Trace, _, _ = s.doLookupProtocol(name, nameServer, dns.TypeA, searchSet, name, 0)
 		res.IPv4Addresses = make([]string, len(ipv4))
@@ -115,23 +115,12 @@ func (s *Lookup) DoTargetedLookup(name string, nameServer string) (interface{}, 
 		copy(res.IPv6Addresses, ipv6)
 	}
 
-	var trace interface{}
-
-	if ipv4Trace != nil || ipv6Trace != nil {
-		if ipv4Trace != nil {
-			trace = ipv4Trace
-			if ipv6Trace != nil {
-				trace = append(trace.([]interface{}), ipv6Trace.([]interface{})...)
-			}
-		} else {
-			trace = ipv6Trace
-		}
-	}
+	ipv4Trace = append(ipv4Trace, ipv6Trace...)
 
 	if len(res.IPv4Addresses) == 0 && len(res.IPv6Addresses) == 0 {
-		return nil, trace, zdns.STATUS_NO_ANSWER, nil
+		return nil, ipv4Trace, zdns.STATUS_NO_ANSWER, nil
 	}
-	return res, trace, zdns.STATUS_NOERROR, nil
+	return res, ipv4Trace, zdns.STATUS_NOERROR, nil
 }
 
 // Per GoRoutine Factory ======================================================

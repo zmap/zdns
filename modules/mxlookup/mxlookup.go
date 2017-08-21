@@ -57,7 +57,7 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-func (s *Lookup) LookupIPs(name string) (CachedAddresses, interface{}) {
+func (s *Lookup) LookupIPs(name string) (CachedAddresses, []interface{}) {
 	s.Factory.Factory.CHmu.Lock()
 	// XXX this should be changed to a miekglookup
 	res, found := s.Factory.Factory.CacheHash.Get(name)
@@ -70,7 +70,7 @@ func (s *Lookup) LookupIPs(name string) (CachedAddresses, interface{}) {
 	// ipv4
 	if s.Factory.Factory.IPv4Lookup {
 		res, secondTrace, status, _ := s.DoTypedMiekgLookup(name, dns.TypeA)
-		trace = append(trace, secondTrace.([]interface{})...)
+		trace = append(trace, secondTrace...)
 		if status == zdns.STATUS_NOERROR {
 			cast, _ := res.(miekg.Result)
 			for _, innerRes := range cast.Answers {
@@ -85,7 +85,7 @@ func (s *Lookup) LookupIPs(name string) (CachedAddresses, interface{}) {
 	// ipv6
 	if s.Factory.Factory.IPv6Lookup {
 		res, secondTrace, status, _ := s.DoTypedMiekgLookup(name, dns.TypeAAAA)
-		trace = append(trace, secondTrace.([]interface{})...)
+		trace = append(trace, secondTrace...)
 		if status == zdns.STATUS_NOERROR {
 			cast, _ := res.(miekg.Result)
 			for _, innerRes := range cast.Answers {
@@ -103,7 +103,7 @@ func (s *Lookup) LookupIPs(name string) (CachedAddresses, interface{}) {
 	return retv, trace
 }
 
-func (s *Lookup) DoLookup(name string) (interface{}, interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name string) (interface{}, []interface{}, zdns.Status, error) {
 	retv := Result{Servers: []MXRecord{}}
 	res, trace, status, err := s.DoTypedMiekgLookup(name, dns.TypeMX)
 	if status != zdns.STATUS_NOERROR {
@@ -121,7 +121,7 @@ func (s *Lookup) DoLookup(name string) (interface{}, interface{}, zdns.Status, e
 			rec.IPv4Addresses = ips.IPv4Addresses
 			rec.IPv6Addresses = ips.IPv6Addresses
 			retv.Servers = append(retv.Servers, rec)
-			trace = append(trace.([]interface{}), secondTrace.([]interface{})...)
+			trace = append(trace, secondTrace...)
 		}
 	}
 	return retv, trace, zdns.STATUS_NOERROR, nil

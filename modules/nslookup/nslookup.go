@@ -48,7 +48,7 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-func (s *Lookup) lookupIPs(name string, dnsType uint16) ([]string, interface{}) {
+func (s *Lookup) lookupIPs(name string, dnsType uint16) ([]string, []interface{}) {
 	var addresses []string
 	res, trace, status, _ := s.DoTypedMiekgLookup(name, dnsType)
 	if status == zdns.STATUS_NOERROR {
@@ -61,7 +61,7 @@ func (s *Lookup) lookupIPs(name string, dnsType uint16) ([]string, interface{}) 
 	return addresses, trace
 }
 
-func (s *Lookup) DoNSLookup(name string, lookupIPv4 bool, lookupIPv6 bool) (Result, interface{}, zdns.Status, error) {
+func (s *Lookup) DoNSLookup(name string, lookupIPv4 bool, lookupIPv6 bool) (Result, []interface{}, zdns.Status, error) {
 	var retv Result
 	res, trace, status, err := s.DoTypedMiekgLookup(name, dns.TypeNS)
 	if status != zdns.STATUS_NOERROR || err != nil {
@@ -95,18 +95,18 @@ func (s *Lookup) DoNSLookup(name string, lookupIPv4 bool, lookupIPv6 bool) (Resu
 		rec.Name = strings.TrimSuffix(a.Answer, ".")
 		rec.TTL = a.Ttl
 		if lookupIPv4 {
-			var secondTrace interface{}
+			var secondTrace []interface{}
 			rec.IPv4Addresses, secondTrace = s.lookupIPs(rec.Name, dns.TypeA)
-			trace = append(trace.([]interface{}), secondTrace.([]interface{})...)
+			trace = append(trace, secondTrace...)
 		} else if ip, ok := ipv4s[rec.Name]; ok {
 			rec.IPv4Addresses = []string{ip}
 		} else {
 			rec.IPv4Addresses = []string{}
 		}
 		if lookupIPv6 {
-			var secondTrace interface{}
+			var secondTrace []interface{}
 			rec.IPv6Addresses, secondTrace = s.lookupIPs(rec.Name, dns.TypeAAAA)
-			trace = append(trace.([]interface{}), secondTrace.([]interface{})...)
+			trace = append(trace, secondTrace...)
 		} else if ip, ok := ipv6s[rec.Name]; ok {
 			rec.IPv6Addresses = []string{ip}
 		} else {
@@ -122,7 +122,7 @@ func (s *Lookup) DoNSLookup(name string, lookupIPv4 bool, lookupIPv6 bool) (Resu
 
 }
 
-func (s *Lookup) DoLookup(name string) (interface{}, interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name string) (interface{}, []interface{}, zdns.Status, error) {
 	return s.DoNSLookup(name, s.Factory.Factory.IPv4Lookup, s.Factory.Factory.IPv6Lookup)
 }
 
