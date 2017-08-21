@@ -75,6 +75,7 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, 
 	for genericInput := range input {
 		var res Result
 		var innerRes interface{}
+		var trace interface{}
 		var status Status
 		var err error
 		l, err := f.MakeLookup()
@@ -111,12 +112,13 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, 
 			}
 			res.Name = rawName
 			res.Class = dns.Class(gc.Class).String()
-			innerRes, status, err = l.DoLookup(lookupName)
+			innerRes, trace, status, err = l.DoLookup(lookupName)
 		}
 		res.Timestamp = time.Now().Format(time.RFC3339)
 		if status != STATUS_NO_OUTPUT {
 			res.Status = string(status)
 			res.Data = innerRes
+			res.Trace = trace
 			if err != nil {
 				res.Error = err.Error()
 			}

@@ -63,6 +63,7 @@ type Result struct {
 	Error       string      `json:"error,omitempty"`
 	Timestamp   string      `json:"timestamp,omitempty"`
 	Data        interface{} `json:"data,omitempty"`
+	Trace       interface{} `json:"trace,omitempty"`
 }
 
 type TargetedDomain struct {

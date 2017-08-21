@@ -57,17 +57,20 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-func (s *Lookup) LookupIPs(name string) CachedAddresses {
+func (s *Lookup) LookupIPs(name string) (CachedAddresses, interface{}) {
 	s.Factory.Factory.CHmu.Lock()
+	// XXX this should be changed to a miekglookup
 	res, found := s.Factory.Factory.CacheHash.Get(name)
 	s.Factory.Factory.CHmu.Unlock()
 	if found {
-		return res.(CachedAddresses)
+		return res.(CachedAddresses), nil
 	}
 	var retv CachedAddresses
+	var trace interface{}
+	var status zdns.Status
 	// ipv4
 	if s.Factory.Factory.IPv4Lookup {
-		res, status, _ := s.DoTypedMiekgLookup(name, dns.TypeA)
+		res, trace, status, _ = s.DoTypedMiekgLookup(name, dns.TypeA)
 		if status == zdns.STATUS_NOERROR {
 			cast, _ := res.(miekg.Result)
 			for _, innerRes := range cast.Answers {
@@ -81,7 +84,15 @@ func (s *Lookup) LookupIPs(name string) CachedAddresses {
 	}
 	// ipv6
 	if s.Factory.Factory.IPv6Lookup {
-		res, status, _ := s.DoTypedMiekgLookup(name, dns.TypeAAAA)
+		var secondTrace interface{}
+		res, secondTrace, status, _ = s.DoTypedMiekgLookup(name, dns.TypeAAAA)
+		if secondTrace != nil {
+			if trace != nil {
+				trace = append(trace.([]interface{}), secondTrace.([]interface{})...)
+			} else {
+				trace = secondTrace
+			}
+		}
 		if status == zdns.STATUS_NOERROR {
 			cast, _ := res.(miekg.Result)
 			for _, innerRes := range cast.Answers {
@@ -96,14 +107,14 @@ func (s *Lookup) LookupIPs(name string) CachedAddresses {
 	s.Factory.Factory.CHmu.Lock()
 	s.Factory.Factory.CacheHash.Add(name, retv)
 	s.Factory.Factory.CHmu.Unlock()
-	return retv
+	return retv, trace
 }
 
-func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name string) (interface{}, interface{}, zdns.Status, error) {
 	retv := Result{Servers: []MXRecord{}}
-	res, status, err := s.DoTypedMiekgLookup(name, dns.TypeMX)
+	res, trace, status, err := s.DoTypedMiekgLookup(name, dns.TypeMX)
 	if status != zdns.STATUS_NOERROR {
-		return retv, status, err
+		return retv, nil, status, err
 	}
 	r, ok := res.(miekg.Result)
 	if !ok {
@@ -113,13 +124,14 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 		if mxAns, ok := ans.(miekg.MXAnswer); ok {
 			name = strings.TrimSuffix(mxAns.Answer.Answer, ".")
 			rec := MXRecord{TTL: mxAns.Ttl, Type: mxAns.Type, Class: mxAns.Class, Name: name, Preference: mxAns.Preference}
-			ips := s.LookupIPs(name)
+			ips, secondTrace := s.LookupIPs(name)
 			rec.IPv4Addresses = ips.IPv4Addresses
 			rec.IPv6Addresses = ips.IPv6Addresses
 			retv.Servers = append(retv.Servers, rec)
+			trace = append(trace.([]interface{}), secondTrace.([]interface{})...)
 		}
 	}
-	return retv, zdns.STATUS_NOERROR, nil
+	return retv, trace, zdns.STATUS_NOERROR, nil
 }
 
 // Per GoRoutine Factory ======================================================
