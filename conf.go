@@ -23,6 +23,7 @@ type GlobalConf struct {
 	Retries             int
 	AlexaFormat         bool
 	IterativeResolution bool
+	Trace               bool
 	MaxDepth            int
 	CacheSize           int
 	GoMaxProcs          int
