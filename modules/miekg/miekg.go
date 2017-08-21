@@ -71,14 +71,14 @@ type Result struct {
 }
 
 type Trace struct {
-	Result     Result `json:"results"`
-	DnsType    uint16 `json:"type"`
-	DnsClass   uint16 `json:"class"`
-	Name       string `json:"name"`
-	NameServer string `json:"name_server"`
-	Depth      int    `json:"depth"`
-	Layer      string `json:"layer"`
-	Cached     bool   `json:"cached"`
+	Result     Result   `json:"results"`
+	DnsType    uint16   `json:"type"`
+	DnsClass   uint16   `json:"class"`
+	Name       string   `json:"name"`
+	NameServer string   `json:"name_server"`
+	Depth      int      `json:"depth"`
+	Layer      string   `json:"layer"`
+	Cached     IsCached `json:"cached"`
 }
 
 type TimedAnswer struct {
@@ -89,6 +89,8 @@ type TimedAnswer struct {
 type CachedResult struct {
 	Answers map[interface{}]TimedAnswer
 }
+
+type IsCached bool
 
 // Helpers
 func makeVerbosePrefix(depth int, threadID int) string {
@@ -524,19 +526,20 @@ func (s *Lookup) retryingLookup(dnsType uint16, dnsClass uint16, name string, na
 	panic("loop must return")
 }
 
-func (s *Lookup) cachedRetryingLookup(dnsType uint16, dnsClass uint16, name string, nameServer string, layer string, depth int) (Result, zdns.Status, error, bool) {
-	isCached := false
+func (s *Lookup) cachedRetryingLookup(dnsType uint16, dnsClass uint16, name string, nameServer string, layer string, depth int) (Result, IsCached, zdns.Status, error) {
+	var isCached IsCached
+	isCached = false
 	s.VerboseLog(depth+1, "Cached retrying lookup. Name: ", name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 	if s.IterativeStop.Before(time.Now()) {
 		s.VerboseLog(depth+2, "ITERATIVE_TIMEOUT ", name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 		var r Result
-		return r, zdns.STATUS_ITER_TIMEOUT, nil, isCached
+		return r, isCached, zdns.STATUS_ITER_TIMEOUT, nil
 	}
 	// First, we check the answer
 	cachedResult, ok := s.Factory.Factory.GetCachedResult(name, dnsType, dnsType, depth+1, s.Factory.ThreadID)
 	if ok {
 		isCached = true
-		return cachedResult, zdns.STATUS_NOERROR, nil, isCached
+		return cachedResult, isCached, zdns.STATUS_NOERROR, nil
 	}
 	// Now, we check the authoritative:
 	name = strings.ToLower(name)
@@ -546,12 +549,12 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, dnsClass uint16, name stri
 		if authName == "" {
 			s.VerboseLog(depth+2, "Can't parse name to authority properly. name: ", name, ", layer: ", layer)
 			var r Result
-			return r, zdns.STATUS_AUTHFAIL, nil, isCached
+			return r, isCached, zdns.STATUS_AUTHFAIL, nil
 		}
 		s.VerboseLog(depth+2, "Cache auth check for ", authName)
 		cachedResult, ok = s.Factory.Factory.GetCachedResult(authName, dns.TypeNS, dnsType, depth+2, s.Factory.ThreadID)
 		if ok {
-			return cachedResult, zdns.STATUS_NOERROR, nil, isCached
+			return cachedResult, isCached, zdns.STATUS_NOERROR, nil
 		}
 	}
 
@@ -560,7 +563,7 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, dnsClass uint16, name stri
 	result, status, err := s.retryingLookup(dnsType, dnsClass, name, nameServer, false)
 
 	s.cacheUpdate(layer, result, depth+2)
-	return result, status, err, isCached
+	return result, isCached, status, err
 }
 
 func nameIsBeneath(name string, layer string) (bool, string) {
@@ -708,7 +711,7 @@ func (s *Lookup) iterativeLookup(dnsType uint16, dnsClass uint16, name string, n
 		s.VerboseLog((depth + 1), "-> Max recursion depth reached")
 		return r, trace, zdns.STATUS_ERROR, errors.New("Max recursion depth reached")
 	}
-	result, status, err, isCached := s.cachedRetryingLookup(dnsType, dnsClass, name, nameServer, layer, depth)
+	result, isCached, status, err := s.cachedRetryingLookup(dnsType, dnsClass, name, nameServer, layer, depth)
 	if s.Factory.Trace && status == zdns.STATUS_NOERROR {
 		var t Trace
 		t.Result = result
