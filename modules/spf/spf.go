@@ -32,14 +32,14 @@ type Lookup struct {
 	miekg.Lookup
 }
 
-func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name string) (interface{}, []interface{}, zdns.Status, error) {
 	var res Result
-	innerRes, status, err := s.DoTxtLookup(name)
+	innerRes, trace, status, err := s.DoTxtLookup(name)
 	if status != zdns.STATUS_NOERROR {
-		return res, status, err
+		return res, trace, status, err
 	}
 	res.Spf = innerRes
-	return res, zdns.STATUS_NOERROR, nil
+	return res, trace, zdns.STATUS_NOERROR, nil
 }
 
 // Per GoRoutine Factory ======================================================

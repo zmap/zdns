@@ -48,9 +48,9 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-func (s *Lookup) lookupIPs(name string, dnsType uint16) []string {
+func (s *Lookup) lookupIPs(name string, dnsType uint16) ([]string, []interface{}) {
 	var addresses []string
-	res, status, _ := s.DoTypedMiekgLookup(name, dnsType)
+	res, trace, status, _ := s.DoTypedMiekgLookup(name, dnsType)
 	if status == zdns.STATUS_NOERROR {
 		cast, _ := res.(miekg.Result)
 		for _, innerRes := range cast.Answers {
@@ -58,14 +58,14 @@ func (s *Lookup) lookupIPs(name string, dnsType uint16) []string {
 			addresses = append(addresses, castInnerRes.Answer)
 		}
 	}
-	return addresses
+	return addresses, trace
 }
 
-func (s *Lookup) DoNSLookup(name string, lookupIPv4 bool, lookupIPv6 bool) (Result, zdns.Status, error) {
+func (s *Lookup) DoNSLookup(name string, lookupIPv4 bool, lookupIPv6 bool) (Result, []interface{}, zdns.Status, error) {
 	var retv Result
-	res, status, err := s.DoTypedMiekgLookup(name, dns.TypeNS)
+	res, trace, status, err := s.DoTypedMiekgLookup(name, dns.TypeNS)
 	if status != zdns.STATUS_NOERROR || err != nil {
-		return retv, status, nil
+		return retv, trace, status, nil
 	}
 	ns := res.(miekg.Result)
 	ipv4s := make(map[string]string)
@@ -94,15 +94,19 @@ func (s *Lookup) DoNSLookup(name string, lookupIPv4 bool, lookupIPv6 bool) (Resu
 		rec.Type = a.Type
 		rec.Name = strings.TrimSuffix(a.Answer, ".")
 		rec.TTL = a.Ttl
-		if lookupIPv4 {
-			rec.IPv4Addresses = s.lookupIPs(rec.Name, dns.TypeA)
+		if lookupIPv4 || !lookupIPv6 {
+			var secondTrace []interface{}
+			rec.IPv4Addresses, secondTrace = s.lookupIPs(rec.Name, dns.TypeA)
+			trace = append(trace, secondTrace...)
 		} else if ip, ok := ipv4s[rec.Name]; ok {
 			rec.IPv4Addresses = []string{ip}
 		} else {
 			rec.IPv4Addresses = []string{}
 		}
 		if lookupIPv6 {
-			rec.IPv6Addresses = s.lookupIPs(rec.Name, dns.TypeAAAA)
+			var secondTrace []interface{}
+			rec.IPv6Addresses, secondTrace = s.lookupIPs(rec.Name, dns.TypeAAAA)
+			trace = append(trace, secondTrace...)
 		} else if ip, ok := ipv6s[rec.Name]; ok {
 			rec.IPv6Addresses = []string{ip}
 		} else {
@@ -111,14 +115,14 @@ func (s *Lookup) DoNSLookup(name string, lookupIPv4 bool, lookupIPv6 bool) (Resu
 		retv.Servers = append(retv.Servers, rec)
 	}
 	if len(retv.Servers) == 0 {
-		return retv, zdns.STATUS_NO_RECORD, nil
+		return retv, trace, zdns.STATUS_NO_RECORD, nil
 	}
 
-	return retv, zdns.STATUS_NOERROR, nil
+	return retv, trace, zdns.STATUS_NOERROR, nil
 
 }
 
-func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name string) (interface{}, []interface{}, zdns.Status, error) {
 	return s.DoNSLookup(name, s.Factory.Factory.IPv4Lookup, s.Factory.Factory.IPv6Lookup)
 }
 

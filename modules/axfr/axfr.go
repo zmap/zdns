@@ -95,10 +95,10 @@ func (s *Lookup) DoAXFR(name string, server string) AXFRServerResult {
 	return retv
 }
 
-func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
-	parsedNS, status, err := s.DoNSLookup(name, true, false)
+func (s *Lookup) DoLookup(name string) (interface{}, []interface{}, zdns.Status, error) {
+	parsedNS, trace, status, err := s.DoNSLookup(name, true, false)
 	if status != zdns.STATUS_NOERROR {
-		return nil, status, err
+		return nil, trace, status, err
 	}
 	var retv AXFRResult
 	for _, server := range parsedNS.Servers {
@@ -106,7 +106,7 @@ func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
 			retv.Servers = append(retv.Servers, s.DoAXFR(name, server.IPv4Addresses[0]))
 		}
 	}
-	return retv, zdns.STATUS_NOERROR, nil
+	return retv, trace, zdns.STATUS_NOERROR, nil
 }
 
 // Per GoRoutine Factory ======================================================

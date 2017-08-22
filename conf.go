@@ -23,6 +23,7 @@ type GlobalConf struct {
 	Retries             int
 	AlexaFormat         bool
 	IterativeResolution bool
+	Trace               bool
 	MaxDepth            int
 	CacheSize           int
 	GoMaxProcs          int
@@ -53,15 +54,16 @@ type Metadata struct {
 }
 
 type Result struct {
-	AlteredName string      `json:"altered_name,omitempty"`
-	Name        string      `json:"name,omitempty"`
-	Nameserver  string      `json:"nameserver,omitempty"`
-	Class       string      `json:"class,omitempty"`
-	AlexaRank   int         `json:"alexa_rank,omitempty"`
-	Status      string      `json:"status,omitempty"`
-	Error       string      `json:"error,omitempty"`
-	Timestamp   string      `json:"timestamp,omitempty"`
-	Data        interface{} `json:"data,omitempty"`
+	AlteredName string        `json:"altered_name,omitempty"`
+	Name        string        `json:"name,omitempty"`
+	Nameserver  string        `json:"nameserver,omitempty"`
+	Class       string        `json:"class,omitempty"`
+	AlexaRank   int           `json:"alexa_rank,omitempty"`
+	Status      string        `json:"status,omitempty"`
+	Error       string        `json:"error,omitempty"`
+	Timestamp   string        `json:"timestamp,omitempty"`
+	Data        interface{}   `json:"data,omitempty"`
+	Trace       []interface{} `json:"trace,omitempty"`
 }
 
 type TargetedDomain struct {

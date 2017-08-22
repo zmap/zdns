@@ -69,6 +69,17 @@ type Result struct {
 	Flags       DNSFlags      `json:"flags"`
 }
 
+type TraceStep struct {
+	Result     Result   `json:"results"`
+	DnsType    uint16   `json:"type"`
+	DnsClass   uint16   `json:"class"`
+	Name       string   `json:"name"`
+	NameServer string   `json:"name_server"`
+	Depth      int      `json:"depth"`
+	Layer      string   `json:"layer"`
+	Cached     IsCached `json:"cached"`
+}
+
 type TimedAnswer struct {
 	Answer    interface{}
 	ExpiresAt time.Time
@@ -77,6 +88,8 @@ type TimedAnswer struct {
 type CachedResult struct {
 	Answers map[interface{}]TimedAnswer
 }
+
+type IsCached bool
 
 // Helpers
 func makeVerbosePrefix(depth int, threadID int) string {
@@ -322,6 +335,7 @@ type RoutineLookupFactory struct {
 	Timeout             time.Duration
 	IterativeTimeout    time.Duration
 	IterativeResolution bool
+	Trace               bool
 	DNSType             uint16
 	DNSClass            uint16
 	ThreadID            int
@@ -345,6 +359,7 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 	s.Retries = c.Retries
 	s.MaxDepth = c.MaxDepth
 	s.IterativeResolution = c.IterativeResolution
+	s.Trace = c.Trace
 
 	s.DNSClass = c.Class
 }
@@ -483,6 +498,28 @@ func (s *Lookup) cacheUpdate(layer string, result Result, depth int) {
 	}
 }
 
+func (s *Lookup) tracedRetryingLookup(dnsType uint16, dnsClass uint16, name string, nameServer string, recursive bool) (Result, []interface{}, zdns.Status, error) {
+
+	res, status, err := s.retryingLookup(dnsType, dnsClass, name, nameServer, recursive)
+
+	trace := make([]interface{}, 0)
+
+	if s.Factory.Trace {
+		var t TraceStep
+		t.Result = res
+		t.DnsType = dnsType
+		t.DnsClass = dnsClass
+		t.Name = name
+		t.NameServer = nameServer
+		t.Layer = name
+		t.Depth = 1
+		t.Cached = false
+		trace = append(trace, t)
+	}
+
+	return res, trace, status, err
+}
+
 func (s *Lookup) retryingLookup(dnsType uint16, dnsClass uint16, name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
 	s.VerboseLog(1, "****WIRE LOOKUP***", name, " ", nameServer)
 
@@ -510,17 +547,20 @@ func (s *Lookup) retryingLookup(dnsType uint16, dnsClass uint16, name string, na
 	panic("loop must return")
 }
 
-func (s *Lookup) cachedRetryingLookup(dnsType uint16, dnsClass uint16, name string, nameServer string, layer string, depth int) (Result, zdns.Status, error) {
+func (s *Lookup) cachedRetryingLookup(dnsType uint16, dnsClass uint16, name string, nameServer string, layer string, depth int) (Result, IsCached, zdns.Status, error) {
+	var isCached IsCached
+	isCached = false
 	s.VerboseLog(depth+1, "Cached retrying lookup. Name: ", name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 	if s.IterativeStop.Before(time.Now()) {
 		s.VerboseLog(depth+2, "ITERATIVE_TIMEOUT ", name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 		var r Result
-		return r, zdns.STATUS_ITER_TIMEOUT, nil
+		return r, isCached, zdns.STATUS_ITER_TIMEOUT, nil
 	}
 	// First, we check the answer
 	cachedResult, ok := s.Factory.Factory.GetCachedResult(name, dnsType, dnsType, depth+1, s.Factory.ThreadID)
 	if ok {
-		return cachedResult, zdns.STATUS_NOERROR, nil
+		isCached = true
+		return cachedResult, isCached, zdns.STATUS_NOERROR, nil
 	}
 	// Now, we check the authoritative:
 	name = strings.ToLower(name)
@@ -530,12 +570,12 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, dnsClass uint16, name stri
 		if authName == "" {
 			s.VerboseLog(depth+2, "Can't parse name to authority properly. name: ", name, ", layer: ", layer)
 			var r Result
-			return r, zdns.STATUS_AUTHFAIL, nil
+			return r, isCached, zdns.STATUS_AUTHFAIL, nil
 		}
 		s.VerboseLog(depth+2, "Cache auth check for ", authName)
 		cachedResult, ok = s.Factory.Factory.GetCachedResult(authName, dns.TypeNS, dnsType, depth+2, s.Factory.ThreadID)
 		if ok {
-			return cachedResult, zdns.STATUS_NOERROR, nil
+			return cachedResult, isCached, zdns.STATUS_NOERROR, nil
 		}
 	}
 
@@ -544,7 +584,7 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, dnsClass uint16, name stri
 	result, status, err := s.retryingLookup(dnsType, dnsClass, name, nameServer, false)
 
 	s.cacheUpdate(layer, result, depth+2)
-	return result, status, err
+	return result, isCached, status, err
 }
 
 func nameIsBeneath(name string, layer string) (bool, string) {
@@ -596,18 +636,18 @@ func (s *Lookup) checkGlue(server string, depth int, result Result) (Result, zdn
 	return r, zdns.STATUS_SERVFAIL
 }
 
-func (s *Lookup) extractAuthority(authority interface{}, layer string, depth int, result Result) (string, zdns.Status, string) {
+func (s *Lookup) extractAuthority(authority interface{}, layer string, depth int, result Result, trace []interface{}) (string, zdns.Status, string, []interface{}) {
 
 	// Is it an answer
 	ans, ok := authority.(Answer)
 	if !ok {
-		return "", zdns.STATUS_SERVFAIL, layer
+		return "", zdns.STATUS_SERVFAIL, layer, trace
 	}
 
 	// Is the layering correct
 	ok, layer = nameIsBeneath(ans.Name, layer)
 	if !ok {
-		return "", zdns.STATUS_AUTHFAIL, layer
+		return "", zdns.STATUS_AUTHFAIL, layer, trace
 	}
 
 	server := strings.TrimSuffix(ans.Answer, ".")
@@ -618,10 +658,10 @@ func (s *Lookup) extractAuthority(authority interface{}, layer string, depth int
 	res, status := s.checkGlue(server, depth, result)
 	if status != zdns.STATUS_NOERROR {
 		// Fall through to normal query
-		res, status, _ = s.iterativeLookup(dns.TypeA, dns.ClassINET, server, s.NameServer, depth+1, ".")
+		res, trace, status, _ = s.iterativeLookup(dns.TypeA, dns.ClassINET, server, s.NameServer, depth+1, ".", trace)
 	}
 	if status == zdns.STATUS_ITER_TIMEOUT {
-		return "", status, ""
+		return "", status, "", trace
 	}
 	if status == zdns.STATUS_NOERROR {
 		// XXX we don't actually check the question here
@@ -632,11 +672,11 @@ func (s *Lookup) extractAuthority(authority interface{}, layer string, depth int
 			}
 			if inner_ans.Type == "A" {
 				server := strings.TrimSuffix(inner_ans.Answer, ".") + ":53"
-				return server, zdns.STATUS_NOERROR, layer
+				return server, zdns.STATUS_NOERROR, layer, trace
 			}
 		}
 	}
-	return "", zdns.STATUS_SERVFAIL, layer
+	return "", zdns.STATUS_SERVFAIL, layer, trace
 }
 
 func debugReverseLookup(name string) string {
@@ -648,41 +688,41 @@ func debugReverseLookup(name string) string {
 	return "unknown"
 }
 
-func (s *Lookup) iterateOnAuthorities(dnsType uint16, dnsClass uint16, name string, depth int, result Result, layer string) (Result, zdns.Status, error) {
+func (s *Lookup) iterateOnAuthorities(dnsType uint16, dnsClass uint16, name string, depth int, result Result, layer string, trace []interface{}) (Result, []interface{}, zdns.Status, error) {
 	if len(result.Authorities) == 0 {
 		var r Result
-		return r, zdns.STATUS_SERVFAIL, nil
+		return r, trace, zdns.STATUS_SERVFAIL, nil
 	}
 	for _, elem := range result.Authorities {
 		s.VerboseLog(depth+1, "Trying Authority: ", elem)
-		ns, ns_status, layer := s.extractAuthority(elem, layer, depth, result)
+		ns, ns_status, layer, trace := s.extractAuthority(elem, layer, depth, result, trace)
 		s.VerboseLog((depth + 1), "Output from extract authorities: ", ns)
 		if ns_status == zdns.STATUS_ITER_TIMEOUT {
 			var r Result
 			s.VerboseLog((depth + 2), "--> Hit iterative timeout: ")
-			return r, ns_status, nil
+			return r, trace, ns_status, nil
 		}
 		if ns_status != zdns.STATUS_NOERROR {
 			s.VerboseLog((depth + 2), "--> Auth find Failed: ", ns_status)
 			continue
 		}
-		r, status, err := s.iterativeLookup(dnsType, dnsClass, name, ns, depth+1, layer)
+		r, trace, status, err := s.iterativeLookup(dnsType, dnsClass, name, ns, depth+1, layer, trace)
 		if status == zdns.STATUS_ITER_TIMEOUT {
-			return r, status, err
+			return r, trace, status, err
 		}
 		if status != zdns.STATUS_NOERROR {
 			s.VerboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed: ", status)
 			continue
 		}
 		s.VerboseLog((depth + 1), "--> Auth Resolution success: ", status)
-		return r, status, err
+		return r, trace, status, err
 	}
 	s.VerboseLog((depth + 1), "Unable to find authoritative name server")
 	var r Result
-	return r, zdns.STATUS_ERROR, errors.New("could not find authoritative name server")
+	return r, trace, zdns.STATUS_ERROR, errors.New("could not find authoritative name server")
 }
 
-func (s *Lookup) iterativeLookup(dnsType uint16, dnsClass uint16, name string, nameServer string, depth int, layer string) (Result, zdns.Status, error) {
+func (s *Lookup) iterativeLookup(dnsType uint16, dnsClass uint16, name string, nameServer string, depth int, layer string, trace []interface{}) (Result, []interface{}, zdns.Status, error) {
 	if log.GetLevel() == log.DebugLevel {
 		//s.VerboseLog((depth), "iterative lookup for ", name, " (", dnsType, ") against ", nameServer, " (", debugReverseLookup(nameServer), ") layer ", layer)
 		s.VerboseLog((depth), "iterative lookup for ", name, " (", dnsType, ") against ", nameServer, " layer ", layer)
@@ -690,12 +730,25 @@ func (s *Lookup) iterativeLookup(dnsType uint16, dnsClass uint16, name string, n
 	if depth > s.Factory.MaxDepth {
 		var r Result
 		s.VerboseLog((depth + 1), "-> Max recursion depth reached")
-		return r, zdns.STATUS_ERROR, errors.New("Max recursion depth reached")
+		return r, trace, zdns.STATUS_ERROR, errors.New("Max recursion depth reached")
 	}
-	result, status, err := s.cachedRetryingLookup(dnsType, dnsClass, name, nameServer, layer, depth)
+	result, isCached, status, err := s.cachedRetryingLookup(dnsType, dnsClass, name, nameServer, layer, depth)
+	if s.Factory.Trace && status == zdns.STATUS_NOERROR {
+		var t TraceStep
+		t.Result = result
+		t.DnsType = dnsType
+		t.DnsClass = dnsClass
+		t.Name = name
+		t.NameServer = nameServer
+		t.Layer = layer
+		t.Depth = depth
+		t.Cached = isCached
+		trace = append(trace, t)
+
+	}
 	if status != zdns.STATUS_NOERROR {
 		s.VerboseLog((depth + 1), "-> error occurred during lookup")
-		return result, status, err
+		return result, trace, status, err
 	} else if len(result.Answers) != 0 || result.Flags.Authoritative == true {
 		if len(result.Answers) != 0 {
 			s.VerboseLog((depth + 1), "-> answers found")
@@ -710,90 +763,102 @@ func (s *Lookup) iterativeLookup(dnsType uint16, dnsClass uint16, name string, n
 		} else {
 			s.VerboseLog((depth + 1), "-> authoritative response found")
 		}
-		return result, status, err
+		return result, trace, status, err
 	} else if len(result.Authorities) != 0 {
 		s.VerboseLog((depth + 1), "-> Authority found, iterating")
-		return s.iterateOnAuthorities(dnsType, dnsClass, name, depth, result, layer)
+		return s.iterateOnAuthorities(dnsType, dnsClass, name, depth, result, layer, trace)
 	} else {
 		s.VerboseLog((depth + 1), "-> No Authority found, error")
-		return result, zdns.STATUS_ERROR, errors.New("NOERROR record without any answers or authorities")
+		return result, trace, zdns.STATUS_ERROR, errors.New("NOERROR record without any answers or authorities")
 	}
 }
 
-func (s *Lookup) DoMiekgLookup(name string) (interface{}, zdns.Status, error) {
+func (s *Lookup) DoMiekgLookup(name string) (interface{}, []interface{}, zdns.Status, error) {
 	if s.Factory.IterativeResolution {
 		s.VerboseLog(0, "MIEKG-IN: iterative lookup for ", name, " (", s.DNSType, ")")
 		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
-		result, status, err := s.iterativeLookup(s.DNSType, s.DNSClass, name, s.NameServer, 1, ".")
+		result, trace, status, err := s.iterativeLookup(s.DNSType, s.DNSClass, name, s.NameServer, 1, ".", make([]interface{}, 0))
 		s.VerboseLog(0, "MIEKG-OUT: iterative lookup for ", name, " (", s.DNSType, "): status: ", status, " , err: ", err)
-		return result, status, err
+		if s.Factory.Trace {
+			return result, trace, status, err
+		}
+		return result, trace, status, err
 
 	} else {
-		return s.retryingLookup(s.DNSType, s.DNSClass, name, s.NameServer, true)
+		return s.tracedRetryingLookup(s.DNSType, s.DNSClass, name, s.NameServer, true)
 	}
 }
 
-func (s *Lookup) DoMiekgLookupForClass(name string, dnsClass uint16) (interface{}, zdns.Status, error) {
+func (s *Lookup) DoMiekgLookupForClass(name string, dnsClass uint16) (interface{}, []interface{}, zdns.Status, error) {
 	if s.Factory.IterativeResolution {
 		s.VerboseLog(0, "MIEKG-IN: iterative lookup for ", name, " (", s.DNSType, ") in class ", dnsClass)
 		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
-		result, status, err := s.iterativeLookup(s.DNSType, s.DNSClass, name, s.NameServer, 1, ".")
+		result, trace, status, err := s.iterativeLookup(s.DNSType, s.DNSClass, name, s.NameServer, 1, ".", make([]interface{}, 0))
 		s.VerboseLog(0, "MIEKG-OUT: iterative lookup for ", name, " (", s.DNSType, "): status: ", status, " , err: ", err)
-		return result, status, err
+		if s.Factory.Trace {
+			return result, trace, status, err
+		}
+		return result, trace, status, err
 
 	} else {
-		return s.retryingLookup(s.DNSType, s.DNSClass, name, s.NameServer, true)
+		return s.tracedRetryingLookup(s.DNSType, s.DNSClass, name, s.NameServer, true)
 	}
 }
 
-func (s *Lookup) DoTypedMiekgLookup(name string, dnsType uint16) (interface{}, zdns.Status, error) {
+func (s *Lookup) DoTypedMiekgLookup(name string, dnsType uint16) (interface{}, []interface{}, zdns.Status, error) {
 	if s.Factory == nil {
 		panic("factory not defined")
 	}
 	if s.Factory.IterativeResolution {
 		s.VerboseLog(0, "MIEKG-IN: iterative lookup for ", name, " (", dnsType, ")")
 		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
-		result, status, err := s.iterativeLookup(dnsType, s.DNSClass, name, s.NameServer, 1, ".")
+		result, trace, status, err := s.iterativeLookup(dnsType, s.DNSClass, name, s.NameServer, 1, ".", make([]interface{}, 0))
 		s.VerboseLog(0, "MIEKG-OUT: iterative lookup for ", name, " (", dnsType, "): status: ", status, " , err: ", err)
-		return result, status, err
+		if s.Factory.Trace {
+			return result, trace, status, err
+		}
+		return result, trace, status, err
 	} else {
-		return s.retryingLookup(dnsType, s.DNSClass, name, s.NameServer, true)
+		return s.tracedRetryingLookup(dnsType, s.DNSClass, name, s.NameServer, true)
 	}
 }
 
-func (s *Lookup) DoTypedMiekgLookupInClass(name string, dnsType uint16, dnsClass uint16) (interface{}, zdns.Status, error) {
+func (s *Lookup) DoTypedMiekgLookupInClass(name string, dnsType uint16, dnsClass uint16) (interface{}, []interface{}, zdns.Status, error) {
 	if s.Factory == nil {
 		panic("factory not defined")
 	}
 	if s.Factory.IterativeResolution {
 		s.VerboseLog(0, "MIEKG-IN: iterative lookup for ", name, " (", dnsType, ") in class ", dnsClass)
 		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
-		result, status, err := s.iterativeLookup(dnsType, dnsClass, name, s.NameServer, 1, ".")
+		result, trace, status, err := s.iterativeLookup(dnsType, dnsClass, name, s.NameServer, 1, ".", make([]interface{}, 0))
 		s.VerboseLog(0, "MIEKG-OUT: iterative lookup for ", name, " (", dnsType, "): status: ", status, " , err: ", err)
-		return result, status, err
+		if s.Factory.Trace {
+			return result, trace, status, err
+		}
+		return result, trace, status, err
 	} else {
-		return s.retryingLookup(dnsType, dnsClass, name, s.NameServer, true)
+		return s.tracedRetryingLookup(dnsType, dnsClass, name, s.NameServer, true)
 	}
 }
 
-func (s *Lookup) DoTxtLookup(name string) (string, zdns.Status, error) {
-	res, status, err := s.DoMiekgLookup(name)
+func (s *Lookup) DoTxtLookup(name string) (string, []interface{}, zdns.Status, error) {
+	res, trace, status, err := s.DoMiekgLookup(name)
 	if status != zdns.STATUS_NOERROR {
-		return "", status, err
+		return "", trace, status, err
 	}
 	if parsedResult, ok := res.(Result); ok {
 		for _, a := range parsedResult.Answers {
 			ans, _ := a.(Answer)
 			if strings.HasPrefix(ans.Answer, s.Prefix) {
-				return ans.Answer, zdns.STATUS_NOERROR, err
+				return ans.Answer, trace, zdns.STATUS_NOERROR, err
 			}
 		}
 	}
-	return "", zdns.STATUS_NO_RECORD, nil
+	return "", trace, zdns.STATUS_NO_RECORD, nil
 }
 
 // allow miekg to be used as a ZDNS module
-func (s *Lookup) DoLookup(name string) (interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name string) (interface{}, []interface{}, zdns.Status, error) {
 	return s.DoMiekgLookup(name)
 }
 
