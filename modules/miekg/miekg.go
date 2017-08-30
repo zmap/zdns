@@ -575,6 +575,7 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, dnsClass uint16, name stri
 		s.VerboseLog(depth+2, "Cache auth check for ", authName)
 		cachedResult, ok = s.Factory.Factory.GetCachedResult(authName, dns.TypeNS, dnsType, depth+2, s.Factory.ThreadID)
 		if ok {
+			isCached = true
 			return cachedResult, isCached, zdns.STATUS_NOERROR, nil
 		}
 	}
