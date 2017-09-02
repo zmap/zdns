@@ -575,6 +575,7 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, dnsClass uint16, name stri
 		s.VerboseLog(depth+2, "Cache auth check for ", authName)
 		cachedResult, ok = s.Factory.Factory.GetCachedResult(authName, dns.TypeNS, dnsType, depth+2, s.Factory.ThreadID)
 		if ok {
+			isCached = true
 			return cachedResult, isCached, zdns.STATUS_NOERROR, nil
 		}
 	}
@@ -602,17 +603,34 @@ func nameIsBeneath(name string, layer string) (bool, string) {
 }
 
 func nextAuthority(name string, layer string) string {
+	// We are our own authority for PTRs
+	// (This is dealt with elsewhere)
+	if strings.HasSuffix(layer, "in-addr.arpa") {
+		return name
+	}
+
 	idx := strings.LastIndex(name, ".")
 	if idx < 0 || (idx+1) >= len(name) {
-		return ""
+		return name
 	}
-	if layer != "." {
-		idx = strings.LastIndex(name[0:idx], ".")
-		if idx < 0 || (idx+1) >= len(name) {
-			return name
-		}
+	if layer == "." {
+		return name[idx+1:]
 	}
-	return name[idx+1:]
+
+	if !strings.HasSuffix(name, layer) {
+		panic("Layers by definition are suffixes of names")
+	}
+
+	// Limit the search space to the prefix of the string that isnt layer
+	idx = strings.LastIndex(name, layer) - 1
+	if idx < 0 || (idx+1) >= len(name) {
+		// Out of bounds. We are our own authority
+		return name
+	}
+	// Find the next step in the layer
+	idx = strings.LastIndex(name[0:idx], ".")
+	next := name[idx+1:]
+	return next
 }
 
 func (s *Lookup) checkGlue(server string, depth int, result Result) (Result, zdns.Status) {
