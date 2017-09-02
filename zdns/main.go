@@ -21,8 +21,8 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/miekg/dns"
+	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zdns"
 	_ "github.com/zmap/zdns/modules/alookup"
 	_ "github.com/zmap/zdns/modules/axfr"
