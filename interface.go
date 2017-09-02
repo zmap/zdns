@@ -19,8 +19,8 @@ import (
 	"math/rand"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/miekg/dns"
+	log "github.com/sirupsen/logrus"
 )
 
 /* Each lookup module registers a single GlobalLookupFactory, which is
