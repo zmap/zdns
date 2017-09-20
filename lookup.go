@@ -114,7 +114,7 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, 
 			res.Class = dns.Class(gc.Class).String()
 			innerRes, trace, status, err = l.DoLookup(lookupName)
 		}
-		res.Timestamp = time.Now().Format(time.RFC3339)
+		res.Timestamp = time.Now().Format(gc.TimeFormat)
 		if status != STATUS_NO_OUTPUT {
 			res.Status = string(status)
 			res.Data = innerRes
@@ -218,7 +218,7 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	// create pool of worker goroutines
 	var lookupWG sync.WaitGroup
 	lookupWG.Add(c.Threads)
-	startTime := time.Now().Format(time.RFC3339)
+	startTime := time.Now().Format(c.TimeFormat)
 	for i := 0; i < c.Threads; i++ {
 		go doLookup(g, c, inChan, outChan, metaChan, &lookupWG, i)
 	}
@@ -230,7 +230,7 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 		// we're done processing data. aggregate all the data from individual routines
 		metaData := aggregateMetadata(metaChan)
 		metaData.StartTime = startTime
-		metaData.EndTime = time.Now().Format(time.RFC3339)
+		metaData.EndTime = time.Now().Format(c.TimeFormat)
 		metaData.NameServers = c.NameServers
 		metaData.Retries = c.Retries
 		// Seconds() returns a float. However, timeout is passed in as an integer

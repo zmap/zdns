@@ -57,6 +57,7 @@ func main() {
 	timeout := flags.Int("timeout", 15, "timeout for resolving an individual name")
 	iterationTimeout := flags.Int("iteration-timeout", 4, "timeout for resolving a single iteration in an iterative query")
 	class_string := flags.String("class", "INET", "DNS class to query (INET, CSNET, CHAOS, HESIOD, NONE, ANY (default INET)")
+	nanoSeconds := flags.Bool("nanoseconds", false, "Use nanosecond resolution timestamps")
 	// allow module to initialize and add its own flags before we parse
 	if len(os.Args) < 2 {
 		log.Fatal("No lookup module specified. Valid modules: ", zdns.ValidlookupsString())
@@ -131,6 +132,11 @@ func main() {
 	} else {
 		gc.NameServers = strings.Split(*servers_string, ",")
 		gc.NameServersSpecified = true
+	}
+	if *nanoSeconds {
+		gc.TimeFormat = time.RFC3339Nano
+	} else {
+		gc.TimeFormat = time.RFC3339
 	}
 	if gc.GoMaxProcs < 0 {
 		log.Fatal("Invalid argument for --go-processes. Must be >1.")
