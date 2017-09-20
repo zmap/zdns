@@ -114,7 +114,7 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, 
 			res.Class = dns.Class(gc.Class).String()
 			innerRes, trace, status, err = l.DoLookup(lookupName)
 		}
-		res.Timestamp = time.Now().Format(time.RFC3339)
+		res.Timestamp = time.Now().Format(gc.TimeFormat)
 		if status != STATUS_NO_OUTPUT {
 			res.Status = string(status)
 			res.Data = innerRes
@@ -218,7 +218,7 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	// create pool of worker goroutines
 	var lookupWG sync.WaitGroup
 	lookupWG.Add(c.Threads)
-	startTime := time.Now().Format(time.RFC3339)
+	startTime := time.Now().Format(c.TimeFormat)
 	for i := 0; i < c.Threads; i++ {
 		go doLookup(g, c, inChan, outChan, metaChan, &lookupWG, i)
 	}
@@ -226,19 +226,20 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	close(outChan)
 	close(metaChan)
 	routineWG.Wait()
-	// we're done processing data. aggregate all the data from individual routines
-	metadata := aggregateMetadata(metaChan)
-	metadata.StartTime = startTime
-	metadata.EndTime = time.Now().Format(time.RFC3339)
-	metadata.NameServers = c.NameServers
-	metadata.Retries = c.Retries
-	// Seconds() returns a float. However, timeout is passed in as an integer
-	// command line argument, so there should be no loss of data when casting
-	// back to an integer here.
-	metadata.Timeout = int(c.Timeout.Seconds())
-	// add global lookup-related metadata
-	// write out metadata
 	if c.MetadataFilePath != "" {
+		// we're done processing data. aggregate all the data from individual routines
+		metaData := aggregateMetadata(metaChan)
+		metaData.StartTime = startTime
+		metaData.EndTime = time.Now().Format(c.TimeFormat)
+		metaData.NameServers = c.NameServers
+		metaData.Retries = c.Retries
+		// Seconds() returns a float. However, timeout is passed in as an integer
+		// command line argument, so there should be no loss of data when casting
+		// back to an integer here.
+		metaData.Timeout = int(c.Timeout.Seconds())
+		metaData.Conf = c
+		// add global lookup-related metadata
+		// write out metadata
 		var f *os.File
 		if c.MetadataFilePath == "-" {
 			f = os.Stderr
@@ -250,7 +251,7 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 			}
 			defer f.Close()
 		}
-		j, err := json.Marshal(metadata)
+		j, err := json.Marshal(metaData)
 		if err != nil {
 			log.Fatal("unable to JSON encode metadata:", err.Error())
 		}

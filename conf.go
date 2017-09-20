@@ -28,6 +28,7 @@ type GlobalConf struct {
 	CacheSize           int
 	GoMaxProcs          int
 	Verbosity           int
+	TimeFormat          string
 
 	NameServersSpecified bool
 	NameServers          []string
@@ -51,6 +52,7 @@ type Metadata struct {
 	NameServers []string       `json:"name_servers"`
 	Timeout     int            `json:"timeout"`
 	Retries     int            `json:"retries"`
+	Conf        *GlobalConf    `json:"conf"`
 }
 
 type Result struct {
