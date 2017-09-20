@@ -51,6 +51,7 @@ type Metadata struct {
 	NameServers []string       `json:"name_servers"`
 	Timeout     int            `json:"timeout"`
 	Retries     int            `json:"retries"`
+	Conf        *GlobalConf    `json:"conf"`
 }
 
 type Result struct {
