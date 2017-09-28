@@ -49,6 +49,7 @@ func main() {
 	flags.StringVar(&gc.MetadataFilePath, "metadata-file", "", "where should JSON metadata be saved")
 	flags.StringVar(&gc.LogFilePath, "log-file", "", "where should JSON logs be saved")
 	flags.IntVar(&gc.LogLevel, "log-level", 3, "log verbosity: 1 (lowest)--5 (highest)")
+	flags.IntVar(&gc.Verbosity, "verbosity", -1, "output verbosity: 1 (short), 2 (default), 3 (full)")
 	flags.IntVar(&gc.Retries, "retries", 1, "how many times should zdns retry query if timeout or temporary failure")
 	flags.IntVar(&gc.MaxDepth, "max-depth", 10, "how deep should we recurse when performing iterative lookups")
 	flags.IntVar(&gc.CacheSize, "cache-size", 10000, "how many items can be stored in internal recursive cache")
@@ -58,6 +59,7 @@ func main() {
 	iterationTimeout := flags.Int("iteration-timeout", 4, "timeout for resolving a single iteration in an iterative query")
 	class_string := flags.String("class", "INET", "DNS class to query (INET, CSNET, CHAOS, HESIOD, NONE, ANY (default INET)")
 	nanoSeconds := flags.Bool("nanoseconds", false, "Use nanosecond resolution timestamps")
+	short := flags.Bool("short", false, "Alias for --verbosity=1")
 	// allow module to initialize and add its own flags before we parse
 	if len(os.Args) < 2 {
 		log.Fatal("No lookup module specified. Valid modules: ", zdns.ValidlookupsString())
@@ -94,6 +96,24 @@ func main() {
 	default:
 		log.Fatal("Unknown log verbosity level specified. Must be between 1 (lowest)--5 (highest)")
 	}
+
+	// Handle output verbosity
+	if gc.Verbosity == -1 {
+		// Verbosity defaults to -1 to allow us to tell if the user has set it. The actual default is 2
+		gc.Verbosity = 2
+	} else if *short {
+		log.Fatal("Cannot specify --verbosity and --short. Choose one.")
+	}
+
+	if gc.Verbosity < 1 || gc.Verbosity > 3 {
+		log.Fatal("Unknown output verbosity level. Must be between 1 (short) and 3 (full)")
+	}
+
+	// If we set short, overrride the defaults.
+	if *short {
+		gc.Verbosity = 1
+	}
+
 	// complete post facto global initialization based on command line arguments
 	gc.Timeout = time.Duration(time.Second * time.Duration(*timeout))
 	gc.IterationTimeout = time.Duration(time.Second * time.Duration(*iterationTimeout))
