@@ -27,7 +27,7 @@ type GlobalConf struct {
 	MaxDepth            int
 	CacheSize           int
 	GoMaxProcs          int
-	Verbosity           int
+	LogLevel            int
 	TimeFormat          string
 
 	NameServersSpecified bool

@@ -48,7 +48,7 @@ func main() {
 	flags.StringVar(&gc.OutputFilePath, "output-file", "-", "where should JSON output be saved")
 	flags.StringVar(&gc.MetadataFilePath, "metadata-file", "", "where should JSON metadata be saved")
 	flags.StringVar(&gc.LogFilePath, "log-file", "", "where should JSON logs be saved")
-	flags.IntVar(&gc.Verbosity, "verbosity", 3, "log verbosity: 1 (lowest)--5 (highest)")
+	flags.IntVar(&gc.LogLevel, "log-level", 3, "log verbosity: 1 (lowest)--5 (highest)")
 	flags.IntVar(&gc.Retries, "retries", 1, "how many times should zdns retry query if timeout or temporary failure")
 	flags.IntVar(&gc.MaxDepth, "max-depth", 10, "how deep should we recurse when performing iterative lookups")
 	flags.IntVar(&gc.CacheSize, "cache-size", 10000, "how many items can be stored in internal recursive cache")
@@ -79,8 +79,8 @@ func main() {
 		}
 		log.SetOutput(f)
 	}
-	// Translate the assigned verbosity level to a logrus log level.
-	switch gc.Verbosity {
+	// Translate the assigned log verbosity level to a logrus log level.
+	switch gc.LogLevel {
 	case 1: // Fatal
 		log.SetLevel(log.FatalLevel)
 	case 2: // Error
@@ -92,7 +92,7 @@ func main() {
 	case 5: // Debugging
 		log.SetLevel(log.DebugLevel)
 	default:
-		log.Fatal("Unknown verbosity level specified. Must be between 1 (lowest)--5 (highest)")
+		log.Fatal("Unknown log verbosity level specified. Must be between 1 (lowest)--5 (highest)")
 	}
 	// complete post facto global initialization based on command line arguments
 	gc.Timeout = time.Duration(time.Second * time.Duration(*timeout))
