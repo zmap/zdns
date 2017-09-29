@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -63,6 +64,78 @@ func makeName(name string, prefix string) (string, bool) {
 	} else {
 		return strings.Join([]string{prefix, name}, ""), true
 	}
+}
+
+// This is awful.
+func enforceVerbosity(verbosity int, res interface{}) interface{} {
+
+	// Create reflected result, type of result, new result, and reflected new result
+	refRes := reflect.ValueOf(res)
+	typeRes := refRes.Type()
+
+	newRes := reflect.New(typeRes)
+	refNewRes := newRes.Elem()
+	typeNewRes := refNewRes.Type()
+
+	for i := 0; i < typeRes.NumField(); i++ {
+		field := typeRes.Field(i)
+		name := field.Name
+
+		if !(name[0] >= 'A' && name[0] <= 'Z') {
+			continue
+		}
+
+		tagStr := field.Tag.Get("verbosity")
+
+		if tagStr == "" {
+			log.Fatal("Programming error. Result field missing verbosity: ", name, field)
+		}
+		tag, err := strconv.Atoi(tagStr)
+
+		if err != nil {
+			log.Fatal("Programming error. Verbosity for result field not int ", name, tagStr)
+		}
+
+		// If our field's tag is higher than verbosity, delete
+		if tag <= verbosity {
+			value := refRes.FieldByName(name)
+
+			newValue := refNewRes.FieldByName(name)
+
+			if !value.IsValid() || !newValue.CanSet() {
+				log.Fatal("Programming error. Reflection error. Invalid values.")
+			}
+
+			if value.Kind() == reflect.Interface {
+				value = reflect.ValueOf(enforceVerbosity(verbosity, value.Interface()))
+			} else if value.Kind() == reflect.Slice {
+				sliceValue := value.Interface().([]interface{})
+				slice := make([]interface{}, 0)
+				for _, item := range sliceValue {
+					slice = append(slice, enforceVerbosity(verbosity, item))
+				}
+				value = reflect.ValueOf(slice)
+			}
+
+			// First set the value
+			newValue.Set(value)
+
+			// Now set the tag
+			newField := typeNewRes.Field(i)
+			newField.Tag = field.Tag
+		}
+	}
+	return refNewRes.Interface()
+}
+
+// We use our own marshaller to enforce verbosity
+func marshallResult(verbosity int, res Result) ([]byte, error) {
+
+	// Enforce verbosity recursively
+	newRes := enforceVerbosity(verbosity, res)
+
+	// We now rely on json marshaling
+	return json.Marshal(newRes)
 }
 
 func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup, threadID int) error {
@@ -122,7 +195,7 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, 
 			if err != nil {
 				res.Error = err.Error()
 			}
-			jsonRes, err := json.Marshal(res)
+			jsonRes, err := marshallResult(gc.Verbosity, res)
 			if err != nil {
 				log.Fatal("Unable to marshal JSON result", err)
 			}

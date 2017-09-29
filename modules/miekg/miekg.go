@@ -16,13 +16,13 @@ import (
 )
 
 type Answer struct {
-	Ttl     uint32 `json:"ttl,omitempty"`
-	Type    string `json:"type,omitempty"`
+	Ttl     uint32 `json:"ttl,omitempty" verbosity:"2"`
+	Type    string `json:"type,omitempty" verbosity:"2"`
 	rrType  uint16
-	Class   string `json:"class,omitempty"`
+	Class   string `json:"class,omitempty" verbosity:"3"`
 	rrClass uint16
-	Name    string `json:"name,omitempty"`
-	Answer  string `json:"answer,omitempty"`
+	Name    string `json:"name,omitempty" verbosity:"1"`
+	Answer  string `json:"answer,omitempty" verbosity:"1"`
 }
 
 type MXAnswer struct {
@@ -62,11 +62,11 @@ type DNSFlags struct {
 
 // result to be returned by scan of host
 type Result struct {
-	Answers     []interface{} `json:"answers"`
-	Additional  []interface{} `json:"additionals"`
-	Authorities []interface{} `json:"authorities"`
-	Protocol    string        `json:"protocol"`
-	Flags       DNSFlags      `json:"flags"`
+	Answers     []interface{} `json:"answers,omitempty" verbosity:"1"`
+	Additional  []interface{} `json:"additionals,omitempty" verbosity:"2"`
+	Authorities []interface{} `json:"authorities,omitempty" verbosity:"2"`
+	Protocol    string        `json:"protocol,omitempty" verbosity:"3"`
+	Flags       *DNSFlags     `json:"flags,omitempty" verbosity:"3"`
 }
 
 type TraceStep struct {
@@ -439,6 +439,7 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, dnsType uint16, dnsClass u
 		return res, TranslateMiekgErrorCode(r.Rcode), nil
 	}
 
+	res.Flags = new(DNSFlags)
 	res.Flags.Response = r.Response
 	res.Flags.Opcode = r.Opcode
 	res.Flags.Authoritative = r.Authoritative

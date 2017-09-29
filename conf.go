@@ -57,16 +57,16 @@ type Metadata struct {
 }
 
 type Result struct {
-	AlteredName string        `json:"altered_name,omitempty"`
-	Name        string        `json:"name,omitempty"`
-	Nameserver  string        `json:"nameserver,omitempty"`
-	Class       string        `json:"class,omitempty"`
-	AlexaRank   int           `json:"alexa_rank,omitempty"`
-	Status      string        `json:"status,omitempty"`
-	Error       string        `json:"error,omitempty"`
-	Timestamp   string        `json:"timestamp,omitempty"`
-	Data        interface{}   `json:"data,omitempty"`
-	Trace       []interface{} `json:"trace,omitempty"`
+	AlteredName string        `json:"altered_name,omitempty" verbosity:"1"`
+	Name        string        `json:"name,omitempty" verbosity:"1"`
+	Nameserver  string        `json:"nameserver,omitempty" verbosity:"3"`
+	Class       string        `json:"class,omitempty" verbosity:"3"`
+	AlexaRank   int           `json:"alexa_rank,omitempty" verbosity:"2"`
+	Status      string        `json:"status,omitempty" verbosity:"2"`
+	Error       string        `json:"error,omitempty" verbosity:"2"`
+	Timestamp   string        `json:"timestamp,omitempty" verbosity:"1"`
+	Data        interface{}   `json:"data,omitempty" verbosity:"1"`
+	Trace       []interface{} `json:"trace,omitempty" verbosity:"1"`
 }
 
 type TargetedDomain struct {
