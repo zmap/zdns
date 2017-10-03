@@ -27,7 +27,7 @@ type Answer struct {
 
 type MXAnswer struct {
 	Answer
-	Preference uint16 `json:"preference"`
+	Preference uint16 `json:"preference" verbosity:"2"`
 }
 
 type CAAAnswer struct {
@@ -70,14 +70,14 @@ type Result struct {
 }
 
 type TraceStep struct {
-	Result     Result   `json:"results"`
-	DnsType    uint16   `json:"type"`
-	DnsClass   uint16   `json:"class"`
-	Name       string   `json:"name"`
-	NameServer string   `json:"name_server"`
-	Depth      int      `json:"depth"`
-	Layer      string   `json:"layer"`
-	Cached     IsCached `json:"cached"`
+	Result     Result   `json:"results" verbosity:"1"`
+	DnsType    uint16   `json:"type" verbosity:"2"`
+	DnsClass   uint16   `json:"class" verbosity:"3"`
+	Name       string   `json:"name" verbosity:"1"`
+	NameServer string   `json:"name_server" verbosity:"3"`
+	Depth      int      `json:"depth" verbosity:"3"`
+	Layer      string   `json:"layer" verbosity:"3"`
+	Cached     IsCached `json:"cached" verbosity:"3"`
 }
 
 type TimedAnswer struct {
@@ -180,11 +180,11 @@ func ParseAnswer(ans dns.RR) interface{} {
 		}
 	} else {
 		return struct {
-			Type     string `json:"type"`
+			Type     string `json:"type" verbosity:"2"`
 			rrType   uint16
-			Class    string `json:"class"`
+			Class    string `json:"class" verbosity:"3"`
 			rrClass  uint16
-			Unparsed dns.RR `json:"unparsed_rr"`
+			Unparsed dns.RR `json:"unparsed_rr" verbosity:"3"`
 		}{
 			Type:     dns.Type(ans.Header().Rrtype).String(),
 			rrType:   ans.Header().Rrtype,
