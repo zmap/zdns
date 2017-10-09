@@ -17,19 +17,19 @@ package zdns
 import "time"
 
 type GlobalConf struct {
-	Threads             int
-	Timeout             time.Duration
-	IterationTimeout    time.Duration
-	Retries             int
-	AlexaFormat         bool
-	IterativeResolution bool
-	Trace               bool
-	MaxDepth            int
-	CacheSize           int
-	GoMaxProcs          int
-	Verbosity           int
-	TimeFormat          string
-
+	Threads              int
+	Timeout              time.Duration
+	IterationTimeout     time.Duration
+	Retries              int
+	AlexaFormat          bool
+	IterativeResolution  bool
+	Trace                bool
+	MaxDepth             int
+	CacheSize            int
+	GoMaxProcs           int
+	Verbosity            int
+	TimeFormat           string
+	PassedName           string
 	NameServersSpecified bool
 	NameServers          []string
 

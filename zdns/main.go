@@ -144,6 +144,17 @@ func main() {
 	if gc.GoMaxProcs != 0 {
 		runtime.GOMAXPROCS(gc.GoMaxProcs)
 	}
+	if len(flags.Args()) > 0 {
+		stat, _ := os.Stdin.Stat()
+		// If stdin is piped from the terminal, and we havent specified a file, and if we have unparsed args
+		// use them for a dig like reslution
+		if (stat.Mode()&os.ModeCharDevice) != 0 && gc.InputFilePath == "-" && len(flags.Args()) == 1 {
+			gc.PassedName = flags.Args()[0]
+		} else {
+			log.Fatal("Unpassed command line flags: ", flags.Args())
+		}
+	}
+
 	// some modules require multiple passes over a file (this is really just the case for zone files)
 	if !factory.AllowStdIn() && gc.InputFilePath == "-" {
 		log.Fatal("Specified module does not allow reading from stdin")

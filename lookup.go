@@ -157,29 +157,33 @@ func doOutput(out <-chan string, path string, wg *sync.WaitGroup) error {
 }
 
 // read input file and put results into channel
-func doInput(in chan<- interface{}, path string, wg *sync.WaitGroup, zonefileInput bool) error {
-	var f *os.File
-	if path == "" || path == "-" {
-		f = os.Stdin
+func doInput(in chan<- interface{}, path string, wg *sync.WaitGroup, zonefileInput bool, passedName string) error {
+	if len(passedName) > 0 {
+		in <- passedName
 	} else {
-		var err error
-		f, err = os.Open(path)
-		if err != nil {
-			log.Fatal("unable to open input file:", err.Error())
+		var f *os.File
+		if path == "" || path == "-" {
+			f = os.Stdin
+		} else {
+			var err error
+			f, err = os.Open(path)
+			if err != nil {
+				log.Fatal("unable to open input file:", err.Error())
+			}
 		}
-	}
-	if zonefileInput {
-		tokens := dns.ParseZone(f, ".", path)
-		for t := range tokens {
-			in <- t
-		}
-	} else {
-		s := bufio.NewScanner(f)
-		for s.Scan() {
-			in <- s.Text()
-		}
-		if err := s.Err(); err != nil {
-			log.Fatal("input unable to read file", err)
+		if zonefileInput {
+			tokens := dns.ParseZone(f, ".", path)
+			for t := range tokens {
+				in <- t
+			}
+		} else {
+			s := bufio.NewScanner(f)
+			for s.Scan() {
+				in <- s.Text()
+			}
+			if err := s.Err(); err != nil {
+				log.Fatal("input unable to read file", err)
+			}
 		}
 	}
 	close(in)
@@ -213,7 +217,7 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	metaChan := make(chan routineMetadata, c.Threads)
 	var routineWG sync.WaitGroup
 	go doOutput(outChan, c.OutputFilePath, &routineWG)
-	go doInput(inChan, c.InputFilePath, &routineWG, (*g).ZonefileInput())
+	go doInput(inChan, c.InputFilePath, &routineWG, (*g).ZonefileInput(), c.PassedName)
 	routineWG.Add(2)
 	// create pool of worker goroutines
 	var lookupWG sync.WaitGroup
