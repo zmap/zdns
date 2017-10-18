@@ -151,7 +151,7 @@ func main() {
 		if (stat.Mode()&os.ModeCharDevice) != 0 && gc.InputFilePath == "-" && len(flags.Args()) == 1 {
 			gc.PassedName = flags.Args()[0]
 		} else {
-			log.Fatal("Unpassed command line flags: ", flags.Args())
+			log.Fatal("Unused command line flags: ", flags.Args())
 		}
 	}
 
