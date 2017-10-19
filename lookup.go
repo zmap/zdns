@@ -143,7 +143,7 @@ func doOutput(out <-chan string, path string, wg *sync.WaitGroup) error {
 		f = os.Stdout
 	} else {
 		var err error
-		f, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0666)
+		f, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 		if err != nil {
 			log.Fatal("unable to open output file:", err.Error())
 		}
