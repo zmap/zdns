@@ -728,6 +728,9 @@ func (s *Lookup) iterateOnAuthorities(dnsType uint16, dnsClass uint16, name stri
 		if status == zdns.STATUS_ITER_TIMEOUT {
 			return r, trace, status, err
 		}
+		if status == zdns.STATUS_NXDOMAIN {
+			return r, trace, status, nil
+		}
 		if status != zdns.STATUS_NOERROR {
 			s.VerboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed: ", status)
 			continue
