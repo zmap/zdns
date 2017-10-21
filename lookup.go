@@ -255,7 +255,7 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 			f = os.Stderr
 		} else {
 			var err error
-			f, err = os.OpenFile(c.MetadataFilePath, os.O_WRONLY|os.O_CREATE, 0666)
+			f, err = os.OpenFile(c.MetadataFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 			if err != nil {
 				log.Fatal("unable to open metadata file:", err.Error())
 			}
