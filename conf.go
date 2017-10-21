@@ -89,6 +89,7 @@ const (
 	STATUS_ITER_TIMEOUT  Status = "ITERATIVE_TIMEOUT"
 	STATUS_TEMPORARY     Status = "TEMPORARY"
 	STATUS_TRUNCATED     Status = "TRUNCATED"
+	STATUS_NXDOMAIN      Status = "NXDOMAIN"
 )
 
 var RootServers = [...]string{
