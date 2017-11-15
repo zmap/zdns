@@ -90,6 +90,7 @@ const (
 	STATUS_TEMPORARY     Status = "TEMPORARY"
 	STATUS_TRUNCATED     Status = "TRUNCATED"
 	STATUS_NXDOMAIN      Status = "NXDOMAIN"
+	STATUS_REFUSED       Status = "REFUSED"
 )
 
 var RootServers = [...]string{
