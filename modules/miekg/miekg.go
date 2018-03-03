@@ -191,6 +191,35 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Protocol:    dnskey.Protocol,
 			Algorithm:   dnskey.Algorithm,
 			PublicKey:   dnskey.PublicKey,
+	} else if cds, ok := ans.(*dns.CDS); ok {
+		return DSAnswer{
+			Answer: Answer{
+				Name:    cds.Hdr.Name,
+				Ttl:     cds.Hdr.Ttl,
+				Type:    dns.Type(cds.Hdr.Rrtype).String(),
+				rrType:  cds.Hdr.Rrtype,
+				Class:   dns.Class(cds.Hdr.Class).String(),
+				rrClass: cds.Hdr.Class,
+			},
+			KeyTag:      cds.KeyTag,
+			Algorithm:   cds.Algorithm,
+			DigestType:  cds.DigestType,
+			Digest:      cds.Digest,
+		}
+	} else if cdnskey, ok := ans.(*dns.CDNSKEY); ok {
+		return DNSKEYAnswer{
+			Answer: Answer{
+				Name:    cdnskey.Hdr.Name,
+				Ttl:     cdnskey.Hdr.Ttl,
+				Type:    dns.Type(cdnskey.Hdr.Rrtype).String(),
+				rrType:  cdnskey.Hdr.Rrtype,
+				Class:   dns.Class(cdnskey.Hdr.Class).String(),
+				rrClass: cdnskey.Hdr.Class,
+			},
+			Flags:       cdnskey.Flags,
+			Protocol:    cdnskey.Protocol,
+			Algorithm:   cdnskey.Algorithm,
+			PublicKey:   cdnskey.PublicKey,
 		}
 	} else if caa, ok := ans.(*dns.CAA); ok {
 		return CAAAnswer{
@@ -946,6 +975,14 @@ func init() {
 	any := new(GlobalLookupFactory)
 	any.SetDNSType(dns.TypeANY)
 	zdns.RegisterLookup("ANY", any)
+
+	cds := new(GlobalLookupFactory)
+	cds.SetDNSType(dns.TypeCDS)
+	zdns.RegisterLookup("CDS", cds)
+
+	cdnskey := new(GlobalLookupFactory)
+	cdnskey.SetDNSType(dns.TypeCDNSKEY)
+	zdns.RegisterLookup("CDNSKEY", cdnskey)
 
 	caa := new(GlobalLookupFactory)
 	caa.SetDNSType(dns.TypeCAA)
