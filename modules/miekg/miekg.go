@@ -32,9 +32,9 @@ type MXAnswer struct {
 
 type DSAnswer struct {
 	Answer
-	KeyTag uint16 `json:"keytag"`
+	KeyTag uint16 `json:"key_tag"`
 	Algorithm uint8 `json:"algorithm"`
-	DigestType uint8 `json:"digesttype"`
+	DigestType uint8 `json:"digest_type"`
 	Digest string `json:"digest"`
 }
 
@@ -43,7 +43,7 @@ type DNSKEYAnswer struct {
 	Flags uint16 `json:"flags"`
 	Protocol uint8 `json:"protocol"`
 	Algorithm uint8 `json:"algorithm"`
-	PublicKey string `json:"publickey"`
+	PublicKey string `json:"public_key"`
 }
 
 type CAAAnswer struct {
