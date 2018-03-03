@@ -74,6 +74,15 @@ returns:
 }
 ```
 
+Trace DNS Delegation
+---------------------
+
+`echo "censys.io" | ./zdns a --trace`
+
+returns:
+```json { ... }```
+
+
 Lookup Modules
 --------------
 
