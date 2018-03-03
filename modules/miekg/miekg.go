@@ -43,7 +43,7 @@ type CDNSKEYAnswer struct {
 	Flags uint16 `json:"flags"`
 	Protocol uint8 `json:"protocol"`
 	Algorithm uint8 `json:"algorithm"`
-	PublicKey string `json:"publickey"`
+	PublicKey string `json:"public_key"`
 }
 
 type CAAAnswer struct {
