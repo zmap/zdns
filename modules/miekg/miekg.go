@@ -34,7 +34,7 @@ type CDSAnswer struct {
 	Answer
 	KeyTag uint16 `json:"keytag"`
 	Algorithm uint8 `json:"algorithm"`
-	DigestType uint8 `json:"digesttype"`
+	DigestType uint8 `json:"digest_type"`
 	Digest string `json:"digest"`
 }
 
