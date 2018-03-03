@@ -30,7 +30,7 @@ type MXAnswer struct {
 	Preference uint16 `json:"preference"`
 }
 
-type CDSAnswer struct {
+type DSAnswer struct {
 	Answer
 	KeyTag uint16 `json:"key_tag"`
 	Algorithm uint8 `json:"algorithm"`
@@ -38,7 +38,7 @@ type CDSAnswer struct {
 	Digest string `json:"digest"`
 }
 
-type CDNSKEYAnswer struct {
+type DNSKEYAnswer struct {
 	Answer
 	Flags uint16 `json:"flags"`
 	Protocol uint8 `json:"protocol"`
@@ -162,8 +162,38 @@ func ParseAnswer(ans dns.RR) interface{} {
 			},
 			Preference: mx.Preference,
 		}
+	} else if ds, ok := ans.(*dns.DS); ok {
+		return DSAnswer{
+			Answer: Answer{
+				Name:    ds.Hdr.Name,
+				Ttl:     ds.Hdr.Ttl,
+				Type:    dns.Type(ds.Hdr.Rrtype).String(),
+				rrType:  ds.Hdr.Rrtype,
+				Class:   dns.Class(ds.Hdr.Class).String(),
+				rrClass: ds.Hdr.Class,
+			},
+			KeyTag:      ds.KeyTag,
+			Algorithm:   ds.Algorithm,
+			DigestType:  ds.DigestType,
+			Digest:      ds.Digest,
+		}
+	} else if dnskey, ok := ans.(*dns.DNSKEY); ok {
+		return DNSKEYAnswer{
+			Answer: Answer{
+				Name:    dnskey.Hdr.Name,
+				Ttl:     dnskey.Hdr.Ttl,
+				Type:    dns.Type(dnskey.Hdr.Rrtype).String(),
+				rrType:  dnskey.Hdr.Rrtype,
+				Class:   dns.Class(dnskey.Hdr.Class).String(),
+				rrClass: dnskey.Hdr.Class,
+			},
+			Flags:       dnskey.Flags,
+			Protocol:    dnskey.Protocol,
+			Algorithm:   dnskey.Algorithm,
+			PublicKey:   dnskey.PublicKey,
+		}
 	} else if cds, ok := ans.(*dns.CDS); ok {
-		return CDSAnswer{
+		return DSAnswer{
 			Answer: Answer{
 				Name:    cds.Hdr.Name,
 				Ttl:     cds.Hdr.Ttl,
@@ -178,7 +208,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Digest:      cds.Digest,
 		}
 	} else if cdnskey, ok := ans.(*dns.CDNSKEY); ok {
-		return CDNSKEYAnswer{
+		return DNSKEYAnswer{
 			Answer: Answer{
 				Name:    cdnskey.Hdr.Name,
 				Ttl:     cdnskey.Hdr.Ttl,
@@ -1002,6 +1032,14 @@ func init() {
 	cname := new(GlobalLookupFactory)
 	cname.SetDNSType(dns.TypeCNAME)
 	zdns.RegisterLookup("CNAME", cname)
+
+	ds := new(GlobalLookupFactory)
+	ds.SetDNSType(dns.TypeDS)
+	zdns.RegisterLookup("DS", ds)
+
+	dnskey := new(GlobalLookupFactory)
+	dnskey.SetDNSType(dns.TypeDNSKEY)
+	zdns.RegisterLookup("DNSKEY", dnskey)
 
 	mx := new(GlobalLookupFactory)
 	mx.SetDNSType(dns.TypeMX)
