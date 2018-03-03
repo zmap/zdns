@@ -30,6 +30,22 @@ type MXAnswer struct {
 	Preference uint16 `json:"preference"`
 }
 
+type CDSAnswer struct {
+	Answer
+	KeyTag uint16 `json:"key_tag"`
+	Algorithm uint8 `json:"algorithm"`
+	DigestType uint8 `json:"digest_type"`
+	Digest string `json:"digest"`
+}
+
+type CDNSKEYAnswer struct {
+	Answer
+	Flags uint16 `json:"flags"`
+	Protocol uint8 `json:"protocol"`
+	Algorithm uint8 `json:"algorithm"`
+	PublicKey string `json:"public_key"`
+}
+
 type CAAAnswer struct {
 	Answer
 	Tag   string `json:"tag"`
@@ -145,6 +161,36 @@ func ParseAnswer(ans dns.RR) interface{} {
 				Answer:  strings.TrimRight(mx.Mx, "."),
 			},
 			Preference: mx.Preference,
+		}
+	} else if cds, ok := ans.(*dns.CDS); ok {
+		return CDSAnswer{
+			Answer: Answer{
+				Name:    cds.Hdr.Name,
+				Ttl:     cds.Hdr.Ttl,
+				Type:    dns.Type(cds.Hdr.Rrtype).String(),
+				rrType:  cds.Hdr.Rrtype,
+				Class:   dns.Class(cds.Hdr.Class).String(),
+				rrClass: cds.Hdr.Class,
+			},
+			KeyTag:      cds.KeyTag,
+			Algorithm:   cds.Algorithm,
+			DigestType:  cds.DigestType,
+			Digest:      cds.Digest,
+		}
+	} else if cdnskey, ok := ans.(*dns.CDNSKEY); ok {
+		return CDNSKEYAnswer{
+			Answer: Answer{
+				Name:    cdnskey.Hdr.Name,
+				Ttl:     cdnskey.Hdr.Ttl,
+				Type:    dns.Type(cdnskey.Hdr.Rrtype).String(),
+				rrType:  cdnskey.Hdr.Rrtype,
+				Class:   dns.Class(cdnskey.Hdr.Class).String(),
+				rrClass: cdnskey.Hdr.Class,
+			},
+			Flags:       cdnskey.Flags,
+			Protocol:    cdnskey.Protocol,
+			Algorithm:   cdnskey.Algorithm,
+			PublicKey:   cdnskey.PublicKey,
 		}
 	} else if caa, ok := ans.(*dns.CAA); ok {
 		return CAAAnswer{
@@ -940,6 +986,14 @@ func init() {
 	any := new(GlobalLookupFactory)
 	any.SetDNSType(dns.TypeANY)
 	zdns.RegisterLookup("ANY", any)
+
+	cds := new(GlobalLookupFactory)
+	cds.SetDNSType(dns.TypeCDS)
+	zdns.RegisterLookup("CDS", cds)
+
+	cdnskey := new(GlobalLookupFactory)
+	cdnskey.SetDNSType(dns.TypeCDNSKEY)
+	zdns.RegisterLookup("CDNSKEY", cdnskey)
 
 	caa := new(GlobalLookupFactory)
 	caa.SetDNSType(dns.TypeCAA)
