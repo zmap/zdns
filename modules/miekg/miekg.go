@@ -191,6 +191,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Protocol:    dnskey.Protocol,
 			Algorithm:   dnskey.Algorithm,
 			PublicKey:   dnskey.PublicKey,
+		}
 	} else if cds, ok := ans.(*dns.CDS); ok {
 		return DSAnswer{
 			Answer: Answer{
