@@ -68,6 +68,12 @@ class Tests(unittest.TestCase):
             {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-b4.googledomains.com"},
     ]
 
+    NXDOMAIN_ANSWER = {
+        u"name": u"zdns-testing-nxdomain.com",
+        u"class": u"IN",
+        u"status": u"NXDOMAIN"
+    }
+
     MX_LOOKUP_ANSWER = {
       u"name":   u"zdns-testing.com",
       u"class":  u"IN",
@@ -199,6 +205,10 @@ class Tests(unittest.TestCase):
             del answer["ttl"]
         self.assertEqual(sorted(res["data"]["answers"]), sorted(correct), cmd)
 
+    def assertEqualNXDOMAIN(self, res, correct):
+        self.assertEqual(res["name"], correct["name"])
+        self.assertEqual(res["status"], correct["status"])
+
     def assertEqualMXLookup(self, res, correct):
         self.assertEqual(res["name"], correct["name"])
         self.assertEqual(res["status"], correct["status"])
@@ -249,6 +259,13 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+
+    def test_a_iterative_nxdomain(self):
+        c = u"./zdns/zdns A --iterative"
+        name = u"zdns-testing-nxdomain.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertEqualNXDOMAIN(res, self.NXDOMAIN_ANSWER)
+
 
     def test_aaaa(self):
         c = u"./zdns/zdns AAAA"
