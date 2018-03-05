@@ -782,6 +782,38 @@ func debugReverseLookup(name string) string {
 	return "unknown"
 }
 
+func handleStatus(status *zdns.Status, err error) (*zdns.Status, error) {
+	switch *status {
+	case zdns.STATUS_ITER_TIMEOUT:
+		return status, err
+	case zdns.STATUS_NXDOMAIN:
+		return status, nil
+	case zdns.STATUS_SERVFAIL:
+		return status, nil
+	case zdns.STATUS_REFUSED:
+		return status, nil
+	case zdns.STATUS_AUTHFAIL:
+		return status, nil
+	case zdns.STATUS_NO_RECORD:
+		return status, nil
+	case zdns.STATUS_BLACKLIST:
+		return status, nil
+	case zdns.STATUS_NO_OUTPUT:
+		return status, nil
+	case zdns.STATUS_NO_ANSWER:
+		return status, nil
+	case zdns.STATUS_TRUNCATED:
+		return status, nil
+	case zdns.STATUS_ILLEGAL_INPUT:
+		return status, nil
+	case zdns.STATUS_TEMPORARY:
+		return status, nil
+	default:
+		var s *zdns.Status
+		return s, nil
+	}
+}
+
 func (s *Lookup) iterateOnAuthorities(dnsType uint16, dnsClass uint16, name string, depth int, result Result, layer string, trace []interface{}) (Result, []interface{}, zdns.Status, error) {
 	if len(result.Authorities) == 0 {
 		var r Result
@@ -792,24 +824,32 @@ func (s *Lookup) iterateOnAuthorities(dnsType uint16, dnsClass uint16, name stri
 		ns, ns_status, layer, trace := s.extractAuthority(elem, layer, depth, result, trace)
 		s.VerboseLog((depth + 1), "Output from extract authorities: ", ns)
 		if ns_status == zdns.STATUS_ITER_TIMEOUT {
-			var r Result
 			s.VerboseLog((depth + 2), "--> Hit iterative timeout: ")
-			return r, trace, ns_status, nil
 		}
 		if ns_status != zdns.STATUS_NOERROR {
-			s.VerboseLog((depth + 2), "--> Auth find Failed: ", ns_status)
-			continue
+			var err error
+			new_status, err := handleStatus(&ns_status, err)
+			// default case we continue
+			if new_status == nil && err == nil {
+				s.VerboseLog((depth + 2), "--> Auth find Failed: ", ns_status)
+				continue
+			// otherwise we hit a status we know
+			} else {
+				var r Result
+				return r, trace, *new_status, err
+			}
 		}
 		r, trace, status, err := s.iterativeLookup(dnsType, dnsClass, name, ns, depth+1, layer, trace)
-		if status == zdns.STATUS_ITER_TIMEOUT {
-			return r, trace, status, err
-		}
-		if status == zdns.STATUS_NXDOMAIN {
-			return r, trace, status, nil
-		}
 		if status != zdns.STATUS_NOERROR {
-			s.VerboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed: ", status)
-			continue
+			new_status, err := handleStatus(&status, err)
+			// default case is a status we don't handle, so we continue
+			if new_status == nil && err == nil {
+				s.VerboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed: ", status)
+				continue
+			// otherwise we hit a status we know
+			} else {
+				return r, trace, *new_status, err
+			}
 		}
 		s.VerboseLog((depth + 1), "--> Auth Resolution success: ", status)
 		return r, trace, status, err
