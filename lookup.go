@@ -15,7 +15,6 @@
 package zdns
 
 import (
-	"bufio"
 	"encoding/json"
 	"os"
 	"strconv"
@@ -136,67 +135,6 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, 
 	return nil
 }
 
-// write results from lookup to output file
-func doOutput(out <-chan string, path string, wg *sync.WaitGroup) error {
-	var f *os.File
-	if path == "" || path == "-" {
-		f = os.Stdout
-	} else {
-		var err error
-		f, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-		if err != nil {
-			log.Fatal("unable to open output file:", err.Error())
-		}
-		defer f.Close()
-	}
-	for n := range out {
-		f.WriteString(n + "\n")
-	}
-	(*wg).Done()
-	return nil
-}
-
-// read input file and put results into channel
-func doInput(in chan<- interface{}, path string, wg *sync.WaitGroup, zonefileInput bool, passedName string) error {
-
-	defer func() {
-		close(in)
-		(*wg).Done()
-	}()
-
-	if len(passedName) > 0 {
-		in <- passedName
-		return nil
-	}
-
-	var f *os.File
-	if path == "" || path == "-" {
-		f = os.Stdin
-	} else {
-		var err error
-		f, err = os.Open(path)
-		if err != nil {
-			log.Fatal("unable to open input file:", err.Error())
-		}
-	}
-	if zonefileInput {
-		tokens := dns.ParseZone(f, ".", path)
-		for t := range tokens {
-			in <- t
-		}
-	} else {
-		s := bufio.NewScanner(f)
-		for s.Scan() {
-			in <- s.Text()
-		}
-		if err := s.Err(); err != nil {
-			log.Fatal("input unable to read file", err)
-		}
-	}
-
-	return nil
-}
-
 func aggregateMetadata(c <-chan routineMetadata) Metadata {
 	var meta Metadata
 	meta.Status = make(map[string]int)
@@ -210,9 +148,6 @@ func aggregateMetadata(c <-chan routineMetadata) Metadata {
 }
 
 func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
-	// doInput: take lines from input -> inChan
-	//	- closes channel when done processing
-	// doOutput: take serialized JSON from outChan and write
 	// DoLookup:
 	//	- n threads that do processing from in and place results in out
 	//	- process until inChan closes, then wg.done()
@@ -222,9 +157,17 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	outChan := make(chan string)
 	metaChan := make(chan routineMetadata, c.Threads)
 	var routineWG sync.WaitGroup
-	go doOutput(outChan, c.OutputFilePath, &routineWG)
-	go doInput(inChan, c.InputFilePath, &routineWG, (*g).ZonefileInput(), c.PassedName)
+
+	inHandler := GetInputHandler(c.InputHandler)
+	outHandler := GetOutputHandler(c.OutputHandler)
+	inHandler.Initialize(c)
+	outHandler.Initialize(c)
+
+	// Use handlers to populate the input and output/results channel
+	go inHandler.FeedChannel(inChan, &routineWG, (*g).ZonefileInput())
+	go outHandler.WriteResults(outChan, &routineWG)
 	routineWG.Add(2)
+
 	// create pool of worker goroutines
 	var lookupWG sync.WaitGroup
 	lookupWG.Add(c.Threads)

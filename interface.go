@@ -18,6 +18,7 @@ import (
 	"flag"
 	"math/rand"
 	"strings"
+	"sync"
 
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
@@ -89,6 +90,22 @@ type GlobalLookupFactory interface {
 	RandomNameServer() string
 }
 
+// handle domain input
+type InputHandler interface {
+	// give the InputHandler access to the global config in case it needs any of the settings
+	Initialize(conf *GlobalConf)
+	// FeedChannel takes a channel to write domains to, the WaitGroup managing them, and if it's a zonefile input
+	FeedChannel(in chan<- interface{}, wg *sync.WaitGroup, zonefileInput bool) error
+}
+
+// handle output results
+type OutputHandler interface {
+	// give the OutputHandler access to the global config in case it needs any of the settings
+	Initialize(conf *GlobalConf)
+	// takes a channel (results) to write the query results to, and the WaitGroup managing the handlers
+	WriteResults(results <-chan string, wg *sync.WaitGroup) error
+}
+
 type BaseGlobalLookupFactory struct {
 	GlobalConf *GlobalConf
 }
@@ -131,11 +148,31 @@ func (s *BaseGlobalLookupFactory) ZonefileInput() bool {
 // keep a mapping from name to factory
 var lookups map[string]GlobalLookupFactory
 
+// keep a mapping from name to input handler
+var inputHandlers map[string]InputHandler
+
+// keep a mapping from name to output handler
+var outputHandlers map[string]OutputHandler
+
 func RegisterLookup(name string, s GlobalLookupFactory) {
 	if lookups == nil {
 		lookups = make(map[string]GlobalLookupFactory, 100)
 	}
 	lookups[name] = s
+}
+
+func RegisterInputHandler(name string, h InputHandler) {
+	if inputHandlers == nil {
+		inputHandlers = make(map[string]InputHandler)
+	}
+	inputHandlers[name] = h
+}
+
+func RegisterOutputHandler(name string, h OutputHandler) {
+	if outputHandlers == nil {
+		outputHandlers = make(map[string]OutputHandler)
+	}
+	outputHandlers[name] = h
 }
 
 func ValidlookupsString() string {
@@ -155,4 +192,20 @@ func GetLookup(name string) GlobalLookupFactory {
 		return nil
 	}
 	return factory
+}
+
+func GetInputHandler(name string) InputHandler {
+	inHandler, ok := inputHandlers[name]
+	if !ok {
+		return nil
+	}
+	return inHandler
+}
+
+func GetOutputHandler(name string) OutputHandler {
+	outHandler, ok := outputHandlers[name]
+	if !ok {
+		return nil
+	}
+	return outHandler
 }
