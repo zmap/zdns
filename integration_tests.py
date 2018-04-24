@@ -62,10 +62,10 @@ class Tests(unittest.TestCase):
     ]
 
     NS_SERVERS = [
-            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-b2.googledomains.com"},
-            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-b3.googledomains.com"},
-            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-b1.googledomains.com"},
-            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-b4.googledomains.com"},
+            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-c2.googledomains.com"},
+            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-c3.googledomains.com"},
+            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-c1.googledomains.com"},
+            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-c4.googledomains.com"},
     ]
 
     NXDOMAIN_ANSWER = {
@@ -187,9 +187,9 @@ class Tests(unittest.TestCase):
         "type": "SOA",
         "class": "IN",
         "name": "zdns-testing.com",
-        "ns": "ns-cloud-b1.googledomains.com",
+        "ns": "ns-cloud-c1.googledomains.com",
         "mbox": "cloud-dns-hostmaster.google.com",
-        "serial": 1,
+        "serial": 2,
         "refresh": 21600,
         "retry": 3600,
         "expire": 259200,
