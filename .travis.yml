@@ -1,6 +1,6 @@
 language: go
 go:
-- 1.7.4
+- 1.9.3
 before_install:
 - go get github.com/sirupsen/logrus
 - go get github.com/miekg/dns
