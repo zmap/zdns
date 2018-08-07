@@ -44,7 +44,7 @@ type AXFRServerResult struct {
 }
 
 type AXFRResult struct {
-	Servers []AXFRServerResult `json:"servers"`
+	Servers []AXFRServerResult `json:"servers,omitempty"`
 }
 
 func dotName(name string) string {
