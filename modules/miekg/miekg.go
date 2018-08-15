@@ -260,7 +260,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 			rrType   uint16
 			Class    string `json:"class"`
 			rrClass  uint16
-			Unparsed dns.RR `json:"unparsed_rr"`
+			Unparsed dns.RR `json:"-"`
 		}{
 			Type:     dns.Type(ans.Header().Rrtype).String(),
 			rrType:   ans.Header().Rrtype,
