@@ -2,6 +2,7 @@ package miekg
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"net"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/miekg/dns"
+	"github.com/zmap/go-iptree/blacklist"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/cachehash"
 )
@@ -32,17 +34,17 @@ type MXAnswer struct {
 
 type DSAnswer struct {
 	Answer
-	KeyTag uint16 `json:"key_tag"`
-	Algorithm uint8 `json:"algorithm"`
-	DigestType uint8 `json:"digest_type"`
-	Digest string `json:"digest"`
+	KeyTag     uint16 `json:"key_tag"`
+	Algorithm  uint8  `json:"algorithm"`
+	DigestType uint8  `json:"digest_type"`
+	Digest     string `json:"digest"`
 }
 
 type DNSKEYAnswer struct {
 	Answer
-	Flags uint16 `json:"flags"`
-	Protocol uint8 `json:"protocol"`
-	Algorithm uint8 `json:"algorithm"`
+	Flags     uint16 `json:"flags"`
+	Protocol  uint8  `json:"protocol"`
+	Algorithm uint8  `json:"algorithm"`
 	PublicKey string `json:"public_key"`
 }
 
@@ -172,10 +174,10 @@ func ParseAnswer(ans dns.RR) interface{} {
 				Class:   dns.Class(ds.Hdr.Class).String(),
 				rrClass: ds.Hdr.Class,
 			},
-			KeyTag:      ds.KeyTag,
-			Algorithm:   ds.Algorithm,
-			DigestType:  ds.DigestType,
-			Digest:      ds.Digest,
+			KeyTag:     ds.KeyTag,
+			Algorithm:  ds.Algorithm,
+			DigestType: ds.DigestType,
+			Digest:     ds.Digest,
 		}
 	} else if dnskey, ok := ans.(*dns.DNSKEY); ok {
 		return DNSKEYAnswer{
@@ -187,10 +189,10 @@ func ParseAnswer(ans dns.RR) interface{} {
 				Class:   dns.Class(dnskey.Hdr.Class).String(),
 				rrClass: dnskey.Hdr.Class,
 			},
-			Flags:       dnskey.Flags,
-			Protocol:    dnskey.Protocol,
-			Algorithm:   dnskey.Algorithm,
-			PublicKey:   dnskey.PublicKey,
+			Flags:     dnskey.Flags,
+			Protocol:  dnskey.Protocol,
+			Algorithm: dnskey.Algorithm,
+			PublicKey: dnskey.PublicKey,
 		}
 	} else if cds, ok := ans.(*dns.CDS); ok {
 		return DSAnswer{
@@ -202,10 +204,10 @@ func ParseAnswer(ans dns.RR) interface{} {
 				Class:   dns.Class(cds.Hdr.Class).String(),
 				rrClass: cds.Hdr.Class,
 			},
-			KeyTag:      cds.KeyTag,
-			Algorithm:   cds.Algorithm,
-			DigestType:  cds.DigestType,
-			Digest:      cds.Digest,
+			KeyTag:     cds.KeyTag,
+			Algorithm:  cds.Algorithm,
+			DigestType: cds.DigestType,
+			Digest:     cds.Digest,
 		}
 	} else if cdnskey, ok := ans.(*dns.CDNSKEY); ok {
 		return DNSKEYAnswer{
@@ -217,10 +219,10 @@ func ParseAnswer(ans dns.RR) interface{} {
 				Class:   dns.Class(cdnskey.Hdr.Class).String(),
 				rrClass: cdnskey.Hdr.Class,
 			},
-			Flags:       cdnskey.Flags,
-			Protocol:    cdnskey.Protocol,
-			Algorithm:   cdnskey.Algorithm,
-			PublicKey:   cdnskey.PublicKey,
+			Flags:     cdnskey.Flags,
+			Protocol:  cdnskey.Protocol,
+			Algorithm: cdnskey.Algorithm,
+			PublicKey: cdnskey.PublicKey,
 		}
 	} else if caa, ok := ans.(*dns.CAA); ok {
 		return CAAAnswer{
@@ -285,10 +287,31 @@ type GlobalLookupFactory struct {
 	CacheMutex     *sync.RWMutex
 	DNSType        uint16
 	DNSClass       uint16
+	BlacklistPath  string
+	Blacklist      *blacklist.Blacklist
+	BlMu           sync.Mutex
+}
+
+func (s *GlobalLookupFactory) BlacklistInit() error {
+	if s.BlacklistPath != "" {
+		s.Blacklist = blacklist.New()
+		if err := s.Blacklist.ParseFromFile(s.BlacklistPath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
+	f.StringVar(&s.BlacklistPath, "blacklist-file", "", "blacklist file for servers to exclude from lookups")
 }
 
 func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	s.GlobalConf = c
+	err := s.BlacklistInit()
+	if err != nil {
+		return err
+	}
 	s.IterativeCache.Init(c.CacheSize)
 	s.CacheMutex = &sync.RWMutex{}
 	s.DNSClass = dns.ClassINET
@@ -638,6 +661,25 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, dnsClass uint16, name stri
 		isCached = true
 		return cachedResult, isCached, zdns.STATUS_NOERROR, nil
 	}
+
+	nameServerIP, _, err := net.SplitHostPort(nameServer)
+	// Stop if we hit a nameserver we don't want to hit
+	if s.Factory.Factory.Blacklist != nil {
+		s.Factory.Factory.BlMu.Lock()
+		if blacklisted, err := s.Factory.Factory.Blacklist.IsBlacklisted(nameServerIP); err != nil {
+			s.Factory.Factory.BlMu.Unlock()
+			s.VerboseLog(depth+2, "Blacklist error!", err)
+			var r Result
+			return r, isCached, zdns.STATUS_ERROR, err
+		} else if blacklisted {
+			s.Factory.Factory.BlMu.Unlock()
+			s.VerboseLog(depth+2, "Hit blacklisted nameserver ", name, ", Layer: ", layer, ", Nameserver: ", nameServer)
+			var r Result
+			return r, isCached, zdns.STATUS_BLACKLIST, nil
+		}
+		s.Factory.Factory.BlMu.Unlock()
+	}
+
 	// Now, we check the authoritative:
 	name = strings.ToLower(name)
 	layer = strings.ToLower(layer)
@@ -833,8 +875,8 @@ func (s *Lookup) iterateOnAuthorities(dnsType uint16, dnsClass uint16, name stri
 			if new_status == nil && err == nil {
 				s.VerboseLog((depth + 2), "--> Auth find Failed: ", ns_status)
 				continue
-			// otherwise we hit a status we know
 			} else {
+				// otherwise we hit a status we know
 				var r Result
 				return r, trace, *new_status, err
 			}
@@ -846,8 +888,9 @@ func (s *Lookup) iterateOnAuthorities(dnsType uint16, dnsClass uint16, name stri
 			if new_status == nil && err == nil {
 				s.VerboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed: ", status)
 				continue
-			// otherwise we hit a status we know
+
 			} else {
+				// otherwise we hit a status we know
 				return r, trace, *new_status, err
 			}
 		}
