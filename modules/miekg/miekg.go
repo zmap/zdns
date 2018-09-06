@@ -303,7 +303,7 @@ func (s *GlobalLookupFactory) BlacklistInit() error {
 }
 
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
-	f.StringVar(&s.BlacklistPath, "blacklist-file", "", "blacklist file for servers to exclude from lookups")
+	f.StringVar(&s.BlacklistPath, "blacklist-file", "", "blacklist file for servers to exclude from lookups, only effective for iterative lookups")
 }
 
 func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
