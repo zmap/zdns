@@ -506,9 +506,9 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, dnsType uint16, dnsClass u
 	res.Protocol = "udp"
 
 	r, _, err := udp.Exchange(m, nameServer)
-	if err == dns.ErrTruncated {
+	if err == nil && r.Truncated {
 		if tcp == nil {
-			return res, zdns.STATUS_TRUNCATED, err
+			return res, zdns.STATUS_TRUNCATED, errors.New("Error - message is truncated and tcp connection failed")
 		}
 
 		r, _, err = tcp.Exchange(m, nameServer)
