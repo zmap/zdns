@@ -506,7 +506,10 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, dnsType uint16, dnsClass u
 	res.Protocol = "udp"
 
 	r, _, err := udp.Exchange(m, nameServer)
-	if err == dns.ErrTruncated {
+
+	// See https://github.com/miekg/dns/pull/815 -- if the unpack got far enough to tell that it was
+	// truncated, r.Truncated will be set. If it didn't get that far, then it's just an error.
+	if r != nil && r.Truncated {
 		if tcp == nil {
 			return res, zdns.STATUS_TRUNCATED, err
 		}
