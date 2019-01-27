@@ -65,14 +65,16 @@ func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16
 			if !ok {
 				continue
 			}
-			searchSet[ans.Name] = append(searchSet[ans.Name], ans)
+			lowerCaseName := strings.ToLower(ans.Name)
+			searchSet[lowerCaseName] = append(searchSet[lowerCaseName], ans)
 		}
 		for _, a := range miekgResult.(miekg.Result).Additional {
 			ans, ok := a.(miekg.Answer)
 			if !ok {
 				continue
 			}
-			searchSet[ans.Name] = append(searchSet[ans.Name], ans)
+			lowerCaseName := strings.ToLower(ans.Name)
+			searchSet[lowerCaseName] = append(searchSet[lowerCaseName], ans)
 		}
 	}
 	// our cache should now have any data that exists about the current name
