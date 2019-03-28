@@ -137,7 +137,7 @@ class Tests(unittest.TestCase):
         "type":"PTR",
         "class":"IN",
         "name":"8.8.8.8.in-addr.arpa",
-        "answer":"google-public-dns-a.google.com."
+        "answer":"dns.google."
       }
     ]
 
@@ -196,7 +196,29 @@ class Tests(unittest.TestCase):
         "min_ttl": 300
 
       }
-	]
+    ]
+
+    SRV_ANSWERS = [
+      {
+        u"type": u"SRV",
+        u"class": u"IN",
+        u"name": u"_sip._udp.sip.voice.google.com",
+        u"port": 5060,
+        u"priority": 10,
+        u"target": u"sip-anycast-1.voice.google.com.",
+        u"weight": 1
+      },
+      {
+        u"type": u"SRV",
+        u"class": u"IN",
+        u"name": u"_sip._udp.sip.voice.google.com",
+        u"port": 5060,
+        u"priority": 20,
+        u"target": u"sip-anycast-2.voice.google.com.",
+        u"weight": 1
+      }
+    ]
+
     def assertSuccess(self, res, cmd):
         self.assertEqual(res["status"], u"NOERROR", cmd)
 
@@ -372,6 +394,12 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.SOA_ANSWERS, cmd)
 
+    def test_srv(self):
+        c = u"./zdns/zdns SRV"
+        name = u"_sip._udp.sip.voice.google.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.SRV_ANSWERS, cmd)
 
 
 if __name__ == '__main__':

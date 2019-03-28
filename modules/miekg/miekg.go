@@ -66,6 +66,14 @@ type SOAAnswer struct {
 	Minttl  uint32 `json:"min_ttl"`
 }
 
+type SRVAnswer struct {
+	Answer
+	Priority uint16 `json:"priority"`
+	Weight   uint16 `json:"weight"`
+	Port     uint16 `json:"port"`
+	Target   string `json:"target"`
+}
+
 type DNSFlags struct {
 	Response           bool `json:"response"`
 	Opcode             int  `json:"opcode"`
@@ -255,6 +263,21 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Retry:   soa.Retry,
 			Expire:  soa.Expire,
 			Minttl:  soa.Minttl,
+		}
+	} else if srv, ok := ans.(*dns.SRV); ok {
+		return SRVAnswer{
+			Answer: Answer{
+				Name:    strings.TrimSuffix(srv.Hdr.Name, "."),
+				Type:    dns.Type(srv.Hdr.Rrtype).String(),
+				rrType:  srv.Hdr.Rrtype,
+				Class:   dns.Class(srv.Hdr.Class).String(),
+				rrClass: srv.Hdr.Class,
+				Ttl:     srv.Hdr.Ttl,
+			},
+			Priority: srv.Priority,
+			Weight:   srv.Weight,
+			Port:     srv.Port,
+			Target:   srv.Target,
 		}
 	} else {
 		return struct {
@@ -1111,4 +1134,7 @@ func init() {
 	spf.SetDNSType(dns.TypeSPF)
 	zdns.RegisterLookup("SPF", spf)
 
+	srv := new(GlobalLookupFactory)
+	srv.SetDNSType(dns.TypeSRV)
+	zdns.RegisterLookup("SRV", srv)
 }
