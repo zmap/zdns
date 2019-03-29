@@ -74,6 +74,14 @@ type SRVAnswer struct {
 	Target   string `json:"target"`
 }
 
+type TLSAAnswer struct {
+    Answer
+    CertUsage     uint8 `json:"certusage"`
+    Selector      uint8 `json:"selector"`
+    MatchingType  uint8 `json:"matchingtype"`
+    Certificate   string `json:"certificate"`
+}
+
 type DNSFlags struct {
 	Response           bool `json:"response"`
 	Opcode             int  `json:"opcode"`
@@ -278,6 +286,21 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Weight:   srv.Weight,
 			Port:     srv.Port,
 			Target:   srv.Target,
+		}
+	} else if tlsa, ok := ans.(*dns.TLSA); ok {
+		return TLSAAnswer{
+			Answer: Answer{
+				Name:    strings.TrimSuffix(tlsa.Hdr.Name, "."),
+				Type:    dns.Type(tlsa.Hdr.Rrtype).String(),
+				rrType:  tlsa.Hdr.Rrtype,
+				Class:   dns.Class(tlsa.Hdr.Class).String(),
+				rrClass: tlsa.Hdr.Class,
+				Ttl:     tlsa.Hdr.Ttl,
+			},
+			CertUsage:     tlsa.Usage,
+			Selector:      tlsa.Selector,
+			MatchingType:  tlsa.MatchingType,
+			Certificate:   tlsa.Certificate,
 		}
 	} else {
 		return struct {
@@ -1137,4 +1160,8 @@ func init() {
 	srv := new(GlobalLookupFactory)
 	srv.SetDNSType(dns.TypeSRV)
 	zdns.RegisterLookup("SRV", srv)
+
+	tlsa := new(GlobalLookupFactory)
+	tlsa.SetDNSType(dns.TypeTLSA)
+	zdns.RegisterLookup("TLSA", tlsa)
 }
