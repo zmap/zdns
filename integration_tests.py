@@ -223,11 +223,11 @@ class Tests(unittest.TestCase):
       {
         u"type": u"TLSA",
         u"class": u"IN",
-        u"name": u"_25._tcp.box.responsivemail.nz",
+        u"name": u"_25._tcp.mail.ietf.org",
         u"certusage": 3,
         u"selector": 1,
         u"matchingtype": 1,
-        u"certificate": u"d4010b15e4551e93103addbda36a44146b1dc28b56e61ac4a956543229471adb"
+        u"certificate": u"0c72ac70b745ac19998811b131d662c9ac69dbdbe7cb23e5b514b56664c5d3d6"
       }
     ]
 
@@ -278,7 +278,7 @@ class Tests(unittest.TestCase):
         name = u"zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.CAA_RECORD, cmd)
+        self.assertEqualAnswers(res, self.CAA_RECORD, cmd, key='name')
 
     def test_txt(self):
         c = u"./zdns/zdns TXT"
@@ -415,7 +415,7 @@ class Tests(unittest.TestCase):
 
     def test_tlsa(self):
         c = u"./zdns/zdns TLSA"
-        name = u"_25._tcp.box.responsivemail.nz"
+        name = u"_25._tcp.mail.ietf.org"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.TLSA_ANSWERS, cmd, key='certificate')
