@@ -20,10 +20,10 @@ def recursiveSort(obj):
             d[key] = recursiveSort(d[key])
         return d
 
-    if type(obj) == type(list()):
+    if type(obj) == list:
         return listSort(obj)
 
-    elif type(obj) == type(dict()):
+    elif type(obj) == dict:
         return dictSort(obj)
     else:
         return obj
@@ -196,14 +196,48 @@ class Tests(unittest.TestCase):
         "min_ttl": 300
 
       }
-	]
+    ]
+
+    SRV_ANSWERS = [
+      {
+        u"type": u"SRV",
+        u"class": u"IN",
+        u"name": u"_sip._udp.sip.voice.google.com",
+        u"port": 5060,
+        u"priority": 10,
+        u"target": u"sip-anycast-1.voice.google.com.",
+        u"weight": 1
+      },
+      {
+        u"type": u"SRV",
+        u"class": u"IN",
+        u"name": u"_sip._udp.sip.voice.google.com",
+        u"port": 5060,
+        u"priority": 20,
+        u"target": u"sip-anycast-2.voice.google.com.",
+        u"weight": 1
+      }
+    ]
+
+    TLSA_ANSWERS = [
+      {
+        u"type": u"TLSA",
+        u"class": u"IN",
+        u"name": u"_25._tcp.mail.ietf.org",
+        u"cert_usage": 3,
+        u"selector": 1,
+        u"matching_type": 1,
+        u"certificate": u"0c72ac70b745ac19998811b131d662c9ac69dbdbe7cb23e5b514b56664c5d3d6"
+      }
+    ]
+
     def assertSuccess(self, res, cmd):
         self.assertEqual(res["status"], u"NOERROR", cmd)
 
-    def assertEqualAnswers(self, res, correct, cmd):
+    def assertEqualAnswers(self, res, correct, cmd, key='answer'):
         for answer in res["data"]["answers"]:
             del answer["ttl"]
-        self.assertEqual(sorted(res["data"]["answers"]), sorted(correct), cmd)
+        self.assertEqual(sorted(res["data"]["answers"], key=lambda x: x[key]), sorted(correct, key=lambda x: x[key]), cmd)
 
     def assertEqualNXDOMAIN(self, res, correct):
         self.assertEqual(res["name"], correct["name"])
@@ -244,7 +278,7 @@ class Tests(unittest.TestCase):
         name = u"zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.CAA_RECORD, cmd)
+        self.assertEqualAnswers(res, self.CAA_RECORD, cmd, key='name')
 
     def test_txt(self):
         c = u"./zdns/zdns TXT"
@@ -370,9 +404,21 @@ class Tests(unittest.TestCase):
         name = u"zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.SOA_ANSWERS, cmd)
+        self.assertEqualAnswers(res, self.SOA_ANSWERS, cmd, key='serial')
 
+    def test_srv(self):
+        c = u"./zdns/zdns SRV"
+        name = u"_sip._udp.sip.voice.google.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.SRV_ANSWERS, cmd, key='target')
 
+    def test_tlsa(self):
+        c = u"./zdns/zdns TLSA"
+        name = u"_25._tcp.mail.ietf.org"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.TLSA_ANSWERS, cmd, key='certificate')
 
 if __name__ == '__main__':
     unittest.main()

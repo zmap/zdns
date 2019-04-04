@@ -66,6 +66,22 @@ type SOAAnswer struct {
 	Minttl  uint32 `json:"min_ttl"`
 }
 
+type SRVAnswer struct {
+	Answer
+	Priority uint16 `json:"priority"`
+	Weight   uint16 `json:"weight"`
+	Port     uint16 `json:"port"`
+	Target   string `json:"target"`
+}
+
+type TLSAAnswer struct {
+	Answer
+	CertUsage     uint8 `json:"cert_usage"`
+	Selector      uint8 `json:"selector"`
+	MatchingType  uint8 `json:"matching_type"`
+	Certificate   string `json:"certificate"`
+}
+
 type DNSFlags struct {
 	Response           bool `json:"response"`
 	Opcode             int  `json:"opcode"`
@@ -255,6 +271,36 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Retry:   soa.Retry,
 			Expire:  soa.Expire,
 			Minttl:  soa.Minttl,
+		}
+	} else if srv, ok := ans.(*dns.SRV); ok {
+		return SRVAnswer{
+			Answer: Answer{
+				Name:    strings.TrimSuffix(srv.Hdr.Name, "."),
+				Type:    dns.Type(srv.Hdr.Rrtype).String(),
+				rrType:  srv.Hdr.Rrtype,
+				Class:   dns.Class(srv.Hdr.Class).String(),
+				rrClass: srv.Hdr.Class,
+				Ttl:     srv.Hdr.Ttl,
+			},
+			Priority: srv.Priority,
+			Weight:   srv.Weight,
+			Port:     srv.Port,
+			Target:   srv.Target,
+		}
+	} else if tlsa, ok := ans.(*dns.TLSA); ok {
+		return TLSAAnswer{
+			Answer: Answer{
+				Name:    strings.TrimSuffix(tlsa.Hdr.Name, "."),
+				Type:    dns.Type(tlsa.Hdr.Rrtype).String(),
+				rrType:  tlsa.Hdr.Rrtype,
+				Class:   dns.Class(tlsa.Hdr.Class).String(),
+				rrClass: tlsa.Hdr.Class,
+				Ttl:     tlsa.Hdr.Ttl,
+			},
+			CertUsage:     tlsa.Usage,
+			Selector:      tlsa.Selector,
+			MatchingType:  tlsa.MatchingType,
+			Certificate:   tlsa.Certificate,
 		}
 	} else {
 		return struct {
@@ -1111,4 +1157,11 @@ func init() {
 	spf.SetDNSType(dns.TypeSPF)
 	zdns.RegisterLookup("SPF", spf)
 
+	srv := new(GlobalLookupFactory)
+	srv.SetDNSType(dns.TypeSRV)
+	zdns.RegisterLookup("SRV", srv)
+
+	tlsa := new(GlobalLookupFactory)
+	tlsa.SetDNSType(dns.TypeTLSA)
+	zdns.RegisterLookup("TLSA", tlsa)
 }
