@@ -75,11 +75,11 @@ type SRVAnswer struct {
 }
 
 type TLSAAnswer struct {
-    Answer
-    CertUsage     uint8 `json:"cert_usage"`
-    Selector      uint8 `json:"selector"`
-    MatchingType  uint8 `json:"matching_type"`
-    Certificate   string `json:"certificate"`
+	Answer
+	CertUsage     uint8 `json:"cert_usage"`
+	Selector      uint8 `json:"selector"`
+	MatchingType  uint8 `json:"matching_type"`
+	Certificate   string `json:"certificate"`
 }
 
 type DNSFlags struct {
