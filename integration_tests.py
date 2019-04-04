@@ -224,9 +224,9 @@ class Tests(unittest.TestCase):
         u"type": u"TLSA",
         u"class": u"IN",
         u"name": u"_25._tcp.mail.ietf.org",
-        u"certusage": 3,
+        u"cert_usage": 3,
         u"selector": 1,
-        u"matchingtype": 1,
+        u"matching_type": 1,
         u"certificate": u"0c72ac70b745ac19998811b131d662c9ac69dbdbe7cb23e5b514b56664c5d3d6"
       }
     ]
