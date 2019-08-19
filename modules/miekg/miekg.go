@@ -18,7 +18,7 @@ import (
 )
 
 type Answer struct {
-	Ttl     uint32 `json:"ttl,omitempty"`
+	Ttl     uint32 `json:"ttl"`
 	Type    string `json:"type,omitempty"`
 	rrType  uint16
 	Class   string `json:"class,omitempty"`
@@ -76,10 +76,10 @@ type SRVAnswer struct {
 
 type TLSAAnswer struct {
 	Answer
-	CertUsage     uint8 `json:"cert_usage"`
-	Selector      uint8 `json:"selector"`
-	MatchingType  uint8 `json:"matching_type"`
-	Certificate   string `json:"certificate"`
+	CertUsage    uint8  `json:"cert_usage"`
+	Selector     uint8  `json:"selector"`
+	MatchingType uint8  `json:"matching_type"`
+	Certificate  string `json:"certificate"`
 }
 
 type DNSFlags struct {
@@ -297,10 +297,10 @@ func ParseAnswer(ans dns.RR) interface{} {
 				rrClass: tlsa.Hdr.Class,
 				Ttl:     tlsa.Hdr.Ttl,
 			},
-			CertUsage:     tlsa.Usage,
-			Selector:      tlsa.Selector,
-			MatchingType:  tlsa.MatchingType,
-			Certificate:   tlsa.Certificate,
+			CertUsage:    tlsa.Usage,
+			Selector:     tlsa.Selector,
+			MatchingType: tlsa.MatchingType,
+			Certificate:  tlsa.Certificate,
 		}
 	} else {
 		return struct {
