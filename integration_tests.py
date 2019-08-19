@@ -137,7 +137,7 @@ class Tests(unittest.TestCase):
         "type":"PTR",
         "class":"IN",
         "name":"8.8.8.8.in-addr.arpa",
-        "answer":"google-public-dns-a.google.com."
+        "answer":"dns.google."
       }
     ]
 
