@@ -154,7 +154,12 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Name:    a.Hdr.Name,
 			Answer:  a.A.String()}
 	} else if aaaa, ok := ans.(*dns.AAAA); ok {
-		retv = Answer{Ttl: aaaa.Hdr.Ttl, Type: dns.Type(aaaa.Hdr.Rrtype).String(), rrType: aaaa.Hdr.Rrtype, Class: dns.Class(aaaa.Hdr.Class).String(), rrClass: aaaa.Hdr.Class, Name: aaaa.Hdr.Name, Answer: aaaa.AAAA.String()}
+		ip := aaaa.AAAA.String()
+		if aaaa.AAAA.To4() != nil {
+			// we have a IPv4-mapped address, append prefix (#164)
+			ip = "::ffff:" + ip
+		}
+		retv = Answer{Ttl: aaaa.Hdr.Ttl, Type: dns.Type(aaaa.Hdr.Rrtype).String(), rrType: aaaa.Hdr.Rrtype, Class: dns.Class(aaaa.Hdr.Class).String(), rrClass: aaaa.Hdr.Class, Name: aaaa.Hdr.Name, Answer: ip}
 	} else if cname, ok := ans.(*dns.CNAME); ok {
 		retv = Answer{Ttl: cname.Hdr.Ttl, Type: dns.Type(cname.Hdr.Rrtype).String(), rrType: cname.Hdr.Rrtype, Class: dns.Class(cname.Hdr.Class).String(), rrClass: cname.Hdr.Class, Name: cname.Hdr.Name, Answer: cname.Target}
 	} else if dname, ok := ans.(*dns.DNAME); ok {
