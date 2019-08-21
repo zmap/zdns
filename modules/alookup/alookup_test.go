@@ -190,6 +190,59 @@ func TestDoLookup(t *testing.T) {
 
 	res, _, _, _ = l.DoLookup("cname.example.com")
 	verifyResult(t, res.(Result), nil, []string{"2001:db8::3"})
+
+	// Case 8: unexpected MX record only
+	mockResults["example.com"] = miekg.Result{
+		Answers: []interface{}{miekg.Answer{
+			Ttl:    3600,
+			Type:   "MX",
+			Class:  "IN",
+			Name:   "example.com",
+			Answer: "mail.example.com.",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       miekg.DNSFlags{},
+	}
+
+	res, _, status, _ := l.DoLookup("example.com")
+	if status != zdns.STATUS_NO_ANSWER {
+		t.Errorf("Expected NO_ANSWER status, got %v", status)
+	} else if res != nil {
+		t.Error("Received results where expected none")
+	}
+
+	// Case 3: unexpected MX record in answer section, but valid A record in additionals
+	mockResults["example.com"] = miekg.Result{
+		Answers: []interface{}{miekg.Answer{
+			Ttl:    3600,
+			Type:   "MX",
+			Class:  "IN",
+			Name:   "example.com",
+			Answer: "mail.example.com.",
+		}},
+		Additional: []interface{}{miekg.Answer{
+			Ttl:    3600,
+			Type:   "A",
+			Class:  "IN",
+			Name:   "example.com",
+			Answer: "192.0.2.3",
+		},
+			miekg.Answer{
+				Ttl:    3600,
+				Type:   "AAAA",
+				Class:  "IN",
+				Name:   "example.com",
+				Answer: "2001:db8::4",
+			}},
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       miekg.DNSFlags{},
+	}
+
+	res, _, _, _ = l.DoLookup("example.com")
+	verifyResult(t, res.(Result), []string{"192.0.2.3"}, []string{"2001:db8::4"})
 }
 
 func verifyResult(t *testing.T, res Result, ipv4 []string, ipv6 []string) {
