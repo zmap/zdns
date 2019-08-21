@@ -165,6 +165,31 @@ func TestDoLookup(t *testing.T) {
 
 	res, _, _, _ = l.DoLookup("cname.example.com")
 	verifyResult(t, res.(Result), nil, []string{"2001:db8::1", "2001:db8::2"})
+
+	// Case 7: AAAA + CNAME (if this ever happens to be returned)
+	mockResults["cname.example.com"] = miekg.Result{
+		Answers: []interface{}{miekg.Answer{
+			Ttl:    3600,
+			Type:   "AAAA",
+			Class:  "IN",
+			Name:   "cname.example.com",
+			Answer: "2001:db8::3",
+		},
+			miekg.Answer{
+				Ttl:    3600,
+				Type:   "CNAME",
+				Class:  "IN",
+				Name:   "cname.example.com",
+				Answer: "example.com.",
+			}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       miekg.DNSFlags{},
+	}
+
+	res, _, _, _ = l.DoLookup("cname.example.com")
+	verifyResult(t, res.(Result), nil, []string{"2001:db8::3"})
 }
 
 func verifyResult(t *testing.T, res Result, ipv4 []string, ipv6 []string) {

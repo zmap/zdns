@@ -89,7 +89,10 @@ func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16
 		// we have IP addresses to hand back to the user. let's make an easy-to-use array of strings
 		var ips []string
 		for _, answer := range res {
-			ips = append(ips, answer.Answer)
+			if "CNAME" != answer.Type {
+				//	drop remaining CNAMEs here, if any
+				ips = append(ips, answer.Answer)
+			}
 		}
 		return ips, trace, zdns.STATUS_NOERROR, nil
 	} else if res[0].Type == dns.Type(dns.TypeCNAME).String() {
