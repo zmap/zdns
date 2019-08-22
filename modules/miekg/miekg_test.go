@@ -48,11 +48,26 @@ func TestParseAnswer(t *testing.T) {
 			Ttl:      7200,
 			Rdlength: 16,
 		},
-		AAAA: net.ParseIP("192.0.2.1"),
+		AAAA: net.ParseIP("::ffff:192.0.2.1"),
 	}
 
 	res = ParseAnswer(rr)
 	verifyResult(t, res, rr, "::ffff:192.0.2.1")
+
+	// IPv4-compatible IPv6 address as AAAA record
+	rr = &dns.AAAA{
+		Hdr: dns.RR_Header{
+			Name:     "ipv6.example.com",
+			Rrtype:   dns.TypeAAAA,
+			Class:    dns.ClassINET,
+			Ttl:      7200,
+			Rdlength: 16,
+		},
+		AAAA: net.ParseIP("::192.0.2.1"),
+	}
+
+	res = ParseAnswer(rr)
+	verifyResult(t, res, rr, "::192.0.2.1")
 
 	// TODO: test remaining RR types
 }
