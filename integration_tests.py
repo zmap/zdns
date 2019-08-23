@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import copy
 import subprocess
 import json
 import unittest
@@ -75,62 +75,74 @@ class Tests(unittest.TestCase):
     }
 
     MX_LOOKUP_ANSWER = {
-      u"name":   u"zdns-testing.com",
-      u"class":  u"IN",
-      u"status": u"NOERROR",
-      u"data": {
-        u"exchanges": [
-          {
-            u"name":  u"mx1.zdns-testing.com",
-            u"type":  u"MX",
-            u"class": u"IN",
-            u"preference": 1,
-            u"ipv4_addresses": [
-              u"1.2.3.4",
-              u"2.3.4.5"
-            ],
-            u"ipv6_addresses": [
-              u"fdb3:ac76:a577::4",
-              u"fdb3:ac76:a577::5"
-            ],
+        u"name":   u"zdns-testing.com",
+        u"class":  u"IN",
+        u"status": u"NOERROR",
+        u"data": {
+            u"exchanges": [
+                {
+                    u"name":  u"mx1.zdns-testing.com",
+                    u"type":  u"MX",
+                    u"class": u"IN",
+                    u"preference": 1,
+                    u"ipv4_addresses": [
+                        u"1.2.3.4",
+                        u"2.3.4.5"
+                    ],
+                    u"ipv6_addresses": [
+                        u"fdb3:ac76:a577::4",
+                        u"fdb3:ac76:a577::5"
+                    ],
 
-          },
-          {
-            u"name":  u"mx2.zdns-testing.com",
-            u"type":  u"MX",
-            U"class": u"IN",
-            u"preference": 5,
-            u"ipv4_addresses": [
-              u"5.6.7.8"
-            ],
-          },
-          {
-            u"name":  u"mx1.censys.io",
-            u"type":  u"MX",
-            u"class": u"IN",
-            u"preference": 10,
-          }
-        ]
-      }
+                },
+                {
+                    u"name":  u"mx2.zdns-testing.com",
+                    u"type":  u"MX",
+                    U"class": u"IN",
+                    u"preference": 5,
+                    u"ipv4_addresses": [
+                        u"5.6.7.8"
+                    ],
+                },
+                {
+                    u"name":  u"mx1.censys.io",
+                    u"type":  u"MX",
+                    u"class": u"IN",
+                    u"preference": 10,
+                }
+            ]
+        }
     }
+
+    MX_LOOKUP_ANSWER_IPV4 = copy.deepcopy(MX_LOOKUP_ANSWER)
+    del MX_LOOKUP_ANSWER_IPV4["data"]["exchanges"][0]["ipv6_addresses"]
+    MX_LOOKUP_ANSWER_IPV6 = copy.deepcopy(MX_LOOKUP_ANSWER)
+    del MX_LOOKUP_ANSWER_IPV6["data"]["exchanges"][0]["ipv4_addresses"]
+    del MX_LOOKUP_ANSWER_IPV6["data"]["exchanges"][1]["ipv4_addresses"]
 
     A_LOOKUP_WWW_ZDNS_TESTING = {
-      u"name": u"www.zdns-testing.com",
-      u"class": u"IN",
-      u"status": u"NOERROR",
-      u"data": {
-        u"ipv4_addresses": [
-          u"1.2.3.4",
-          u"2.3.4.5",
-          u"3.4.5.6"
-        ],
-        u"ipv6_addresses": [
-          u"fde6:9bb3:dbd6::2",
-          u"fd5a:3bce:8713::1",
-          u"fdb3:ac76:a577::3"
-        ]
-      }
+        u"name": u"www.zdns-testing.com",
+        u"class": u"IN",
+        u"status": u"NOERROR",
+        u"data": {
+            u"ipv4_addresses": [
+                u"1.2.3.4",
+                u"2.3.4.5",
+                u"3.4.5.6"
+            ],
+            u"ipv6_addresses": [
+                u"fde6:9bb3:dbd6::2",
+                u"fd5a:3bce:8713::1",
+                u"fdb3:ac76:a577::3"
+            ]
+        }
     }
+
+
+    A_LOOKUP_IPV4_WWW_ZDNS_TESTING = copy.deepcopy(A_LOOKUP_WWW_ZDNS_TESTING)
+    del A_LOOKUP_IPV4_WWW_ZDNS_TESTING["data"]["ipv6_addresses"]
+    A_LOOKUP_IPV6_WWW_ZDNS_TESTING = copy.deepcopy(A_LOOKUP_WWW_ZDNS_TESTING)
+    del A_LOOKUP_IPV6_WWW_ZDNS_TESTING["data"]["ipv4_addresses"]
 
     PTR_LOOKUP_GOOGLE_PUB = [
       {
@@ -254,10 +266,16 @@ class Tests(unittest.TestCase):
     def assertEqualALookup(self, res, correct):
         self.assertEqual(res["name"], correct["name"])
         self.assertEqual(res["status"], correct["status"])
-        self.assertEqual(sorted(res["data"]["ipv4_addresses"]),
-                sorted(correct["data"]["ipv4_addresses"]))
-        self.assertEqual(sorted(res["data"]["ipv6_addresses"]),
-                sorted(correct["data"]["ipv6_addresses"]))
+        if "ipv4_addresses" in correct["data"]:
+            self.assertEqual(sorted(res["data"]["ipv4_addresses"]),
+                    sorted(correct["data"]["ipv4_addresses"]))
+        else:
+            self.assertNotIn("ipv4_addresses", res["data"])
+        if "ipv6_addresses" in correct["data"]:
+            self.assertEqual(sorted(res["data"]["ipv6_addresses"]),
+                    sorted(correct["data"]["ipv6_addresses"]))
+        else:
+            self.assertNotIn("ipv6_addresses", res["data"])
 
     def test_a(self):
         c = u"./zdns/zdns A"
@@ -357,6 +375,27 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd)
         self.assertEqualMXLookup(res, self.MX_LOOKUP_ANSWER)
 
+    def test_mx_lookup_ipv4(self):
+        c = u"./zdns/zdns mxlookup --ipv4-lookup"
+        name = u"zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualMXLookup(res, self.MX_LOOKUP_ANSWER_IPV4)
+
+    def test_mx_lookup_ipv6(self):
+        c = u"./zdns/zdns mxlookup --ipv6-lookup"
+        name = u"zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualMXLookup(res, self.MX_LOOKUP_ANSWER_IPV6)
+
+    def test_mx_lookup_default(self):
+        c = u"./zdns/zdns mxlookup"
+        name = u"zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualMXLookup(res, self.MX_LOOKUP_ANSWER_IPV4)
+
     def test_a_lookup(self):
         c = u"./zdns/zdns alookup --ipv4-lookup --ipv6-lookup"
         name = u"www.zdns-testing.com"
@@ -370,6 +409,27 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualALookup(res, self.A_LOOKUP_WWW_ZDNS_TESTING)
+
+    def test_a_lookup_ipv4(self):
+        c = u"./zdns/zdns alookup --ipv4-lookup"
+        name = u"www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualALookup(res, self.A_LOOKUP_IPV4_WWW_ZDNS_TESTING)
+
+    def test_a_lookup_ipv6(self):
+        c = u"./zdns/zdns alookup --ipv6-lookup"
+        name = u"www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualALookup(res, self.A_LOOKUP_IPV6_WWW_ZDNS_TESTING)
+
+    def test_a_lookup_default(self):
+        c = u"./zdns/zdns alookup"
+        name = u"www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualALookup(res, self.A_LOOKUP_IPV4_WWW_ZDNS_TESTING)
 
     def test_ptr(self):
         c = u"./zdns/zdns PTR"
