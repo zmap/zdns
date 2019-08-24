@@ -156,7 +156,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 	} else if aaaa, ok := ans.(*dns.AAAA); ok {
 		ip := aaaa.AAAA.String()
 		// verify we really got full 16-byte address
-		if len(aaaa.AAAA) == net.IPv6len {
+		if !aaaa.AAAA.IsLoopback() && !aaaa.AAAA.IsUnspecified() && len(aaaa.AAAA) == net.IPv6len {
 			if aaaa.AAAA.To4() != nil {
 				// we have a IPv4-mapped address, append prefix (#164)
 				ip = "::ffff:" + ip

@@ -36,8 +36,32 @@ func TestParseAnswer(t *testing.T) {
 		AAAA: net.ParseIP("2001:db8::1"),
 	}
 
+	// loopback AAAA record
+	rr = &dns.AAAA{
+		Hdr: dns.RR_Header{
+			Name:     "ipv6.example.com",
+			Rrtype:   dns.TypeAAAA,
+			Class:    dns.ClassINET,
+			Ttl:      7200,
+			Rdlength: 16,
+		},
+		AAAA: net.ParseIP("::1"),
+	}
+
+	// unspecified AAAA record
+	rr = &dns.AAAA{
+		Hdr: dns.RR_Header{
+			Name:     "ipv6.example.com",
+			Rrtype:   dns.TypeAAAA,
+			Class:    dns.ClassINET,
+			Ttl:      7200,
+			Rdlength: 16,
+		},
+		AAAA: net.ParseIP("::"),
+	}
+
 	res = ParseAnswer(rr)
-	verifyResult(t, res, rr, "2001:db8::1")
+	verifyResult(t, res, rr, "::")
 
 	// IPv4-Mapped IPv6 address as AAAA record
 	rr = &dns.AAAA{
