@@ -154,7 +154,27 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Name:    a.Hdr.Name,
 			Answer:  a.A.String()}
 	} else if aaaa, ok := ans.(*dns.AAAA); ok {
-		retv = Answer{Ttl: aaaa.Hdr.Ttl, Type: dns.Type(aaaa.Hdr.Rrtype).String(), rrType: aaaa.Hdr.Rrtype, Class: dns.Class(aaaa.Hdr.Class).String(), rrClass: aaaa.Hdr.Class, Name: aaaa.Hdr.Name, Answer: aaaa.AAAA.String()}
+		ip := aaaa.AAAA.String()
+		// verify we really got full 16-byte address
+		if !aaaa.AAAA.IsLoopback() && !aaaa.AAAA.IsUnspecified() && len(aaaa.AAAA) == net.IPv6len {
+			if aaaa.AAAA.To4() != nil {
+				// we have a IPv4-mapped address, append prefix (#164)
+				ip = "::ffff:" + ip
+			} else {
+				v4compat := true
+				for _, o := range aaaa.AAAA[:11] {
+					if o != 0 {
+						v4compat = false
+						break
+					}
+				}
+				if v4compat {
+					// we have a IPv4-compatible address, append prefix (#164)
+					ip = "::" + aaaa.AAAA[12:].String()
+				}
+			}
+		}
+		retv = Answer{Ttl: aaaa.Hdr.Ttl, Type: dns.Type(aaaa.Hdr.Rrtype).String(), rrType: aaaa.Hdr.Rrtype, Class: dns.Class(aaaa.Hdr.Class).String(), rrClass: aaaa.Hdr.Class, Name: aaaa.Hdr.Name, Answer: ip}
 	} else if cname, ok := ans.(*dns.CNAME); ok {
 		retv = Answer{Ttl: cname.Hdr.Ttl, Type: dns.Type(cname.Hdr.Rrtype).String(), rrType: cname.Hdr.Rrtype, Class: dns.Class(cname.Hdr.Class).String(), rrClass: cname.Hdr.Class, Name: cname.Hdr.Name, Answer: cname.Target}
 	} else if dname, ok := ans.(*dns.DNAME); ok {
