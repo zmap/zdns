@@ -82,6 +82,14 @@ type TLSAAnswer struct {
 	Certificate  string `json:"certificate"`
 }
 
+type NSEC3ParamAnswer struct {
+	Answer
+	HashAlgorithm uint8  `json:"hash_algorithm"`
+	Flags         uint8  `json:"flags"`
+	Iterations    uint16 `json:"iterations"`
+	Salt          string `json:"salt"`
+}
+
 type DNSFlags struct {
 	Response           bool `json:"response"`
 	Opcode             int  `json:"opcode"`
@@ -174,19 +182,75 @@ func ParseAnswer(ans dns.RR) interface{} {
 				}
 			}
 		}
-		retv = Answer{Ttl: aaaa.Hdr.Ttl, Type: dns.Type(aaaa.Hdr.Rrtype).String(), rrType: aaaa.Hdr.Rrtype, Class: dns.Class(aaaa.Hdr.Class).String(), rrClass: aaaa.Hdr.Class, Name: aaaa.Hdr.Name, Answer: ip}
+		retv = Answer{
+			Ttl:     aaaa.Hdr.Ttl,
+			Type:    dns.Type(aaaa.Hdr.Rrtype).String(),
+			rrType:  aaaa.Hdr.Rrtype,
+			Class:   dns.Class(aaaa.Hdr.Class).String(),
+			rrClass: aaaa.Hdr.Class,
+			Name:    aaaa.Hdr.Name,
+			Answer:  ip,
+		}
 	} else if cname, ok := ans.(*dns.CNAME); ok {
-		retv = Answer{Ttl: cname.Hdr.Ttl, Type: dns.Type(cname.Hdr.Rrtype).String(), rrType: cname.Hdr.Rrtype, Class: dns.Class(cname.Hdr.Class).String(), rrClass: cname.Hdr.Class, Name: cname.Hdr.Name, Answer: cname.Target}
+		retv = Answer{
+			Ttl:     cname.Hdr.Ttl,
+			Type:    dns.Type(cname.Hdr.Rrtype).String(),
+			rrType:  cname.Hdr.Rrtype,
+			Class:   dns.Class(cname.Hdr.Class).String(),
+			rrClass: cname.Hdr.Class,
+			Name:    cname.Hdr.Name,
+			Answer:  cname.Target,
+		}
 	} else if dname, ok := ans.(*dns.DNAME); ok {
-		retv = Answer{Ttl: dname.Hdr.Ttl, Type: dns.Type(dname.Hdr.Rrtype).String(), rrType: dname.Hdr.Rrtype, Class: dns.Class(dname.Hdr.Class).String(), rrClass: dname.Hdr.Class, Name: dname.Hdr.Name, Answer: dname.Target}
+		retv = Answer{
+			Ttl:     dname.Hdr.Ttl,
+			Type:    dns.Type(dname.Hdr.Rrtype).String(),
+			rrType:  dname.Hdr.Rrtype,
+			Class:   dns.Class(dname.Hdr.Class).String(),
+			rrClass: dname.Hdr.Class,
+			Name:    dname.Hdr.Name,
+			Answer:  dname.Target,
+		}
 	} else if txt, ok := ans.(*dns.TXT); ok {
-		retv = Answer{Ttl: txt.Hdr.Ttl, Type: dns.Type(txt.Hdr.Rrtype).String(), rrType: txt.Hdr.Rrtype, Class: dns.Class(txt.Hdr.Class).String(), rrClass: txt.Hdr.Class, Name: txt.Hdr.Name, Answer: strings.Join(txt.Txt, "\n")}
+		retv = Answer{
+			Ttl:     txt.Hdr.Ttl,
+			Type:    dns.Type(txt.Hdr.Rrtype).String(),
+			rrType:  txt.Hdr.Rrtype,
+			Class:   dns.Class(txt.Hdr.Class).String(),
+			rrClass: txt.Hdr.Class,
+			Name:    txt.Hdr.Name,
+			Answer:  strings.Join(txt.Txt, "\n"),
+		}
 	} else if ns, ok := ans.(*dns.NS); ok {
-		retv = Answer{Ttl: ns.Hdr.Ttl, Type: dns.Type(ns.Hdr.Rrtype).String(), rrType: ns.Hdr.Rrtype, Class: dns.Class(ns.Hdr.Class).String(), rrClass: ns.Hdr.Class, Name: ns.Hdr.Name, Answer: strings.TrimRight(ns.Ns, ".")}
+		retv = Answer{
+			Ttl:     ns.Hdr.Ttl,
+			Type:    dns.Type(ns.Hdr.Rrtype).String(),
+			rrType:  ns.Hdr.Rrtype,
+			Class:   dns.Class(ns.Hdr.Class).String(),
+			rrClass: ns.Hdr.Class,
+			Name:    ns.Hdr.Name,
+			Answer:  strings.TrimRight(ns.Ns, "."),
+		}
 	} else if ptr, ok := ans.(*dns.PTR); ok {
-		retv = Answer{Ttl: ptr.Hdr.Ttl, Type: dns.Type(ptr.Hdr.Rrtype).String(), rrType: ptr.Hdr.Rrtype, Class: dns.Class(ptr.Hdr.Class).String(), rrClass: ptr.Hdr.Class, Name: ptr.Hdr.Name, Answer: ptr.Ptr}
+		retv = Answer{
+			Ttl:     ptr.Hdr.Ttl,
+			Type:    dns.Type(ptr.Hdr.Rrtype).String(),
+			rrType:  ptr.Hdr.Rrtype,
+			Class:   dns.Class(ptr.Hdr.Class).String(),
+			rrClass: ptr.Hdr.Class,
+			Name:    ptr.Hdr.Name,
+			Answer:  ptr.Ptr,
+		}
 	} else if spf, ok := ans.(*dns.SPF); ok {
-		retv = Answer{Ttl: spf.Hdr.Ttl, Type: dns.Type(spf.Hdr.Rrtype).String(), rrType: spf.Hdr.Rrtype, Class: dns.Class(spf.Hdr.Class).String(), rrClass: spf.Hdr.Class, Name: spf.Hdr.Name, Answer: spf.String()}
+		retv = Answer{
+			Ttl:     spf.Hdr.Ttl,
+			Type:    dns.Type(spf.Hdr.Rrtype).String(),
+			rrType:  spf.Hdr.Rrtype,
+			Class:   dns.Class(spf.Hdr.Class).String(),
+			rrClass: spf.Hdr.Class,
+			Name:    spf.Hdr.Name,
+			Answer:  spf.String(),
+		}
 	} else if mx, ok := ans.(*dns.MX); ok {
 		return MXAnswer{
 			Answer: Answer{
@@ -321,6 +385,21 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Selector:     tlsa.Selector,
 			MatchingType: tlsa.MatchingType,
 			Certificate:  tlsa.Certificate,
+		}
+	} else if nsec3param, ok := ans.(*dns.NSEC3PARAM); ok {
+		return NSEC3ParamAnswer{
+			Answer: Answer{
+				Name:    strings.TrimSuffix(nsec3param.Hdr.Name, "."),
+				Type:    dns.Type(nsec3param.Hdr.Rrtype).String(),
+				rrType:  nsec3param.Hdr.Rrtype,
+				Class:   dns.Class(nsec3param.Hdr.Class).String(),
+				rrClass: nsec3param.Hdr.Class,
+				Ttl:     nsec3param.Hdr.Ttl,
+			},
+			HashAlgorithm: nsec3param.Hash,
+			Flags:         nsec3param.Flags,
+			Iterations:    nsec3param.Iterations,
+			Salt:          nsec3param.Salt,
 		}
 	} else {
 		return struct {
@@ -1184,4 +1263,9 @@ func init() {
 	tlsa := new(GlobalLookupFactory)
 	tlsa.SetDNSType(dns.TypeTLSA)
 	zdns.RegisterLookup("TLSA", tlsa)
+
+	nsec3param := new(GlobalLookupFactory)
+	nsec3param.SetDNSType(dns.TypeNSEC3PARAM)
+	zdns.RegisterLookup("NSEC3PARAM", nsec3param)
+
 }
