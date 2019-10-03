@@ -93,6 +93,49 @@ func TestParseAnswer(t *testing.T) {
 	res = ParseAnswer(rr)
 	verifyResult(t, res, rr, "::192.0.2.1")
 
+	// NAPTR record für aa e.164 phone number (+1-234-555-6789)
+	rr = &dns.NAPTR{
+		Hdr: dns.RR_Header{
+			Name:     "9.8.7.6.5.5.5.4.3.2.1.e164.arpa",
+			Rrtype:   dns.TypeNAPTR,
+			Class:    dns.ClassINET,
+			Ttl:      300,
+			Rdlength: 0,
+		},
+		Order:       100,
+		Preference:  10,
+		Flags:       "u",
+		Service:     "sip+E2U",
+		Regexp:      "!^.*$!sip:number@example.com!",
+		Replacement: ".",
+	}
+
+	res = ParseAnswer(rr)
+	answer, ok := res.(NAPTRAnswer)
+	if !ok {
+		t.Error("Failed to parse record")
+		return
+	}
+	verifyResult(t, answer.Answer, rr, "")
+	if answer.Order != 100 {
+		t.Errorf("Unxpected order. Expected %v, got %v", 100, answer.Order)
+	}
+	if answer.Preference != 10 {
+		t.Errorf("Unxpected preference. Expected %v, got %v", 10, answer.Preference)
+	}
+	if answer.Flags != "u" {
+		t.Errorf("Unxpected flags. Expected %v, got %v", "u", answer.Flags)
+	}
+	if answer.Service != "sip+E2U" {
+		t.Errorf("Unxpected service. Expected %v, got %v", "sip+E2U", answer.Service)
+	}
+	if answer.Regexp != "!^.*$!sip:number@example.com!" {
+		t.Errorf("Unxpected regexp. Expected %v, got %v", "!^.*$!sip:number@example.com!", answer.Regexp)
+	}
+	if answer.Replacement != "." {
+		t.Errorf("Unxpected replacement. Expected %v, got %v", ".", answer.Replacement)
+	}
+
 	// TODO: test remaining RR types
 }
 

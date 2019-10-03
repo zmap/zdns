@@ -90,6 +90,16 @@ type NSEC3ParamAnswer struct {
 	Salt          string `json:"salt"`
 }
 
+type NAPTRAnswer struct {
+	Answer
+	Order       uint16 `json:"order"`
+	Preference  uint16 `json:"preference"`
+	Flags       string `json:"flags"`
+	Service     string `json:"service"`
+	Regexp      string `json:"regexp"`
+	Replacement string `json:"replacement"`
+}
+
 type DNSFlags struct {
 	Response           bool `json:"response"`
 	Opcode             int  `json:"opcode"`
@@ -400,6 +410,23 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Flags:         nsec3param.Flags,
 			Iterations:    nsec3param.Iterations,
 			Salt:          nsec3param.Salt,
+		}
+	} else if naptr, ok := ans.(*dns.NAPTR); ok {
+		return NAPTRAnswer{
+			Answer: Answer{
+				Name:    strings.TrimSuffix(naptr.Hdr.Name, "."),
+				Type:    dns.Type(naptr.Hdr.Rrtype).String(),
+				rrType:  naptr.Hdr.Rrtype,
+				Class:   dns.Class(naptr.Hdr.Class).String(),
+				rrClass: naptr.Hdr.Class,
+				Ttl:     naptr.Hdr.Ttl,
+			},
+			Order:       naptr.Order,
+			Preference:  naptr.Preference,
+			Flags:       naptr.Flags,
+			Service:     naptr.Service,
+			Regexp:      naptr.Regexp,
+			Replacement: naptr.Replacement,
 		}
 	} else {
 		return struct {
@@ -1268,4 +1295,7 @@ func init() {
 	nsec3param.SetDNSType(dns.TypeNSEC3PARAM)
 	zdns.RegisterLookup("NSEC3PARAM", nsec3param)
 
+	naptr := new(GlobalLookupFactory)
+	naptr.SetDNSType(dns.TypeNAPTR)
+	zdns.RegisterLookup("NAPTR", naptr)
 }
