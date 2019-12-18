@@ -32,6 +32,8 @@ type GlobalConf struct {
 	PassedName           string
 	NameServersSpecified bool
 	NameServers          []string
+	TCPOnly              bool
+	UDPOnly              bool
 
 	InputHandler  string
 	OutputHandler string
