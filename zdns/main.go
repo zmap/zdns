@@ -56,6 +56,8 @@ func main() {
 	flags.IntVar(&gc.CacheSize, "cache-size", 10000, "how many items can be stored in internal recursive cache")
 	flags.StringVar(&gc.InputHandler, "input-handler", "file", "handler to input names")
 	flags.StringVar(&gc.OutputHandler, "output-handler", "file", "handler to output names")
+	flags.BoolVar(&gc.TCPOnly, "tcp-only", false, "Only perform lookups over TCP")
+	flags.BoolVar(&gc.UDPOnly, "udp-only", false, "Only perform lookups over UDP")
 	servers_string := flags.String("name-servers", "", "comma-delimited list of DNS servers to use")
 	config_file := flags.String("conf-file", "/etc/resolv.conf", "config file for DNS servers")
 	timeout := flags.Int("timeout", 15, "timeout for resolving an individual name")
@@ -147,6 +149,9 @@ func main() {
 	}
 	if gc.GoMaxProcs != 0 {
 		runtime.GOMAXPROCS(gc.GoMaxProcs)
+	}
+	if gc.UDPOnly && gc.TCPOnly {
+		log.Fatal("TCP Only and UDP Only are conflicting")
 	}
 	if len(flags.Args()) > 0 {
 		stat, _ := os.Stdin.Stat()
