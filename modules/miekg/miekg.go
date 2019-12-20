@@ -678,33 +678,22 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, dnsType uint16, dnsClass u
 	m.Question[0].Qclass = dnsClass
 	m.RecursionDesired = recursive
 
-	var useTCP bool
-	if udp != nil {
-		useTCP = false
-		res.Protocol = "udp"
-	} else {
-		useTCP = true
-		res.Protocol = "tcp"
-	}
-
 	var r *dns.Msg
 	var err error
 	if udp != nil {
+		res.Protocol = "udp"
 		r, _, err = udp.Exchange(m, nameServer)
-	} else {
-		r, _, err = tcp.Exchange(m, nameServer)
-	}
-
-	// See https://github.com/miekg/dns/pull/815 -- if the unpack got far enough to tell that it was
-	// truncated, r.Truncated will be set. If it didn't get that far, then it's just an error.
-	if r != nil && r.Truncated {
-		if tcp == nil {
-			return res, zdns.STATUS_TRUNCATED, err
+		// if record comes back truncated, but we have a TCP connection, try again with that
+		if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
+			if tcp != nil {
+				return DoLookupWorker(nil, tcp, dnsType, dnsClass, name, nameServer, recursive)
+			} else {
+				return res, zdns.STATUS_TRUNCATED, err
+			}
 		}
-
-		r, _, err = tcp.Exchange(m, nameServer)
-		useTCP = true
+	} else {
 		res.Protocol = "tcp"
+		r, _, err = tcp.Exchange(m, nameServer)
 	}
 	if err != nil || r == nil {
 		if nerr, ok := err.(net.Error); ok {
@@ -716,12 +705,7 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, dnsType uint16, dnsClass u
 		}
 		return res, zdns.STATUS_ERROR, err
 	}
-	if r.Rcode == dns.RcodeBadTrunc && !useTCP {
-		if tcp == nil {
-			return res, zdns.STATUS_TRUNCATED, err
-		}
-		r, _, err = tcp.Exchange(m, nameServer)
-	}
+
 	if err != nil || r == nil {
 		return res, zdns.STATUS_ERROR, err
 	}
