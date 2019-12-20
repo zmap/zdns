@@ -19,7 +19,8 @@ import (
 	"flag"
 	"strings"
 
-	"github.com/miekg/dns"
+	//"github.com/miekg/dns"
+	dns "github.com/zmap/miekg-zdns"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/modules/miekg"
 )

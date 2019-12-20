@@ -11,8 +11,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/miekg/dns"
 	"github.com/zmap/go-iptree/blacklist"
+	dns "github.com/zmap/miekg-zdns"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/cachehash"
 )

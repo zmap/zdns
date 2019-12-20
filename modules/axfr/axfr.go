@@ -22,7 +22,9 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/miekg/dns"
+	//"github.com/miekg/dns"
+	dns "github.com/zmap/miekg-zdns"
+
 	"github.com/zmap/go-iptree/blacklist"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/modules/miekg"
