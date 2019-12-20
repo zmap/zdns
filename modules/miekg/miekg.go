@@ -12,7 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/zmap/go-iptree/blacklist"
-	dns "github.com/zmap/miekg-zdns"
+	dns "github.com/zmap/miekg-dns"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/cachehash"
 )
