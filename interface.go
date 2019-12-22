@@ -17,6 +17,7 @@ package zdns
 import (
 	"flag"
 	"math/rand"
+	"net"
 	"strings"
 	"sync"
 
@@ -135,6 +136,17 @@ func (f *BaseGlobalLookupFactory) RandomNameServer() string {
 		log.Fatal("No name servers specified")
 	}
 	return f.GlobalConf.NameServers[rand.Intn(l)]
+}
+
+func (f *BaseGlobalLookupFactory) RandomLocalAddr() net.IP {
+	if f.GlobalConf == nil {
+		log.Fatal("no global conf initialized")
+	}
+	l := len(f.GlobalConf.LocalAddrs)
+	if l == 0 {
+		log.Fatal("No local addresses specified")
+	}
+	return f.GlobalConf.LocalAddrs[rand.Intn(l)]
 }
 
 func (s *BaseGlobalLookupFactory) AllowStdIn() bool {

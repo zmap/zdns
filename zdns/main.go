@@ -16,6 +16,7 @@ package main
 
 import (
 	"flag"
+	"net"
 	"os"
 	"runtime"
 	"strings"
@@ -59,6 +60,8 @@ func main() {
 	flags.BoolVar(&gc.TCPOnly, "tcp-only", false, "Only perform lookups over TCP")
 	flags.BoolVar(&gc.UDPOnly, "udp-only", false, "Only perform lookups over UDP")
 	servers_string := flags.String("name-servers", "", "comma-delimited list of DNS servers to use. If no port is specified, defaults to :53.")
+	localaddr_string := flags.String("local-addr", "", "cp,,adeöo,oted öost pf local addresses to use")
+	localif_string := flags.String("local-interface", "", "local interface to use")
 	config_file := flags.String("conf-file", "/etc/resolv.conf", "config file for DNS servers")
 	timeout := flags.Int("timeout", 15, "timeout for resolving an individual name")
 	iterationTimeout := flags.Int("iteration-timeout", 4, "timeout for resolving a single iteration in an iterative query")
@@ -144,6 +147,37 @@ func main() {
 		}
 		gc.NameServers = ns
 		gc.NameServersSpecified = true
+	}
+	if *localaddr_string != "" {
+		for _, la := range strings.Split(*servers_string, ",") {
+			ip := net.ParseIP(la)
+			if ip != nil {
+				gc.LocalAddrs = append(gc.LocalAddrs, ip)
+				log.Info("using local address: ", localaddr_string)
+			} else {
+				log.Fatal("Invalid argument for --local-addr (", la, "). Must be a comma-separted list of valid IP addresses.")
+			}
+		}
+		gc.LocalAddrSpecified = true
+	}
+	if *localif_string != "" {
+		if gc.LocalAddrSpecified {
+			log.Warn("Both --local-addr and --local-interface specified. Ignoring interface.")
+		} else {
+			li, err := net.InterfaceByName(*localif_string)
+			if err != nil {
+				log.Fatal("Invalid local interface specified: ", err)
+			}
+			addrs, err := li.Addrs()
+			if err != nil {
+				log.Fatal("Unable to detect addresses of local interface: ", err)
+			}
+			for _, la := range addrs {
+				gc.LocalAddrs = append(gc.LocalAddrs, la.(*net.IPNet).IP)
+				gc.LocalAddrSpecified = true
+			}
+			log.Info("using local interface: ", localif_string)
+		}
 	}
 	if *nanoSeconds {
 		gc.TimeFormat = time.RFC3339Nano

@@ -14,7 +14,10 @@
 
 package zdns
 
-import "time"
+import (
+	"net"
+	"time"
+)
 
 type GlobalConf struct {
 	Threads              int
@@ -34,6 +37,8 @@ type GlobalConf struct {
 	NameServers          []string
 	TCPOnly              bool
 	UDPOnly              bool
+	LocalAddrSpecified   bool
+	LocalAddrs           []net.IP
 
 	InputHandler  string
 	OutputHandler string
