@@ -136,7 +136,13 @@ func main() {
 		gc.NameServersSpecified = false
 		log.Info("no name servers specified. will use: ", strings.Join(gc.NameServers, ", "))
 	} else {
-		gc.NameServers = strings.Split(*servers_string, ",")
+		ns := strings.Split(*servers_string, ",")
+		for i, s := range ns {
+			if !strings.Contains(s, ":") {
+				ns[i] = s + ":53"
+			}
+		}
+		gc.NameServers = ns
 		gc.NameServersSpecified = true
 	}
 	if *nanoSeconds {
