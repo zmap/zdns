@@ -58,7 +58,7 @@ func main() {
 	flags.StringVar(&gc.OutputHandler, "output-handler", "file", "handler to output names")
 	flags.BoolVar(&gc.TCPOnly, "tcp-only", false, "Only perform lookups over TCP")
 	flags.BoolVar(&gc.UDPOnly, "udp-only", false, "Only perform lookups over UDP")
-	servers_string := flags.String("name-servers", "", "comma-delimited list of DNS servers to use")
+	servers_string := flags.String("name-servers", "", "comma-delimited list of DNS servers to use. If no port is specified, defaults to :53.")
 	config_file := flags.String("conf-file", "/etc/resolv.conf", "config file for DNS servers")
 	timeout := flags.Int("timeout", 15, "timeout for resolving an individual name")
 	iterationTimeout := flags.Int("iteration-timeout", 4, "timeout for resolving a single iteration in an iterative query")
@@ -136,7 +136,13 @@ func main() {
 		gc.NameServersSpecified = false
 		log.Info("no name servers specified. will use: ", strings.Join(gc.NameServers, ", "))
 	} else {
-		gc.NameServers = strings.Split(*servers_string, ",")
+		ns := strings.Split(*servers_string, ",")
+		for i, s := range ns {
+			if !strings.Contains(s, ":") {
+				ns[i] = s + ":53"
+			}
+		}
+		gc.NameServers = ns
 		gc.NameServersSpecified = true
 	}
 	if *nanoSeconds {
