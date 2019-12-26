@@ -619,20 +619,20 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 		s.Timeout = c.Timeout
 	}
 
-	var local net.IP
+	var localIP net.IP
 	if c.LocalAddrSpecified {
-		local = s.Factory.RandomLocalAddr()
+		localIP = s.Factory.RandomLocalAddr()
 	} else {
-		local = nil
+		localIP = nil
 	}
 
 	if !c.TCPOnly {
 		s.Client = new(dns.Client)
 		s.Client.Timeout = s.Timeout
-		if local != nil {
+		if localIP != nil {
 			s.Client.Dialer = &net.Dialer{
 				Timeout:   s.Timeout,
-				LocalAddr: &net.UDPAddr{IP: local},
+				LocalAddr: &net.UDPAddr{IP: localIP},
 			}
 		}
 	}
@@ -641,10 +641,10 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 		s.TCPClient = new(dns.Client)
 		s.TCPClient.Net = "tcp"
 		s.TCPClient.Timeout = s.Timeout
-		if local != nil {
+		if localIP != nil {
 			s.TCPClient.Dialer = &net.Dialer{
 				Timeout:   s.Timeout,
-				LocalAddr: &net.TCPAddr{IP: local},
+				LocalAddr: &net.TCPAddr{IP: localIP},
 			}
 		}
 	}
