@@ -60,7 +60,7 @@ func main() {
 	flags.BoolVar(&gc.TCPOnly, "tcp-only", false, "Only perform lookups over TCP")
 	flags.BoolVar(&gc.UDPOnly, "udp-only", false, "Only perform lookups over UDP")
 	servers_string := flags.String("name-servers", "", "comma-delimited list of DNS servers to use. If no port is specified, defaults to :53.")
-	localaddr_string := flags.String("local-addr", "", "cp,,adeöo,oted öost pf local addresses to use")
+	localaddr_string := flags.String("local-addr", "", "comma-delimited list of local addresses to use")
 	localif_string := flags.String("local-interface", "", "local interface to use")
 	config_file := flags.String("conf-file", "/etc/resolv.conf", "config file for DNS servers")
 	timeout := flags.Int("timeout", 15, "timeout for resolving an individual name")
