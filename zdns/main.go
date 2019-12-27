@@ -153,11 +153,11 @@ func main() {
 			ip := net.ParseIP(la)
 			if ip != nil {
 				gc.LocalAddrs = append(gc.LocalAddrs, ip)
-				log.Info("using local address: ", localaddr_string)
 			} else {
 				log.Fatal("Invalid argument for --local-addr (", la, "). Must be a comma-separted list of valid IP addresses.")
 			}
 		}
+		log.Info("using local address: ", localaddr_string)
 		gc.LocalAddrSpecified = true
 	}
 	if *localif_string != "" {
