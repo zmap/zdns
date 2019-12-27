@@ -162,7 +162,7 @@ func main() {
 	}
 	if *localif_string != "" {
 		if gc.LocalAddrSpecified {
-			log.Warn("Both --local-addr and --local-interface specified. Ignoring interface.")
+			log.Fatal("Both --local-addr and --local-interface specified.")
 		} else {
 			li, err := net.InterfaceByName(*localif_string)
 			if err != nil {
