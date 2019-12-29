@@ -875,7 +875,7 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, dnsClass uint16, name stri
 	if err != nil {
 		s.VerboseLog(depth+2, err)
 		var r Result
-		return r, isCached, zdns.STATUS_AUTHFAIL, nil
+		return r, isCached, zdns.STATUS_AUTHFAIL, err
 	}
 	if name != layer && authName != layer {
 		if authName == "" {
