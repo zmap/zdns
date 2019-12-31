@@ -871,7 +871,12 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, dnsClass uint16, name stri
 	// Now, we check the authoritative:
 	name = strings.ToLower(name)
 	layer = strings.ToLower(layer)
-	authName := nextAuthority(name, layer)
+	authName, err := nextAuthority(name, layer)
+	if err != nil {
+		s.VerboseLog(depth+2, err)
+		var r Result
+		return r, isCached, zdns.STATUS_AUTHFAIL, err
+	}
 	if name != layer && authName != layer {
 		if authName == "" {
 			s.VerboseLog(depth+2, "Can't parse name to authority properly. name: ", name, ", layer: ", layer)
@@ -908,35 +913,35 @@ func nameIsBeneath(name string, layer string) (bool, string) {
 	return false, ""
 }
 
-func nextAuthority(name string, layer string) string {
+func nextAuthority(name string, layer string) (string, error) {
 	// We are our own authority for PTRs
 	// (This is dealt with elsewhere)
 	if strings.HasSuffix(layer, "in-addr.arpa") {
-		return name
+		return name, nil
 	}
 
 	idx := strings.LastIndex(name, ".")
 	if idx < 0 || (idx+1) >= len(name) {
-		return name
+		return name, nil
 	}
 	if layer == "." {
-		return name[idx+1:]
+		return name[idx+1:], nil
 	}
 
 	if !strings.HasSuffix(name, layer) {
-		panic("Layers by definition are suffixes of names")
+		return "", errors.New("Server did not provide appropriate resolvers to continue recursion")
 	}
 
 	// Limit the search space to the prefix of the string that isnt layer
 	idx = strings.LastIndex(name, layer) - 1
 	if idx < 0 || (idx+1) >= len(name) {
 		// Out of bounds. We are our own authority
-		return name
+		return name, nil
 	}
 	// Find the next step in the layer
 	idx = strings.LastIndex(name[0:idx], ".")
 	next := name[idx+1:]
-	return next
+	return next, nil
 }
 
 func (s *Lookup) checkGlue(server string, depth int, result Result) (Result, zdns.Status) {
