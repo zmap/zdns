@@ -619,12 +619,16 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 		s.Timeout = c.Timeout
 	}
 
-	s.Client = new(dns.Client)
-	s.Client.Timeout = s.Timeout
+	if !c.TCPOnly {
+		s.Client = new(dns.Client)
+		s.Client.Timeout = s.Timeout
+	}
 
-	s.TCPClient = new(dns.Client)
-	s.TCPClient.Net = "tcp"
-	s.TCPClient.Timeout = s.Timeout
+	if !c.UDPOnly {
+		s.TCPClient = new(dns.Client)
+		s.TCPClient.Net = "tcp"
+		s.TCPClient.Timeout = s.Timeout
+	}
 
 	s.IterativeTimeout = c.Timeout
 	s.Retries = c.Retries
@@ -674,21 +678,22 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, dnsType uint16, dnsClass u
 	m.Question[0].Qclass = dnsClass
 	m.RecursionDesired = recursive
 
-	useTCP := false
-	res.Protocol = "udp"
-
-	r, _, err := udp.Exchange(m, nameServer)
-
-	// See https://github.com/miekg/dns/pull/815 -- if the unpack got far enough to tell that it was
-	// truncated, r.Truncated will be set. If it didn't get that far, then it's just an error.
-	if r != nil && r.Truncated {
-		if tcp == nil {
-			return res, zdns.STATUS_TRUNCATED, err
+	var r *dns.Msg
+	var err error
+	if udp != nil {
+		res.Protocol = "udp"
+		r, _, err = udp.Exchange(m, nameServer)
+		// if record comes back truncated, but we have a TCP connection, try again with that
+		if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
+			if tcp != nil {
+				return DoLookupWorker(nil, tcp, dnsType, dnsClass, name, nameServer, recursive)
+			} else {
+				return res, zdns.STATUS_TRUNCATED, err
+			}
 		}
-
-		r, _, err = tcp.Exchange(m, nameServer)
-		useTCP = true
+	} else {
 		res.Protocol = "tcp"
+		r, _, err = tcp.Exchange(m, nameServer)
 	}
 	if err != nil || r == nil {
 		if nerr, ok := err.(net.Error); ok {
@@ -700,12 +705,7 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, dnsType uint16, dnsClass u
 		}
 		return res, zdns.STATUS_ERROR, err
 	}
-	if r.Rcode == dns.RcodeBadTrunc && !useTCP {
-		if tcp == nil {
-			return res, zdns.STATUS_TRUNCATED, err
-		}
-		r, _, err = tcp.Exchange(m, nameServer)
-	}
+
 	if err != nil || r == nil {
 		return res, zdns.STATUS_ERROR, err
 	}
@@ -807,16 +807,29 @@ func (s *Lookup) retryingLookup(dnsType uint16, dnsClass uint16, name string, na
 		name = name[:len(name)-1]
 	}
 
-	origTimeout := s.Factory.Client.Timeout
+	var origTimeout time.Duration
+	if s.Factory.Client != nil {
+		origTimeout = s.Factory.Client.Timeout
+	} else {
+		origTimeout = s.Factory.TCPClient.Timeout
+	}
 	for i := 0; i < s.Factory.Retries; i++ {
 		result, status, err := s.doLookup(dnsType, dnsClass, name, nameServer, recursive)
 		if (status != zdns.STATUS_TIMEOUT && status != zdns.STATUS_TEMPORARY) || i+1 == s.Factory.Retries {
-			s.Factory.Client.Timeout = origTimeout
-			s.Factory.TCPClient.Timeout = origTimeout
+			if s.Factory.Client != nil {
+				s.Factory.Client.Timeout = origTimeout
+			}
+			if s.Factory.TCPClient != nil {
+				s.Factory.TCPClient.Timeout = origTimeout
+			}
 			return result, status, err
 		}
-		s.Factory.Client.Timeout = 2 * s.Factory.Client.Timeout
-		s.Factory.TCPClient.Timeout = 2 * s.Factory.TCPClient.Timeout
+		if s.Factory.Client != nil {
+			s.Factory.Client.Timeout = 2 * s.Factory.Client.Timeout
+		}
+		if s.Factory.TCPClient != nil {
+			s.Factory.TCPClient.Timeout = 2 * s.Factory.TCPClient.Timeout
+		}
 	}
 	panic("loop must return")
 }
@@ -858,7 +871,12 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, dnsClass uint16, name stri
 	// Now, we check the authoritative:
 	name = strings.ToLower(name)
 	layer = strings.ToLower(layer)
-	authName := nextAuthority(name, layer)
+	authName, err := nextAuthority(name, layer)
+	if err != nil {
+		s.VerboseLog(depth+2, err)
+		var r Result
+		return r, isCached, zdns.STATUS_AUTHFAIL, err
+	}
 	if name != layer && authName != layer {
 		if authName == "" {
 			s.VerboseLog(depth+2, "Can't parse name to authority properly. name: ", name, ", layer: ", layer)
@@ -895,35 +913,35 @@ func nameIsBeneath(name string, layer string) (bool, string) {
 	return false, ""
 }
 
-func nextAuthority(name string, layer string) string {
+func nextAuthority(name string, layer string) (string, error) {
 	// We are our own authority for PTRs
 	// (This is dealt with elsewhere)
 	if strings.HasSuffix(layer, "in-addr.arpa") {
-		return name
+		return name, nil
 	}
 
 	idx := strings.LastIndex(name, ".")
 	if idx < 0 || (idx+1) >= len(name) {
-		return name
+		return name, nil
 	}
 	if layer == "." {
-		return name[idx+1:]
+		return name[idx+1:], nil
 	}
 
 	if !strings.HasSuffix(name, layer) {
-		panic("Layers by definition are suffixes of names")
+		return "", errors.New("Server did not provide appropriate resolvers to continue recursion")
 	}
 
 	// Limit the search space to the prefix of the string that isnt layer
 	idx = strings.LastIndex(name, layer) - 1
 	if idx < 0 || (idx+1) >= len(name) {
 		// Out of bounds. We are our own authority
-		return name
+		return name, nil
 	}
 	// Find the next step in the layer
 	idx = strings.LastIndex(name[0:idx], ".")
 	next := name[idx+1:]
-	return next
+	return next, nil
 }
 
 func (s *Lookup) checkGlue(server string, depth int, result Result) (Result, zdns.Status) {

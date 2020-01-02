@@ -173,6 +173,75 @@ class Tests(unittest.TestCase):
       }
     ]
 
+    UDP_TRUNCATED_LARGE_TXT = {
+      "name": "large-text.zdns-testing.com",
+      "class": "IN",
+      "status": "TRUNCATED",
+      "timestamp": "2019-12-18T14:41:23-05:00",
+      "data": {
+        "answers": [],
+        "additionals": [],
+        "authorities": [],
+        "protocol": "udp",
+        "flags": {
+          "response": False,
+          "opcode": 0,
+          "authoritative": False,
+          "truncated": False,
+          "recursion_desired": False,
+          "recursion_available": False,
+          "authenticated": False,
+          "checking_disabled": False,
+          "error_code": 0
+        }
+      }
+    }
+
+    TCP_LARGE_TXT_ANSWERS = [
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "surveys, informed by our own experiences conducting a long-term research survey over the past year."
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "and explore the security implications of high speed Internet-scale network surveys, both offensive and defensive. "
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "in under 45 minutes from user space on a single machine, approaching the theoretical maximum speed of gigabit Ethernet."
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "We introduce ZMap, a modular, open-source network scanner specifically architected to perform Internet-wide scans and capable of surveying the entire IPv4 address space"
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "Internet-wide network scanning has numerous security applications, including exposing new vulnerabilities and tracking the adoption of defensive mechanisms, but probing the entire public address space with existing tools is both difficult and slow."
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "We also discuss best practices for good Internet citizenship when performing Internet-wide"
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "We present the scanner architecture, experimentally characterize its performance and accuracy, "
+      }
+    ]
+
     WWW_CNAME_ANSWERS = [
       {
         "type": "CNAME",
@@ -479,6 +548,29 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.TLSA_ANSWERS, cmd, key='certificate')
+
+    def test_too_big_txt_udp(self):
+        c = u"./zdns/zdns TXT --udp-only"
+        name = u"large-text.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertEquals(res["status"], "TRUNCATED")
+        self.assertEquals(res["data"]["protocol"], "udp")
+
+    def test_too_big_txt_tcp(self):
+        c = u"./zdns/zdns TXT --tcp-only"
+        name = u"large-text.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertEqualAnswers(res, self.TCP_LARGE_TXT_ANSWERS, cmd,
+                key="answer")
+
+    def test_too_big_txt_all(self):
+        c = u"./zdns/zdns TXT"
+        name = u"large-text.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertEquals(res["data"]["protocol"], "tcp")
+        self.assertEqualAnswers(res, self.TCP_LARGE_TXT_ANSWERS, cmd,
+                key="answer")
+
 
 if __name__ == '__main__':
     unittest.main()
