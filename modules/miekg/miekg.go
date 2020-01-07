@@ -17,6 +17,80 @@ import (
 	"github.com/zmap/zdns/cachehash"
 )
 
+var typeNames = map[uint16]string{
+	dns.TypeNone:    "None",
+	dns.TypeA:       "A",
+	dns.TypeNS:      "NS",
+	dns.TypeMD:      "MD",
+	dns.TypeMF:      "MF",
+	dns.TypeCNAME:   "CNAME",
+	dns.TypeSOA:     "SOA",
+	dns.TypeMB:      "MB",
+	dns.TypeMG:      "MG",
+	dns.TypeMR:      "MR",
+	dns.TypeNULL:    "NULL",
+	dns.TypePTR:     "PTR",
+	dns.TypeHINFO:   "HINFO",
+	dns.TypeMINFO:   "MINFO",
+	dns.TypeMX:      "MX",
+	dns.TypeTXT:     "TXT",
+	dns.TypeRP:      "RP",
+	dns.TypeAFSDB:   "AFSDB",
+	dns.TypeX25:     "X25",
+	dns.TypeISDN:    "ISDN",
+	dns.TypeRT:      "RT",
+	dns.TypeNSAPPTR: "NSAPPTR",
+	dns.TypeSIG:     "SIG",
+	dns.TypeKEY:     "KEY",
+	dns.TypePX:      "PX",
+	dns.TypeGPOS:    "GPOS",
+	dns.TypeAAAA:    "AAAA",
+	dns.TypeLOC:     "LOC",
+	dns.TypeNXT:     "NXT",
+	dns.TypeEID:     "EID",
+	dns.TypeNIMLOC:  "NIMLOC",
+	dns.TypeSRV:     "SRV",
+	dns.TypeATMA:    "ATMA",
+	dns.TypeNAPTR:   "NAPTR",
+	dns.TypeKX:      "KX",
+	dns.TypeCERT:    "CERT",
+	dns.TypeDNAME:   "DNAME",
+	dns.TypeOPT:     "OPT",
+	//dns.TypeAPL:        "APL",
+	dns.TypeDS:         "DS",
+	dns.TypeSSHFP:      "SSHFP",
+	dns.TypeRRSIG:      "RRSIG",
+	dns.TypeNSEC:       "NSEC",
+	dns.TypeDNSKEY:     "DNSKEY",
+	dns.TypeDHCID:      "DHCID",
+	dns.TypeNSEC3:      "NSEC3",
+	dns.TypeNSEC3PARAM: "NSEC3PARAM",
+	dns.TypeTLSA:       "TLSA",
+	dns.TypeSMIMEA:     "SMIMEA",
+	dns.TypeHIP:        "HIP",
+	dns.TypeNINFO:      "NINFO",
+	dns.TypeRKEY:       "RKEY",
+	dns.TypeTALINK:     "TALINK",
+	dns.TypeCDS:        "CDS",
+	dns.TypeCDNSKEY:    "CDNSKEY",
+	dns.TypeOPENPGPKEY: "OPENPGPKEY",
+	dns.TypeCSYNC:      "CSYNC",
+	dns.TypeSPF:        "SPF",
+	dns.TypeUINFO:      "UINFO",
+	dns.TypeUID:        "UID",
+	dns.TypeGID:        "GID",
+	dns.TypeUNSPEC:     "UNSPEC",
+	dns.TypeNID:        "NID",
+	dns.TypeL32:        "L32",
+	dns.TypeL64:        "L64",
+	dns.TypeLP:         "LP",
+	dns.TypeEUI48:      "EUI48",
+	dns.TypeEUI64:      "EUI64",
+	dns.TypeURI:        "URI",
+	dns.TypeCAA:        "CAA",
+	dns.TypeAVC:        "AVC",
+}
+
 type Answer struct {
 	Ttl     uint32 `json:"ttl"`
 	Type    string `json:"type,omitempty"`
@@ -795,17 +869,7 @@ func (s *Lookup) tracedRetryingLookup(dnsType uint16, dnsClass uint16, name stri
 }
 
 func (s *Lookup) retryingLookup(dnsType uint16, dnsClass uint16, name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
-	s.VerboseLog(1, "****WIRE LOOKUP***", name, " ", nameServer)
-
-	if dnsType == dns.TypePTR {
-		var err error
-		name, err = dns.ReverseAddr(name)
-		if err != nil {
-			var r Result
-			return r, zdns.STATUS_ILLEGAL_INPUT, err
-		}
-		name = name[:len(name)-1]
-	}
+	s.VerboseLog(1, "****WIRE LOOKUP*** ", typeNames[dnsType], " ", name, " ", nameServer)
 
 	var origTimeout time.Duration
 	if s.Factory.Client != nil {
@@ -872,6 +936,7 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, dnsClass uint16, name stri
 	name = strings.ToLower(name)
 	layer = strings.ToLower(layer)
 	authName, err := nextAuthority(name, layer)
+	fmt.Println("########## name: ", name, " layer: ", layer, " next authority: ", authName)
 	if err != nil {
 		s.VerboseLog(depth+2, err)
 		var r Result
@@ -891,8 +956,8 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, dnsClass uint16, name stri
 		}
 	}
 
-	s.VerboseLog(depth+2, "Wire lookup for name: ", name, " (", dnsType, ") at nameserver: ", nameServer)
 	// Alright, we're not sure what to do, go to the wire.
+	s.VerboseLog(depth+2, "Wire lookup for name: ", name, " (", dnsType, ") at nameserver: ", nameServer)
 	result, status, err := s.retryingLookup(dnsType, dnsClass, name, nameServer, false)
 
 	s.cacheUpdate(layer, result, depth+2)
@@ -916,8 +981,8 @@ func nameIsBeneath(name string, layer string) (bool, string) {
 func nextAuthority(name string, layer string) (string, error) {
 	// We are our own authority for PTRs
 	// (This is dealt with elsewhere)
-	if strings.HasSuffix(layer, "in-addr.arpa") {
-		return name, nil
+	if strings.HasSuffix(name, "in-addr.arpa") && layer == "." {
+		return "in-addr.arpa", nil
 	}
 
 	idx := strings.LastIndex(name, ".")
@@ -1095,7 +1160,9 @@ func (s *Lookup) iterateOnAuthorities(dnsType uint16, dnsClass uint16, name stri
 	return r, trace, zdns.STATUS_ERROR, errors.New("could not find authoritative name server")
 }
 
-func (s *Lookup) iterativeLookup(dnsType uint16, dnsClass uint16, name string, nameServer string, depth int, layer string, trace []interface{}) (Result, []interface{}, zdns.Status, error) {
+func (s *Lookup) iterativeLookup(dnsType uint16, dnsClass uint16, name string, nameServer string,
+	depth int, layer string, trace []interface{}) (Result, []interface{}, zdns.Status, error) {
+	//
 	if log.GetLevel() == log.DebugLevel {
 		//s.VerboseLog((depth), "iterative lookup for ", name, " (", dnsType, ") against ", nameServer, " (", debugReverseLookup(nameServer), ") layer ", layer)
 		s.VerboseLog((depth), "iterative lookup for ", name, " (", dnsType, ") against ", nameServer, " layer ", layer)
@@ -1147,6 +1214,14 @@ func (s *Lookup) iterativeLookup(dnsType uint16, dnsClass uint16, name string, n
 }
 
 func (s *Lookup) DoMiekgLookup(name string) (interface{}, []interface{}, zdns.Status, error) {
+	if s.DNSType == dns.TypePTR {
+		//var err error
+		name, _ = dns.ReverseAddr(name)
+		//if err != nil {
+		//	return res, zdns.STATUS_ILLEGAL_INPUT, err
+		//}
+		name = name[:len(name)-1]
+	}
 	if s.Factory.IterativeResolution {
 		s.VerboseLog(0, "MIEKG-IN: iterative lookup for ", name, " (", s.DNSType, ")")
 		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
