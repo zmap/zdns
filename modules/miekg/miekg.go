@@ -936,7 +936,6 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, dnsClass uint16, name stri
 	name = strings.ToLower(name)
 	layer = strings.ToLower(layer)
 	authName, err := nextAuthority(name, layer)
-	fmt.Println("########## name: ", name, " layer: ", layer, " next authority: ", authName)
 	if err != nil {
 		s.VerboseLog(depth+2, err)
 		var r Result
