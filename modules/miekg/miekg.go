@@ -1214,11 +1214,11 @@ func (s *Lookup) iterativeLookup(dnsType uint16, dnsClass uint16, name string, n
 
 func (s *Lookup) DoMiekgLookup(name string) (interface{}, []interface{}, zdns.Status, error) {
 	if s.DNSType == dns.TypePTR {
-		//var err error
-		name, _ = dns.ReverseAddr(name)
-		//if err != nil {
-		//	return res, zdns.STATUS_ILLEGAL_INPUT, err
-		//}
+		var err error
+		name, err = dns.ReverseAddr(name)
+		if err != nil {
+			return nil, nil, zdns.STATUS_ILLEGAL_INPUT, err
+		}
 		name = name[:len(name)-1]
 	}
 	if s.Factory.IterativeResolution {
