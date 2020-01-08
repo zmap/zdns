@@ -18,45 +18,44 @@ import (
 )
 
 var typeNames = map[uint16]string{
-	dns.TypeNone:    "None",
-	dns.TypeA:       "A",
-	dns.TypeNS:      "NS",
-	dns.TypeMD:      "MD",
-	dns.TypeMF:      "MF",
-	dns.TypeCNAME:   "CNAME",
-	dns.TypeSOA:     "SOA",
-	dns.TypeMB:      "MB",
-	dns.TypeMG:      "MG",
-	dns.TypeMR:      "MR",
-	dns.TypeNULL:    "NULL",
-	dns.TypePTR:     "PTR",
-	dns.TypeHINFO:   "HINFO",
-	dns.TypeMINFO:   "MINFO",
-	dns.TypeMX:      "MX",
-	dns.TypeTXT:     "TXT",
-	dns.TypeRP:      "RP",
-	dns.TypeAFSDB:   "AFSDB",
-	dns.TypeX25:     "X25",
-	dns.TypeISDN:    "ISDN",
-	dns.TypeRT:      "RT",
-	dns.TypeNSAPPTR: "NSAPPTR",
-	dns.TypeSIG:     "SIG",
-	dns.TypeKEY:     "KEY",
-	dns.TypePX:      "PX",
-	dns.TypeGPOS:    "GPOS",
-	dns.TypeAAAA:    "AAAA",
-	dns.TypeLOC:     "LOC",
-	dns.TypeNXT:     "NXT",
-	dns.TypeEID:     "EID",
-	dns.TypeNIMLOC:  "NIMLOC",
-	dns.TypeSRV:     "SRV",
-	dns.TypeATMA:    "ATMA",
-	dns.TypeNAPTR:   "NAPTR",
-	dns.TypeKX:      "KX",
-	dns.TypeCERT:    "CERT",
-	dns.TypeDNAME:   "DNAME",
-	dns.TypeOPT:     "OPT",
-	//dns.TypeAPL:        "APL",
+	dns.TypeNone:       "None",
+	dns.TypeA:          "A",
+	dns.TypeNS:         "NS",
+	dns.TypeMD:         "MD",
+	dns.TypeMF:         "MF",
+	dns.TypeCNAME:      "CNAME",
+	dns.TypeSOA:        "SOA",
+	dns.TypeMB:         "MB",
+	dns.TypeMG:         "MG",
+	dns.TypeMR:         "MR",
+	dns.TypeNULL:       "NULL",
+	dns.TypePTR:        "PTR",
+	dns.TypeHINFO:      "HINFO",
+	dns.TypeMINFO:      "MINFO",
+	dns.TypeMX:         "MX",
+	dns.TypeTXT:        "TXT",
+	dns.TypeRP:         "RP",
+	dns.TypeAFSDB:      "AFSDB",
+	dns.TypeX25:        "X25",
+	dns.TypeISDN:       "ISDN",
+	dns.TypeRT:         "RT",
+	dns.TypeNSAPPTR:    "NSAPPTR",
+	dns.TypeSIG:        "SIG",
+	dns.TypeKEY:        "KEY",
+	dns.TypePX:         "PX",
+	dns.TypeGPOS:       "GPOS",
+	dns.TypeAAAA:       "AAAA",
+	dns.TypeLOC:        "LOC",
+	dns.TypeNXT:        "NXT",
+	dns.TypeEID:        "EID",
+	dns.TypeNIMLOC:     "NIMLOC",
+	dns.TypeSRV:        "SRV",
+	dns.TypeATMA:       "ATMA",
+	dns.TypeNAPTR:      "NAPTR",
+	dns.TypeKX:         "KX",
+	dns.TypeCERT:       "CERT",
+	dns.TypeDNAME:      "DNAME",
+	dns.TypeOPT:        "OPT",
 	dns.TypeDS:         "DS",
 	dns.TypeSSHFP:      "SSHFP",
 	dns.TypeRRSIG:      "RRSIG",
@@ -1214,11 +1213,11 @@ func (s *Lookup) iterativeLookup(dnsType uint16, dnsClass uint16, name string, n
 
 func (s *Lookup) DoMiekgLookup(name string) (interface{}, []interface{}, zdns.Status, error) {
 	if s.DNSType == dns.TypePTR {
-		//var err error
-		name, _ = dns.ReverseAddr(name)
-		//if err != nil {
-		//	return res, zdns.STATUS_ILLEGAL_INPUT, err
-		//}
+		var err error
+		name, err = dns.ReverseAddr(name)
+		if err != nil {
+			return nil, nil, zdns.STATUS_ILLEGAL_INPUT, err
+		}
 		name = name[:len(name)-1]
 	}
 	if s.Factory.IterativeResolution {
