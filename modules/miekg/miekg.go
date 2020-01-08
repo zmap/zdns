@@ -191,6 +191,7 @@ type Result struct {
 	Additional  []interface{} `json:"additionals"`
 	Authorities []interface{} `json:"authorities"`
 	Protocol    string        `json:"protocol"`
+	Resolver    string        `json:"resolver"`
 	Flags       DNSFlags      `json:"flags"`
 }
 
@@ -745,6 +746,7 @@ func (s *Lookup) doLookup(dnsType uint16, dnsClass uint16, name string, nameServ
 // Expose the inner logic so other tools can use it
 func DoLookupWorker(udp *dns.Client, tcp *dns.Client, dnsType uint16, dnsClass uint16, name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
 	res := Result{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
+	res.Resolver = nameServer
 
 	m := new(dns.Msg)
 	m.SetQuestion(dotName(name), dnsType)
@@ -1112,7 +1114,9 @@ func handleStatus(status *zdns.Status, err error) (*zdns.Status, error) {
 	}
 }
 
-func (s *Lookup) iterateOnAuthorities(dnsType uint16, dnsClass uint16, name string, depth int, result Result, layer string, trace []interface{}) (Result, []interface{}, zdns.Status, error) {
+func (s *Lookup) iterateOnAuthorities(dnsType uint16, dnsClass uint16, name string,
+	depth int, result Result, layer string, trace []interface{}) (Result, []interface{}, zdns.Status, error) {
+	//
 	if len(result.Authorities) == 0 {
 		var r Result
 		return r, trace, zdns.STATUS_SERVFAIL, nil
