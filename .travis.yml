@@ -3,7 +3,7 @@ go:
 - 1.13
 before_install:
 - go get github.com/sirupsen/logrus
-- go get github.com/miekg/dns
+- go get github.com/zmap/miekg-dns
 - go get github.com/zmap/go-iptree/iptree
 - go get github.com/zmap/go-iptree/blacklist
 before_script:
