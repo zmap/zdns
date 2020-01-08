@@ -1,9 +1,10 @@
 package miekg
 
 import (
-	"github.com/miekg/dns"
 	"net"
 	"testing"
+
+	dns "github.com/zmap/miekg-dns"
 )
 
 func TestParseAnswer(t *testing.T) {

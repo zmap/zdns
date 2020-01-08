@@ -22,8 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
+	dns "github.com/zmap/miekg-dns"
 )
 
 type routineMetadata struct {

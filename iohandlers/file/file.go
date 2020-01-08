@@ -5,8 +5,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
+	dns "github.com/zmap/miekg-dns"
 	"github.com/zmap/zdns"
 )
 

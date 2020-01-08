@@ -20,8 +20,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
+	dns "github.com/zmap/miekg-dns"
 )
 
 /* Each lookup module registers a single GlobalLookupFactory, which is

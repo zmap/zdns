@@ -21,8 +21,6 @@ import (
 	"sync"
 
 	log "github.com/sirupsen/logrus"
-
-	//"github.com/miekg/dns"
 	dns "github.com/zmap/miekg-dns"
 
 	"github.com/zmap/go-iptree/blacklist"

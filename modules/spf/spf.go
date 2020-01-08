@@ -15,7 +15,7 @@
 package spf
 
 import (
-	"github.com/miekg/dns"
+	dns "github.com/zmap/miekg-dns"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/modules/miekg"
 )
