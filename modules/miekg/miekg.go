@@ -566,14 +566,14 @@ func ParseAnswer(ans dns.RR) interface{} {
 				Ttl:     rrsig.Hdr.Ttl,
 			},
 			TypeCovered: rrsig.TypeCovered,
-			Algorithm: rrsig.Algorithm,
-			Labels: rrsig.Labels,
+			Algorithm:   rrsig.Algorithm,
+			Labels:      rrsig.Labels,
 			OriginalTtl: rrsig.OrigTtl,
-			Expiration: rrsig.Expiration,
-			Inception: rrsig.Inception,
-			KeyTag: rrsig.KeyTag,
-			SignerName: rrsig.SignerName,
-			Signature: rrsig.Signature,
+			Expiration:  rrsig.Expiration,
+			Inception:   rrsig.Inception,
+			KeyTag:      rrsig.KeyTag,
+			SignerName:  rrsig.SignerName,
+			Signature:   rrsig.Signature,
 		}
 	} else {
 		return struct {
@@ -671,6 +671,15 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, d
 		// we can't cache this entry because we have no idea what to name it
 		return
 	}
+	// only cache records that can help prevent future iteration: A(AAA), NS, (C|D)NAME.
+	// This will prevent some entries that will never help future iteration (e.g., PTR)
+	// from causing unnecessary cache evictions.
+	// TODO: this is overly broad right now and will unnecessarily cache some leaf A/AAAA records. However,
+	// it's a lot of work to understand _why_ we're doing a specific lookup and this will still help
+	// in other cases, e.g., PTR lookups
+	if !(dnsType == dns.TypeA || dnsType == dns.TypeAAAA || dnsType == dns.TypeNS || dnsType == dns.TypeDNAME || dnsType == dns.TypeCNAME) {
+		return
+	}
 	key := makeCacheKey(name, dnsType)
 	expiresAt := time.Now().Add(time.Duration(ttl) * time.Second)
 	s.CacheMutex.Lock()
@@ -690,9 +699,9 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, d
 		Answer:    answer,
 		ExpiresAt: expiresAt}
 	ca.Answers[a] = ta
-	s.VerboseGlobalLog(depth+1, threadID, "Add cached answer ", key, " ", ca)
 	s.IterativeCache.Add(key, ca)
 	s.CacheMutex.Unlock()
+	s.VerboseGlobalLog(depth+1, threadID, "Add cached answer ", key, " ", ca)
 }
 
 func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, isAuthCheck bool, depth int, threadID int) (Result, bool) {
