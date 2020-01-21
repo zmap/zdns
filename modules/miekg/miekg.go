@@ -671,12 +671,13 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, d
 		// we can't cache this entry because we have no idea what to name it
 		return
 	}
-	// only cache records that can help prevent future iteration.
-	// There's no reason to cache the leaf records that are unlikely to be useful in the future
+	// only cache records that can help prevent future iteration: A(AAA), NS, (C|D)NAME.
+	// This will prevent some entries that will never help future iteration (e.g., PTR)
+	// from causing unnecessary cache evictions.
 	// TODO: this is overly broad right now and will unnecessarily cache some leaf A/AAAA records. However,
 	// it's a lot of work to understand _why_ we're doing a specific lookup and this will still help
 	// in other cases, e.g., PTR lookups
-	if !(dnsType == dns.TypeA || dnsType == dns.TypeAAAA || dnsType == dns.TypeNS || dnsType == dns.TypeDNAME) {
+	if !(dnsType == dns.TypeA || dnsType == dns.TypeAAAA || dnsType == dns.TypeNS || dnsType == dns.TypeDNAME || dnsType == dns.TypeCNAME) {
 		return
 	}
 	key := makeCacheKey(name, dnsType)
