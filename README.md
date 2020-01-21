@@ -28,8 +28,9 @@ ZDNS provides several types of modules.
 Raw DNS Modules
 ---------------
 
-The `A`, `AAAA`, `ANY`, `AXFR`, `CAA`, `CNAME`, `DMARC`, `MX`, `NS`, `PTR`, `TXT`,
-`SOA`, and `SPF` modules provide the raw DNS response in JSON form, similar to dig.
+The `A`, `AAAA`, `ANY`, `AXFR`, `CAA`, `CDS`, `CDNSKEY`, `CNAME`, `DMARC`, `DS`, `DNSKEY`,
+`MX`, `NAPTR`, `NS`, `NSEC`, `NSEC3`, `NSEC3PARAM`, `PTR`,  `RRSIG`, `SOA`, `SPF`,
+`SRV`, `TLSA`, and `TXT` modules provide the raw DNS response in JSON form, similar to dig.
 
 For example, the command:
 
@@ -155,6 +156,13 @@ You can control the number of concurrent connections with the `--threads` and
 specified with `--name-servers`. ZDNS will rotate through these servers when
 making requests.
 
+While the number of go routines you use will depend on both hardware and the
+type of request, we've rarely seen performance increase with more than 5,000 go
+routines. In most cases, either performance will decrease and/or timeouts will
+increase beyond that point. We've seen good ZDNS performance by running multiple
+processes. Running 4 instances of ZDNS each with 2,500 threads is a great place
+to start testing if you're performing large studies.
+
 Unsupported Types
 -----------------
 
@@ -169,7 +177,7 @@ parser support.
 License
 =======
 
-ZDNS Copyright 2016 Regents of the University of Michigan
+ZDNS Copyright 2020 Regents of the University of Michigan
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use
 this file except in compliance with the License. You may obtain a copy of the

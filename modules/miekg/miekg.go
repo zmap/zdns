@@ -155,6 +155,18 @@ type TLSAAnswer struct {
 	Certificate  string `json:"certificate"`
 }
 
+type NSECAnswer struct {
+	Answer
+}
+
+type NSEC3Answer struct {
+	Answer
+	HashAlgorithm uint8  `json:"hash_algorithm"`
+	Flags         uint8  `json:"flags"`
+	Iterations    uint16 `json:"iterations"`
+	Salt          string `json:"salt"`
+}
+
 type NSEC3ParamAnswer struct {
 	Answer
 	HashAlgorithm uint8  `json:"hash_algorithm"`
@@ -171,6 +183,19 @@ type NAPTRAnswer struct {
 	Service     string `json:"service"`
 	Regexp      string `json:"regexp"`
 	Replacement string `json:"replacement"`
+}
+
+type RRSIGAnswer struct {
+	Answer
+	TypeCovered uint16 `json:"type_covered"`
+	Algorithm   uint8  `json:"algorithm"`
+	Labels      uint8  `json:"labels"`
+	OriginalTtl uint32 `json:"original_ttl"`
+	Expiration  uint32 `json:"expiration"`
+	Inception   uint32 `json:"inception"`
+	KeyTag      uint16 `json:"keytag"`
+	SignerName  string `json:"signer_name"`
+	Signature   string `json:"signature"`
 }
 
 type DNSFlags struct {
@@ -470,6 +495,34 @@ func ParseAnswer(ans dns.RR) interface{} {
 			MatchingType: tlsa.MatchingType,
 			Certificate:  tlsa.Certificate,
 		}
+	} else if nsec, ok := ans.(*dns.NSEC); ok {
+		return NSECAnswer{
+			Answer: Answer{
+				Name:    strings.TrimSuffix(nsec.Hdr.Name, "."),
+				Type:    dns.Type(nsec.Hdr.Rrtype).String(),
+				rrType:  nsec.Hdr.Rrtype,
+				Class:   dns.Class(nsec.Hdr.Class).String(),
+				rrClass: nsec.Hdr.Class,
+				Ttl:     nsec.Hdr.Ttl,
+				Answer:  strings.TrimSuffix(nsec.NextDomain, "."),
+			},
+		}
+	} else if nsec3, ok := ans.(*dns.NSEC3); ok {
+		return NSEC3Answer{
+			Answer: Answer{
+				Name:    strings.TrimSuffix(nsec3.Hdr.Name, "."),
+				Type:    dns.Type(nsec3.Hdr.Rrtype).String(),
+				rrType:  nsec3.Hdr.Rrtype,
+				Class:   dns.Class(nsec3.Hdr.Class).String(),
+				rrClass: nsec3.Hdr.Class,
+				Ttl:     nsec3.Hdr.Ttl,
+				Answer:  strings.TrimSuffix(nsec3.NextDomain, "."),
+			},
+			HashAlgorithm: nsec3.Hash,
+			Flags:         nsec3.Flags,
+			Iterations:    nsec3.Iterations,
+			Salt:          nsec3.Salt,
+		}
 	} else if nsec3param, ok := ans.(*dns.NSEC3PARAM); ok {
 		return NSEC3ParamAnswer{
 			Answer: Answer{
@@ -501,6 +554,26 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Service:     naptr.Service,
 			Regexp:      naptr.Regexp,
 			Replacement: naptr.Replacement,
+		}
+	} else if rrsig, ok := ans.(*dns.RRSIG); ok {
+		return RRSIGAnswer{
+			Answer: Answer{
+				Name:    strings.TrimSuffix(rrsig.Hdr.Name, "."),
+				Type:    dns.Type(rrsig.Hdr.Rrtype).String(),
+				rrType:  rrsig.Hdr.Rrtype,
+				Class:   dns.Class(rrsig.Hdr.Class).String(),
+				rrClass: rrsig.Hdr.Class,
+				Ttl:     rrsig.Hdr.Ttl,
+			},
+			TypeCovered: rrsig.TypeCovered,
+			Algorithm:   rrsig.Algorithm,
+			Labels:      rrsig.Labels,
+			OriginalTtl: rrsig.OrigTtl,
+			Expiration:  rrsig.Expiration,
+			Inception:   rrsig.Inception,
+			KeyTag:      rrsig.KeyTag,
+			SignerName:  rrsig.SignerName,
+			Signature:   rrsig.Signature,
 		}
 	} else {
 		return struct {
@@ -598,6 +671,15 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, d
 		// we can't cache this entry because we have no idea what to name it
 		return
 	}
+	// only cache records that can help prevent future iteration: A(AAA), NS, (C|D)NAME.
+	// This will prevent some entries that will never help future iteration (e.g., PTR)
+	// from causing unnecessary cache evictions.
+	// TODO: this is overly broad right now and will unnecessarily cache some leaf A/AAAA records. However,
+	// it's a lot of work to understand _why_ we're doing a specific lookup and this will still help
+	// in other cases, e.g., PTR lookups
+	if !(dnsType == dns.TypeA || dnsType == dns.TypeAAAA || dnsType == dns.TypeNS || dnsType == dns.TypeDNAME || dnsType == dns.TypeCNAME) {
+		return
+	}
 	key := makeCacheKey(name, dnsType)
 	expiresAt := time.Now().Add(time.Duration(ttl) * time.Second)
 	s.CacheMutex.Lock()
@@ -617,9 +699,9 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, d
 		Answer:    answer,
 		ExpiresAt: expiresAt}
 	ca.Answers[a] = ta
-	s.VerboseGlobalLog(depth+1, threadID, "Add cached answer ", key, " ", ca)
 	s.IterativeCache.Add(key, ca)
 	s.CacheMutex.Unlock()
+	s.VerboseGlobalLog(depth+1, threadID, "Add cached answer ", key, " ", ca)
 }
 
 func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, isAuthCheck bool, depth int, threadID int) (Result, bool) {
@@ -1386,6 +1468,14 @@ func init() {
 	tlsa.SetDNSType(dns.TypeTLSA)
 	zdns.RegisterLookup("TLSA", tlsa)
 
+	nsec := new(GlobalLookupFactory)
+	nsec.SetDNSType(dns.TypeNSEC)
+	zdns.RegisterLookup("NSEC", nsec)
+
+	nsec3 := new(GlobalLookupFactory)
+	nsec3.SetDNSType(dns.TypeNSEC3)
+	zdns.RegisterLookup("NSEC3", nsec3)
+
 	nsec3param := new(GlobalLookupFactory)
 	nsec3param.SetDNSType(dns.TypeNSEC3PARAM)
 	zdns.RegisterLookup("NSEC3PARAM", nsec3param)
@@ -1393,4 +1483,8 @@ func init() {
 	naptr := new(GlobalLookupFactory)
 	naptr.SetDNSType(dns.TypeNAPTR)
 	zdns.RegisterLookup("NAPTR", naptr)
+
+	rrsig := new(GlobalLookupFactory)
+	rrsig.SetDNSType(dns.TypeRRSIG)
+	zdns.RegisterLookup("RRSIG", rrsig)
 }
