@@ -12,4 +12,4 @@ require (
 	golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa // indirect
 )
 
-replace github.com/miekg/dns => github.com/zmap/dns v1.1.28-0.20200122014101-3c9b2fbd9264
+replace github.com/miekg/dns => github.com/zmap/dns v1.1.28-zmap
