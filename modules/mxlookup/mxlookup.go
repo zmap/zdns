@@ -43,7 +43,7 @@ type MXRecord struct {
 }
 
 type Result struct {
-	Servers []MXRecord `json:"exchanges"`
+	Servers []MXRecord `json:"exchanges" groups:"short,normal,long,trace"`
 }
 
 // Per Connection Lookup ======================================================
