@@ -22,7 +22,7 @@ import (
 
 // result to be returned by scan of host
 type Result struct {
-	Dmarc string `json:"dmarc,omitempty"`
+	Dmarc string `json:"dmarc,omitempty" groups:"short,normal,long,trace"`
 }
 
 // Per Connection Lookup ======================================================

@@ -33,13 +33,13 @@ type CachedAddresses struct {
 }
 
 type MXRecord struct {
-	Name          string   `json:"name"`
-	Type          string   `json:"type"`
-	Class         string   `json:"class"`
-	Preference    uint16   `json:"preference"`
-	IPv4Addresses []string `json:"ipv4_addresses,omitempty"`
-	IPv6Addresses []string `json:"ipv6_addresses,omitempty"`
-	TTL           uint32   `json:"ttl"`
+	Name          string   `json:"name" groups:"short,normal,long,trace"`
+	Type          string   `json:"type" groups:"short,normal,long,trace"`
+	Class         string   `json:"class" groups:"short,normal,long,trace"`
+	Preference    uint16   `json:"preference" groups:"short,normal,long,trace"`
+	IPv4Addresses []string `json:"ipv4_addresses,omitempty" groups:"short,normal,long,trace"`
+	IPv6Addresses []string `json:"ipv6_addresses,omitempty" groups:"short,normal,long,trace"`
+	TTL           uint32   `json:"ttl" groups:"ttl,normal,long,trace"`
 }
 
 type Result struct {

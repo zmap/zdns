@@ -17,13 +17,17 @@ package zdns
 import "time"
 
 type GlobalConf struct {
-	Threads              int
-	Timeout              time.Duration
-	IterationTimeout     time.Duration
-	Retries              int
-	AlexaFormat          bool
-	IterativeResolution  bool
-	Trace                bool
+	Threads             int
+	Timeout             time.Duration
+	IterationTimeout    time.Duration
+	Retries             int
+	AlexaFormat         bool
+	IterativeResolution bool
+
+	ResultVerbosity string
+	IncludeInOutput string
+	OutputGroups    []string
+
 	MaxDepth             int
 	CacheSize            int
 	GoMaxProcs           int
@@ -61,16 +65,16 @@ type Metadata struct {
 }
 
 type Result struct {
-	AlteredName string        `json:"altered_name,omitempty"`
-	Name        string        `json:"name,omitempty"`
-	Nameserver  string        `json:"nameserver,omitempty"`
-	Class       string        `json:"class,omitempty"`
-	AlexaRank   int           `json:"alexa_rank,omitempty"`
-	Status      string        `json:"status,omitempty"`
-	Error       string        `json:"error,omitempty"`
-	Timestamp   string        `json:"timestamp,omitempty"`
-	Data        interface{}   `json:"data,omitempty"`
-	Trace       []interface{} `json:"trace,omitempty"`
+	AlteredName string        `json:"altered_name,omitempty" groups:"short,normal,long,trace"`
+	Name        string        `json:"name,omitempty" groups:"short,normal,long,trace"`
+	Nameserver  string        `json:"nameserver,omitempty" groups:"normal,long,trace"`
+	Class       string        `json:"class,omitempty" groups:"long,trace"`
+	AlexaRank   int           `json:"alexa_rank,omitempty" groups:"short,normal,long,trace"`
+	Status      string        `json:"status,omitempty" groups:"short,normal,long,trace"`
+	Error       string        `json:"error,omitempty" groups:"short,normal,long,trace"`
+	Timestamp   string        `json:"timestamp,omitempty" groups:"short,normal,long,trace"`
+	Data        interface{}   `json:"data,omitempty" groups:"short,normal,long,trace"`
+	Trace       []interface{} `json:"trace,omitempty" groups:"trace"`
 }
 
 type TargetedDomain struct {
