@@ -91,68 +91,68 @@ var typeNames = map[uint16]string{
 }
 
 type Answer struct {
-	Ttl     uint32 `json:"ttl"`
-	Type    string `json:"type,omitempty"`
+	Ttl     uint32 `json:"ttl" groups:"ttl,normal,long,trace"`
+	Type    string `json:"type,omitempty" groups:"short,normal,long,trace"`
 	rrType  uint16
-	Class   string `json:"class,omitempty"`
+	Class   string `json:"class,omitempty" groups:"short,normal,long,trace"`
 	rrClass uint16
-	Name    string `json:"name,omitempty"`
-	Answer  string `json:"answer,omitempty"`
+	Name    string `json:"name,omitempty" groups:"short,normal,long,trace"`
+	Answer  string `json:"answer,omitempty" groups:"short,normal,long,trace"`
 }
 
 type MXAnswer struct {
 	Answer
-	Preference uint16 `json:"preference"`
+	Preference uint16 `json:"preference" groups:"short,normal,long,trace"`
 }
 
 type DSAnswer struct {
 	Answer
-	KeyTag     uint16 `json:"key_tag"`
-	Algorithm  uint8  `json:"algorithm"`
-	DigestType uint8  `json:"digest_type"`
-	Digest     string `json:"digest"`
+	KeyTag     uint16 `json:"key_tag" groups:"short,normal,long,trace"`
+	Algorithm  uint8  `json:"algorithm" groups:"short,normal,long,trace"`
+	DigestType uint8  `json:"digest_type" groups:"short,normal,long,trace"`
+	Digest     string `json:"digest" groups:"short,normal,long,trace"`
 }
 
 type DNSKEYAnswer struct {
 	Answer
-	Flags     uint16 `json:"flags"`
-	Protocol  uint8  `json:"protocol"`
-	Algorithm uint8  `json:"algorithm"`
-	PublicKey string `json:"public_key"`
+	Flags     uint16 `json:"flags" groups:"short,normal,long,trace"`
+	Protocol  uint8  `json:"protocol" groups:"short,normal,long,trace"`
+	Algorithm uint8  `json:"algorithm" groups:"short,normal,long,trace"`
+	PublicKey string `json:"public_key" groups:"short,normal,long,trace"`
 }
 
 type CAAAnswer struct {
 	Answer
-	Tag   string `json:"tag"`
-	Value string `json:"value"`
-	Flag  uint8  `json:"flag"`
+	Tag   string `json:"tag" groups:"short,normal,long,trace"`
+	Value string `json:"value" groups:"short,normal,long,trace"`
+	Flag  uint8  `json:"flag" groups:"short,normal,long,trace"`
 }
 
 type SOAAnswer struct {
 	Answer
-	Ns      string `json:"ns"`
-	Mbox    string `json:"mbox"`
-	Serial  uint32 `json:"serial"`
-	Refresh uint32 `json:"refresh"`
-	Retry   uint32 `json:"retry"`
-	Expire  uint32 `json:"expire"`
-	Minttl  uint32 `json:"min_ttl"`
+	Ns      string `json:"ns" groups:"short,normal,long,trace"`
+	Mbox    string `json:"mbox" groups:"short,normal,long,trace"`
+	Serial  uint32 `json:"serial" groups:"short,normal,long,trace"`
+	Refresh uint32 `json:"refresh" groups:"short,normal,long,trace"`
+	Retry   uint32 `json:"retry" groups:"short,normal,long,trace"`
+	Expire  uint32 `json:"expire" groups:"short,normal,long,trace"`
+	Minttl  uint32 `json:"min_ttl" groups:"short,normal,long,trace"`
 }
 
 type SRVAnswer struct {
 	Answer
-	Priority uint16 `json:"priority"`
-	Weight   uint16 `json:"weight"`
-	Port     uint16 `json:"port"`
-	Target   string `json:"target"`
+	Priority uint16 `json:"priority" groups:"short,normal,long,trace"`
+	Weight   uint16 `json:"weight" groups:"short,normal,long,trace"`
+	Port     uint16 `json:"port" groups:"short,normal,long,trace"`
+	Target   string `json:"target" groups:"short,normal,long,trace"`
 }
 
 type TLSAAnswer struct {
 	Answer
-	CertUsage    uint8  `json:"cert_usage"`
-	Selector     uint8  `json:"selector"`
-	MatchingType uint8  `json:"matching_type"`
-	Certificate  string `json:"certificate"`
+	CertUsage    uint8  `json:"cert_usage" groups:"short,normal,long,trace"`
+	Selector     uint8  `json:"selector" groups:"short,normal,long,trace"`
+	MatchingType uint8  `json:"matching_type" groups:"short,normal,long,trace"`
+	Certificate  string `json:"certificate" groups:"short,normal,long,trace"`
 }
 
 type NSECAnswer struct {
@@ -161,74 +161,74 @@ type NSECAnswer struct {
 
 type NSEC3Answer struct {
 	Answer
-	HashAlgorithm uint8  `json:"hash_algorithm"`
-	Flags         uint8  `json:"flags"`
-	Iterations    uint16 `json:"iterations"`
-	Salt          string `json:"salt"`
+	HashAlgorithm uint8  `json:"hash_algorithm" groups:"short,normal,long,trace"`
+	Flags         uint8  `json:"flags" groups:"short,normal,long,trace"`
+	Iterations    uint16 `json:"iterations" groups:"short,normal,long,trace"`
+	Salt          string `json:"salt" groups:"short,normal,long,trace"`
 }
 
 type NSEC3ParamAnswer struct {
 	Answer
-	HashAlgorithm uint8  `json:"hash_algorithm"`
-	Flags         uint8  `json:"flags"`
-	Iterations    uint16 `json:"iterations"`
-	Salt          string `json:"salt"`
+	HashAlgorithm uint8  `json:"hash_algorithm" groups:"short,normal,long,trace"`
+	Flags         uint8  `json:"flags" groups:"short,normal,long,trace"`
+	Iterations    uint16 `json:"iterations" groups:"short,normal,long,trace"`
+	Salt          string `json:"salt" groups:"short,normal,long,trace"`
 }
 
 type NAPTRAnswer struct {
 	Answer
-	Order       uint16 `json:"order"`
-	Preference  uint16 `json:"preference"`
-	Flags       string `json:"flags"`
-	Service     string `json:"service"`
-	Regexp      string `json:"regexp"`
-	Replacement string `json:"replacement"`
+	Order       uint16 `json:"order" groups:"short,normal,long,trace"`
+	Preference  uint16 `json:"preference" groups:"short,normal,long,trace"`
+	Flags       string `json:"flags" groups:"short,normal,long,trace"`
+	Service     string `json:"service" groups:"short,normal,long,trace"`
+	Regexp      string `json:"regexp" groups:"short,normal,long,trace"`
+	Replacement string `json:"replacement" groups:"short,normal,long,trace"`
 }
 
 type RRSIGAnswer struct {
 	Answer
-	TypeCovered uint16 `json:"type_covered"`
-	Algorithm   uint8  `json:"algorithm"`
-	Labels      uint8  `json:"labels"`
-	OriginalTtl uint32 `json:"original_ttl"`
-	Expiration  uint32 `json:"expiration"`
-	Inception   uint32 `json:"inception"`
-	KeyTag      uint16 `json:"keytag"`
-	SignerName  string `json:"signer_name"`
-	Signature   string `json:"signature"`
+	TypeCovered uint16 `json:"type_covered" groups:"short,normal,long,trace"`
+	Algorithm   uint8  `json:"algorithm" groups:"short,normal,long,trace"`
+	Labels      uint8  `json:"labels" groups:"short,normal,long,trace"`
+	OriginalTtl uint32 `json:"original_ttl" groups:"short,normal,long,trace"`
+	Expiration  uint32 `json:"expiration" groups:"short,normal,long,trace"`
+	Inception   uint32 `json:"inception" groups:"short,normal,long,trace"`
+	KeyTag      uint16 `json:"keytag" groups:"short,normal,long,trace"`
+	SignerName  string `json:"signer_name" groups:"short,normal,long,trace"`
+	Signature   string `json:"signature" groups:"short,normal,long,trace"`
 }
 
 type DNSFlags struct {
-	Response           bool `json:"response"`
-	Opcode             int  `json:"opcode"`
-	Authoritative      bool `json:"authoritative"`
-	Truncated          bool `json:"truncated"`
-	RecursionDesired   bool `json:"recursion_desired"`
-	RecursionAvailable bool `json:"recursion_available"`
-	Authenticated      bool `json:"authenticated"`
-	CheckingDisabled   bool `json:"checking_disabled"`
-	ErrorCode          int  `json:"error_code"`
+	Response           bool `json:"response" groups:"flags,long,trace"`
+	Opcode             int  `json:"opcode" groups:"flags,long,trace"`
+	Authoritative      bool `json:"authoritative" groups:"flags,long,trace"`
+	Truncated          bool `json:"truncated" groups:"flags,long,trace"`
+	RecursionDesired   bool `json:"recursion_desired" groups:"flags,long,trace"`
+	RecursionAvailable bool `json:"recursion_available" groups:"flags,long,trace"`
+	Authenticated      bool `json:"authenticated" groups:"flags,long,trace"`
+	CheckingDisabled   bool `json:"checking_disabled" groups:"flags,long,trace"`
+	ErrorCode          int  `json:"error_code" groups:"flags,long,trace"`
 }
 
 // result to be returned by scan of host
 type Result struct {
-	Answers     []interface{} `json:"answers"`
-	Additional  []interface{} `json:"additionals"`
-	Authorities []interface{} `json:"authorities"`
-	Protocol    string        `json:"protocol"`
-	Resolver    string        `json:"resolver"`
-	Flags       DNSFlags      `json:"flags"`
+	Answers     []interface{} `json:"answers" groups:"short,normal,long,trace"`
+	Additional  []interface{} `json:"additionals" groups:"short,normal,long,trace"`
+	Authorities []interface{} `json:"authorities" groups:"short,normal,long,trace"`
+	Protocol    string        `json:"protocol" groups:"protocol,normal,long,trace"`
+	Resolver    string        `json:"resolver" groups:"resolver,normal,long,trace"`
+	Flags       DNSFlags      `json:"flags" groups:"flags,long,trace"`
 }
 
 type TraceStep struct {
-	Result     Result   `json:"results"`
-	DnsType    uint16   `json:"type"`
-	DnsClass   uint16   `json:"class"`
-	Name       string   `json:"name"`
-	NameServer string   `json:"name_server"`
-	Depth      int      `json:"depth"`
-	Layer      string   `json:"layer"`
-	Cached     IsCached `json:"cached"`
+	Result     Result   `json:"results" groups:"trace"`
+	DnsType    uint16   `json:"type" groups:"trace"`
+	DnsClass   uint16   `json:"class" groups:"trace"`
+	Name       string   `json:"name" groups:"trace"`
+	NameServer string   `json:"name_server" groups:"trace"`
+	Depth      int      `json:"depth" groups:"trace"`
+	Layer      string   `json:"layer" groups:"trace"`
+	Cached     IsCached `json:"cached" groups:"trace"`
 }
 
 type TimedAnswer struct {
@@ -622,7 +622,8 @@ func (s *GlobalLookupFactory) BlacklistInit() error {
 }
 
 func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
-	f.StringVar(&s.BlacklistPath, "blacklist-file", "", "blacklist file for servers to exclude from lookups, only effective for iterative lookups")
+	f.StringVar(&s.BlacklistPath, "blacklist-file", "",
+		"blacklist file for servers to exclude from lookups, only effective for iterative lookups")
 }
 
 func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
@@ -790,7 +791,11 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 	s.Retries = c.Retries
 	s.MaxDepth = c.MaxDepth
 	s.IterativeResolution = c.IterativeResolution
-	s.Trace = c.Trace
+	if c.ResultVerbosity == "trace" {
+		s.Trace = true
+	} else {
+		s.Trace = false
+	}
 
 	s.DNSClass = c.Class
 }
