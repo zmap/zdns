@@ -21,6 +21,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"io/ioutil"
 
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
@@ -62,7 +63,7 @@ func main() {
 	flags.StringVar(&gc.OutputHandler, "output-handler", "file", "handler to output names")
 	flags.BoolVar(&gc.TCPOnly, "tcp-only", false, "Only perform lookups over TCP")
 	flags.BoolVar(&gc.UDPOnly, "udp-only", false, "Only perform lookups over UDP")
-	servers_string := flags.String("name-servers", "", "comma-delimited list of DNS servers to use. If no port is specified, defaults to 53.")
+	servers_string := flags.String("name-servers", "", "List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53.")
 	config_file := flags.String("conf-file", "/etc/resolv.conf", "config file for DNS servers")
 	timeout := flags.Int("timeout", 15, "timeout for resolving an individual name")
 	iterationTimeout := flags.Int("iteration-timeout", 4, "timeout for resolving a single iteration in an iterative query")
@@ -140,16 +141,26 @@ func main() {
 		gc.NameServersSpecified = false
 		log.Info("no name servers specified. will use: ", strings.Join(gc.NameServers, ", "))
 	} else {
-		ns := strings.Split(*servers_string, ",")
+		var ns []string
+		if (*servers_string)[0] == '@' {
+			filepath := (*servers_string)[1:]
+			f, err := ioutil.ReadFile(filepath)
+			if err != nil {
+				log.Fatalf("Unable to read file (%s): %s", filepath, err.Error())
+			}
+			if len(f) == 0 {
+				log.Fatalf("Emtpy file (%s)", filepath)
+			}
+			ns = strings.Split(strings.Trim(string(f), "\n"), "\n")
+		} else {
+			ns = strings.Split(*servers_string, ",")
+		}
 		rePort := regexp.MustCompile(":\\d+$")      // string ends with potential port number
 		reV6 := regexp.MustCompile("^([0-9a-f]*:)") // string starts like valid IPv6 address
 		for i, s := range ns {
 			if !rePort.MatchString(s) {
 				ns[i] = s + ":53"
 			} else if reV6.MatchString(s) {
-				ns[i] = "[" + s + "]:53"
-			}
-		}
 		gc.NameServers = ns
 		gc.NameServersSpecified = true
 	}
