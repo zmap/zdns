@@ -161,6 +161,9 @@ func main() {
 			if !rePort.MatchString(s) {
 				ns[i] = s + ":53"
 			} else if reV6.MatchString(s) {
+				ns[i] = "[" + s + "]:53"
+			}
+		}
 		gc.NameServers = ns
 		gc.NameServersSpecified = true
 	}
