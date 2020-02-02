@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 	"io/ioutil"
+	"math/rand"
 
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
@@ -196,6 +197,9 @@ func main() {
 		}
 	}
 
+	// Seeding for RandomNameServer()
+	rand.Seed(time.Now().UnixNano())
+	
 	// some modules require multiple passes over a file (this is really just the case for zone files)
 	if !factory.AllowStdIn() && gc.InputFilePath == "-" {
 		log.Fatal("Specified module does not allow reading from stdin")
