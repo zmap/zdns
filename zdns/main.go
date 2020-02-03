@@ -17,6 +17,7 @@ package main
 import (
 	"flag"
 	"os"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -155,9 +156,13 @@ func main() {
 		} else {
 			ns = strings.Split(*servers_string, ",")
 		}
+		rePort := regexp.MustCompile(":\\d+$")      // string ends with potential port number
+		reV6 := regexp.MustCompile("^([0-9a-f]*:)") // string starts like valid IPv6 address
 		for i, s := range ns {
-			if !strings.Contains(s, ":") {
-				ns[i] = strings.TrimSpace(s) + ":53"
+			if !rePort.MatchString(s) {
+				ns[i] = s + ":53"
+			} else if reV6.MatchString(s) {
+				ns[i] = "[" + s + "]:53"
 			}
 		}
 		gc.NameServers = ns
