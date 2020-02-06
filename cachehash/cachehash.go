@@ -24,7 +24,7 @@ type CacheHash struct {
 	l       *list.List
 	len     int
 	maxLen  int
-	mutex   *sync.RWMutex
+	mutex   *sync.Mutex
 	ejectCB func(interface{}, interface{})
 }
 
@@ -34,7 +34,7 @@ type keyValue struct {
 }
 
 func (c *CacheHash) Init(maxLen int) {
-	c.mutex = &sync.RWMutex{}
+	c.mutex = &sync.Mutex{}
 	c.l = list.New()
 	c.l = c.l.Init()
 	c.h = make(map[interface{}]*list.Element)
