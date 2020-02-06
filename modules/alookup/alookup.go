@@ -25,8 +25,8 @@ import (
 )
 
 type Result struct {
-	IPv4Addresses []string `json:"ipv4_addresses,omitempty"`
-	IPv6Addresses []string `json:"ipv6_addresses,omitempty"`
+	IPv4Addresses []string `json:"ipv4_addresses,omitempty" groups:"short,normal,long,trace"`
+	IPv6Addresses []string `json:"ipv6_addresses,omitempty" groups:"short,normal,long,trace"`
 }
 
 // Per Connection Lookup ======================================================

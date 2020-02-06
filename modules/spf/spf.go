@@ -22,7 +22,7 @@ import (
 
 // result to be returned by scan of host
 type Result struct {
-	Spf string `json:"spf,omitempty"`
+	Spf string `json:"spf,omitempty" groups:"short,normal,long,trace"`
 }
 
 // Per Connection Lookup ======================================================

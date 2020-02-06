@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-version"
+	"github.com/liip/sheriff"
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
 )
@@ -121,7 +123,13 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, 
 			if err != nil {
 				res.Error = err.Error()
 			}
-			jsonRes, err := json.Marshal(res)
+			v, _ := version.NewVersion("0.0.0")
+			o := &sheriff.Options{
+				Groups:     gc.OutputGroups,
+				ApiVersion: v,
+			}
+			data, err := sheriff.Marshal(o, res)
+			jsonRes, err := json.Marshal(data)
 			if err != nil {
 				log.Fatal("Unable to marshal JSON result", err)
 			}

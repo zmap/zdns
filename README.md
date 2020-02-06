@@ -70,19 +70,11 @@ returns:
         "data": "ns-cloud-e1.googledomains.com."
       },
     ],
-    "protocol": "udp"
+    "protocol": "udp",
+    "resolver": "30.128.52.190:53"
   }
 }
 ```
-
-Trace DNS Delegation
----------------------
-
-`echo "censys.io" | ./zdns a --trace`
-
-returns:
-```json { ... }```
-
 
 Lookup Modules
 --------------
@@ -144,6 +136,23 @@ is used, ZDNS will round-robin between the published root servers (e.g.,
 specifying `--cache-size` and the timeout for individual iterations by setting
 `--iteration-timeout`. The `--timeout` flag controls the timeout of the entire
 resolution for a given input (i.e., the sum of all iterative steps).
+
+Output Verbosity
+----------------
+
+DNS includes a lot of extraneous data that is not always useful. There are four
+result verbosity levels: `short`, `normal` (default), `long`, and `trace`:
+
+ * `short`: Short is the most terse result output. It contains only information about the responses
+ * `normal`: Normal provides everything included in short as well as data about the responding server
+ * `long`: Long outputs everything the server included in the DNS packet, including flags.
+ * `trace`: Trace outputs everything from every step of the recursion process
+
+Users can also include specific additional fields using the `--include-fields`
+flag and specifying a list of fields, e.g., `--include-fields=flags,resolver`.
+Additional fields are: class, protocol, ttl, resolver, flags.
+
+
 
 Running ZDNS
 ------------

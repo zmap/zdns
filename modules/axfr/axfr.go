@@ -37,14 +37,14 @@ type Lookup struct {
 }
 
 type AXFRServerResult struct {
-	Server  string        `json:"server"`
-	Status  string        `json:"status"`
-	Error   string        `json:"error,omitempty"`
-	Records []interface{} `json:"records,omitempty"`
+	Server  string        `json:"server" groups:"short,normal,long,trace"`
+	Status  string        `json:"status" groups:"short,normal,long,trace"`
+	Error   string        `json:"error,omitempty" groups:"short,normal,long,trace"`
+	Records []interface{} `json:"records,omitempty" groups:"short,normal,long,trace"`
 }
 
 type AXFRResult struct {
-	Servers []AXFRServerResult `json:"servers,omitempty"`
+	Servers []AXFRServerResult `json:"servers,omitempty" groups:"short,normal,long,trace"`
 }
 
 func dotName(name string) string {
