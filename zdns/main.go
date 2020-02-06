@@ -16,14 +16,14 @@ package main
 
 import (
 	"flag"
+	"io/ioutil"
+	"math/rand"
 	"net"
 	"os"
 	"regexp"
 	"runtime"
 	"strings"
 	"time"
-	"io/ioutil"
-	"math/rand"
 
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
@@ -172,7 +172,7 @@ func main() {
 		gc.NameServersSpecified = true
 	}
 	if *localaddr_string != "" {
-		for _, la := range strings.Split(*servers_string, ",") {
+		for _, la := range strings.Split(*localaddr_string, ",") {
 			ip := net.ParseIP(la)
 			if ip != nil {
 				gc.LocalAddrs = append(gc.LocalAddrs, ip)
