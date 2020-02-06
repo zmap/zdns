@@ -14,13 +14,17 @@
 
 package cachehash
 
-import "container/list"
+import (
+	"container/list"
+	"sync"
+)
 
 type CacheHash struct {
 	h       map[interface{}]*list.Element
 	l       *list.List
 	len     int
 	maxLen  int
+	mutex   *sync.RWMutex
 	ejectCB func(interface{}, interface{})
 }
 
@@ -30,11 +34,20 @@ type keyValue struct {
 }
 
 func (c *CacheHash) Init(maxLen int) {
+	c.mutex = &sync.RWMutex{}
 	c.l = list.New()
 	c.l = c.l.Init()
 	c.h = make(map[interface{}]*list.Element)
 	c.len = 0
 	c.maxLen = maxLen
+}
+
+func (c *CacheHash) Lock() {
+	c.mutex.Lock()
+}
+
+func (c *CacheHash) Unlock() {
+	c.mutex.Unlock()
 }
 
 func (c *CacheHash) Eject() {

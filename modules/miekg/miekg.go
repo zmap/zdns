@@ -602,8 +602,7 @@ func TranslateMiekgErrorCode(err int) zdns.Status {
 
 type GlobalLookupFactory struct {
 	zdns.BaseGlobalLookupFactory
-	IterativeCache cachehash.CacheHash
-	CacheMutex     *sync.RWMutex
+	IterativeCache cachehash.ShardedCacheHash
 	DNSType        uint16
 	DNSClass       uint16
 	BlacklistPath  string
@@ -632,8 +631,7 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	if err != nil {
 		return err
 	}
-	s.IterativeCache.Init(c.CacheSize)
-	s.CacheMutex = &sync.RWMutex{}
+	s.IterativeCache.Init(c.CacheSize, 256)
 	s.DNSClass = dns.ClassINET
 
 	return nil
@@ -683,7 +681,7 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, d
 	}
 	key := makeCacheKey(name, dnsType)
 	expiresAt := time.Now().Add(time.Duration(ttl) * time.Second)
-	s.CacheMutex.Lock()
+	s.IterativeCache.Lock(key)
 	// don't bother to move this to the top of the linked list. we're going
 	// to add this record back in momentarily and that will take care of this
 	i, ok := s.IterativeCache.GetNoMove(key)
@@ -701,7 +699,7 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, d
 		ExpiresAt: expiresAt}
 	ca.Answers[a] = ta
 	s.IterativeCache.Add(key, ca)
-	s.CacheMutex.Unlock()
+	s.IterativeCache.Unlock(key)
 	s.VerboseGlobalLog(depth+1, threadID, "Add cached answer ", key, " ", ca)
 }
 
@@ -709,11 +707,11 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, isAut
 	s.VerboseGlobalLog(depth+1, threadID, "Cache request for: ", name, " (", dnsType, ")")
 	var retv Result
 	key := makeCacheKey(name, dnsType)
-	s.CacheMutex.Lock()
+	s.IterativeCache.Lock(key)
 	unres, ok := s.IterativeCache.Get(key)
 	if !ok { // nothing found
 		s.VerboseGlobalLog(depth+2, threadID, "-> no entry found in cache")
-		s.CacheMutex.Unlock()
+		s.IterativeCache.Unlock(key)
 		return retv, false
 	}
 	retv.Authorities = make([]interface{}, 0)
@@ -742,7 +740,7 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, isAut
 			}
 		}
 	}
-	s.CacheMutex.Unlock()
+	s.IterativeCache.Unlock(key)
 	// Don't return an empty response.
 	if len(retv.Answers) == 0 && len(retv.Authorities) == 0 && len(retv.Additional) == 0 {
 		s.VerboseGlobalLog(depth+2, threadID, "-> no entry found in cache, after expiration")
