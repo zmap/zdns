@@ -25,22 +25,17 @@ type ShardedCacheHash struct {
 }
 
 func (c *ShardedCacheHash) Init(maxLen int, shards int) {
-	fmt.Println(" fuck you ", shards)
 	c.shardsLen = shards
 	shardLen := maxLen / shards
 	c.shards = make([]CacheHash, shards)
 	for i := 0; i < shards; i++ {
-		//c.shards[i] = new(CacheHash)
 		c.shards[i].Init(shardLen)
 	}
 }
 
 func (c *ShardedCacheHash) getShardID(k interface{}) int {
-	if kb, ok := k.(*[]byte); !ok {
-		return 0
-	} else {
-		return int(crc32.ChecksumIEEE(*kb)) % c.shardsLen
-	}
+	kb := []byte(fmt.Sprintf("%v", k))
+	return int(crc32.ChecksumIEEE(kb)) % c.shardsLen
 }
 
 func (c *ShardedCacheHash) getShard(k interface{}) *CacheHash {
