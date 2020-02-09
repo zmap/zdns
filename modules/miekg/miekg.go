@@ -631,7 +631,7 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	if err != nil {
 		return err
 	}
-	s.IterativeCache.Init(c.CacheSize, 256)
+	s.IterativeCache.Init(c.CacheSize, 4096)
 	s.DNSClass = dns.ClassINET
 
 	return nil
