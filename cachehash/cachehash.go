@@ -14,9 +14,13 @@
 
 package cachehash
 
-import "container/list"
+import (
+	"container/list"
+	"sync"
+)
 
 type CacheHash struct {
+	sync.Mutex
 	h       map[interface{}]*list.Element
 	l       *list.List
 	len     int
