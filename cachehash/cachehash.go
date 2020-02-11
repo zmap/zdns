@@ -20,11 +20,11 @@ import (
 )
 
 type CacheHash struct {
+	sync.Mutex
 	h       map[interface{}]*list.Element
 	l       *list.List
 	len     int
 	maxLen  int
-	mutex   *sync.Mutex
 	ejectCB func(interface{}, interface{})
 }
 
@@ -34,20 +34,11 @@ type keyValue struct {
 }
 
 func (c *CacheHash) Init(maxLen int) {
-	c.mutex = &sync.Mutex{}
 	c.l = list.New()
 	c.l = c.l.Init()
 	c.h = make(map[interface{}]*list.Element)
 	c.len = 0
 	c.maxLen = maxLen
-}
-
-func (c *CacheHash) Lock() {
-	c.mutex.Lock()
-}
-
-func (c *CacheHash) Unlock() {
-	c.mutex.Unlock()
 }
 
 func (c *CacheHash) Eject() {
