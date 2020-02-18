@@ -168,8 +168,16 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 
 	inHandler := GetInputHandler(c.InputHandler)
 	outHandler := GetOutputHandler(c.OutputHandler)
-	inHandler.Initialize(c)
-	outHandler.Initialize(c)
+	if inHandler == nil {
+		log.Fatal("Uknown input handler \"" + c.InputHandler + "\"")
+	} else {
+		inHandler.Initialize(c)
+	}
+	if outHandler == nil {
+		log.Fatal("Uknown outnput handler \"" + c.OutputHandler + "\"")
+	} else {
+		outHandler.Initialize(c)
+	}
 
 	// Use handlers to populate the input and output/results channel
 	go inHandler.FeedChannel(inChan, &routineWG, (*g).ZonefileInput())
