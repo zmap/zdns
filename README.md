@@ -125,6 +125,11 @@ returns:
 }
 ```
 
+Other DNS Modules
+-----------------
+
+ZDNS also supports special "debug" DNS queries. Modules include: `BINDVERSION`.
+
 Local Recursion
 ---------------
 

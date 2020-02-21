@@ -16,19 +16,20 @@ package main
 
 import (
 	"flag"
+	"io/ioutil"
+	"math/rand"
 	"os"
 	"regexp"
 	"runtime"
 	"strings"
 	"time"
-	"io/ioutil"
-	"math/rand"
 
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zdns"
 	_ "github.com/zmap/zdns/modules/alookup"
 	_ "github.com/zmap/zdns/modules/axfr"
+	_ "github.com/zmap/zdns/modules/bindversion"
 	_ "github.com/zmap/zdns/modules/dmarc"
 	_ "github.com/zmap/zdns/modules/miekg"
 	_ "github.com/zmap/zdns/modules/mxlookup"
@@ -204,7 +205,7 @@ func main() {
 
 	// Seeding for RandomNameServer()
 	rand.Seed(time.Now().UnixNano())
-	
+
 	// some modules require multiple passes over a file (this is really just the case for zone files)
 	if !factory.AllowStdIn() && gc.InputFilePath == "-" {
 		log.Fatal("Specified module does not allow reading from stdin")
