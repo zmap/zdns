@@ -4,13 +4,16 @@ ZDNS
 [![Build Status](https://travis-ci.org/zmap/zdns.svg?branch=master)](https://travis-ci.org/zmap/zdns)
 [![Go Report Card](https://goreportcard.com/badge/github.com/zmap/zdns)](https://goreportcard.com/report/github.com/zmap/zdns)
 
-ZDNS is a command-line utility that provides high-speed DNS lookups. For
-example, the following will perform MX lookups and a secondary A lookup for the
-IPs of MX servers for the domains in the Alexa Top Million:
+ZDNS is a command-line utility that provides high-speed DNS lookups. ZDNS is
+written in Go and contains its own recrusive resolution code and a cache
+optimized for performing a diverse set of names. We use
+https://github.com/miekg/dns to construct and parse raw DNS packets.
+
+As an example, the following will perform MX lookups and a secondary A lookup
+for the IPs of MX servers for the domains in the Alexa Top Million:
 
 	cat top-1m.csv | zdns MX --ipv4-lookup --alexa
 
-ZDNS is written in golang and is primarily based on https://github.com/miekg/dns.
 
 Install
 =======
@@ -23,14 +26,21 @@ ZDNS can be installed by running:
 Usage
 =====
 
-ZDNS provides several types of modules.
+ZDNS provides several types of modules:
+
+	#. *Raw DNS modules* provide the raw DNS reponse from the server similar to dig, but in JSON. There is a module for (nearly) every type of DNS record
+	#. *Lookup modules* provide more helpful responses when multiple queries are required (e.g., completing additional `A` lookup if a `CNAME` is received)
+	#. *Raw DNS modules* provide the raw DNS reponse from the server similar to dig, but in JSON
+
+We detail the modules below:
 
 Raw DNS Modules
 ---------------
 
-The `A`, `AAAA`, `ANY`, `AXFR`, `CAA`, `CDS`, `CDNSKEY`, `CNAME`, `DMARC`, `DS`, `DNSKEY`,
-`MX`, `NAPTR`, `NS`, `NSEC`, `NSEC3`, `NSEC3PARAM`, `PTR`,  `RRSIG`, `SOA`, `SPF`,
-`SRV`, `TLSA`, and `TXT` modules provide the raw DNS response in JSON form, similar to dig.
+The `A`, `AAAA`, `ANY`, `AXFR`, `CAA`, `CDS`, `CDNSKEY`, `CNAME`, `DMARC`,
+`DS`, `DNSKEY`, `MX`, `NAPTR`, `NS`, `NSEC`, `NSEC3`, `NSEC3PARAM`, `PTR`,
+`RRSIG`, `SOA`, `SPF`, `SRV`, `TLSA`, and `TXT` modules provide the raw DNS
+response in JSON form, similar to dig.
 
 For example, the command:
 
@@ -129,9 +139,18 @@ Local Recursion
 ---------------
 
 ZDNS can either operate against a recursive resolver (e.g., an organizational
-DNS server) [default behavior] or can perform its own recursion internally. To
-perform local recursion, run zdns with the `--iterative` flag. When this flag
-is used, ZDNS will round-robin between the published root servers (e.g.,
+DNS server) [default behavior] or can perform its own recursion internally. If
+you are performing a small number of lookups (i.e., millions) and using a less
+than 10,000 go routines, it is typically fastest to use one of the common
+recursive resolvers like Cloudflare or Google. Cloudflare is nearly always
+faster than Google. This is particularly true if you're looking up popular
+names because they're cached and can be answered in a single round trip.
+Otherwise, performing iteration internally is much faster, because you can run
+with tens of thousands of concurrent threads without DOS'ing and/or rate
+limiting your recursive resolver.
+
+To perform local recursion, run zdns with the `--iterative` flag. When this
+flag is used, ZDNS will round-robin between the published root servers (e.g.,
 198.41.0.4). In iterative mode, you can control the size of the local cache by
 specifying `--cache-size` and the timeout for individual iterations by setting
 `--iteration-timeout`. The `--timeout` flag controls the timeout of the entire
@@ -153,7 +172,6 @@ flag and specifying a list of fields, e.g., `--include-fields=flags,resolver`.
 Additional fields are: class, protocol, ttl, resolver, flags.
 
 
-
 Running ZDNS
 ------------
 
@@ -163,14 +181,8 @@ users coordinate with local network administrators before performing any scans.
 You can control the number of concurrent connections with the `--threads` and
 `--go-processes` command line arguments. Alternate name servers can be
 specified with `--name-servers`. ZDNS will rotate through these servers when
-making requests.
-
-While the number of go routines you use will depend on both hardware and the
-type of request, we've rarely seen performance increase with more than 5,000 go
-routines. In most cases, either performance will decrease and/or timeouts will
-increase beyond that point. We've seen good ZDNS performance by running multiple
-processes. Running 4 instances of ZDNS each with 2,500 threads is a great place
-to start testing if you're performing large studies.
+making requests. We have successfully run ZDNS with tens of thousands of
+light-weight routines.
 
 Unsupported Types
 -----------------
