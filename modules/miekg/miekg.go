@@ -41,7 +41,7 @@ var typeNames = map[uint16]string{
 	dns.TypeRT:         "RT",         //
 	dns.TypeNSAPPTR:    "NSAPPTR",    //
 	dns.TypeSIG:        "SIG",        //
-	dns.TypeKEY:        "KEY",        //
+	dns.TypeKEY:        "KEY",        // Module, DNSKey
 	dns.TypePX:         "PX",         //
 	dns.TypeGPOS:       "GPOS",       //
 	dns.TypeAAAA:       "AAAA",       // Module, Type
@@ -492,6 +492,21 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Protocol:  cdnskey.Protocol,
 			Algorithm: cdnskey.Algorithm,
 			PublicKey: cdnskey.PublicKey,
+		}
+	} else if key, ok := ans.(*dns.KEY); ok {
+		return DNSKEYAnswer{
+			Answer: Answer{
+				Name:    key.Hdr.Name,
+				Ttl:     key.Hdr.Ttl,
+				Type:    dns.Type(key.Hdr.Rrtype).String(),
+				rrType:  key.Hdr.Rrtype,
+				Class:   dns.Class(key.Hdr.Class).String(),
+				rrClass: key.Hdr.Class,
+			},
+			Flags:     key.Flags,
+			Protocol:  key.Protocol,
+			Algorithm: key.Algorithm,
+			PublicKey: key.PublicKey,
 		}
 	} else if caa, ok := ans.(*dns.CAA); ok {
 		return CAAAnswer{
@@ -1482,6 +1497,10 @@ func init() {
 	cdnskey := new(GlobalLookupFactory)
 	cdnskey.SetDNSType(dns.TypeCDNSKEY)
 	zdns.RegisterLookup("CDNSKEY", cdnskey)
+
+	key := new(GlobalLookupFactory)
+	key.SetDNSType(dns.TypeKEY)
+	zdns.RegisterLookup("KEY", key)
 
 	caa := new(GlobalLookupFactory)
 	caa.SetDNSType(dns.TypeCAA)
