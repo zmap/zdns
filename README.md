@@ -165,7 +165,7 @@ However, there are times where you instead want to lookup the same name across
 a large number of servers. This can be accomplished using _name server mode_.
 For example:
 
-```echo "8.8.8.8" | ./zdns A --override-name="google.com"```
+```echo "8.8.8.8" | ./zdns A --name-server-mode= --override-name="google.com"```
 
 Here, every line piped in ZDNS is sent an A query for `google.com`. ZDNS also
 supports mixing and matching both modes by piping in a comma-delimited list of
