@@ -19,75 +19,75 @@ import (
 
 var typeNames = map[uint16]string{
 	dns.TypeNone:       "None",
-	dns.TypeA:          "A",
-	dns.TypeNS:         "NS",
-	dns.TypeMD:         "MD",
-	dns.TypeMF:         "MF",
-	dns.TypeCNAME:      "CNAME",
-	dns.TypeSOA:        "SOA",
-	dns.TypeMB:         "MB",
-	dns.TypeMG:         "MG",
-	dns.TypeMR:         "MR",
-	dns.TypeNULL:       "NULL",
-	dns.TypePTR:        "PTR",
-	dns.TypeHINFO:      "HINFO",
-	dns.TypeMINFO:      "MINFO",
-	dns.TypeMX:         "MX",
-	dns.TypeTXT:        "TXT",
-	dns.TypeRP:         "RP",
-	dns.TypeAFSDB:      "AFSDB",
-	dns.TypeX25:        "X25",
-	dns.TypeISDN:       "ISDN",
-	dns.TypeRT:         "RT",
-	dns.TypeNSAPPTR:    "NSAPPTR",
-	dns.TypeSIG:        "SIG",
-	dns.TypeKEY:        "KEY",
-	dns.TypePX:         "PX",
-	dns.TypeGPOS:       "GPOS",
-	dns.TypeAAAA:       "AAAA",
-	dns.TypeLOC:        "LOC",
-	dns.TypeNXT:        "NXT",
-	dns.TypeEID:        "EID",
-	dns.TypeNIMLOC:     "NIMLOC",
-	dns.TypeSRV:        "SRV",
-	dns.TypeATMA:       "ATMA",
-	dns.TypeNAPTR:      "NAPTR",
-	dns.TypeKX:         "KX",
-	dns.TypeCERT:       "CERT",
-	dns.TypeDNAME:      "DNAME",
-	dns.TypeOPT:        "OPT",
-	dns.TypeDS:         "DS",
-	dns.TypeSSHFP:      "SSHFP",
-	dns.TypeRRSIG:      "RRSIG",
-	dns.TypeNSEC:       "NSEC",
-	dns.TypeDNSKEY:     "DNSKEY",
-	dns.TypeDHCID:      "DHCID",
-	dns.TypeNSEC3:      "NSEC3",
-	dns.TypeNSEC3PARAM: "NSEC3PARAM",
-	dns.TypeTLSA:       "TLSA",
-	dns.TypeSMIMEA:     "SMIMEA",
-	dns.TypeHIP:        "HIP",
-	dns.TypeNINFO:      "NINFO",
-	dns.TypeRKEY:       "RKEY",
-	dns.TypeTALINK:     "TALINK",
-	dns.TypeCDS:        "CDS",
-	dns.TypeCDNSKEY:    "CDNSKEY",
-	dns.TypeOPENPGPKEY: "OPENPGPKEY",
-	dns.TypeCSYNC:      "CSYNC",
-	dns.TypeSPF:        "SPF",
-	dns.TypeUINFO:      "UINFO",
-	dns.TypeUID:        "UID",
-	dns.TypeGID:        "GID",
-	dns.TypeUNSPEC:     "UNSPEC",
-	dns.TypeNID:        "NID",
-	dns.TypeL32:        "L32",
-	dns.TypeL64:        "L64",
-	dns.TypeLP:         "LP",
-	dns.TypeEUI48:      "EUI48",
-	dns.TypeEUI64:      "EUI64",
-	dns.TypeURI:        "URI",
-	dns.TypeCAA:        "CAA",
-	dns.TypeAVC:        "AVC",
+	dns.TypeA:          "A",          // Module, Answer
+	dns.TypeNS:         "NS",         // Module, Answer
+	dns.TypeMD:         "MD",         //
+	dns.TypeMF:         "MF",         //
+	dns.TypeCNAME:      "CNAME",      // Module, Type
+	dns.TypeSOA:        "SOA",        // Module, Type
+	dns.TypeMB:         "MB",         //
+	dns.TypeMG:         "MG",         //
+	dns.TypeMR:         "MR",         //
+	dns.TypeNULL:       "NULL",       // Module, Default Type
+	dns.TypePTR:        "PTR",        // Module, Type
+	dns.TypeHINFO:      "HINFO",      //
+	dns.TypeMINFO:      "MINFO",      //
+	dns.TypeMX:         "MX",         // Module, Type
+	dns.TypeTXT:        "TXT",        // Module, Type
+	dns.TypeRP:         "RP",         //
+	dns.TypeAFSDB:      "AFSDB",      //
+	dns.TypeX25:        "X25",        //
+	dns.TypeISDN:       "ISDN",       //
+	dns.TypeRT:         "RT",         //
+	dns.TypeNSAPPTR:    "NSAPPTR",    //
+	dns.TypeSIG:        "SIG",        //
+	dns.TypeKEY:        "KEY",        //
+	dns.TypePX:         "PX",         //
+	dns.TypeGPOS:       "GPOS",       //
+	dns.TypeAAAA:       "AAAA",       // Module, Type
+	dns.TypeLOC:        "LOC",        //
+	dns.TypeNXT:        "NXT",        //
+	dns.TypeEID:        "EID",        //
+	dns.TypeNIMLOC:     "NIMLOC",     //
+	dns.TypeSRV:        "SRV",        //
+	dns.TypeATMA:       "ATMA",       //
+	dns.TypeNAPTR:      "NAPTR",      //
+	dns.TypeKX:         "KX",         //
+	dns.TypeCERT:       "CERT",       //
+	dns.TypeDNAME:      "DNAME",      //
+	dns.TypeOPT:        "OPT",        //
+	dns.TypeDS:         "DS",         //
+	dns.TypeSSHFP:      "SSHFP",      //
+	dns.TypeRRSIG:      "RRSIG",      //
+	dns.TypeNSEC:       "NSEC",       //
+	dns.TypeDNSKEY:     "DNSKEY",     //
+	dns.TypeDHCID:      "DHCID",      //
+	dns.TypeNSEC3:      "NSEC3",      // Module
+	dns.TypeNSEC3PARAM: "NSEC3PARAM", // Module
+	dns.TypeTLSA:       "TLSA",       //
+	dns.TypeSMIMEA:     "SMIMEA",     //
+	dns.TypeHIP:        "HIP",        //
+	dns.TypeNINFO:      "NINFO",      //
+	dns.TypeRKEY:       "RKEY",       //
+	dns.TypeTALINK:     "TALINK",     //
+	dns.TypeCDS:        "CDS",        // Module
+	dns.TypeCDNSKEY:    "CDNSKEY",    //
+	dns.TypeOPENPGPKEY: "OPENPGPKEY", //
+	dns.TypeCSYNC:      "CSYNC",      //
+	dns.TypeSPF:        "SPF",        //
+	dns.TypeUINFO:      "UINFO",      //
+	dns.TypeUID:        "UID",        //
+	dns.TypeGID:        "GID",        //
+	dns.TypeUNSPEC:     "UNSPEC",     //
+	dns.TypeNID:        "NID",        //
+	dns.TypeL32:        "L32",        //
+	dns.TypeL64:        "L64",        //
+	dns.TypeLP:         "LP",         //
+	dns.TypeEUI48:      "EUI48",      //
+	dns.TypeEUI64:      "EUI64",      //
+	dns.TypeURI:        "URI",        //
+	dns.TypeCAA:        "CAA",        // Module, Type
+	dns.TypeAVC:        "AVC",        //
 }
 
 type Answer struct {
@@ -339,6 +339,16 @@ func ParseAnswer(ans dns.RR) interface{} {
 			rrClass: ns.Hdr.Class,
 			Name:    ns.Hdr.Name,
 			Answer:  strings.TrimRight(ns.Ns, "."),
+		}
+	} else if null, ok := ans.(*dns.NULL); ok {
+		retv = Answer{
+			Ttl:     null.Hdr.Ttl,
+			Type:    dns.Type(null.Hdr.Rrtype).String(),
+			rrType:  null.Hdr.Rrtype,
+			Class:   dns.Class(null.Hdr.Class).String(),
+			rrClass: null.Hdr.Class,
+			Name:    null.Hdr.Name,
+			Answer:  strings.TrimRight(null.Data, "."),
 		}
 	} else if ptr, ok := ans.(*dns.PTR); ok {
 		retv = Answer{
@@ -1486,6 +1496,10 @@ func init() {
 	naptr := new(GlobalLookupFactory)
 	naptr.SetDNSType(dns.TypeNAPTR)
 	zdns.RegisterLookup("NAPTR", naptr)
+
+	null := new(GlobalLookupFactory)
+	null.SetDNSType(dns.TypeNULL)
+	zdns.RegisterLookup("NULL", null)
 
 	rrsig := new(GlobalLookupFactory)
 	rrsig.SetDNSType(dns.TypeRRSIG)
