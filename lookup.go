@@ -60,8 +60,8 @@ func parseAlexa(line string) (string, int) {
 
 func parseNormalInputLine(line string) (string, string) {
 	s := strings.SplitN(line, ",", 2)
-	if s[1] == "" {
-		return s[0], s[1]
+	if len(s) == 1 {
+		return s[0], ""
 	} else {
 		return s[0], AddDefaultPortToDNSServerName(s[1])
 	}
