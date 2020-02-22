@@ -41,7 +41,7 @@ var typeNames = map[uint16]string{
 	dns.TypeRT:         "RT",         //
 	dns.TypeNSAPPTR:    "NSAPPTR",    //
 	dns.TypeSIG:        "SIG",        //
-	dns.TypeKEY:        "KEY",        // Module, DNSKey
+	dns.TypeKEY:        "KEY",        // Module, DNSKeyAnswer
 	dns.TypePX:         "PX",         //
 	dns.TypeGPOS:       "GPOS",       //
 	dns.TypeAAAA:       "AAAA",       // Module, Type
@@ -68,13 +68,13 @@ var typeNames = map[uint16]string{
 	dns.TypeSMIMEA:     "SMIMEA",     //
 	dns.TypeHIP:        "HIP",        //
 	dns.TypeNINFO:      "NINFO",      //
-	dns.TypeRKEY:       "RKEY",       //
+	dns.TypeRKEY:       "RKEY",       // Module, DNSKeyAnswer
 	dns.TypeTALINK:     "TALINK",     //
-	dns.TypeCDS:        "CDS",        // Module
-	dns.TypeCDNSKEY:    "CDNSKEY",    //
+	dns.TypeCDS:        "CDS",        // Module, DNSKeyAnswer
+	dns.TypeCDNSKEY:    "CDNSKEY",    // Module, DNSKeyAnswer
 	dns.TypeOPENPGPKEY: "OPENPGPKEY", //
 	dns.TypeCSYNC:      "CSYNC",      //
-	dns.TypeSPF:        "SPF",        //
+	dns.TypeSPF:        "SPF",        // Module, SPF
 	dns.TypeUINFO:      "UINFO",      //
 	dns.TypeUID:        "UID",        //
 	dns.TypeGID:        "GID",        //
@@ -86,7 +86,7 @@ var typeNames = map[uint16]string{
 	dns.TypeEUI48:      "EUI48",      //
 	dns.TypeEUI64:      "EUI64",      //
 	dns.TypeURI:        "URI",        //
-	dns.TypeCAA:        "CAA",        // Module, Type
+	dns.TypeCAA:        "CAA",        // Module, CAAAnswer
 	dns.TypeAVC:        "AVC",        //
 }
 
@@ -153,10 +153,6 @@ type TLSAAnswer struct {
 	Selector     uint8  `json:"selector" groups:"short,normal,long,trace"`
 	MatchingType uint8  `json:"matching_type" groups:"short,normal,long,trace"`
 	Certificate  string `json:"certificate" groups:"short,normal,long,trace"`
-}
-
-type NSECAnswer struct {
-	Answer
 }
 
 type NSEC3Answer struct {
@@ -259,17 +255,47 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
+func makeBaseAnswer(hdr *dns.RR_Header, answer string) Answer {
+	retv := Answer{
+		Ttl:     hdr.Ttl,
+		Type:    dns.Type(hdr.Rrtype).String(),
+		rrType:  hdr.Rrtype,
+		Class:   dns.Class(hdr.Class).String(),
+		rrClass: hdr.Class,
+		Name:    hdr.Name,
+		Answer:  answer}
+	retv.Name = strings.TrimSuffix(retv.Name, ".")
+	return retv
+}
+
 func ParseAnswer(ans dns.RR) interface{} {
-	var retv Answer
+	// common answers should go on the top to avoid worthless casts
+	// current list of common: A, AAAA, NS, CNAME, DNAME, MX, TXT, PTR
 	if a, ok := ans.(*dns.A); ok {
-		retv = Answer{
-			Ttl:     a.Hdr.Ttl,
-			Type:    dns.Type(a.Hdr.Rrtype).String(),
-			rrType:  a.Hdr.Rrtype,
-			Class:   dns.Class(a.Hdr.Class).String(),
-			rrClass: a.Hdr.Class,
-			Name:    a.Hdr.Name,
-			Answer:  a.A.String()}
+		return makeBaseAnswer(&a.Hdr, a.A.String())
+	} else if ns, ok := ans.(*dns.NS); ok {
+		return makeBaseAnswer(&ns.Hdr, strings.TrimRight(ns.Ns, "."))
+	} else if cname, ok := ans.(*dns.CNAME); ok {
+		return makeBaseAnswer(&cname.Hdr, cname.Target)
+	} else if dname, ok := ans.(*dns.DNAME); ok {
+		return makeBaseAnswer(&dname.Hdr, dname.Target)
+	} else if txt, ok := ans.(*dns.TXT); ok {
+		return makeBaseAnswer(&txt.Hdr, strings.Join(txt.Txt, "\n"))
+	} else if null, ok := ans.(*dns.NULL); ok {
+		return makeBaseAnswer(&null.Hdr, null.Data)
+	} else if ptr, ok := ans.(*dns.PTR); ok {
+		return makeBaseAnswer(&ptr.Hdr, ptr.Ptr)
+	} else if spf, ok := ans.(*dns.SPF); ok {
+		return makeBaseAnswer(&spf.Hdr, spf.String())
+	} else if mb, ok := ans.(*dns.MB); ok {
+		return makeBaseAnswer(&mb.Hdr, mb.Mb)
+	} else if mg, ok := ans.(*dns.MG); ok {
+		return makeBaseAnswer(&mg.Hdr, mg.Mg)
+	} else if mf, ok := ans.(*dns.MF); ok {
+		return makeBaseAnswer(&mf.Hdr, mf.Mf)
+	} else if md, ok := ans.(*dns.MD); ok {
+		return makeBaseAnswer(&md.Hdr, md.Md)
+
 	} else if aaaa, ok := ans.(*dns.AAAA); ok {
 		ip := aaaa.AAAA.String()
 		// verify we really got full 16-byte address
@@ -291,158 +317,15 @@ func ParseAnswer(ans dns.RR) interface{} {
 				}
 			}
 		}
-		retv = Answer{
-			Ttl:     aaaa.Hdr.Ttl,
-			Type:    dns.Type(aaaa.Hdr.Rrtype).String(),
-			rrType:  aaaa.Hdr.Rrtype,
-			Class:   dns.Class(aaaa.Hdr.Class).String(),
-			rrClass: aaaa.Hdr.Class,
-			Name:    aaaa.Hdr.Name,
-			Answer:  ip,
-		}
-	} else if cname, ok := ans.(*dns.CNAME); ok {
-		retv = Answer{
-			Ttl:     cname.Hdr.Ttl,
-			Type:    dns.Type(cname.Hdr.Rrtype).String(),
-			rrType:  cname.Hdr.Rrtype,
-			Class:   dns.Class(cname.Hdr.Class).String(),
-			rrClass: cname.Hdr.Class,
-			Name:    cname.Hdr.Name,
-			Answer:  cname.Target,
-		}
-	} else if dname, ok := ans.(*dns.DNAME); ok {
-		retv = Answer{
-			Ttl:     dname.Hdr.Ttl,
-			Type:    dns.Type(dname.Hdr.Rrtype).String(),
-			rrType:  dname.Hdr.Rrtype,
-			Class:   dns.Class(dname.Hdr.Class).String(),
-			rrClass: dname.Hdr.Class,
-			Name:    dname.Hdr.Name,
-			Answer:  dname.Target,
-		}
-	} else if txt, ok := ans.(*dns.TXT); ok {
-		retv = Answer{
-			Ttl:     txt.Hdr.Ttl,
-			Type:    dns.Type(txt.Hdr.Rrtype).String(),
-			rrType:  txt.Hdr.Rrtype,
-			Class:   dns.Class(txt.Hdr.Class).String(),
-			rrClass: txt.Hdr.Class,
-			Name:    txt.Hdr.Name,
-			Answer:  strings.Join(txt.Txt, "\n"),
-		}
-	} else if ns, ok := ans.(*dns.NS); ok {
-		retv = Answer{
-			Ttl:     ns.Hdr.Ttl,
-			Type:    dns.Type(ns.Hdr.Rrtype).String(),
-			rrType:  ns.Hdr.Rrtype,
-			Class:   dns.Class(ns.Hdr.Class).String(),
-			rrClass: ns.Hdr.Class,
-			Name:    ns.Hdr.Name,
-			Answer:  strings.TrimRight(ns.Ns, "."),
-		}
-	} else if null, ok := ans.(*dns.NULL); ok {
-		retv = Answer{
-			Ttl:     null.Hdr.Ttl,
-			Type:    dns.Type(null.Hdr.Rrtype).String(),
-			rrType:  null.Hdr.Rrtype,
-			Class:   dns.Class(null.Hdr.Class).String(),
-			rrClass: null.Hdr.Class,
-			Name:    null.Hdr.Name,
-			Answer:  null.Data,
-		}
-	} else if ptr, ok := ans.(*dns.PTR); ok {
-		retv = Answer{
-			Ttl:     ptr.Hdr.Ttl,
-			Type:    dns.Type(ptr.Hdr.Rrtype).String(),
-			rrType:  ptr.Hdr.Rrtype,
-			Class:   dns.Class(ptr.Hdr.Class).String(),
-			rrClass: ptr.Hdr.Class,
-			Name:    ptr.Hdr.Name,
-			Answer:  ptr.Ptr,
-		}
-	} else if spf, ok := ans.(*dns.SPF); ok {
-		retv = Answer{
-			Ttl:     spf.Hdr.Ttl,
-			Type:    dns.Type(spf.Hdr.Rrtype).String(),
-			rrType:  spf.Hdr.Rrtype,
-			Class:   dns.Class(spf.Hdr.Class).String(),
-			rrClass: spf.Hdr.Class,
-			Name:    spf.Hdr.Name,
-			Answer:  spf.String(),
-		}
-	} else if mb, ok := ans.(*dns.MB); ok {
-		retv = Answer{
-			Ttl:     mb.Hdr.Ttl,
-			Type:    dns.Type(mb.Hdr.Rrtype).String(),
-			rrType:  mb.Hdr.Rrtype,
-			Class:   dns.Class(mb.Hdr.Class).String(),
-			rrClass: mb.Hdr.Class,
-			Name:    mb.Hdr.Name,
-			Answer:  mb.Mb,
-		}
-	} else if mg, ok := ans.(*dns.MG); ok {
-		retv = Answer{
-			Ttl:     mg.Hdr.Ttl,
-			Type:    dns.Type(mg.Hdr.Rrtype).String(),
-			rrType:  mg.Hdr.Rrtype,
-			Class:   dns.Class(mg.Hdr.Class).String(),
-			rrClass: mg.Hdr.Class,
-			Name:    mg.Hdr.Name,
-			Answer:  mg.Mg,
-		}
-	} else if mr, ok := ans.(*dns.MR); ok {
-		retv = Answer{
-			Ttl:     mr.Hdr.Ttl,
-			Type:    dns.Type(mr.Hdr.Rrtype).String(),
-			rrType:  mr.Hdr.Rrtype,
-			Class:   dns.Class(mr.Hdr.Class).String(),
-			rrClass: mr.Hdr.Class,
-			Name:    mr.Hdr.Name,
-			Answer:  mr.Mr,
-		}
-	} else if mf, ok := ans.(*dns.MF); ok {
-		retv = Answer{
-			Ttl:     mf.Hdr.Ttl,
-			Type:    dns.Type(mf.Hdr.Rrtype).String(),
-			rrType:  mf.Hdr.Rrtype,
-			Class:   dns.Class(mf.Hdr.Class).String(),
-			rrClass: mf.Hdr.Class,
-			Name:    mf.Hdr.Name,
-			Answer:  mf.Mf,
-		}
-	} else if md, ok := ans.(*dns.MD); ok {
-		retv = Answer{
-			Ttl:     md.Hdr.Ttl,
-			Type:    dns.Type(md.Hdr.Rrtype).String(),
-			rrType:  md.Hdr.Rrtype,
-			Class:   dns.Class(md.Hdr.Class).String(),
-			rrClass: md.Hdr.Class,
-			Name:    md.Hdr.Name,
-			Answer:  md.Md,
-		}
+		return makeBaseAnswer(&aaaa.Hdr, ip)
 	} else if mx, ok := ans.(*dns.MX); ok {
 		return MXAnswer{
-			Answer: Answer{
-				Name:    strings.TrimRight(mx.Hdr.Name, "."),
-				Type:    dns.Type(mx.Hdr.Rrtype).String(),
-				rrType:  mx.Hdr.Rrtype,
-				Class:   dns.Class(mx.Hdr.Class).String(),
-				rrClass: mx.Hdr.Class,
-				Ttl:     mx.Hdr.Ttl,
-				Answer:  strings.TrimRight(mx.Mx, "."),
-			},
+			Answer:     makeBaseAnswer(&mx.Hdr, strings.TrimRight(mx.Mx, ".")),
 			Preference: mx.Preference,
 		}
 	} else if ds, ok := ans.(*dns.DS); ok {
 		return DSAnswer{
-			Answer: Answer{
-				Name:    ds.Hdr.Name,
-				Ttl:     ds.Hdr.Ttl,
-				Type:    dns.Type(ds.Hdr.Rrtype).String(),
-				rrType:  ds.Hdr.Rrtype,
-				Class:   dns.Class(ds.Hdr.Class).String(),
-				rrClass: ds.Hdr.Class,
-			},
+			Answer:     makeBaseAnswer(&ds.Hdr, ""),
 			KeyTag:     ds.KeyTag,
 			Algorithm:  ds.Algorithm,
 			DigestType: ds.DigestType,
@@ -450,29 +333,24 @@ func ParseAnswer(ans dns.RR) interface{} {
 		}
 	} else if dnskey, ok := ans.(*dns.DNSKEY); ok {
 		return DNSKEYAnswer{
-			Answer: Answer{
-				Name:    dnskey.Hdr.Name,
-				Ttl:     dnskey.Hdr.Ttl,
-				Type:    dns.Type(dnskey.Hdr.Rrtype).String(),
-				rrType:  dnskey.Hdr.Rrtype,
-				Class:   dns.Class(dnskey.Hdr.Class).String(),
-				rrClass: dnskey.Hdr.Class,
-			},
+			Answer:    makeBaseAnswer(&dnskey.Hdr, ""),
 			Flags:     dnskey.Flags,
 			Protocol:  dnskey.Protocol,
 			Algorithm: dnskey.Algorithm,
 			PublicKey: dnskey.PublicKey,
 		}
+	} else if rkey, ok := ans.(*dns.RKEY); ok {
+		return DNSKEYAnswer{
+			Answer:    makeBaseAnswer(&rkey.Hdr, ""),
+			Flags:     rkey.Flags,
+			Protocol:  rkey.Protocol,
+			Algorithm: rkey.Algorithm,
+			PublicKey: rkey.PublicKey,
+		}
+
 	} else if cds, ok := ans.(*dns.CDS); ok {
 		return DSAnswer{
-			Answer: Answer{
-				Name:    cds.Hdr.Name,
-				Ttl:     cds.Hdr.Ttl,
-				Type:    dns.Type(cds.Hdr.Rrtype).String(),
-				rrType:  cds.Hdr.Rrtype,
-				Class:   dns.Class(cds.Hdr.Class).String(),
-				rrClass: cds.Hdr.Class,
-			},
+			Answer:     makeBaseAnswer(&cds.Hdr, ""),
 			KeyTag:     cds.KeyTag,
 			Algorithm:  cds.Algorithm,
 			DigestType: cds.DigestType,
@@ -480,14 +358,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 		}
 	} else if cdnskey, ok := ans.(*dns.CDNSKEY); ok {
 		return DNSKEYAnswer{
-			Answer: Answer{
-				Name:    cdnskey.Hdr.Name,
-				Ttl:     cdnskey.Hdr.Ttl,
-				Type:    dns.Type(cdnskey.Hdr.Rrtype).String(),
-				rrType:  cdnskey.Hdr.Rrtype,
-				Class:   dns.Class(cdnskey.Hdr.Class).String(),
-				rrClass: cdnskey.Hdr.Class,
-			},
+			Answer:    makeBaseAnswer(&dnskey.Hdr, ""),
 			Flags:     cdnskey.Flags,
 			Protocol:  cdnskey.Protocol,
 			Algorithm: cdnskey.Algorithm,
@@ -495,14 +366,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 		}
 	} else if key, ok := ans.(*dns.KEY); ok {
 		return DNSKEYAnswer{
-			Answer: Answer{
-				Name:    key.Hdr.Name,
-				Ttl:     key.Hdr.Ttl,
-				Type:    dns.Type(key.Hdr.Rrtype).String(),
-				rrType:  key.Hdr.Rrtype,
-				Class:   dns.Class(key.Hdr.Class).String(),
-				rrClass: key.Hdr.Class,
-			},
+			Answer:    makeBaseAnswer(&key.Hdr, ""),
 			Flags:     key.Flags,
 			Protocol:  key.Protocol,
 			Algorithm: key.Algorithm,
@@ -510,28 +374,14 @@ func ParseAnswer(ans dns.RR) interface{} {
 		}
 	} else if caa, ok := ans.(*dns.CAA); ok {
 		return CAAAnswer{
-			Answer: Answer{
-				Name:    caa.Hdr.Name,
-				Ttl:     caa.Hdr.Ttl,
-				Type:    dns.Type(caa.Hdr.Rrtype).String(),
-				rrType:  caa.Hdr.Rrtype,
-				Class:   dns.Class(caa.Hdr.Class).String(),
-				rrClass: caa.Hdr.Class,
-			},
-			Tag:   caa.Tag,
-			Value: caa.Value,
-			Flag:  caa.Flag,
+			Answer: makeBaseAnswer(&caa.Hdr, ""),
+			Tag:    caa.Tag,
+			Value:  caa.Value,
+			Flag:   caa.Flag,
 		}
 	} else if soa, ok := ans.(*dns.SOA); ok {
 		return SOAAnswer{
-			Answer: Answer{
-				Name:    strings.TrimSuffix(soa.Hdr.Name, "."),
-				Type:    dns.Type(soa.Hdr.Rrtype).String(),
-				rrType:  soa.Hdr.Rrtype,
-				Class:   dns.Class(soa.Hdr.Class).String(),
-				rrClass: soa.Hdr.Class,
-				Ttl:     soa.Hdr.Ttl,
-			},
+			Answer:  makeBaseAnswer(&soa.Hdr, ""),
 			Ns:      strings.TrimSuffix(soa.Ns, "."),
 			Mbox:    strings.TrimSuffix(soa.Mbox, "."),
 			Serial:  soa.Serial,
@@ -542,14 +392,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 		}
 	} else if srv, ok := ans.(*dns.SRV); ok {
 		return SRVAnswer{
-			Answer: Answer{
-				Name:    strings.TrimSuffix(srv.Hdr.Name, "."),
-				Type:    dns.Type(srv.Hdr.Rrtype).String(),
-				rrType:  srv.Hdr.Rrtype,
-				Class:   dns.Class(srv.Hdr.Class).String(),
-				rrClass: srv.Hdr.Class,
-				Ttl:     srv.Hdr.Ttl,
-			},
+			Answer:   makeBaseAnswer(&srv.Hdr, ""),
 			Priority: srv.Priority,
 			Weight:   srv.Weight,
 			Port:     srv.Port,
@@ -557,42 +400,17 @@ func ParseAnswer(ans dns.RR) interface{} {
 		}
 	} else if tlsa, ok := ans.(*dns.TLSA); ok {
 		return TLSAAnswer{
-			Answer: Answer{
-				Name:    strings.TrimSuffix(tlsa.Hdr.Name, "."),
-				Type:    dns.Type(tlsa.Hdr.Rrtype).String(),
-				rrType:  tlsa.Hdr.Rrtype,
-				Class:   dns.Class(tlsa.Hdr.Class).String(),
-				rrClass: tlsa.Hdr.Class,
-				Ttl:     tlsa.Hdr.Ttl,
-			},
+			Answer:       makeBaseAnswer(&tlsa.Hdr, ""),
 			CertUsage:    tlsa.Usage,
 			Selector:     tlsa.Selector,
 			MatchingType: tlsa.MatchingType,
 			Certificate:  tlsa.Certificate,
 		}
 	} else if nsec, ok := ans.(*dns.NSEC); ok {
-		return NSECAnswer{
-			Answer: Answer{
-				Name:    strings.TrimSuffix(nsec.Hdr.Name, "."),
-				Type:    dns.Type(nsec.Hdr.Rrtype).String(),
-				rrType:  nsec.Hdr.Rrtype,
-				Class:   dns.Class(nsec.Hdr.Class).String(),
-				rrClass: nsec.Hdr.Class,
-				Ttl:     nsec.Hdr.Ttl,
-				Answer:  strings.TrimSuffix(nsec.NextDomain, "."),
-			},
-		}
+		return makeBaseAnswer(&tlsa.Hdr, strings.TrimSuffix(nsec.NextDomain, "."))
 	} else if nsec3, ok := ans.(*dns.NSEC3); ok {
 		return NSEC3Answer{
-			Answer: Answer{
-				Name:    strings.TrimSuffix(nsec3.Hdr.Name, "."),
-				Type:    dns.Type(nsec3.Hdr.Rrtype).String(),
-				rrType:  nsec3.Hdr.Rrtype,
-				Class:   dns.Class(nsec3.Hdr.Class).String(),
-				rrClass: nsec3.Hdr.Class,
-				Ttl:     nsec3.Hdr.Ttl,
-				Answer:  strings.TrimSuffix(nsec3.NextDomain, "."),
-			},
+			Answer:        makeBaseAnswer(&nsec3.Hdr, ""),
 			HashAlgorithm: nsec3.Hash,
 			Flags:         nsec3.Flags,
 			Iterations:    nsec3.Iterations,
@@ -600,14 +418,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 		}
 	} else if nsec3param, ok := ans.(*dns.NSEC3PARAM); ok {
 		return NSEC3ParamAnswer{
-			Answer: Answer{
-				Name:    strings.TrimSuffix(nsec3param.Hdr.Name, "."),
-				Type:    dns.Type(nsec3param.Hdr.Rrtype).String(),
-				rrType:  nsec3param.Hdr.Rrtype,
-				Class:   dns.Class(nsec3param.Hdr.Class).String(),
-				rrClass: nsec3param.Hdr.Class,
-				Ttl:     nsec3param.Hdr.Ttl,
-			},
+			Answer:        makeBaseAnswer(&nsec3param.Hdr, ""),
 			HashAlgorithm: nsec3param.Hash,
 			Flags:         nsec3param.Flags,
 			Iterations:    nsec3param.Iterations,
@@ -615,14 +426,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 		}
 	} else if naptr, ok := ans.(*dns.NAPTR); ok {
 		return NAPTRAnswer{
-			Answer: Answer{
-				Name:    strings.TrimSuffix(naptr.Hdr.Name, "."),
-				Type:    dns.Type(naptr.Hdr.Rrtype).String(),
-				rrType:  naptr.Hdr.Rrtype,
-				Class:   dns.Class(naptr.Hdr.Class).String(),
-				rrClass: naptr.Hdr.Class,
-				Ttl:     naptr.Hdr.Ttl,
-			},
+			Answer:      makeBaseAnswer(&naptr.Hdr, ""),
 			Order:       naptr.Order,
 			Preference:  naptr.Preference,
 			Flags:       naptr.Flags,
@@ -632,14 +436,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 		}
 	} else if rrsig, ok := ans.(*dns.RRSIG); ok {
 		return RRSIGAnswer{
-			Answer: Answer{
-				Name:    strings.TrimSuffix(rrsig.Hdr.Name, "."),
-				Type:    dns.Type(rrsig.Hdr.Rrtype).String(),
-				rrType:  rrsig.Hdr.Rrtype,
-				Class:   dns.Class(rrsig.Hdr.Class).String(),
-				rrClass: rrsig.Hdr.Class,
-				Ttl:     rrsig.Hdr.Ttl,
-			},
+			Answer:      makeBaseAnswer(&rrsig.Hdr, ""),
 			TypeCovered: rrsig.TypeCovered,
 			Algorithm:   rrsig.Algorithm,
 			Labels:      rrsig.Labels,
@@ -665,8 +462,6 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Unparsed: ans,
 		}
 	}
-	retv.Name = strings.TrimSuffix(retv.Name, ".")
-	return retv
 }
 
 func TranslateMiekgErrorCode(err int) zdns.Status {
