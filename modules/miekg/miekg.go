@@ -21,13 +21,13 @@ var typeNames = map[uint16]string{
 	dns.TypeNone:       "None",
 	dns.TypeA:          "A",          // Module, Answer
 	dns.TypeNS:         "NS",         // Module, Answer
-	dns.TypeMD:         "MD",         //
-	dns.TypeMF:         "MF",         //
+	dns.TypeMD:         "MD",         // Module, Default Type
+	dns.TypeMF:         "MF",         // Module, Default Type
 	dns.TypeCNAME:      "CNAME",      // Module, Type
 	dns.TypeSOA:        "SOA",        // Module, Type
-	dns.TypeMB:         "MB",         //
-	dns.TypeMG:         "MG",         //
-	dns.TypeMR:         "MR",         //
+	dns.TypeMB:         "MB",         // Module, Default Type
+	dns.TypeMG:         "MG",         // Module, Default Type
+	dns.TypeMR:         "MR",         // Module, Default Type
 	dns.TypeNULL:       "NULL",       // Module, Default Type
 	dns.TypePTR:        "PTR",        // Module, Type
 	dns.TypeHINFO:      "HINFO",      //
@@ -348,7 +348,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Class:   dns.Class(null.Hdr.Class).String(),
 			rrClass: null.Hdr.Class,
 			Name:    null.Hdr.Name,
-			Answer:  strings.TrimRight(null.Data, "."),
+			Answer:  null.Data,
 		}
 	} else if ptr, ok := ans.(*dns.PTR); ok {
 		retv = Answer{
@@ -369,6 +369,56 @@ func ParseAnswer(ans dns.RR) interface{} {
 			rrClass: spf.Hdr.Class,
 			Name:    spf.Hdr.Name,
 			Answer:  spf.String(),
+		}
+	} else if mb, ok := ans.(*dns.MB); ok {
+		retv = Answer{
+			Ttl:     mb.Hdr.Ttl,
+			Type:    dns.Type(mb.Hdr.Rrtype).String(),
+			rrType:  mb.Hdr.Rrtype,
+			Class:   dns.Class(mb.Hdr.Class).String(),
+			rrClass: mb.Hdr.Class,
+			Name:    mb.Hdr.Name,
+			Answer:  mb.Mb,
+		}
+	} else if mg, ok := ans.(*dns.MG); ok {
+		retv = Answer{
+			Ttl:     mg.Hdr.Ttl,
+			Type:    dns.Type(mg.Hdr.Rrtype).String(),
+			rrType:  mg.Hdr.Rrtype,
+			Class:   dns.Class(mg.Hdr.Class).String(),
+			rrClass: mg.Hdr.Class,
+			Name:    mg.Hdr.Name,
+			Answer:  mg.Mg,
+		}
+	} else if mr, ok := ans.(*dns.MR); ok {
+		retv = Answer{
+			Ttl:     mr.Hdr.Ttl,
+			Type:    dns.Type(mr.Hdr.Rrtype).String(),
+			rrType:  mr.Hdr.Rrtype,
+			Class:   dns.Class(mr.Hdr.Class).String(),
+			rrClass: mr.Hdr.Class,
+			Name:    mr.Hdr.Name,
+			Answer:  mr.Mr,
+		}
+	} else if mf, ok := ans.(*dns.MF); ok {
+		retv = Answer{
+			Ttl:     mf.Hdr.Ttl,
+			Type:    dns.Type(mf.Hdr.Rrtype).String(),
+			rrType:  mf.Hdr.Rrtype,
+			Class:   dns.Class(mf.Hdr.Class).String(),
+			rrClass: mf.Hdr.Class,
+			Name:    mf.Hdr.Name,
+			Answer:  mf.Mf,
+		}
+	} else if md, ok := ans.(*dns.MD); ok {
+		retv = Answer{
+			Ttl:     md.Hdr.Ttl,
+			Type:    dns.Type(md.Hdr.Rrtype).String(),
+			rrType:  md.Hdr.Rrtype,
+			Class:   dns.Class(md.Hdr.Class).String(),
+			rrClass: md.Hdr.Class,
+			Name:    md.Hdr.Name,
+			Answer:  md.Md,
 		}
 	} else if mx, ok := ans.(*dns.MX); ok {
 		return MXAnswer{
@@ -1452,6 +1502,26 @@ func init() {
 	mx := new(GlobalLookupFactory)
 	mx.SetDNSType(dns.TypeMX)
 	zdns.RegisterLookup("MX", mx)
+
+	md := new(GlobalLookupFactory)
+	md.SetDNSType(dns.TypeMD)
+	zdns.RegisterLookup("MD", md)
+
+	mf := new(GlobalLookupFactory)
+	mf.SetDNSType(dns.TypeMF)
+	zdns.RegisterLookup("MF", mf)
+
+	mb := new(GlobalLookupFactory)
+	mb.SetDNSType(dns.TypeMB)
+	zdns.RegisterLookup("MB", mb)
+
+	mg := new(GlobalLookupFactory)
+	mg.SetDNSType(dns.TypeMG)
+	zdns.RegisterLookup("MG", mg)
+
+	mr := new(GlobalLookupFactory)
+	mr.SetDNSType(dns.TypeMR)
+	zdns.RegisterLookup("MR", mr)
 
 	ns := new(GlobalLookupFactory)
 	ns.SetDNSType(dns.TypeNS)
