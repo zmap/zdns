@@ -58,7 +58,19 @@ func parseAlexa(line string) (string, int) {
 	return s[1], rank
 }
 
-func makeName(name string, prefix string) (string, bool) {
+func parseNormalInputLine(line string) (string, string) {
+	s := strings.SplitN(line, ",", 2)
+	if s[1] == "" {
+		return s[0], s[1]
+	} else {
+		return s[0], AddDefaultPortToDNSServerName(s[1])
+	}
+}
+
+func makeName(name string, prefix string, nameOverride string) (string, bool) {
+	if nameOverride != "" {
+		return nameOverride, true
+	}
 	if prefix == "" {
 		return name, false
 	} else {
@@ -99,21 +111,25 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, 
 		} else {
 			line := genericInput.(string)
 			var changed bool
-			var rawName string
+			var lookupName string
+			rawName := ""
+			nameServer := ""
 			var rank int
 			if gc.AlexaFormat == true {
 				rawName, rank = parseAlexa(line)
 				res.AlexaRank = rank
+			} else if gc.NameServerMode {
+				nameServer = AddDefaultPortToDNSServerName(line)
 			} else {
-				rawName = line
+				rawName, nameServer = parseNormalInputLine(line)
 			}
-			lookupName, changed := makeName(rawName, gc.NamePrefix)
+			lookupName, changed = makeName(rawName, gc.NamePrefix, gc.NameOverride)
 			if changed {
 				res.AlteredName = lookupName
 			}
 			res.Name = rawName
 			res.Class = dns.Class(gc.Class).String()
-			innerRes, trace, status, err = l.DoLookup(lookupName)
+			innerRes, trace, status, err = l.DoLookup(lookupName, nameServer)
 		}
 		res.Timestamp = time.Now().Format(gc.TimeFormat)
 		if status != STATUS_NO_OUTPUT {
