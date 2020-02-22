@@ -146,7 +146,7 @@ func TestDoLookup(t *testing.T) {
 		Flags:       miekg.DNSFlags{},
 	}
 
-	res, _, _, _ = l.DoLookup("example.com")
+	res, _, _, _ = l.DoLookup("example.com", "")
 	verifyResult(t, res.(Result), nil, []string{"2001:db8::1", "2001:db8::2"})
 
 	// Case 6: CNAME
