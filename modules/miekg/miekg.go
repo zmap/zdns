@@ -45,7 +45,7 @@ var typeNames = map[uint16]string{
 	dns.TypePX:         "PX",         // Module, PXAnswer (todo)
 	dns.TypeGPOS:       "GPOS",       // Module, GPOSAnswer (todo)
 	dns.TypeAAAA:       "AAAA",       // Module, Type
-	dns.TypeLOC:        "LOC",        //
+	dns.TypeLOC:        "LOC",        // Module
 	dns.TypeNXT:        "NXT",        //
 	dns.TypeEID:        "EID",        //
 	dns.TypeNIMLOC:     "NIMLOC",     //
@@ -1411,6 +1411,22 @@ func init() {
 	any.SetDNSType(dns.TypeANY)
 	zdns.RegisterLookup("ANY", any)
 
+	afsdb := new(GlobalLookupFactory)
+	afsdb.SetDNSType(dns.TypeAFSDB)
+	zdns.RegisterLookup("AFSDB", afsdb)
+
+	avc := new(GlobalLookupFactory)
+	avc.SetDNSType(dns.TypeAVC)
+	zdns.RegisterLookup("AVC", avc)
+
+	caa := new(GlobalLookupFactory)
+	caa.SetDNSType(dns.TypeCAA)
+	zdns.RegisterLookup("CAA", caa)
+
+	cert := new(GlobalLookupFactory)
+	cert.SetDNSType(dns.TypeCERT)
+	zdns.RegisterLookup("CERT", cert)
+
 	cds := new(GlobalLookupFactory)
 	cds.SetDNSType(dns.TypeCDS)
 	zdns.RegisterLookup("CDS", cds)
@@ -1418,14 +1434,6 @@ func init() {
 	cdnskey := new(GlobalLookupFactory)
 	cdnskey.SetDNSType(dns.TypeCDNSKEY)
 	zdns.RegisterLookup("CDNSKEY", cdnskey)
-
-	key := new(GlobalLookupFactory)
-	key.SetDNSType(dns.TypeKEY)
-	zdns.RegisterLookup("KEY", key)
-
-	caa := new(GlobalLookupFactory)
-	caa.SetDNSType(dns.TypeCAA)
-	zdns.RegisterLookup("CAA", caa)
 
 	cname := new(GlobalLookupFactory)
 	cname.SetDNSType(dns.TypeCNAME)
@@ -1439,9 +1447,25 @@ func init() {
 	dnskey.SetDNSType(dns.TypeDNSKEY)
 	zdns.RegisterLookup("DNSKEY", dnskey)
 
-	mx := new(GlobalLookupFactory)
-	mx.SetDNSType(dns.TypeMX)
-	zdns.RegisterLookup("MX", mx)
+	gpos := new(GlobalLookupFactory)
+	gpos.SetDNSType(dns.TypeGPOS)
+	zdns.RegisterLookup("GPOS", gpos)
+
+	hinfo := new(GlobalLookupFactory)
+	hinfo.SetDNSType(dns.TypeHINFO)
+	zdns.RegisterLookup("HINFO", hinfo)
+
+	hip := new(GlobalLookupFactory)
+	hip.SetDNSType(dns.TypeHIP)
+	zdns.RegisterLookup("HIP", hip)
+
+	key := new(GlobalLookupFactory)
+	key.SetDNSType(dns.TypeKEY)
+	zdns.RegisterLookup("KEY", key)
+
+	loc := new(GlobalLookupFactory)
+	loc.SetDNSType(dns.TypeLOC)
+	zdns.RegisterLookup("LOC", loc)
 
 	md := new(GlobalLookupFactory)
 	md.SetDNSType(dns.TypeMD)
@@ -1463,33 +1487,21 @@ func init() {
 	mr.SetDNSType(dns.TypeMR)
 	zdns.RegisterLookup("MR", mr)
 
+	mx := new(GlobalLookupFactory)
+	mx.SetDNSType(dns.TypeMX)
+	zdns.RegisterLookup("MX", mx)
+
+	naptr := new(GlobalLookupFactory)
+	naptr.SetDNSType(dns.TypeNAPTR)
+	zdns.RegisterLookup("NAPTR", naptr)
+
+	ninfo := new(GlobalLookupFactory)
+	ninfo.SetDNSType(dns.TypeNINFO)
+	zdns.RegisterLookup("NINFO", ninfo)
+
 	ns := new(GlobalLookupFactory)
 	ns.SetDNSType(dns.TypeNS)
 	zdns.RegisterLookup("NS", ns)
-
-	ptr := new(GlobalLookupFactory)
-	ptr.SetDNSType(dns.TypePTR)
-	zdns.RegisterLookup("PTR", ptr)
-
-	soa := new(GlobalLookupFactory)
-	soa.SetDNSType(dns.TypeSOA)
-	zdns.RegisterLookup("SOA", soa)
-
-	txt := new(GlobalLookupFactory)
-	txt.SetDNSType(dns.TypeTXT)
-	zdns.RegisterLookup("TXT", txt)
-
-	spf := new(GlobalLookupFactory)
-	spf.SetDNSType(dns.TypeSPF)
-	zdns.RegisterLookup("SPF", spf)
-
-	srv := new(GlobalLookupFactory)
-	srv.SetDNSType(dns.TypeSRV)
-	zdns.RegisterLookup("SRV", srv)
-
-	tlsa := new(GlobalLookupFactory)
-	tlsa.SetDNSType(dns.TypeTLSA)
-	zdns.RegisterLookup("TLSA", tlsa)
 
 	nsec := new(GlobalLookupFactory)
 	nsec.SetDNSType(dns.TypeNSEC)
@@ -1503,56 +1515,44 @@ func init() {
 	nsec3param.SetDNSType(dns.TypeNSEC3PARAM)
 	zdns.RegisterLookup("NSEC3PARAM", nsec3param)
 
-	naptr := new(GlobalLookupFactory)
-	naptr.SetDNSType(dns.TypeNAPTR)
-	zdns.RegisterLookup("NAPTR", naptr)
-
 	null := new(GlobalLookupFactory)
 	null.SetDNSType(dns.TypeNULL)
 	zdns.RegisterLookup("NULL", null)
 
-	rrsig := new(GlobalLookupFactory)
-	rrsig.SetDNSType(dns.TypeRRSIG)
-	zdns.RegisterLookup("RRSIG", rrsig)
-
-	hinfo := new(GlobalLookupFactory)
-	hinfo.SetDNSType(dns.TypeHINFO)
-	zdns.RegisterLookup("HINFO", hinfo)
-
-	ninfo := new(GlobalLookupFactory)
-	ninfo.SetDNSType(dns.TypeNINFO)
-	zdns.RegisterLookup("NINFO", ninfo)
-
-	avc := new(GlobalLookupFactory)
-	avc.SetDNSType(dns.TypeAVC)
-	zdns.RegisterLookup("AVC", avc)
-
-	cert := new(GlobalLookupFactory)
-	cert.SetDNSType(dns.TypeCERT)
-	zdns.RegisterLookup("CERT", cert)
-
-	gpos := new(GlobalLookupFactory)
-	gpos.SetDNSType(dns.TypeGPOS)
-	zdns.RegisterLookup("GPOS", gpos)
+	ptr := new(GlobalLookupFactory)
+	ptr.SetDNSType(dns.TypePTR)
+	zdns.RegisterLookup("PTR", ptr)
 
 	px := new(GlobalLookupFactory)
 	px.SetDNSType(dns.TypePX)
 	zdns.RegisterLookup("PX", px)
 
-	loc := new(GlobalLookupFactory)
-	loc.SetDNSType(dns.TypeLOC)
-	zdns.RegisterLookup("LOC", loc)
-
-	afsdb := new(GlobalLookupFactory)
-	afsdb.SetDNSType(dns.TypeAFSDB)
-	zdns.RegisterLookup("AFSDB", afsdb)
+	rrsig := new(GlobalLookupFactory)
+	rrsig.SetDNSType(dns.TypeRRSIG)
+	zdns.RegisterLookup("RRSIG", rrsig)
 
 	rt := new(GlobalLookupFactory)
 	rt.SetDNSType(dns.TypeRT)
 	zdns.RegisterLookup("RT", rt)
 
-	hip := new(GlobalLookupFactory)
-	hip.SetDNSType(dns.TypeHIP)
-	zdns.RegisterLookup("HIP", hip)
+	soa := new(GlobalLookupFactory)
+	soa.SetDNSType(dns.TypeSOA)
+	zdns.RegisterLookup("SOA", soa)
+
+	spf := new(GlobalLookupFactory)
+	spf.SetDNSType(dns.TypeSPF)
+	zdns.RegisterLookup("SPF", spf)
+
+	srv := new(GlobalLookupFactory)
+	srv.SetDNSType(dns.TypeSRV)
+	zdns.RegisterLookup("SRV", srv)
+
+	tlsa := new(GlobalLookupFactory)
+	tlsa.SetDNSType(dns.TypeTLSA)
+	zdns.RegisterLookup("TLSA", tlsa)
+
+	txt := new(GlobalLookupFactory)
+	txt.SetDNSType(dns.TypeTXT)
+	zdns.RegisterLookup("TXT", txt)
 
 }
