@@ -500,7 +500,6 @@ func ParseAnswer(ans dns.RR) interface{} {
 			PublicKey:          cAns.PublicKey,
 			RendezvousServers:  cAns.RendezvousServers,
 		}
-
 	default:
 		return struct {
 			Type     string `json:"type"`
