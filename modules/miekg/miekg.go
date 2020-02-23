@@ -20,6 +20,7 @@ import (
 var typeNames = map[uint16]string{
 	dns.TypeNone:       "None",
 	dns.TypeA:          "A",          // Module, Answer
+	dns.TypeANY:        "ANY",        // Module, Answer
 	dns.TypeNS:         "NS",         // Module, Answer
 	dns.TypeMD:         "MD",         // Module, Answer
 	dns.TypeMF:         "MF",         // Module, Answer
@@ -34,58 +35,58 @@ var typeNames = map[uint16]string{
 	dns.TypeMINFO:      "MINFO",      // Module, MInfoAnswer
 	dns.TypeMX:         "MX",         // Module, Type
 	dns.TypeTXT:        "TXT",        // Module, Type
-	dns.TypeRP:         "RP",         //
+	dns.TypeRP:         "RP",         // Module
 	dns.TypeAFSDB:      "AFSDB",      // Module, AFSDBAnswer (todo)
 	dns.TypeX25:        "X25",        // Module, X25Answer (todo)
-	dns.TypeISDN:       "ISDN",       //
-	dns.TypeRT:         "RT",         //
-	dns.TypeNSAPPTR:    "NSAPPTR",    //
+	dns.TypeISDN:       "ISDN",       // Module
+	dns.TypeRT:         "RT",         // Module
+	dns.TypeNSAPPTR:    "NSAPPTR",    // Module
 	dns.TypeSIG:        "SIG",        // Module, RRSIGAnswer
 	dns.TypeKEY:        "KEY",        // Module, DNSKeyAnswer
 	dns.TypePX:         "PX",         // Module, PXAnswer (todo)
 	dns.TypeGPOS:       "GPOS",       // Module, GPOSAnswer (todo)
 	dns.TypeAAAA:       "AAAA",       // Module, Type
 	dns.TypeLOC:        "LOC",        // Module
-	dns.TypeNXT:        "NXT",        //
-	dns.TypeEID:        "EID",        //
-	dns.TypeNIMLOC:     "NIMLOC",     //
+	dns.TypeNXT:        "NXT",        // Module
+	dns.TypeEID:        "EID",        // Module
+	dns.TypeNIMLOC:     "NIMLOC",     // Module
 	dns.TypeSRV:        "SRV",        // Module, SRVAnswer
-	dns.TypeATMA:       "ATMA",       //
-	dns.TypeNAPTR:      "NAPTR",      //
-	dns.TypeKX:         "KX",         //
+	dns.TypeATMA:       "ATMA",       // Module
+	dns.TypeNAPTR:      "NAPTR",      // Module
+	dns.TypeKX:         "KX",         // Module
 	dns.TypeCERT:       "CERT",       // Module, CERTAnswer (todo)
 	dns.TypeDNAME:      "DNAME",      // Module, Answer
-	dns.TypeOPT:        "OPT",        //
-	dns.TypeDS:         "DS",         //
-	dns.TypeSSHFP:      "SSHFP",      //
+	dns.TypeOPT:        "OPT",        // Module
+	dns.TypeDS:         "DS",         // Module
+	dns.TypeSSHFP:      "SSHFP",      // Module
 	dns.TypeRRSIG:      "RRSIG",      // Module, RRSIGAnswer
 	dns.TypeNSEC:       "NSEC",       // Module, ??
 	dns.TypeDNSKEY:     "DNSKEY",     // Module, ??
-	dns.TypeDHCID:      "DHCID",      //
+	dns.TypeDHCID:      "DHCID",      // Module
 	dns.TypeNSEC3:      "NSEC3",      // Module, ??
 	dns.TypeNSEC3PARAM: "NSEC3PARAM", // Module, ??
 	dns.TypeTLSA:       "TLSA",       // Module, TLSAAnswer
-	dns.TypeSMIMEA:     "SMIMEA",     //
-	dns.TypeHIP:        "HIP",        //
+	dns.TypeSMIMEA:     "SMIMEA",     // Module
+	dns.TypeHIP:        "HIP",        // Module
 	dns.TypeNINFO:      "NINFO",      // Module, Answer
 	dns.TypeRKEY:       "RKEY",       // Module, DNSKeyAnswer
-	dns.TypeTALINK:     "TALINK",     //
+	dns.TypeTALINK:     "TALINK",     // Module
 	dns.TypeCDS:        "CDS",        // Module, DNSKeyAnswer
 	dns.TypeCDNSKEY:    "CDNSKEY",    // Module, DNSKeyAnswer
-	dns.TypeOPENPGPKEY: "OPENPGPKEY", //
-	dns.TypeCSYNC:      "CSYNC",      //
+	dns.TypeOPENPGPKEY: "OPENPGPKEY", // Module
+	dns.TypeCSYNC:      "CSYNC",      // Module
 	dns.TypeSPF:        "SPF",        // Module, SPF
-	dns.TypeUINFO:      "UINFO",      //
-	dns.TypeUID:        "UID",        //
-	dns.TypeGID:        "GID",        //
-	dns.TypeUNSPEC:     "UNSPEC",     //
-	dns.TypeNID:        "NID",        //
-	dns.TypeL32:        "L32",        //
-	dns.TypeL64:        "L64",        //
-	dns.TypeLP:         "LP",         //
-	dns.TypeEUI48:      "EUI48",      //
-	dns.TypeEUI64:      "EUI64",      //
-	dns.TypeURI:        "URI",        //
+	dns.TypeUINFO:      "UINFO",      // Module
+	dns.TypeUID:        "UID",        // Module
+	dns.TypeGID:        "GID",        // Module
+	dns.TypeUNSPEC:     "UNSPEC",     // Module
+	dns.TypeNID:        "NID",        // Module
+	dns.TypeL32:        "L32",        // Module
+	dns.TypeL64:        "L64",        // Module
+	dns.TypeLP:         "LP",         // Module
+	dns.TypeEUI48:      "EUI48",      // Module
+	dns.TypeEUI64:      "EUI64",      // Module
+	dns.TypeURI:        "URI",        // Module
 	dns.TypeCAA:        "CAA",        // Module, CAAAnswer
 	dns.TypeAVC:        "AVC",        // Module, Answer
 }
@@ -1415,6 +1416,10 @@ func init() {
 	afsdb.SetDNSType(dns.TypeAFSDB)
 	zdns.RegisterLookup("AFSDB", afsdb)
 
+	atma := new(GlobalLookupFactory)
+	atma.SetDNSType(dns.TypeATMA)
+	zdns.RegisterLookup("ATMA", atma)
+
 	avc := new(GlobalLookupFactory)
 	avc.SetDNSType(dns.TypeAVC)
 	zdns.RegisterLookup("AVC", avc)
@@ -1439,13 +1444,37 @@ func init() {
 	cname.SetDNSType(dns.TypeCNAME)
 	zdns.RegisterLookup("CNAME", cname)
 
-	ds := new(GlobalLookupFactory)
-	ds.SetDNSType(dns.TypeDS)
-	zdns.RegisterLookup("DS", ds)
+	csync := new(GlobalLookupFactory)
+	csync.SetDNSType(dns.TypeCSYNC)
+	zdns.RegisterLookup("csync", csync)
+
+	dhcid := new(GlobalLookupFactory)
+	dhcid.SetDNSType(dns.TypeDHCID)
+	zdns.RegisterLookup("dhcid", dhcid)
 
 	dnskey := new(GlobalLookupFactory)
 	dnskey.SetDNSType(dns.TypeDNSKEY)
 	zdns.RegisterLookup("DNSKEY", dnskey)
+
+	ds := new(GlobalLookupFactory)
+	ds.SetDNSType(dns.TypeDS)
+	zdns.RegisterLookup("DS", ds)
+
+	eid := new(GlobalLookupFactory)
+	eid.SetDNSType(dns.TypeEID)
+	zdns.RegisterLookup("EID", eid)
+
+	eui48 := new(GlobalLookupFactory)
+	eui48.SetDNSType(dns.TypeEUI48)
+	zdns.RegisterLookup("eui48", eui48)
+
+	eui64 := new(GlobalLookupFactory)
+	eui64.SetDNSType(dns.TypeEUI64)
+	zdns.RegisterLookup("eui64", eui64)
+
+	gid := new(GlobalLookupFactory)
+	gid.SetDNSType(dns.TypeGID)
+	zdns.RegisterLookup("gid", gid)
 
 	gpos := new(GlobalLookupFactory)
 	gpos.SetDNSType(dns.TypeGPOS)
@@ -1459,13 +1488,33 @@ func init() {
 	hip.SetDNSType(dns.TypeHIP)
 	zdns.RegisterLookup("HIP", hip)
 
+	isdn := new(GlobalLookupFactory)
+	isdn.SetDNSType(dns.TypeISDN)
+	zdns.RegisterLookup("ISDN", isdn)
+
 	key := new(GlobalLookupFactory)
 	key.SetDNSType(dns.TypeKEY)
 	zdns.RegisterLookup("KEY", key)
 
+	kx := new(GlobalLookupFactory)
+	kx.SetDNSType(dns.TypeKX)
+	zdns.RegisterLookup("KX", kx)
+
+	l32 := new(GlobalLookupFactory)
+	l32.SetDNSType(dns.TypeL32)
+	zdns.RegisterLookup("l32", l32)
+
+	l64 := new(GlobalLookupFactory)
+	l64.SetDNSType(dns.TypeL64)
+	zdns.RegisterLookup("l64", l64)
+
 	loc := new(GlobalLookupFactory)
 	loc.SetDNSType(dns.TypeLOC)
 	zdns.RegisterLookup("LOC", loc)
+
+	lp := new(GlobalLookupFactory)
+	lp.SetDNSType(dns.TypeLP)
+	zdns.RegisterLookup("lp", lp)
 
 	md := new(GlobalLookupFactory)
 	md.SetDNSType(dns.TypeMD)
@@ -1495,13 +1544,29 @@ func init() {
 	naptr.SetDNSType(dns.TypeNAPTR)
 	zdns.RegisterLookup("NAPTR", naptr)
 
+	nimloc := new(GlobalLookupFactory)
+	nimloc.SetDNSType(dns.TypeNIMLOC)
+	zdns.RegisterLookup("NS", nimloc)
+
+	nid := new(GlobalLookupFactory)
+	nid.SetDNSType(dns.TypeNID)
+	zdns.RegisterLookup("nid", nid)
+
 	ninfo := new(GlobalLookupFactory)
 	ninfo.SetDNSType(dns.TypeNINFO)
 	zdns.RegisterLookup("NINFO", ninfo)
 
+	nsapptr := new(GlobalLookupFactory)
+	nsapptr.SetDNSType(dns.TypeNSAPPTR)
+	zdns.RegisterLookup("NSAPPTR", nsapptr)
+
 	ns := new(GlobalLookupFactory)
 	ns.SetDNSType(dns.TypeNS)
 	zdns.RegisterLookup("NS", ns)
+
+	nxt := new(GlobalLookupFactory)
+	nxt.SetDNSType(dns.TypeNXT)
+	zdns.RegisterLookup("NXT", nxt)
 
 	nsec := new(GlobalLookupFactory)
 	nsec.SetDNSType(dns.TypeNSEC)
@@ -1519,6 +1584,14 @@ func init() {
 	null.SetDNSType(dns.TypeNULL)
 	zdns.RegisterLookup("NULL", null)
 
+	openpgpkey := new(GlobalLookupFactory)
+	openpgpkey.SetDNSType(dns.TypeOPENPGPKEY)
+	zdns.RegisterLookup("OPENPGPKEY", openpgpkey)
+
+	opt := new(GlobalLookupFactory)
+	opt.SetDNSType(dns.TypeOPT)
+	zdns.RegisterLookup("OPT", opt)
+
 	ptr := new(GlobalLookupFactory)
 	ptr.SetDNSType(dns.TypePTR)
 	zdns.RegisterLookup("PTR", ptr)
@@ -1527,6 +1600,10 @@ func init() {
 	px.SetDNSType(dns.TypePX)
 	zdns.RegisterLookup("PX", px)
 
+	rp := new(GlobalLookupFactory)
+	rp.SetDNSType(dns.TypeRP)
+	zdns.RegisterLookup("RP", rp)
+
 	rrsig := new(GlobalLookupFactory)
 	rrsig.SetDNSType(dns.TypeRRSIG)
 	zdns.RegisterLookup("RRSIG", rrsig)
@@ -1534,6 +1611,14 @@ func init() {
 	rt := new(GlobalLookupFactory)
 	rt.SetDNSType(dns.TypeRT)
 	zdns.RegisterLookup("RT", rt)
+
+	smimea := new(GlobalLookupFactory)
+	smimea.SetDNSType(dns.TypeSMIMEA)
+	zdns.RegisterLookup("smimea", smimea)
+
+	sshfp := new(GlobalLookupFactory)
+	sshfp.SetDNSType(dns.TypeSSHFP)
+	zdns.RegisterLookup("SSHFP", sshfp)
 
 	soa := new(GlobalLookupFactory)
 	soa.SetDNSType(dns.TypeSOA)
@@ -1547,6 +1632,10 @@ func init() {
 	srv.SetDNSType(dns.TypeSRV)
 	zdns.RegisterLookup("SRV", srv)
 
+	talink := new(GlobalLookupFactory)
+	talink.SetDNSType(dns.TypeTALINK)
+	zdns.RegisterLookup("talink", talink)
+
 	tlsa := new(GlobalLookupFactory)
 	tlsa.SetDNSType(dns.TypeTLSA)
 	zdns.RegisterLookup("TLSA", tlsa)
@@ -1554,5 +1643,21 @@ func init() {
 	txt := new(GlobalLookupFactory)
 	txt.SetDNSType(dns.TypeTXT)
 	zdns.RegisterLookup("TXT", txt)
+
+	uid := new(GlobalLookupFactory)
+	uid.SetDNSType(dns.TypeUID)
+	zdns.RegisterLookup("uid", uid)
+
+	uinfo := new(GlobalLookupFactory)
+	uinfo.SetDNSType(dns.TypeUINFO)
+	zdns.RegisterLookup("uinfo", uinfo)
+
+	unspec := new(GlobalLookupFactory)
+	unspec.SetDNSType(dns.TypeUNSPEC)
+	zdns.RegisterLookup("unspec", unspec)
+
+	uri := new(GlobalLookupFactory)
+	uri.SetDNSType(dns.TypeURI)
+	zdns.RegisterLookup("uri", uri)
 
 }
