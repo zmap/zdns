@@ -239,19 +239,30 @@ type PXAnswer struct {
 	Mapx400    string `json:"mapx400" groups:"short,normal,long,trace"`
 }
 
-type GPOS struct {
+type GPOSAnswer struct {
 	Answer
 	Longitude string `json:"preference" groups:"short,normal,long,trace"`
 	Latitude  string `json:"map822" groups:"short,normal,long,trace"`
 	Altitude  string `json:"mapx400" groups:"short,normal,long,trace"`
 }
 
-type HIP struct {
+type HIPAnswer struct {
+	Answer
+	HitLength          uint8    `json:"hit_length" groups:"short,normal,long,trace"`
+	PublicKeyAlgorithm uint8    `json:"pubkey_algo" groups:"short,normal,long,trace"`
+	PublicKeyLength    uint16   `json:"pubkey_len" groups:"short,normal,long,trace"`
+	Hit                string   `json:"hit" groups:"short,normal,long,trace"`
+	PublicKey          string   `json:"pubkey" groups:"short,normal,long,trace"`
+	RendezvousServers  []string `json:"rendezvous_servers" groups:"short,normal,long,trace"`
+}
+
+type NIDAnswer struct {
 	Answer
 }
 
-type NID struct {
+type X25Answer struct {
 	Answer
+	PSDNAddress string `json:"psdn_address" groups:"short,normal,long,trace"`
 }
 
 type DNSFlags struct {
@@ -509,6 +520,56 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Algorithm: cAns.Algorithm,
 			PublicKey: cAns.PublicKey,
 		}
+	case *dns.AFSDB:
+		return AFSDBAnswer{
+			Answer:   makeBaseAnswer(&cAns.Hdr, ""),
+			Subtype:  cAns.Subtype,
+			Hostname: cAns.Hostname,
+		}
+	case *dns.RT:
+		return RTAnswer{
+			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
+			Preference: cAns.Preference,
+			Host:       cAns.Host,
+		}
+	case *dns.X25:
+		return X25Answer{
+			Answer:      makeBaseAnswer(&cAns.Hdr, ""),
+			PSDNAddress: cAns.PSDNAddress,
+		}
+	case *dns.CERT:
+		return CERTAnswer{
+			Answer:      makeBaseAnswer(&cAns.Hdr, ""),
+			Type:        cAns.Type,
+			KeyTag:      cAns.KeyTag,
+			Algorithm:   cAns.Algorithm,
+			Certificate: cAns.Certificate,
+		}
+	case *dns.PX:
+		return PXAnswer{
+			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
+			Preference: cAns.Preference,
+			Map822:     cAns.Map822,
+			Mapx400:    cAns.Mapx400,
+		}
+	case *dns.GPOS:
+		return GPOSAnswer{
+			Answer:    makeBaseAnswer(&cAns.Hdr, ""),
+			Longitude: cAns.Longitude,
+			Latitude:  cAns.Latitude,
+			Altitude:  cAns.Altitude,
+		}
+	case *dns.HIP:
+		return HIPAnswer{
+			Answer:             makeBaseAnswer(&cAns.Hdr, ""),
+			HitLength:          cAns.HitLength,
+			PublicKeyAlgorithm: cAns.PublicKeyAlgorithm,
+			PublicKeyLength:    cAns.PublicKeyLength,
+			Hit:                cAns.Hit,
+			PublicKey:          cAns.PublicKey,
+			RendezvousServers:  cAns.RendezvousServers,
+		}
+
 	default:
 		return struct {
 			Type     string `json:"type"`
@@ -1478,5 +1539,17 @@ func init() {
 	loc := new(GlobalLookupFactory)
 	loc.SetDNSType(dns.TypeLOC)
 	zdns.RegisterLookup("LOC", loc)
+
+	afsdb := new(GlobalLookupFactory)
+	afsdb.SetDNSType(dns.TypeAFSDB)
+	zdns.RegisterLookup("AFSDB", afsdb)
+
+	rt := new(GlobalLookupFactory)
+	rt.SetDNSType(dns.TypeRT)
+	zdns.RegisterLookup("RT", rt)
+
+	hip := new(GlobalLookupFactory)
+	hip.SetDNSType(dns.TypeHIP)
+	zdns.RegisterLookup("HIP", hip)
 
 }
