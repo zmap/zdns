@@ -100,29 +100,27 @@ type Answer struct {
 	Answer  string `json:"answer,omitempty" groups:"short,normal,long,trace"`
 }
 
-type MXAnswer struct {
+// Complex Answers (in alphabetical order)
+
+type AFSDBAnswer struct {
 	Answer
-	Preference uint16 `json:"preference" groups:"short,normal,long,trace"`
+	Subtype  uint16 `json:"subtype" groups:"short,normal,long,trace"`
+	Hostname string `json:"hostname" groups:"short,normal,long,trace"`
 }
 
-type HINFOAnswer struct {
+type CAAAnswer struct {
 	Answer
-	Cpu string `json:"cpu" groups:"short,normal,long,trace"`
-	Os  string `json:"os" groups:"short,normal,long,trace"`
+	Tag   string `json:"tag" groups:"short,normal,long,trace"`
+	Value string `json:"value" groups:"short,normal,long,trace"`
+	Flag  uint8  `json:"flag" groups:"short,normal,long,trace"`
 }
 
-type MINFOAnswer struct {
+type CERTAnswer struct {
 	Answer
-	Rmail string `json:"rmail" groups:"short,normal,long,trace"`
-	Email string `json:"email" groups:"short,normal,long,trace"`
-}
-
-type DSAnswer struct {
-	Answer
-	KeyTag     uint16 `json:"key_tag" groups:"short,normal,long,trace"`
-	Algorithm  uint8  `json:"algorithm" groups:"short,normal,long,trace"`
-	DigestType uint8  `json:"digest_type" groups:"short,normal,long,trace"`
-	Digest     string `json:"digest" groups:"short,normal,long,trace"`
+	Type        uint16 `json:"type" groups:"short,normal,long,trace"`
+	KeyTag      uint16 `json:"keytag" groups:"short,normal,long,trace"`
+	Algorithm   uint8  `json:"algorithm" groups:"short,normal,long,trace"`
+	Certificate string `json:"certificate" groups:"short,normal,long,trace"`
 }
 
 type DNSKEYAnswer struct {
@@ -133,11 +131,107 @@ type DNSKEYAnswer struct {
 	PublicKey string `json:"public_key" groups:"short,normal,long,trace"`
 }
 
-type CAAAnswer struct {
+type DSAnswer struct {
 	Answer
-	Tag   string `json:"tag" groups:"short,normal,long,trace"`
-	Value string `json:"value" groups:"short,normal,long,trace"`
-	Flag  uint8  `json:"flag" groups:"short,normal,long,trace"`
+	KeyTag     uint16 `json:"key_tag" groups:"short,normal,long,trace"`
+	Algorithm  uint8  `json:"algorithm" groups:"short,normal,long,trace"`
+	DigestType uint8  `json:"digest_type" groups:"short,normal,long,trace"`
+	Digest     string `json:"digest" groups:"short,normal,long,trace"`
+}
+type GPOSAnswer struct {
+	Answer
+	Longitude string `json:"preference" groups:"short,normal,long,trace"`
+	Latitude  string `json:"map822" groups:"short,normal,long,trace"`
+	Altitude  string `json:"mapx400" groups:"short,normal,long,trace"`
+}
+
+type HINFOAnswer struct {
+	Answer
+	Cpu string `json:"cpu" groups:"short,normal,long,trace"`
+	Os  string `json:"os" groups:"short,normal,long,trace"`
+}
+
+type HIPAnswer struct {
+	Answer
+	HitLength          uint8    `json:"hit_length" groups:"short,normal,long,trace"`
+	PublicKeyAlgorithm uint8    `json:"pubkey_algo" groups:"short,normal,long,trace"`
+	PublicKeyLength    uint16   `json:"pubkey_len" groups:"short,normal,long,trace"`
+	Hit                string   `json:"hit" groups:"short,normal,long,trace"`
+	PublicKey          string   `json:"pubkey" groups:"short,normal,long,trace"`
+	RendezvousServers  []string `json:"rendezvous_servers" groups:"short,normal,long,trace"`
+}
+
+type MINFOAnswer struct {
+	Answer
+	Rmail string `json:"rmail" groups:"short,normal,long,trace"`
+	Email string `json:"email" groups:"short,normal,long,trace"`
+}
+
+type MXAnswer struct {
+	Answer
+	Preference uint16 `json:"preference" groups:"short,normal,long,trace"`
+}
+
+type NAPTRAnswer struct {
+	Answer
+	Order       uint16 `json:"order" groups:"short,normal,long,trace"`
+	Preference  uint16 `json:"preference" groups:"short,normal,long,trace"`
+	Flags       string `json:"flags" groups:"short,normal,long,trace"`
+	Service     string `json:"service" groups:"short,normal,long,trace"`
+	Regexp      string `json:"regexp" groups:"short,normal,long,trace"`
+	Replacement string `json:"replacement" groups:"short,normal,long,trace"`
+}
+
+type NIDAnswer struct {
+	Answer
+}
+
+type NSEC3Answer struct {
+	Answer
+	HashAlgorithm uint8  `json:"hash_algorithm" groups:"short,normal,long,trace"`
+	Flags         uint8  `json:"flags" groups:"short,normal,long,trace"`
+	Iterations    uint16 `json:"iterations" groups:"short,normal,long,trace"`
+	Salt          string `json:"salt" groups:"short,normal,long,trace"`
+}
+
+type NSEC3ParamAnswer struct {
+	Answer
+	HashAlgorithm uint8  `json:"hash_algorithm" groups:"short,normal,long,trace"`
+	Flags         uint8  `json:"flags" groups:"short,normal,long,trace"`
+	Iterations    uint16 `json:"iterations" groups:"short,normal,long,trace"`
+	Salt          string `json:"salt" groups:"short,normal,long,trace"`
+}
+
+type PXAnswer struct {
+	Answer
+	Preference uint16 `json:"preference" groups:"short,normal,long,trace"`
+	Map822     string `json:"map822" groups:"short,normal,long,trace"`
+	Mapx400    string `json:"mapx400" groups:"short,normal,long,trace"`
+}
+
+type RRSIGAnswer struct {
+	Answer
+	TypeCovered uint16 `json:"type_covered" groups:"short,normal,long,trace"`
+	Algorithm   uint8  `json:"algorithm" groups:"short,normal,long,trace"`
+	Labels      uint8  `json:"labels" groups:"short,normal,long,trace"`
+	OriginalTtl uint32 `json:"original_ttl" groups:"short,normal,long,trace"`
+	Expiration  uint32 `json:"expiration" groups:"short,normal,long,trace"`
+	Inception   uint32 `json:"inception" groups:"short,normal,long,trace"`
+	KeyTag      uint16 `json:"keytag" groups:"short,normal,long,trace"`
+	SignerName  string `json:"signer_name" groups:"short,normal,long,trace"`
+	Signature   string `json:"signature" groups:"short,normal,long,trace"`
+}
+
+type RPAnswer struct {
+	Answer
+	Mbox string `json:"mbox" groups:"short,normal,long,trace"`
+	Txt  string `json:"txt" groups:"short,normal,long,trace"`
+}
+
+type RTAnswer struct {
+	Answer
+	Preference uint16 `json:"preference" groups:"short,normal,long,trace"`
+	Host       string `json:"host" groups:"short,normal,long,trace"`
 }
 
 type SOAAnswer struct {
@@ -167,103 +261,12 @@ type TLSAAnswer struct {
 	Certificate  string `json:"certificate" groups:"short,normal,long,trace"`
 }
 
-type NSEC3Answer struct {
-	Answer
-	HashAlgorithm uint8  `json:"hash_algorithm" groups:"short,normal,long,trace"`
-	Flags         uint8  `json:"flags" groups:"short,normal,long,trace"`
-	Iterations    uint16 `json:"iterations" groups:"short,normal,long,trace"`
-	Salt          string `json:"salt" groups:"short,normal,long,trace"`
-}
-
-type NSEC3ParamAnswer struct {
-	Answer
-	HashAlgorithm uint8  `json:"hash_algorithm" groups:"short,normal,long,trace"`
-	Flags         uint8  `json:"flags" groups:"short,normal,long,trace"`
-	Iterations    uint16 `json:"iterations" groups:"short,normal,long,trace"`
-	Salt          string `json:"salt" groups:"short,normal,long,trace"`
-}
-
-type NAPTRAnswer struct {
-	Answer
-	Order       uint16 `json:"order" groups:"short,normal,long,trace"`
-	Preference  uint16 `json:"preference" groups:"short,normal,long,trace"`
-	Flags       string `json:"flags" groups:"short,normal,long,trace"`
-	Service     string `json:"service" groups:"short,normal,long,trace"`
-	Regexp      string `json:"regexp" groups:"short,normal,long,trace"`
-	Replacement string `json:"replacement" groups:"short,normal,long,trace"`
-}
-
-type RRSIGAnswer struct {
-	Answer
-	TypeCovered uint16 `json:"type_covered" groups:"short,normal,long,trace"`
-	Algorithm   uint8  `json:"algorithm" groups:"short,normal,long,trace"`
-	Labels      uint8  `json:"labels" groups:"short,normal,long,trace"`
-	OriginalTtl uint32 `json:"original_ttl" groups:"short,normal,long,trace"`
-	Expiration  uint32 `json:"expiration" groups:"short,normal,long,trace"`
-	Inception   uint32 `json:"inception" groups:"short,normal,long,trace"`
-	KeyTag      uint16 `json:"keytag" groups:"short,normal,long,trace"`
-	SignerName  string `json:"signer_name" groups:"short,normal,long,trace"`
-	Signature   string `json:"signature" groups:"short,normal,long,trace"`
-}
-
-type AFSDBAnswer struct {
-	Answer
-	Subtype  uint16 `json:"subtype" groups:"short,normal,long,trace"`
-	Hostname string `json:"hostname" groups:"short,normal,long,trace"`
-}
-
-type RTAnswer struct {
-	Answer
-	Preference uint16 `json:"preference" groups:"short,normal,long,trace"`
-	Host       string `json:"host" groups:"short,normal,long,trace"`
-}
-
-type RPAnswer struct {
-	Answer
-	Mbox string `json:"mbox" groups:"short,normal,long,trace"`
-	Txt  string `json:"txt" groups:"short,normal,long,trace"`
-}
-
-type CERTAnswer struct {
-	Answer
-	Type        uint16 `json:"type" groups:"short,normal,long,trace"`
-	KeyTag      uint16 `json:"keytag" groups:"short,normal,long,trace"`
-	Algorithm   uint8  `json:"algorithm" groups:"short,normal,long,trace"`
-	Certificate string `json:"certificate" groups:"short,normal,long,trace"`
-}
-
-type PXAnswer struct {
-	Answer
-	Preference uint16 `json:"preference" groups:"short,normal,long,trace"`
-	Map822     string `json:"map822" groups:"short,normal,long,trace"`
-	Mapx400    string `json:"mapx400" groups:"short,normal,long,trace"`
-}
-
-type GPOSAnswer struct {
-	Answer
-	Longitude string `json:"preference" groups:"short,normal,long,trace"`
-	Latitude  string `json:"map822" groups:"short,normal,long,trace"`
-	Altitude  string `json:"mapx400" groups:"short,normal,long,trace"`
-}
-
-type HIPAnswer struct {
-	Answer
-	HitLength          uint8    `json:"hit_length" groups:"short,normal,long,trace"`
-	PublicKeyAlgorithm uint8    `json:"pubkey_algo" groups:"short,normal,long,trace"`
-	PublicKeyLength    uint16   `json:"pubkey_len" groups:"short,normal,long,trace"`
-	Hit                string   `json:"hit" groups:"short,normal,long,trace"`
-	PublicKey          string   `json:"pubkey" groups:"short,normal,long,trace"`
-	RendezvousServers  []string `json:"rendezvous_servers" groups:"short,normal,long,trace"`
-}
-
-type NIDAnswer struct {
-	Answer
-}
-
 type X25Answer struct {
 	Answer
 	PSDNAddress string `json:"psdn_address" groups:"short,normal,long,trace"`
 }
+
+// end types
 
 type DNSFlags struct {
 	Response           bool `json:"response" groups:"flags,long,trace"`
