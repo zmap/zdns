@@ -21,53 +21,53 @@ var typeNames = map[uint16]string{
 	dns.TypeNone:       "None",
 	dns.TypeA:          "A",          // Module, Answer
 	dns.TypeNS:         "NS",         // Module, Answer
-	dns.TypeMD:         "MD",         // Module, Default Type
-	dns.TypeMF:         "MF",         // Module, Default Type
+	dns.TypeMD:         "MD",         // Module, Answer
+	dns.TypeMF:         "MF",         // Module, Answer
 	dns.TypeCNAME:      "CNAME",      // Module, Type
 	dns.TypeSOA:        "SOA",        // Module, Type
 	dns.TypeMB:         "MB",         // Module, Default Type
 	dns.TypeMG:         "MG",         // Module, Default Type
 	dns.TypeMR:         "MR",         // Module, Default Type
 	dns.TypeNULL:       "NULL",       // Module, Default Type
-	dns.TypePTR:        "PTR",        // Module, Type
-	dns.TypeHINFO:      "HINFO",      //
-	dns.TypeMINFO:      "MINFO",      //
+	dns.TypePTR:        "PTR",        // Module, Default Type
+	dns.TypeHINFO:      "HINFO",      // Module, HInfoAnswer
+	dns.TypeMINFO:      "MINFO",      // Module, MInfoAnswer
 	dns.TypeMX:         "MX",         // Module, Type
 	dns.TypeTXT:        "TXT",        // Module, Type
 	dns.TypeRP:         "RP",         //
-	dns.TypeAFSDB:      "AFSDB",      //
-	dns.TypeX25:        "X25",        //
+	dns.TypeAFSDB:      "AFSDB",      // Module, AFSDBAnswer (todo)
+	dns.TypeX25:        "X25",        // Module, X25Answer (todo)
 	dns.TypeISDN:       "ISDN",       //
 	dns.TypeRT:         "RT",         //
 	dns.TypeNSAPPTR:    "NSAPPTR",    //
-	dns.TypeSIG:        "SIG",        //
+	dns.TypeSIG:        "SIG",        // Module, RRSIGAnswer
 	dns.TypeKEY:        "KEY",        // Module, DNSKeyAnswer
-	dns.TypePX:         "PX",         //
-	dns.TypeGPOS:       "GPOS",       //
+	dns.TypePX:         "PX",         // Module, PXAnswer (todo)
+	dns.TypeGPOS:       "GPOS",       // Module, GPOSAnswer (todo)
 	dns.TypeAAAA:       "AAAA",       // Module, Type
 	dns.TypeLOC:        "LOC",        //
 	dns.TypeNXT:        "NXT",        //
 	dns.TypeEID:        "EID",        //
 	dns.TypeNIMLOC:     "NIMLOC",     //
-	dns.TypeSRV:        "SRV",        //
+	dns.TypeSRV:        "SRV",        // Module, SRVAnswer
 	dns.TypeATMA:       "ATMA",       //
 	dns.TypeNAPTR:      "NAPTR",      //
 	dns.TypeKX:         "KX",         //
-	dns.TypeCERT:       "CERT",       //
-	dns.TypeDNAME:      "DNAME",      //
+	dns.TypeCERT:       "CERT",       // Module, CERTAnswer (todo)
+	dns.TypeDNAME:      "DNAME",      // Module, Answer
 	dns.TypeOPT:        "OPT",        //
 	dns.TypeDS:         "DS",         //
 	dns.TypeSSHFP:      "SSHFP",      //
-	dns.TypeRRSIG:      "RRSIG",      //
-	dns.TypeNSEC:       "NSEC",       //
-	dns.TypeDNSKEY:     "DNSKEY",     //
+	dns.TypeRRSIG:      "RRSIG",      // Module, RRSIGAnswer
+	dns.TypeNSEC:       "NSEC",       // Module, ??
+	dns.TypeDNSKEY:     "DNSKEY",     // Module, ??
 	dns.TypeDHCID:      "DHCID",      //
-	dns.TypeNSEC3:      "NSEC3",      // Module
-	dns.TypeNSEC3PARAM: "NSEC3PARAM", // Module
-	dns.TypeTLSA:       "TLSA",       //
+	dns.TypeNSEC3:      "NSEC3",      // Module, ??
+	dns.TypeNSEC3PARAM: "NSEC3PARAM", // Module, ??
+	dns.TypeTLSA:       "TLSA",       // Module, TLSAAnswer
 	dns.TypeSMIMEA:     "SMIMEA",     //
 	dns.TypeHIP:        "HIP",        //
-	dns.TypeNINFO:      "NINFO",      //
+	dns.TypeNINFO:      "NINFO",      // Module, Answer
 	dns.TypeRKEY:       "RKEY",       // Module, DNSKeyAnswer
 	dns.TypeTALINK:     "TALINK",     //
 	dns.TypeCDS:        "CDS",        // Module, DNSKeyAnswer
@@ -87,7 +87,7 @@ var typeNames = map[uint16]string{
 	dns.TypeEUI64:      "EUI64",      //
 	dns.TypeURI:        "URI",        //
 	dns.TypeCAA:        "CAA",        // Module, CAAAnswer
-	dns.TypeAVC:        "AVC",        //
+	dns.TypeAVC:        "AVC",        // Module, Answer
 }
 
 type Answer struct {
@@ -103,6 +103,18 @@ type Answer struct {
 type MXAnswer struct {
 	Answer
 	Preference uint16 `json:"preference" groups:"short,normal,long,trace"`
+}
+
+type HINFOAnswer struct {
+	Answer
+	Cpu string `json:"cpu" groups:"short,normal,long,trace"`
+	Os  string `json:"os" groups:"short,normal,long,trace"`
+}
+
+type MINFOAnswer struct {
+	Answer
+	Rmail string `json:"rmail" groups:"short,normal,long,trace"`
+	Email string `json:"email" groups:"short,normal,long,trace"`
 }
 
 type DSAnswer struct {
@@ -194,6 +206,54 @@ type RRSIGAnswer struct {
 	Signature   string `json:"signature" groups:"short,normal,long,trace"`
 }
 
+type AFSDBAnswer struct {
+	Answer
+	Subtype  uint16 `json:"subtype" groups:"short,normal,long,trace"`
+	Hostname string `json:"hostname" groups:"short,normal,long,trace"`
+}
+
+type RTAnswer struct {
+	Answer
+	Preference uint16 `json:"preference" groups:"short,normal,long,trace"`
+	Host       string `json:"host" groups:"short,normal,long,trace"`
+}
+
+type RPAnswer struct {
+	Answer
+	Mbox string `json:"mbox" groups:"short,normal,long,trace"`
+	Txt  string `json:"txt" groups:"short,normal,long,trace"`
+}
+
+type CERTAnswer struct {
+	Answer
+	Type        uint16 `json:"type" groups:"short,normal,long,trace"`
+	KeyTag      uint16 `json:"keytag" groups:"short,normal,long,trace"`
+	Algorithm   uint8  `json:"algorithm" groups:"short,normal,long,trace"`
+	Certificate string `json:"certificate" groups:"short,normal,long,trace"`
+}
+
+type PXAnswer struct {
+	Answer
+	Preference uint16 `json:"preference" groups:"short,normal,long,trace"`
+	Map822     string `json:"map822" groups:"short,normal,long,trace"`
+	Mapx400    string `json:"mapx400" groups:"short,normal,long,trace"`
+}
+
+type GPOS struct {
+	Answer
+	Longitude string `json:"preference" groups:"short,normal,long,trace"`
+	Latitude  string `json:"map822" groups:"short,normal,long,trace"`
+	Altitude  string `json:"mapx400" groups:"short,normal,long,trace"`
+}
+
+type HIP struct {
+	Answer
+}
+
+type NID struct {
+	Answer
+}
+
 type DNSFlags struct {
 	Response           bool `json:"response" groups:"flags,long,trace"`
 	Opcode             int  `json:"opcode" groups:"flags,long,trace"`
@@ -269,43 +329,19 @@ func makeBaseAnswer(hdr *dns.RR_Header, answer string) Answer {
 }
 
 func ParseAnswer(ans dns.RR) interface{} {
-	// common answers should go on the top to avoid worthless casts
-	// current list of common: A, AAAA, NS, CNAME, DNAME, MX, TXT, PTR
-	if a, ok := ans.(*dns.A); ok {
-		return makeBaseAnswer(&a.Hdr, a.A.String())
-	} else if ns, ok := ans.(*dns.NS); ok {
-		return makeBaseAnswer(&ns.Hdr, strings.TrimRight(ns.Ns, "."))
-	} else if cname, ok := ans.(*dns.CNAME); ok {
-		return makeBaseAnswer(&cname.Hdr, cname.Target)
-	} else if dname, ok := ans.(*dns.DNAME); ok {
-		return makeBaseAnswer(&dname.Hdr, dname.Target)
-	} else if txt, ok := ans.(*dns.TXT); ok {
-		return makeBaseAnswer(&txt.Hdr, strings.Join(txt.Txt, "\n"))
-	} else if null, ok := ans.(*dns.NULL); ok {
-		return makeBaseAnswer(&null.Hdr, null.Data)
-	} else if ptr, ok := ans.(*dns.PTR); ok {
-		return makeBaseAnswer(&ptr.Hdr, ptr.Ptr)
-	} else if spf, ok := ans.(*dns.SPF); ok {
-		return makeBaseAnswer(&spf.Hdr, spf.String())
-	} else if mb, ok := ans.(*dns.MB); ok {
-		return makeBaseAnswer(&mb.Hdr, mb.Mb)
-	} else if mg, ok := ans.(*dns.MG); ok {
-		return makeBaseAnswer(&mg.Hdr, mg.Mg)
-	} else if mf, ok := ans.(*dns.MF); ok {
-		return makeBaseAnswer(&mf.Hdr, mf.Mf)
-	} else if md, ok := ans.(*dns.MD); ok {
-		return makeBaseAnswer(&md.Hdr, md.Md)
-
-	} else if aaaa, ok := ans.(*dns.AAAA); ok {
-		ip := aaaa.AAAA.String()
+	switch cAns := ans.(type) {
+	case *dns.A:
+		return makeBaseAnswer(&cAns.Hdr, cAns.A.String())
+	case *dns.AAAA:
+		ip := cAns.AAAA.String()
 		// verify we really got full 16-byte address
-		if !aaaa.AAAA.IsLoopback() && !aaaa.AAAA.IsUnspecified() && len(aaaa.AAAA) == net.IPv6len {
-			if aaaa.AAAA.To4() != nil {
+		if !cAns.AAAA.IsLoopback() && !cAns.AAAA.IsUnspecified() && len(cAns.AAAA) == net.IPv6len {
+			if cAns.AAAA.To4() != nil {
 				// we have a IPv4-mapped address, append prefix (#164)
 				ip = "::ffff:" + ip
 			} else {
 				v4compat := true
-				for _, o := range aaaa.AAAA[:11] {
+				for _, o := range cAns.AAAA[:11] {
 					if o != 0 {
 						v4compat = false
 						break
@@ -313,141 +349,167 @@ func ParseAnswer(ans dns.RR) interface{} {
 				}
 				if v4compat {
 					// we have a IPv4-compatible address, append prefix (#164)
-					ip = "::" + aaaa.AAAA[12:].String()
+					ip = "::" + cAns.AAAA[12:].String()
 				}
 			}
 		}
-		return makeBaseAnswer(&aaaa.Hdr, ip)
-	} else if mx, ok := ans.(*dns.MX); ok {
+		return makeBaseAnswer(&cAns.Hdr, ip)
+	case *dns.NS:
+		return makeBaseAnswer(&cAns.Hdr, strings.TrimRight(cAns.Ns, "."))
+	case *dns.CNAME:
+		return makeBaseAnswer(&cAns.Hdr, cAns.Target)
+	case *dns.DNAME:
+		return makeBaseAnswer(&cAns.Hdr, cAns.Target)
+	case *dns.TXT:
+		return makeBaseAnswer(&cAns.Hdr, strings.Join(cAns.Txt, "\n"))
+	case *dns.NULL:
+		return makeBaseAnswer(&cAns.Hdr, cAns.Data)
+	case *dns.PTR:
+		return makeBaseAnswer(&cAns.Hdr, cAns.Ptr)
+	case *dns.SPF:
+		return makeBaseAnswer(&cAns.Hdr, cAns.String())
+	case *dns.MB:
+		return makeBaseAnswer(&cAns.Hdr, cAns.Mb)
+	case *dns.MG:
+		return makeBaseAnswer(&cAns.Hdr, cAns.Mg)
+	case *dns.MF:
+		return makeBaseAnswer(&cAns.Hdr, cAns.Mf)
+	case *dns.MD:
+		return makeBaseAnswer(&cAns.Hdr, cAns.Md)
+	case *dns.AVC:
+		return makeBaseAnswer(&cAns.Hdr, strings.Join(cAns.Txt, "\n"))
+	case *dns.NINFO:
+		return makeBaseAnswer(&cAns.Hdr, strings.Join(cAns.ZSData, "\n"))
+	case *dns.MX:
 		return MXAnswer{
-			Answer:     makeBaseAnswer(&mx.Hdr, strings.TrimRight(mx.Mx, ".")),
-			Preference: mx.Preference,
+			Answer:     makeBaseAnswer(&cAns.Hdr, strings.TrimRight(cAns.Mx, ".")),
+			Preference: cAns.Preference,
 		}
-	} else if ds, ok := ans.(*dns.DS); ok {
+	case *dns.DS:
 		return DSAnswer{
-			Answer:     makeBaseAnswer(&ds.Hdr, ""),
-			KeyTag:     ds.KeyTag,
-			Algorithm:  ds.Algorithm,
-			DigestType: ds.DigestType,
-			Digest:     ds.Digest,
+			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
+			KeyTag:     cAns.KeyTag,
+			Algorithm:  cAns.Algorithm,
+			DigestType: cAns.DigestType,
+			Digest:     cAns.Digest,
 		}
-	} else if dnskey, ok := ans.(*dns.DNSKEY); ok {
-		return DNSKEYAnswer{
-			Answer:    makeBaseAnswer(&dnskey.Hdr, ""),
-			Flags:     dnskey.Flags,
-			Protocol:  dnskey.Protocol,
-			Algorithm: dnskey.Algorithm,
-			PublicKey: dnskey.PublicKey,
-		}
-	} else if rkey, ok := ans.(*dns.RKEY); ok {
-		return DNSKEYAnswer{
-			Answer:    makeBaseAnswer(&rkey.Hdr, ""),
-			Flags:     rkey.Flags,
-			Protocol:  rkey.Protocol,
-			Algorithm: rkey.Algorithm,
-			PublicKey: rkey.PublicKey,
-		}
-
-	} else if cds, ok := ans.(*dns.CDS); ok {
+	case *dns.CDS:
 		return DSAnswer{
-			Answer:     makeBaseAnswer(&cds.Hdr, ""),
-			KeyTag:     cds.KeyTag,
-			Algorithm:  cds.Algorithm,
-			DigestType: cds.DigestType,
-			Digest:     cds.Digest,
+			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
+			KeyTag:     cAns.KeyTag,
+			Algorithm:  cAns.Algorithm,
+			DigestType: cAns.DigestType,
+			Digest:     cAns.Digest,
 		}
-	} else if cdnskey, ok := ans.(*dns.CDNSKEY); ok {
-		return DNSKEYAnswer{
-			Answer:    makeBaseAnswer(&dnskey.Hdr, ""),
-			Flags:     cdnskey.Flags,
-			Protocol:  cdnskey.Protocol,
-			Algorithm: cdnskey.Algorithm,
-			PublicKey: cdnskey.PublicKey,
-		}
-	} else if key, ok := ans.(*dns.KEY); ok {
-		return DNSKEYAnswer{
-			Answer:    makeBaseAnswer(&key.Hdr, ""),
-			Flags:     key.Flags,
-			Protocol:  key.Protocol,
-			Algorithm: key.Algorithm,
-			PublicKey: key.PublicKey,
-		}
-	} else if caa, ok := ans.(*dns.CAA); ok {
+	case *dns.CAA:
 		return CAAAnswer{
-			Answer: makeBaseAnswer(&caa.Hdr, ""),
-			Tag:    caa.Tag,
-			Value:  caa.Value,
-			Flag:   caa.Flag,
+			Answer: makeBaseAnswer(&cAns.Hdr, ""),
+			Tag:    cAns.Tag,
+			Value:  cAns.Value,
+			Flag:   cAns.Flag,
 		}
-	} else if soa, ok := ans.(*dns.SOA); ok {
+	case *dns.SOA:
 		return SOAAnswer{
-			Answer:  makeBaseAnswer(&soa.Hdr, ""),
-			Ns:      strings.TrimSuffix(soa.Ns, "."),
-			Mbox:    strings.TrimSuffix(soa.Mbox, "."),
-			Serial:  soa.Serial,
-			Refresh: soa.Refresh,
-			Retry:   soa.Retry,
-			Expire:  soa.Expire,
-			Minttl:  soa.Minttl,
+			Answer:  makeBaseAnswer(&cAns.Hdr, ""),
+			Ns:      strings.TrimSuffix(cAns.Ns, "."),
+			Mbox:    strings.TrimSuffix(cAns.Mbox, "."),
+			Serial:  cAns.Serial,
+			Refresh: cAns.Refresh,
+			Retry:   cAns.Retry,
+			Expire:  cAns.Expire,
+			Minttl:  cAns.Minttl,
 		}
-	} else if srv, ok := ans.(*dns.SRV); ok {
+	case *dns.SRV:
 		return SRVAnswer{
-			Answer:   makeBaseAnswer(&srv.Hdr, ""),
-			Priority: srv.Priority,
-			Weight:   srv.Weight,
-			Port:     srv.Port,
-			Target:   srv.Target,
+			Answer:   makeBaseAnswer(&cAns.Hdr, ""),
+			Priority: cAns.Priority,
+			Weight:   cAns.Weight,
+			Port:     cAns.Port,
+			Target:   cAns.Target,
 		}
-	} else if tlsa, ok := ans.(*dns.TLSA); ok {
+	case *dns.TLSA:
 		return TLSAAnswer{
-			Answer:       makeBaseAnswer(&tlsa.Hdr, ""),
-			CertUsage:    tlsa.Usage,
-			Selector:     tlsa.Selector,
-			MatchingType: tlsa.MatchingType,
-			Certificate:  tlsa.Certificate,
+			Answer:       makeBaseAnswer(&cAns.Hdr, ""),
+			CertUsage:    cAns.Usage,
+			Selector:     cAns.Selector,
+			MatchingType: cAns.MatchingType,
+			Certificate:  cAns.Certificate,
 		}
-	} else if nsec, ok := ans.(*dns.NSEC); ok {
-		return makeBaseAnswer(&tlsa.Hdr, strings.TrimSuffix(nsec.NextDomain, "."))
-	} else if nsec3, ok := ans.(*dns.NSEC3); ok {
-		return NSEC3Answer{
-			Answer:        makeBaseAnswer(&nsec3.Hdr, ""),
-			HashAlgorithm: nsec3.Hash,
-			Flags:         nsec3.Flags,
-			Iterations:    nsec3.Iterations,
-			Salt:          nsec3.Salt,
-		}
-	} else if nsec3param, ok := ans.(*dns.NSEC3PARAM); ok {
-		return NSEC3ParamAnswer{
-			Answer:        makeBaseAnswer(&nsec3param.Hdr, ""),
-			HashAlgorithm: nsec3param.Hash,
-			Flags:         nsec3param.Flags,
-			Iterations:    nsec3param.Iterations,
-			Salt:          nsec3param.Salt,
-		}
-	} else if naptr, ok := ans.(*dns.NAPTR); ok {
+	case *dns.NSEC:
+		return makeBaseAnswer(&cAns.Hdr, strings.TrimSuffix(cAns.NextDomain, "."))
+	case *dns.NAPTR:
 		return NAPTRAnswer{
-			Answer:      makeBaseAnswer(&naptr.Hdr, ""),
-			Order:       naptr.Order,
-			Preference:  naptr.Preference,
-			Flags:       naptr.Flags,
-			Service:     naptr.Service,
-			Regexp:      naptr.Regexp,
-			Replacement: naptr.Replacement,
+			Answer:      makeBaseAnswer(&cAns.Hdr, ""),
+			Order:       cAns.Order,
+			Preference:  cAns.Preference,
+			Flags:       cAns.Flags,
+			Service:     cAns.Service,
+			Regexp:      cAns.Regexp,
+			Replacement: cAns.Replacement,
 		}
-	} else if rrsig, ok := ans.(*dns.RRSIG); ok {
+	case *dns.SIG:
 		return RRSIGAnswer{
-			Answer:      makeBaseAnswer(&rrsig.Hdr, ""),
-			TypeCovered: rrsig.TypeCovered,
-			Algorithm:   rrsig.Algorithm,
-			Labels:      rrsig.Labels,
-			OriginalTtl: rrsig.OrigTtl,
-			Expiration:  rrsig.Expiration,
-			Inception:   rrsig.Inception,
-			KeyTag:      rrsig.KeyTag,
-			SignerName:  rrsig.SignerName,
-			Signature:   rrsig.Signature,
+			Answer:      makeBaseAnswer(&cAns.Hdr, ""),
+			TypeCovered: cAns.TypeCovered,
+			Algorithm:   cAns.Algorithm,
+			Labels:      cAns.Labels,
+			OriginalTtl: cAns.OrigTtl,
+			Expiration:  cAns.Expiration,
+			Inception:   cAns.Inception,
+			KeyTag:      cAns.KeyTag,
+			SignerName:  cAns.SignerName,
+			Signature:   cAns.Signature,
 		}
-	} else {
+	case *dns.RRSIG:
+		return RRSIGAnswer{
+			Answer:      makeBaseAnswer(&cAns.Hdr, ""),
+			TypeCovered: cAns.TypeCovered,
+			Algorithm:   cAns.Algorithm,
+			Labels:      cAns.Labels,
+			OriginalTtl: cAns.OrigTtl,
+			Expiration:  cAns.Expiration,
+			Inception:   cAns.Inception,
+			KeyTag:      cAns.KeyTag,
+			SignerName:  cAns.SignerName,
+			Signature:   cAns.Signature,
+		}
+	case *dns.HINFO:
+		return HINFOAnswer{
+			Answer: makeBaseAnswer(&cAns.Hdr, ""),
+			Cpu:    cAns.Cpu,
+			Os:     cAns.Os,
+		}
+	case *dns.MINFO:
+		return MINFOAnswer{
+			Answer: makeBaseAnswer(&cAns.Hdr, ""),
+			Rmail:  cAns.Rmail,
+			Email:  cAns.Email,
+		}
+	case *dns.NSEC3:
+		return NSEC3Answer{
+			Answer:        makeBaseAnswer(&cAns.Hdr, ""),
+			HashAlgorithm: cAns.Hash,
+			Flags:         cAns.Flags,
+			Iterations:    cAns.Iterations,
+			Salt:          cAns.Salt,
+		}
+	case *dns.NSEC3PARAM:
+		return NSEC3Answer{
+			Answer:        makeBaseAnswer(&cAns.Hdr, ""),
+			HashAlgorithm: cAns.Hash,
+			Flags:         cAns.Flags,
+			Iterations:    cAns.Iterations,
+			Salt:          cAns.Salt,
+		}
+	case *dns.DNSKEY: // does this work for CDNSKEY?
+		return DNSKEYAnswer{
+			Answer:    makeBaseAnswer(&cAns.Hdr, ""),
+			Flags:     cAns.Flags,
+			Protocol:  cAns.Protocol,
+			Algorithm: cAns.Algorithm,
+			PublicKey: cAns.PublicKey,
+		}
+	default:
 		return struct {
 			Type     string `json:"type"`
 			rrType   uint16
@@ -1388,4 +1450,33 @@ func init() {
 	rrsig := new(GlobalLookupFactory)
 	rrsig.SetDNSType(dns.TypeRRSIG)
 	zdns.RegisterLookup("RRSIG", rrsig)
+
+	hinfo := new(GlobalLookupFactory)
+	hinfo.SetDNSType(dns.TypeHINFO)
+	zdns.RegisterLookup("HINFO", hinfo)
+
+	ninfo := new(GlobalLookupFactory)
+	ninfo.SetDNSType(dns.TypeNINFO)
+	zdns.RegisterLookup("NINFO", ninfo)
+
+	avc := new(GlobalLookupFactory)
+	avc.SetDNSType(dns.TypeAVC)
+	zdns.RegisterLookup("AVC", avc)
+
+	cert := new(GlobalLookupFactory)
+	cert.SetDNSType(dns.TypeCERT)
+	zdns.RegisterLookup("CERT", cert)
+
+	gpos := new(GlobalLookupFactory)
+	gpos.SetDNSType(dns.TypeGPOS)
+	zdns.RegisterLookup("GPOS", gpos)
+
+	px := new(GlobalLookupFactory)
+	px.SetDNSType(dns.TypePX)
+	zdns.RegisterLookup("PX", px)
+
+	loc := new(GlobalLookupFactory)
+	loc.SetDNSType(dns.TypeLOC)
+	zdns.RegisterLookup("LOC", loc)
+
 }
