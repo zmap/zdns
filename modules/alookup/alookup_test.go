@@ -15,15 +15,14 @@
 package alookup
 
 import (
-	"reflect"
-	"testing"
-
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/modules/miekg"
+	"reflect"
+	"testing"
 )
 
 // Mock the actual Miekg lookup.
-func (s *Lookup) DoTypedMiekgLookup(name string, dnsType uint16, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoTypedMiekgLookup(name string, dnsType uint16) (interface{}, []interface{}, zdns.Status, error) {
 	if res, ok := mockResults[name]; ok {
 		return res, nil, zdns.STATUS_NOERROR, nil
 	} else {
@@ -65,7 +64,7 @@ func TestDoLookup(t *testing.T) {
 		Flags:       miekg.DNSFlags{},
 	}
 
-	res, _, _, _ := l.DoLookup("example.com", "")
+	res, _, _, _ := l.DoLookup("example.com")
 	verifyResult(t, res.(Result), []string{"192.0.2.1"}, nil)
 
 	// Case 2: double A response
@@ -90,7 +89,7 @@ func TestDoLookup(t *testing.T) {
 		Flags:       miekg.DNSFlags{},
 	}
 
-	res, _, _, _ = l.DoLookup("example.com", "")
+	res, _, _, _ = l.DoLookup("example.com")
 	verifyResult(t, res.(Result), []string{"192.0.2.1", "192.0.2.2"}, nil)
 
 	// Case 3: mixed A and AAAA response
@@ -115,13 +114,13 @@ func TestDoLookup(t *testing.T) {
 		Flags:       miekg.DNSFlags{},
 	}
 
-	res, _, _, _ = l.DoLookup("example.com", "")
+	res, _, _, _ = l.DoLookup("example.com")
 	verifyResult(t, res.(Result), []string{"192.0.2.1"}, nil)
 
 	// Case 4: same mixed response, but both types requested.
 	glf.IPv6Lookup = true
 
-	res, _, _, _ = l.DoLookup("example.com", "")
+	res, _, _, _ = l.DoLookup("example.com")
 	verifyResult(t, res.(Result), []string{"192.0.2.1"}, []string{"2001:db8::1"})
 
 	// Case 5: double AAAA response
@@ -164,7 +163,7 @@ func TestDoLookup(t *testing.T) {
 		Flags:       miekg.DNSFlags{},
 	}
 
-	res, _, _, _ = l.DoLookup("cname.example.com", "")
+	res, _, _, _ = l.DoLookup("cname.example.com")
 	verifyResult(t, res.(Result), nil, []string{"2001:db8::1", "2001:db8::2"})
 
 	// Case 7: AAAA + CNAME (if this ever happens to be returned)
@@ -189,7 +188,7 @@ func TestDoLookup(t *testing.T) {
 		Flags:       miekg.DNSFlags{},
 	}
 
-	res, _, _, _ = l.DoLookup("cname.example.com", "")
+	res, _, _, _ = l.DoLookup("cname.example.com")
 	verifyResult(t, res.(Result), nil, []string{"2001:db8::3"})
 
 	// Case 8: unexpected MX record only
@@ -207,7 +206,7 @@ func TestDoLookup(t *testing.T) {
 		Flags:       miekg.DNSFlags{},
 	}
 
-	res, _, status, _ := l.DoLookup("example.com", "")
+	res, _, status, _ := l.DoLookup("example.com")
 	if status != zdns.STATUS_NO_ANSWER {
 		t.Errorf("Expected NO_ANSWER status, got %v", status)
 	} else if res != nil {
@@ -242,7 +241,7 @@ func TestDoLookup(t *testing.T) {
 		Flags:       miekg.DNSFlags{},
 	}
 
-	res, _, _, _ = l.DoLookup("example.com", "")
+	res, _, _, _ = l.DoLookup("example.com")
 	verifyResult(t, res.(Result), []string{"192.0.2.3"}, []string{"2001:db8::4"})
 }
 
