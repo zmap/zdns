@@ -56,6 +56,7 @@ type TimedAnswer struct {
 }
 
 type CachedResult struct {
+	sync.Mutex
 	Answers map[interface{}]TimedAnswer
 }
 
@@ -165,25 +166,32 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, d
 	}
 	key := makeCacheKey(name, dnsType)
 	expiresAt := time.Now().Add(time.Duration(ttl) * time.Second)
+	ta := TimedAnswer{
+		Answer:    answer,
+		ExpiresAt: expiresAt,
+	}
 	s.IterativeCache.Lock(key)
-	// don't bother to move this to the top of the linked list. we're going
-	// to add this record back in momentarily and that will take care of this
-	i, ok := s.IterativeCache.GetNoMove(key)
+	i, ok := s.IterativeCache.Get(key)
+	s.IterativeCache.Unlock(key)
 	ca, ok := i.(CachedResult)
 	if !ok && i != nil {
 		panic("unable to cast cached result")
 	}
-	if !ok {
+	// if existing record exists, no need to lock whole cache, just lock single record.
+	// otherwise, create new record outside of lock, and lock to insert
+	if ok {
+		ca.Lock()
+		ca.Answers[a] = ta
+		ca.Unlock()
+	} else {
 		ca = CachedResult{}
 		ca.Answers = make(map[interface{}]TimedAnswer)
+		ca.Answers[a] = ta
+		s.IterativeCache.Lock(key)
+		s.IterativeCache.Add(key, ca)
+		s.IterativeCache.Unlock(key)
 	}
 	// we have an existing record. Let's add this answer to it.
-	ta := TimedAnswer{
-		Answer:    answer,
-		ExpiresAt: expiresAt}
-	ca.Answers[a] = ta
-	s.IterativeCache.Add(key, ca)
-	s.IterativeCache.Unlock(key)
 	s.VerboseGlobalLog(depth+1, threadID, "Add cached answer ", key, " ", ca)
 }
 
@@ -193,9 +201,9 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, isAut
 	key := makeCacheKey(name, dnsType)
 	s.IterativeCache.Lock(key)
 	unres, ok := s.IterativeCache.Get(key)
+	s.IterativeCache.Unlock(key)
 	if !ok { // nothing found
 		s.VerboseGlobalLog(depth+2, threadID, "-> no entry found in cache")
-		s.IterativeCache.Unlock(key)
 		return retv, false
 	}
 	retv.Authorities = make([]interface{}, 0)
@@ -208,6 +216,8 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, isAut
 	// great we have a result. let's go through the entries and build
 	// and build a result. In the process, throw away anything that's expired
 	now := time.Now()
+	// lock entry because we can't have other people messing with map while we iterate over it
+	cachedRes.Lock()
 	for k, cachedAnswer := range cachedRes.Answers {
 		if cachedAnswer.ExpiresAt.Before(now) {
 			// if we have a write lock, we can perform the necessary actions
@@ -224,14 +234,13 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, isAut
 			}
 		}
 	}
-	s.IterativeCache.Unlock(key)
+	cachedRes.Unlock()
 	// Don't return an empty response.
 	if len(retv.Answers) == 0 && len(retv.Authorities) == 0 && len(retv.Additional) == 0 {
 		s.VerboseGlobalLog(depth+2, threadID, "-> no entry found in cache, after expiration")
 		var emptyRetv Result
 		return emptyRetv, false
 	}
-
 	s.VerboseGlobalLog(depth+2, threadID, "Cache hit: ", retv)
 	return retv, true
 }
