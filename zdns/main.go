@@ -28,6 +28,7 @@ import (
 	"github.com/zmap/zdns"
 	_ "github.com/zmap/zdns/modules/alookup"
 	_ "github.com/zmap/zdns/modules/axfr"
+	_ "github.com/zmap/zdns/modules/bindversion"
 	_ "github.com/zmap/zdns/modules/dmarc"
 	_ "github.com/zmap/zdns/modules/miekg"
 	_ "github.com/zmap/zdns/modules/mxlookup"
