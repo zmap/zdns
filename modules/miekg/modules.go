@@ -18,10 +18,6 @@ func init() {
 	aaaa.SetDNSType(dns.TypeAAAA)
 	zdns.RegisterLookup("AAAA", aaaa)
 
-	any := new(GlobalLookupFactory)
-	any.SetDNSType(dns.TypeANY)
-	zdns.RegisterLookup("ANY", any)
-
 	afsdb := new(GlobalLookupFactory)
 	afsdb.SetDNSType(dns.TypeAFSDB)
 	zdns.RegisterLookup("AFSDB", afsdb)
@@ -246,6 +242,10 @@ func init() {
 	talink.SetDNSType(dns.TypeTALINK)
 	zdns.RegisterLookup("TALINK", talink)
 
+	tkey := new(GlobalLookupFactory)
+	tkey.SetDNSType(dns.TypeTKEY)
+	zdns.RegisterLookup("TKEY", tkey)
+
 	tlsa := new(GlobalLookupFactory)
 	tlsa.SetDNSType(dns.TypeTLSA)
 	zdns.RegisterLookup("TLSA", tlsa)
@@ -270,4 +270,20 @@ func init() {
 	uri.SetDNSType(dns.TypeURI)
 	zdns.RegisterLookup("URI", uri)
 
+	// Question Only Types
+	any := new(GlobalLookupFactory)
+	any.SetDNSType(dns.TypeANY)
+	zdns.RegisterLookup("ANY", any)
+
+	// Transfer have their own modules
+
+	//ixfr := new(GlobalLookupFactory)
+	//ixfr.SetDNSType(dns.TypeIXFR)
+	//zdns.RegisterLookup("IXFR", ixfr)
+
+	//axfr := new(GlobalLookupFactory)
+	//axfr.SetDNSType(dns.TypeAXFR)
+	//zdns.RegisterLookup("AXFR", axfr)
+
+	// TODO(zakir): investigate whether MAILA and MAILB should be supported questions
 }

@@ -3,6 +3,7 @@ package miekg
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 
 	"github.com/miekg/dns"
@@ -51,7 +52,7 @@ var typeNames = map[uint16]string{
 	dns.TypeDS:         "DS",         // DSAnswer
 	dns.TypeSSHFP:      "SSHFP",      // SSHFPAnswer
 	dns.TypeRRSIG:      "RRSIG",      // RRSIGAnswer
-	dns.TypeNSEC:       "NSEC",       // ??
+	dns.TypeNSEC:       "NSEC",       // NSECAnswer
 	dns.TypeDNSKEY:     "DNSKEY",     // DNSKEYAnswer
 	dns.TypeDHCID:      "DHCID",      // Answer
 	dns.TypeNSEC3:      "NSEC3",      // ??
@@ -68,11 +69,11 @@ var typeNames = map[uint16]string{
 	dns.TypeCSYNC:      "CSYNC",      // TODO: this one needs some work
 	dns.TypeSPF:        "SPF",        // SPFAnswer
 	dns.TypeUINFO:      "UINFO",      // Answer
-	dns.TypeUID:        "UID",        //
-	dns.TypeGID:        "GID",        //
+	dns.TypeUID:        "UID",        // Answer
+	dns.TypeGID:        "GID",        // Answer
 	dns.TypeUNSPEC:     "UNSPEC",     // [no definition, unclear if real]
-	dns.TypeNID:        "NID",        //
-	dns.TypeL32:        "L32",        //
+	dns.TypeNID:        "NID",        // PrefAnswer
+	dns.TypeL32:        "L32",        // Answer
 	dns.TypeL64:        "L64",        // L64Answer
 	dns.TypeLP:         "LP",         // Answer
 	dns.TypeEUI48:      "EUI48",      // Answer
@@ -109,9 +110,9 @@ type CAAAnswer struct {
 
 type CERTAnswer struct {
 	Answer
-	Type        uint16 `json:"type" groups:"short,normal,long,trace"`
+	Type        string `json:"type" groups:"short,normal,long,trace"`
 	KeyTag      uint16 `json:"keytag" groups:"short,normal,long,trace"`
-	Algorithm   uint8  `json:"algorithm" groups:"short,normal,long,trace"`
+	Algorithm   string `json:"algorithm" groups:"short,normal,long,trace"`
 	Certificate string `json:"certificate" groups:"short,normal,long,trace"`
 }
 
@@ -170,11 +171,6 @@ type MINFOAnswer struct {
 	Email string `json:"email" groups:"short,normal,long,trace"`
 }
 
-type PrefAnswer struct {
-	Answer
-	Preference uint16 `json:"preference" groups:"short,normal,long,trace"`
-}
-
 type NAPTRAnswer struct {
 	Answer
 	Order       uint16 `json:"order" groups:"short,normal,long,trace"`
@@ -183,6 +179,13 @@ type NAPTRAnswer struct {
 	Service     string `json:"service" groups:"short,normal,long,trace"`
 	Regexp      string `json:"regexp" groups:"short,normal,long,trace"`
 	Replacement string `json:"replacement" groups:"short,normal,long,trace"`
+}
+
+type NSECAnswer struct {
+	Answer
+	NextDomain string `json:"next_domain" groups:"short,normal,long,trace"`
+	// TODO(zakir): this name doesn't seem right. Look at RFC.
+	TypeBitMap string `json:"type_bit_map" groups:"short,normal,long,trace"`
 }
 
 type NSEC3Answer struct {
@@ -201,6 +204,11 @@ type NSEC3ParamAnswer struct {
 	Salt          string `json:"salt" groups:"short,normal,long,trace"`
 }
 
+type PrefAnswer struct {
+	Answer
+	Preference uint16 `json:"preference" groups:"short,normal,long,trace"`
+}
+
 type PXAnswer struct {
 	Answer
 	Preference uint16 `json:"preference" groups:"short,normal,long,trace"`
@@ -214,8 +222,8 @@ type RRSIGAnswer struct {
 	Algorithm   uint8  `json:"algorithm" groups:"short,normal,long,trace"`
 	Labels      uint8  `json:"labels" groups:"short,normal,long,trace"`
 	OriginalTtl uint32 `json:"original_ttl" groups:"short,normal,long,trace"`
-	Expiration  uint32 `json:"expiration" groups:"short,normal,long,trace"`
-	Inception   uint32 `json:"inception" groups:"short,normal,long,trace"`
+	Expiration  string `json:"expiration" groups:"short,normal,long,trace"`
+	Inception   string `json:"inception" groups:"short,normal,long,trace"`
 	KeyTag      uint16 `json:"keytag" groups:"short,normal,long,trace"`
 	SignerName  string `json:"signer_name" groups:"short,normal,long,trace"`
 	Signature   string `json:"signature" groups:"short,normal,long,trace"`
@@ -259,6 +267,19 @@ type SRVAnswer struct {
 	Weight   uint16 `json:"weight" groups:"short,normal,long,trace"`
 	Port     uint16 `json:"port" groups:"short,normal,long,trace"`
 	Target   string `json:"target" groups:"short,normal,long,trace"`
+}
+
+type TKEYAnswer struct {
+	Answer
+	Algorithm  string `json:"algorithm" groups:"short,normal,long,trace"`
+	Inception  string `json:"inception" groups:"short,normal,long,trace"`
+	Expiration string `json:"expiration" groups:"short,normal,long,trace"`
+	Mode       uint16 `json:"mode" groups:"short,normal,long,trace"`
+	Error      uint16 `json:"error" groups:"short,normal,long,trace"`
+	KeySize    uint16 `json:"key_size" groups:"short,normal,long,trace"`
+	Key        string `json:"key" groups:"short,normal,long,trace"`
+	OtherLen   uint16 `json:"other_len" groups:"short,normal,long,trace"`
+	OtherData  string `json:"other_data" groups:"short,normal,long,trace"`
 }
 
 type TLSAAnswer struct {
@@ -418,6 +439,14 @@ func sprintTxtOctet(s string) string {
 
 // <<<<< END GOOGLE CODE
 
+func makeBitString(bm []uint16) string {
+	retv := ""
+	for _, v := range bm {
+		retv += strconv.Itoa(int(v))
+	}
+	return retv
+}
+
 func makeBaseAnswer(hdr *dns.RR_Header, answer string) Answer {
 	retv := Answer{
 		Ttl:     hdr.Ttl,
@@ -542,6 +571,20 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Port:     cAns.Port,
 			Target:   cAns.Target,
 		}
+	case *dns.TKEY:
+		return TKEYAnswer{
+			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
+			Algorithm:  cAns.Algorithm,
+			Expiration: dns.TimeToString(cAns.Expiration),
+			Inception:  dns.TimeToString(cAns.Inception),
+			Mode:       cAns.Mode,
+			Error:      cAns.Error,
+			KeySize:    cAns.KeySize,
+			Key:        cAns.Key,
+			OtherLen:   cAns.OtherLen,
+			OtherData:  cAns.OtherData,
+		}
+
 	case *dns.TLSA:
 		return TLSAAnswer{
 			Answer:       makeBaseAnswer(&cAns.Hdr, ""),
@@ -551,7 +594,11 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Certificate:  cAns.Certificate,
 		}
 	case *dns.NSEC:
-		return makeBaseAnswer(&cAns.Hdr, strings.TrimSuffix(cAns.NextDomain, "."))
+		return NSECAnswer{
+			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
+			NextDomain: strings.TrimSuffix(cAns.NextDomain, "."),
+			TypeBitMap: makeBitString(cAns.TypeBitMap),
+		}
 	case *dns.NAPTR:
 		return NAPTRAnswer{
 			Answer:      makeBaseAnswer(&cAns.Hdr, ""),
@@ -569,8 +616,8 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Algorithm:   cAns.Algorithm,
 			Labels:      cAns.Labels,
 			OriginalTtl: cAns.OrigTtl,
-			Expiration:  cAns.Expiration,
-			Inception:   cAns.Inception,
+			Expiration:  dns.TimeToString(cAns.Expiration),
+			Inception:   dns.TimeToString(cAns.Inception),
 			KeyTag:      cAns.KeyTag,
 			SignerName:  cAns.SignerName,
 			Signature:   cAns.Signature,
@@ -582,8 +629,8 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Algorithm:   cAns.Algorithm,
 			Labels:      cAns.Labels,
 			OriginalTtl: cAns.OrigTtl,
-			Expiration:  cAns.Expiration,
-			Inception:   cAns.Inception,
+			Expiration:  dns.TimeToString(cAns.Expiration),
+			Inception:   dns.TimeToString(cAns.Inception),
 			KeyTag:      cAns.KeyTag,
 			SignerName:  cAns.SignerName,
 			Signature:   cAns.Signature,
@@ -643,14 +690,20 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Answer:     makeBaseAnswer(&cAns.Hdr, cAns.Host),
 			Preference: cAns.Preference,
 		}
+	case *dns.NID:
+		node := fmt.Sprintf("%0.16x", cAns.NodeID)
+		return PrefAnswer{
+			Answer:     makeBaseAnswer(&cAns.Hdr, node),
+			Preference: cAns.Preference,
+		}
 	case *dns.X25:
 		return makeBaseAnswer(&cAns.Hdr, cAns.PSDNAddress)
 	case *dns.CERT:
 		return CERTAnswer{
 			Answer:      makeBaseAnswer(&cAns.Hdr, ""),
-			Type:        cAns.Type,
+			Type:        dns.CertTypeToString[cAns.Type],
 			KeyTag:      cAns.KeyTag,
-			Algorithm:   cAns.Algorithm,
+			Algorithm:   dns.AlgorithmToString[cAns.Algorithm],
 			Certificate: cAns.Certificate,
 		}
 	case *dns.PX:
@@ -668,6 +721,8 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Altitude:  cAns.Altitude,
 		}
 	case *dns.LOC:
+		// This has the raw DNS values, which are not very human readable
+		// TODO: convert DNS types into usable values
 		return LOCAnswer{
 			Answer:    makeBaseAnswer(&cAns.Hdr, ""),
 			Version:   cAns.Version,
@@ -714,6 +769,11 @@ func ParseAnswer(ans dns.RR) interface{} {
 			PreviousName: cAns.PreviousName,
 			NextName:     cAns.NextName,
 		}
+	case *dns.L32:
+		return PrefAnswer{
+			Answer:     makeBaseAnswer(&cAns.Hdr, cAns.Locator32.String()),
+			Preference: cAns.Preference,
+		}
 	case *dns.L64:
 		node := fmt.Sprintf("%0.16X", cAns.Locator64)
 		return PrefAnswer{
@@ -724,6 +784,10 @@ func ParseAnswer(ans dns.RR) interface{} {
 		return makeBaseAnswer(&cAns.Hdr, euiToString(cAns.Address, 48))
 	case *dns.EUI64:
 		return makeBaseAnswer(&cAns.Hdr, euiToString(cAns.Address, 64))
+	case *dns.UID:
+		return makeBaseAnswer(&cAns.Hdr, strconv.FormatInt(int64(cAns.Uid), 10))
+	case *dns.GID:
+		return makeBaseAnswer(&cAns.Hdr, strconv.FormatInt(int64(cAns.Gid), 10))
 	case *dns.LP:
 		return PrefAnswer{
 			Answer:     makeBaseAnswer(&cAns.Hdr, cAns.Fqdn),
