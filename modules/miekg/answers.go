@@ -448,20 +448,19 @@ func makeBitString(bm []uint16) string {
 }
 
 func makeBaseAnswer(hdr *dns.RR_Header, answer string) Answer {
-	retv := Answer{
+	return Answer{
 		Ttl:     hdr.Ttl,
 		Type:    dns.Type(hdr.Rrtype).String(),
 		rrType:  hdr.Rrtype,
 		Class:   dns.Class(hdr.Class).String(),
 		rrClass: hdr.Class,
-		Name:    hdr.Name,
+		Name:    strings.TrimSuffix(hdr.Name, "."),
 		Answer:  answer}
-	retv.Name = strings.TrimSuffix(retv.Name, ".")
-	return retv
 }
 
 func ParseAnswer(ans dns.RR) interface{} {
 	switch cAns := ans.(type) {
+	// Prioritize common types in expected order
 	case *dns.A:
 		return makeBaseAnswer(&cAns.Hdr, cAns.A.String())
 	case *dns.AAAA:
@@ -487,19 +486,52 @@ func ParseAnswer(ans dns.RR) interface{} {
 		}
 		return makeBaseAnswer(&cAns.Hdr, ip)
 	case *dns.NS:
-		return makeBaseAnswer(&cAns.Hdr, strings.TrimRight(cAns.Ns, "."))
+		return makeBaseAnswer(&cAns.Hdr, cAns.Ns)
 	case *dns.CNAME:
 		return makeBaseAnswer(&cAns.Hdr, cAns.Target)
 	case *dns.DNAME:
 		return makeBaseAnswer(&cAns.Hdr, cAns.Target)
-	case *dns.TXT:
-		return makeBaseAnswer(&cAns.Hdr, strings.Join(cAns.Txt, "\n"))
-	case *dns.NULL:
-		return makeBaseAnswer(&cAns.Hdr, cAns.Data)
 	case *dns.PTR:
 		return makeBaseAnswer(&cAns.Hdr, cAns.Ptr)
+	case *dns.MX:
+		return PrefAnswer{
+			Answer:     makeBaseAnswer(&cAns.Hdr, cAns.Mx),
+			Preference: cAns.Preference,
+		}
+	case *dns.TXT:
+		return makeBaseAnswer(&cAns.Hdr, strings.Join(cAns.Txt, "\n"))
+	case *dns.SOA:
+		return SOAAnswer{
+			Answer:  makeBaseAnswer(&cAns.Hdr, ""),
+			Ns:      strings.TrimSuffix(cAns.Ns, "."),
+			Mbox:    strings.TrimSuffix(cAns.Mbox, "."),
+			Serial:  cAns.Serial,
+			Refresh: cAns.Refresh,
+			Retry:   cAns.Retry,
+			Expire:  cAns.Expire,
+			Minttl:  cAns.Minttl,
+		}
+	case *dns.CAA:
+		return CAAAnswer{
+			Answer: makeBaseAnswer(&cAns.Hdr, ""),
+			Tag:    cAns.Tag,
+			Value:  cAns.Value,
+			Flag:   cAns.Flag,
+		}
+	case *dns.SRV:
+		return SRVAnswer{
+			Answer:   makeBaseAnswer(&cAns.Hdr, ""),
+			Priority: cAns.Priority,
+			Weight:   cAns.Weight,
+			Port:     cAns.Port,
+			Target:   cAns.Target,
+		}
 	case *dns.SPF:
 		return makeBaseAnswer(&cAns.Hdr, cAns.String())
+	// begin "the rest". Protocols we won't very likely ever see and order
+	// would be effectively random. As such, just alphabetize
+	case *dns.NULL:
+		return makeBaseAnswer(&cAns.Hdr, cAns.Data)
 	case *dns.MB:
 		return makeBaseAnswer(&cAns.Hdr, cAns.Mb)
 	case *dns.MG:
@@ -524,11 +556,6 @@ func ParseAnswer(ans dns.RR) interface{} {
 		return makeBaseAnswer(&cAns.Hdr, cAns.Digest)
 	case *dns.NINFO:
 		return makeBaseAnswer(&cAns.Hdr, strings.Join(cAns.ZSData, "\n"))
-	case *dns.MX:
-		return PrefAnswer{
-			Answer:     makeBaseAnswer(&cAns.Hdr, strings.TrimRight(cAns.Mx, ".")),
-			Preference: cAns.Preference,
-		}
 	case *dns.DS:
 		return DSAnswer{
 			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
@@ -545,32 +572,6 @@ func ParseAnswer(ans dns.RR) interface{} {
 			DigestType: cAns.DigestType,
 			Digest:     cAns.Digest,
 		}
-	case *dns.CAA:
-		return CAAAnswer{
-			Answer: makeBaseAnswer(&cAns.Hdr, ""),
-			Tag:    cAns.Tag,
-			Value:  cAns.Value,
-			Flag:   cAns.Flag,
-		}
-	case *dns.SOA:
-		return SOAAnswer{
-			Answer:  makeBaseAnswer(&cAns.Hdr, ""),
-			Ns:      strings.TrimSuffix(cAns.Ns, "."),
-			Mbox:    strings.TrimSuffix(cAns.Mbox, "."),
-			Serial:  cAns.Serial,
-			Refresh: cAns.Refresh,
-			Retry:   cAns.Retry,
-			Expire:  cAns.Expire,
-			Minttl:  cAns.Minttl,
-		}
-	case *dns.SRV:
-		return SRVAnswer{
-			Answer:   makeBaseAnswer(&cAns.Hdr, ""),
-			Priority: cAns.Priority,
-			Weight:   cAns.Weight,
-			Port:     cAns.Port,
-			Target:   cAns.Target,
-		}
 	case *dns.TKEY:
 		return TKEYAnswer{
 			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
@@ -584,7 +585,6 @@ func ParseAnswer(ans dns.RR) interface{} {
 			OtherLen:   cAns.OtherLen,
 			OtherData:  cAns.OtherData,
 		}
-
 	case *dns.TLSA:
 		return TLSAAnswer{
 			Answer:       makeBaseAnswer(&cAns.Hdr, ""),
@@ -793,7 +793,6 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Answer:     makeBaseAnswer(&cAns.Hdr, cAns.Fqdn),
 			Preference: cAns.Preference,
 		}
-
 	default:
 		return struct {
 			Type     string `json:"type"`
