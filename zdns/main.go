@@ -19,7 +19,6 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
-	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -47,6 +46,7 @@ func main() {
 	flags.IntVar(&gc.Threads, "threads", 1000, "number of lightweight go threads")
 	flags.IntVar(&gc.GoMaxProcs, "go-processes", 0, "number of OS processes (GOMAXPROCS)")
 	flags.StringVar(&gc.NamePrefix, "prefix", "", "name to be prepended to what's passed in (e.g., www.)")
+	flags.StringVar(&gc.NameOverride, "override-name", "", "name overrides all passed in names")
 	flags.BoolVar(&gc.AlexaFormat, "alexa", false, "is input file from Alexa Top Million download")
 	flags.BoolVar(&gc.IterativeResolution, "iterative", false, "Perform own iteration instead of relying on recursive resolver")
 	flags.StringVar(&gc.InputFilePath, "input-file", "-", "names to read")
@@ -65,6 +65,7 @@ func main() {
 	flags.StringVar(&gc.OutputHandler, "output-handler", "file", "handler to output names")
 	flags.BoolVar(&gc.TCPOnly, "tcp-only", false, "Only perform lookups over TCP")
 	flags.BoolVar(&gc.UDPOnly, "udp-only", false, "Only perform lookups over UDP")
+	flags.BoolVar(&gc.NameServerMode, "name-server-mode", false, "Treats input as nameservers to query with a static query rather than queries to send to a static name server")
 	servers_string := flags.String("name-servers", "", "List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53.")
 	config_file := flags.String("conf-file", "/etc/resolv.conf", "config file for DNS servers")
 	timeout := flags.Int("timeout", 15, "timeout for resolving an individual name")
@@ -143,6 +144,9 @@ func main() {
 		gc.NameServersSpecified = false
 		log.Info("no name servers specified. will use: ", strings.Join(gc.NameServers, ", "))
 	} else {
+		if gc.NameServerMode {
+			log.Fatal("name servers cannot be specified on command line in --name-server-mode")
+		}
 		var ns []string
 		if (*servers_string)[0] == '@' {
 			filepath := (*servers_string)[1:]
@@ -157,14 +161,8 @@ func main() {
 		} else {
 			ns = strings.Split(*servers_string, ",")
 		}
-		rePort := regexp.MustCompile(":\\d+$")      // string ends with potential port number
-		reV6 := regexp.MustCompile("^([0-9a-f]*:)") // string starts like valid IPv6 address
 		for i, s := range ns {
-			if !rePort.MatchString(s) {
-				ns[i] = s + ":53"
-			} else if reV6.MatchString(s) {
-				ns[i] = "[" + s + "]:53"
-			}
+			ns[i] = zdns.AddDefaultPortToDNSServerName(s)
 		}
 		gc.NameServers = ns
 		gc.NameServersSpecified = true
@@ -182,6 +180,12 @@ func main() {
 	}
 	if gc.UDPOnly && gc.TCPOnly {
 		log.Fatal("TCP Only and UDP Only are conflicting")
+	}
+	if gc.NameServerMode && gc.AlexaFormat {
+		log.Fatal("Alexa mode is incompatible with name server mode")
+	}
+	if gc.NameServerMode && gc.NameOverride == "" {
+		log.Fatal("Static Name must be defined with --override-name in --name-server-mode")
 	}
 	// Output Groups are defined by a base + any additional fields that the user wants
 	groups := strings.Split(gc.IncludeInOutput, ",")

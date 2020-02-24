@@ -17,12 +17,13 @@ package zdns
 import "time"
 
 type GlobalConf struct {
-	Threads             int
-	Timeout             time.Duration
-	IterationTimeout    time.Duration
-	Retries             int
-	AlexaFormat         bool
-	IterativeResolution bool
+	Threads               int
+	Timeout               time.Duration
+	IterationTimeout      time.Duration
+	Retries               int
+	AlexaFormat           bool
+	NameServerInputFormat bool
+	IterativeResolution   bool
 
 	ResultVerbosity string
 	IncludeInOutput string
@@ -47,7 +48,9 @@ type GlobalConf struct {
 	LogFilePath      string
 	MetadataFilePath string
 
-	NamePrefix string
+	NamePrefix     string
+	NameOverride   string
+	NameServerMode bool
 
 	Module string
 	Class  uint16
