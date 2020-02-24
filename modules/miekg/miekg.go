@@ -212,9 +212,9 @@ type DNSFlags struct {
 
 // result to be returned by scan of host
 type Result struct {
-	Answers     []interface{} `json:"answers" groups:"short,normal,long,trace"`
-	Additional  []interface{} `json:"additionals" groups:"short,normal,long,trace"`
-	Authorities []interface{} `json:"authorities" groups:"short,normal,long,trace"`
+	Answers     []interface{} `json:"answers,omitempty" groups:"short,normal,long,trace"`
+	Additional  []interface{} `json:"additionals,omitempty" groups:"short,normal,long,trace"`
+	Authorities []interface{} `json:"authorities,omitempty" groups:"short,normal,long,trace"`
 	Protocol    string        `json:"protocol" groups:"protocol,normal,long,trace"`
 	Resolver    string        `json:"resolver" groups:"resolver,normal,long,trace"`
 	Flags       DNSFlags      `json:"flags" groups:"flags,long,trace"`
