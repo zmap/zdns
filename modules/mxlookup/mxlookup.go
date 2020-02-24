@@ -114,7 +114,7 @@ func (s *Lookup) DoLookup(name string) (interface{}, []interface{}, zdns.Status,
 		panic("could not cast correctly")
 	}
 	for _, ans := range r.Answers {
-		if mxAns, ok := ans.(miekg.MXAnswer); ok {
+		if mxAns, ok := ans.(miekg.PrefAnswer); ok {
 			name = strings.TrimSuffix(mxAns.Answer.Answer, ".")
 			rec := MXRecord{TTL: mxAns.Ttl, Type: mxAns.Type, Class: mxAns.Class, Name: name, Preference: mxAns.Preference}
 			ips, secondTrace := s.LookupIPs(name)

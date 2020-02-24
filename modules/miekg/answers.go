@@ -24,7 +24,7 @@ var typeNames = map[uint16]string{
 	dns.TypePTR:        "PTR",        // Answer
 	dns.TypeHINFO:      "HINFO",      // HInfoAnswer
 	dns.TypeMINFO:      "MINFO",      // MInfoAnswer
-	dns.TypeMX:         "MX",         // MXAnswer
+	dns.TypeMX:         "MX",         // PrefAnswer
 	dns.TypeTXT:        "TXT",        // Answer
 	dns.TypeRP:         "RP",         // RPAnswer
 	dns.TypeAFSDB:      "AFSDB",      // AFSDBAnswer
@@ -170,7 +170,7 @@ type MINFOAnswer struct {
 	Email string `json:"email" groups:"short,normal,long,trace"`
 }
 
-type MXAnswer struct {
+type PrefAnswer struct {
 	Answer
 	Preference uint16 `json:"preference" groups:"short,normal,long,trace"`
 }
@@ -496,7 +496,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 	case *dns.NINFO:
 		return makeBaseAnswer(&cAns.Hdr, strings.Join(cAns.ZSData, "\n"))
 	case *dns.MX:
-		return MXAnswer{
+		return PrefAnswer{
 			Answer:     makeBaseAnswer(&cAns.Hdr, strings.TrimRight(cAns.Mx, ".")),
 			Preference: cAns.Preference,
 		}
@@ -639,7 +639,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Hostname: cAns.Hostname,
 		}
 	case *dns.RT:
-		return MXAnswer{
+		return PrefAnswer{
 			Answer:     makeBaseAnswer(&cAns.Hdr, cAns.Host),
 			Preference: cAns.Preference,
 		}
@@ -689,7 +689,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 			RendezvousServers:  cAns.RendezvousServers,
 		}
 	case *dns.KX:
-		return MXAnswer{
+		return PrefAnswer{
 			Answer:     makeBaseAnswer(&cAns.Hdr, cAns.Exchanger),
 			Preference: cAns.Preference,
 		}
@@ -716,7 +716,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 		}
 	case *dns.L64:
 		node := fmt.Sprintf("%0.16X", cAns.Locator64)
-		return MXAnswer{
+		return PrefAnswer{
 			Answer:     makeBaseAnswer(&cAns.Hdr, node),
 			Preference: cAns.Preference,
 		}
@@ -725,7 +725,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 	case *dns.EUI64:
 		return makeBaseAnswer(&cAns.Hdr, euiToString(cAns.Address, 64))
 	case *dns.LP:
-		return MXAnswer{
+		return PrefAnswer{
 			Answer:     makeBaseAnswer(&cAns.Hdr, cAns.Fqdn),
 			Preference: cAns.Preference,
 		}
