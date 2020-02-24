@@ -9,76 +9,76 @@ import (
 
 var typeNames = map[uint16]string{
 	dns.TypeNone:       "None",
-	dns.TypeA:          "A",          // Module, Answer
-	dns.TypeANY:        "ANY",        // Module, Answer
-	dns.TypeNS:         "NS",         // Module, Answer
-	dns.TypeMD:         "MD",         // Module, Answer
-	dns.TypeMF:         "MF",         // Module, Answer
-	dns.TypeCNAME:      "CNAME",      // Module, Type
-	dns.TypeSOA:        "SOA",        // Module, Type
-	dns.TypeMB:         "MB",         // Module, Default Type
-	dns.TypeMG:         "MG",         // Module, Default Type
-	dns.TypeMR:         "MR",         // Module, Default Type
-	dns.TypeNULL:       "NULL",       // Module, Default Type
-	dns.TypePTR:        "PTR",        // Module, Default Type
-	dns.TypeHINFO:      "HINFO",      // Module, HInfoAnswer
-	dns.TypeMINFO:      "MINFO",      // Module, MInfoAnswer
-	dns.TypeMX:         "MX",         // Module, Type
-	dns.TypeTXT:        "TXT",        // Module, Type
-	dns.TypeRP:         "RP",         // Module
-	dns.TypeAFSDB:      "AFSDB",      // Module, AFSDBAnswer (todo)
-	dns.TypeX25:        "X25",        // Module, X25Answer (todo)
-	dns.TypeISDN:       "ISDN",       // Module
-	dns.TypeRT:         "RT",         // Module
-	dns.TypeNSAPPTR:    "NSAPPTR",    // Module
-	dns.TypeSIG:        "SIG",        // Module, RRSIGAnswer
-	dns.TypeKEY:        "KEY",        // Module, DNSKeyAnswer
-	dns.TypePX:         "PX",         // Module, PXAnswer (todo)
-	dns.TypeGPOS:       "GPOS",       // Module, GPOSAnswer (todo)
-	dns.TypeAAAA:       "AAAA",       // Module, Type
-	dns.TypeLOC:        "LOC",        // Module
-	dns.TypeNXT:        "NXT",        // Module
-	dns.TypeEID:        "EID",        // Module
-	dns.TypeNIMLOC:     "NIMLOC",     // Module
-	dns.TypeSRV:        "SRV",        // Module, SRVAnswer
-	dns.TypeATMA:       "ATMA",       // Module
-	dns.TypeNAPTR:      "NAPTR",      // Module
-	dns.TypeKX:         "KX",         // Module
-	dns.TypeCERT:       "CERT",       // Module, CERTAnswer (todo)
-	dns.TypeDNAME:      "DNAME",      // Module, Answer
-	dns.TypeOPT:        "OPT",        // Module
-	dns.TypeDS:         "DS",         // Module
-	dns.TypeSSHFP:      "SSHFP",      // Module
-	dns.TypeRRSIG:      "RRSIG",      // Module, RRSIGAnswer
-	dns.TypeNSEC:       "NSEC",       // Module, ??
-	dns.TypeDNSKEY:     "DNSKEY",     // Module, ??
-	dns.TypeDHCID:      "DHCID",      // Module
-	dns.TypeNSEC3:      "NSEC3",      // Module, ??
-	dns.TypeNSEC3PARAM: "NSEC3PARAM", // Module, ??
-	dns.TypeTLSA:       "TLSA",       // Module, TLSAAnswer
-	dns.TypeSMIMEA:     "SMIMEA",     // Module
-	dns.TypeHIP:        "HIP",        // Module
-	dns.TypeNINFO:      "NINFO",      // Module, Answer
-	dns.TypeRKEY:       "RKEY",       // Module, DNSKeyAnswer
-	dns.TypeTALINK:     "TALINK",     // Module
-	dns.TypeCDS:        "CDS",        // Module, DNSKeyAnswer
-	dns.TypeCDNSKEY:    "CDNSKEY",    // Module, DNSKeyAnswer
-	dns.TypeOPENPGPKEY: "OPENPGPKEY", // Module
-	dns.TypeCSYNC:      "CSYNC",      // Module
-	dns.TypeSPF:        "SPF",        // Module, SPF
-	dns.TypeUINFO:      "UINFO",      // Module
-	dns.TypeUID:        "UID",        // Module
-	dns.TypeGID:        "GID",        // Module
-	dns.TypeUNSPEC:     "UNSPEC",     // Module
-	dns.TypeNID:        "NID",        // Module
-	dns.TypeL32:        "L32",        // Module
-	dns.TypeL64:        "L64",        // Module
-	dns.TypeLP:         "LP",         // Module
-	dns.TypeEUI48:      "EUI48",      // Module
-	dns.TypeEUI64:      "EUI64",      // Module
-	dns.TypeURI:        "URI",        // Module
-	dns.TypeCAA:        "CAA",        // Module, CAAAnswer
-	dns.TypeAVC:        "AVC",        // Module, Answer
+	dns.TypeA:          "A",          // Answer
+	dns.TypeANY:        "ANY",        // Answer
+	dns.TypeNS:         "NS",         // Answer
+	dns.TypeMD:         "MD",         // Answer
+	dns.TypeMF:         "MF",         // Answer
+	dns.TypeCNAME:      "CNAME",      // Answer
+	dns.TypeSOA:        "SOA",        // SOAAnswer
+	dns.TypeMB:         "MB",         // Answer
+	dns.TypeMG:         "MG",         // Answer
+	dns.TypeMR:         "MR",         // Answer
+	dns.TypeNULL:       "NULL",       // Answer
+	dns.TypePTR:        "PTR",        // Answer
+	dns.TypeHINFO:      "HINFO",      // HInfoAnswer
+	dns.TypeMINFO:      "MINFO",      // MInfoAnswer
+	dns.TypeMX:         "MX",         // MXAnswer
+	dns.TypeTXT:        "TXT",        // Answer
+	dns.TypeRP:         "RP",         // RPAnswer
+	dns.TypeAFSDB:      "AFSDB",      // AFSDBAnswer
+	dns.TypeX25:        "X25",        // X25Answer
+	dns.TypeISDN:       "ISDN",       // TODO: No Miekg module
+	dns.TypeRT:         "RT",         // RTAnswer
+	dns.TypeNSAPPTR:    "NSAPPTR",    // NSAPPTR
+	dns.TypeSIG:        "SIG",        // RRSIGAnswer
+	dns.TypeKEY:        "KEY",        // DNSKeyAnswer
+	dns.TypePX:         "PX",         // PXAnswer
+	dns.TypeGPOS:       "GPOS",       // GPOSAnswer
+	dns.TypeAAAA:       "AAAA",       // Answer
+	dns.TypeLOC:        "LOC",        // LOCAnswer
+	dns.TypeNXT:        "NXT",        // TODO: No Miekg module
+	dns.TypeEID:        "EID",        // Answer
+	dns.TypeNIMLOC:     "NIMLOC",     // Answer
+	dns.TypeSRV:        "SRV",        // SRVAnswer
+	dns.TypeATMA:       "ATMA",       //
+	dns.TypeNAPTR:      "NAPTR",      //
+	dns.TypeKX:         "KX",         // KXAnswer
+	dns.TypeCERT:       "CERT",       // CERTAnswer
+	dns.TypeDNAME:      "DNAME",      // Answer
+	dns.TypeOPT:        "OPT",        //
+	dns.TypeDS:         "DS",         // DSAnswer
+	dns.TypeSSHFP:      "SSHFP",      //
+	dns.TypeRRSIG:      "RRSIG",      // RRSIGAnswer
+	dns.TypeNSEC:       "NSEC",       // ??
+	dns.TypeDNSKEY:     "DNSKEY",     // ??
+	dns.TypeDHCID:      "DHCID",      //
+	dns.TypeNSEC3:      "NSEC3",      // ??
+	dns.TypeNSEC3PARAM: "NSEC3PARAM", // ??
+	dns.TypeTLSA:       "TLSA",       // TLSAAnswer
+	dns.TypeSMIMEA:     "SMIMEA",     //
+	dns.TypeHIP:        "HIP",        // HIPAnswer
+	dns.TypeNINFO:      "NINFO",      // Answer
+	dns.TypeRKEY:       "RKEY",       // DNSKeyAnswer
+	dns.TypeTALINK:     "TALINK",     //
+	dns.TypeCDS:        "CDS",        // DNSKeyAnswer
+	dns.TypeCDNSKEY:    "CDNSKEY",    // DNSKeyAnswer
+	dns.TypeOPENPGPKEY: "OPENPGPKEY", // Answer
+	dns.TypeCSYNC:      "CSYNC",      //
+	dns.TypeSPF:        "SPF",        // SPFAnswer
+	dns.TypeUINFO:      "UINFO",      //
+	dns.TypeUID:        "UID",        //
+	dns.TypeGID:        "GID",        //
+	dns.TypeUNSPEC:     "UNSPEC",     //
+	dns.TypeNID:        "NID",        //
+	dns.TypeL32:        "L32",        //
+	dns.TypeL64:        "L64",        //
+	dns.TypeLP:         "LP",         //
+	dns.TypeEUI48:      "EUI48",      //
+	dns.TypeEUI64:      "EUI64",      //
+	dns.TypeURI:        "URI",        //
+	dns.TypeCAA:        "CAA",        // CAAAnswer
+	dns.TypeAVC:        "AVC",        // Answer
 }
 
 type Answer struct {
@@ -150,6 +150,23 @@ type HIPAnswer struct {
 	Hit                string   `json:"hit" groups:"short,normal,long,trace"`
 	PublicKey          string   `json:"pubkey" groups:"short,normal,long,trace"`
 	RendezvousServers  []string `json:"rendezvous_servers" groups:"short,normal,long,trace"`
+}
+
+type KXAnswer struct {
+	Answer
+	Preference uint16 `json:"preference" groups:"short,normal,long,trace"`
+	Exchanger  string `json:"exchanger" groups:"short,normal,long,trace"`
+}
+
+type LOCAnswer struct {
+	Answer
+	Version   uint8  `json:"version" groups:"short,normal,long,trace"`
+	Size      uint8  `json:"size" groups:"short,normal,long,trace"`
+	HorizPre  uint8  `json:"horizontal_pre" groups:"short,normal,long,trace"`
+	VertPre   uint8  `json:"vertical_pre" groups:"short,normal,long,trace"`
+	Latitude  uint32 `json:"latitude" groups:"short,normal,long,trace"`
+	Longitude uint32 `json:"longitude" groups:"short,normal,long,trace"`
+	Altitude  uint32 `json:"altitude" groups:"short,normal,long,trace"`
 }
 
 type MINFOAnswer struct {
@@ -318,8 +335,16 @@ func ParseAnswer(ans dns.RR) interface{} {
 		return makeBaseAnswer(&cAns.Hdr, cAns.Mf)
 	case *dns.MD:
 		return makeBaseAnswer(&cAns.Hdr, cAns.Md)
+	case *dns.NSAPPTR:
+		return makeBaseAnswer(&cAns.Hdr, cAns.Ptr)
+	case *dns.NIMLOC:
+		return makeBaseAnswer(&cAns.Hdr, cAns.Locator)
+	case *dns.OPENPGPKEY:
+		return makeBaseAnswer(&cAns.Hdr, cAns.PublicKey)
 	case *dns.AVC:
 		return makeBaseAnswer(&cAns.Hdr, strings.Join(cAns.Txt, "\n"))
+	case *dns.EID:
+		return makeBaseAnswer(&cAns.Hdr, cAns.Endpoint)
 	case *dns.NINFO:
 		return makeBaseAnswer(&cAns.Hdr, strings.Join(cAns.ZSData, "\n"))
 	case *dns.MX:
@@ -490,6 +515,17 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Latitude:  cAns.Latitude,
 			Altitude:  cAns.Altitude,
 		}
+	case *dns.LOC:
+		return LOCAnswer{
+			Answer:    makeBaseAnswer(&cAns.Hdr, ""),
+			Version:   cAns.Version,
+			Size:      cAns.Size,
+			HorizPre:  cAns.HorizPre,
+			VertPre:   cAns.VertPre,
+			Longitude: cAns.Longitude,
+			Latitude:  cAns.Latitude,
+			Altitude:  cAns.Altitude,
+		}
 	case *dns.HIP:
 		return HIPAnswer{
 			Answer:             makeBaseAnswer(&cAns.Hdr, ""),
@@ -500,6 +536,13 @@ func ParseAnswer(ans dns.RR) interface{} {
 			PublicKey:          cAns.PublicKey,
 			RendezvousServers:  cAns.RendezvousServers,
 		}
+	case *dns.KX:
+		return KXAnswer{
+			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
+			Preference: cAns.Preference,
+			Exchanger:  cAns.Exchanger,
+		}
+
 	default:
 		return struct {
 			Type     string `json:"type"`
