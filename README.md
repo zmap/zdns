@@ -174,7 +174,7 @@ supports mixing and matching both modes by piping in a comma-delimited list of
 ```echo "google.com,8.8.8.8" | ./zdns A``` will send an `A` query for
 `google.com` to `8.8.8.8` regardless of what name servers are specified by
 `--name-servers=` flag. Lines that do not explicitly specify a name server will
-use the servers specified by the OS or `--name-server` flag as would normally
+use the servers specified by the OS or `--name-servers` flag as would normally
 happen.
 
 
