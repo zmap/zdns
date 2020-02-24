@@ -60,16 +60,16 @@ var typeNames = map[uint16]string{
 	dns.TypeHIP:        "HIP",        // HIPAnswer
 	dns.TypeNINFO:      "NINFO",      // Answer
 	dns.TypeRKEY:       "RKEY",       // DNSKeyAnswer
-	dns.TypeTALINK:     "TALINK",     //
+	dns.TypeTALINK:     "TALINK",     // TALINKAnswer
 	dns.TypeCDS:        "CDS",        // DNSKeyAnswer
 	dns.TypeCDNSKEY:    "CDNSKEY",    // DNSKEYAnswer
 	dns.TypeOPENPGPKEY: "OPENPGPKEY", // Answer
-	dns.TypeCSYNC:      "CSYNC",      //
+	dns.TypeCSYNC:      "CSYNC",      // TODO: this one needs some work
 	dns.TypeSPF:        "SPF",        // SPFAnswer
 	dns.TypeUINFO:      "UINFO",      // Answer
 	dns.TypeUID:        "UID",        //
 	dns.TypeGID:        "GID",        //
-	dns.TypeUNSPEC:     "UNSPEC",     //
+	dns.TypeUNSPEC:     "UNSPEC",     // [no definition, unclear if real]
 	dns.TypeNID:        "NID",        //
 	dns.TypeL32:        "L32",        //
 	dns.TypeL64:        "L64",        //
@@ -167,6 +167,12 @@ type LOCAnswer struct {
 	Latitude  uint32 `json:"latitude" groups:"short,normal,long,trace"`
 	Longitude uint32 `json:"longitude" groups:"short,normal,long,trace"`
 	Altitude  uint32 `json:"altitude" groups:"short,normal,long,trace"`
+}
+
+type L64Answer struct {
+	Answer
+	Preference uint16 `json:"preference" groups:"short,normal,long,trace"`
+	Locator64  uint64 `json:"locator64" groups:"short,normal,long,trace"`
 }
 
 type MINFOAnswer struct {
@@ -592,7 +598,12 @@ func ParseAnswer(ans dns.RR) interface{} {
 			PreviousName: cAns.PreviousName,
 			NextName:     cAns.NextName,
 		}
-
+	case *dns.L64:
+		return L64Answer{
+			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
+			Preference: cAns.Preference,
+			Locator64:  cAns.Locator64,
+		}
 	default:
 		return struct {
 			Type     string `json:"type"`
