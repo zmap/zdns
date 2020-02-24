@@ -16,13 +16,13 @@ package main
 
 import (
 	"flag"
+	"io/ioutil"
+	"math/rand"
 	"os"
 	"regexp"
 	"runtime"
 	"strings"
 	"time"
-	"io/ioutil"
-	"math/rand"
 
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
@@ -72,13 +72,13 @@ func main() {
 	nanoSeconds := flags.Bool("nanoseconds", false, "Use nanosecond resolution timestamps")
 	// allow module to initialize and add its own flags before we parse
 	if len(os.Args) < 2 {
-		log.Fatal("No lookup module specified. Valid modules: ", zdns.ValidlookupsString())
+		log.Fatal("No lookup module specified. Valid modules: ", zdns.ValidlookupsString(), ".")
 	}
 	gc.Module = strings.ToUpper(os.Args[1])
 	factory := zdns.GetLookup(gc.Module)
 	if factory == nil {
 		flags.Parse(os.Args[1:])
-		log.Fatal("Invalid lookup module specified. Valid modules: ", zdns.ValidlookupsString())
+		log.Fatal("Invalid lookup module specified. Valid modules: ", zdns.ValidlookupsString(), ".")
 	}
 	factory.AddFlags(flags)
 	flags.Parse(os.Args[2:])
@@ -204,7 +204,7 @@ func main() {
 
 	// Seeding for RandomNameServer()
 	rand.Seed(time.Now().UnixNano())
-	
+
 	// some modules require multiple passes over a file (this is really just the case for zone files)
 	if !factory.AllowStdIn() && gc.InputFilePath == "-" {
 		log.Fatal("Specified module does not allow reading from stdin")
