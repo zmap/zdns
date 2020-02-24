@@ -75,9 +75,9 @@ var typeNames = map[uint16]string{
 	dns.TypeL32:        "L32",        //
 	dns.TypeL64:        "L64",        // L64Answer
 	dns.TypeLP:         "LP",         // Answer
-	dns.TypeEUI48:      "EUI48",      //
-	dns.TypeEUI64:      "EUI64",      //
-	dns.TypeURI:        "URI",        //
+	dns.TypeEUI48:      "EUI48",      // Answer
+	dns.TypeEUI64:      "EUI64",      // Answer
+	dns.TypeURI:        "URI",        // URIAnswer
 	dns.TypeCAA:        "CAA",        // CAAAnswer
 	dns.TypeAVC:        "AVC",        // Answer
 }
@@ -274,6 +274,149 @@ type TALINKAnswer struct {
 	PreviousName string `json:"previous_name" groups:"short,normal,long,trace"`
 	NextName     string `json:"next_name" groups:"short,normal,long,trace"`
 }
+
+type URIAnswer struct {
+	Answer
+	Priority uint16 `json:"previous_name" groups:"short,normal,long,trace"`
+	Weight   uint16 `json:"previous_name" groups:"short,normal,long,trace"`
+	Target   string `json:"previous_name" groups:"short,normal,long,trace"`
+}
+
+// copy-paste from miekg/dns/types.go >>>>>
+//
+// Copyright (c) 2009 The Go Authors.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are
+// met:
+//    * Redistributions of source code must retain the above copyright
+// notice, this list of conditions and the following disclaimer.
+//    * Redistributions in binary form must reproduce the above
+// copyright notice, this list of conditions and the following disclaimer
+// in the documentation and/or other materials provided with the
+// distribution.
+//    * Neither the name of Google Inc. nor the names of its
+// contributors may be used to endorse or promote products derived from
+// this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+const (
+	escapedByteSmall = "" +
+		`\000\001\002\003\004\005\006\007\008\009` +
+		`\010\011\012\013\014\015\016\017\018\019` +
+		`\020\021\022\023\024\025\026\027\028\029` +
+		`\030\031`
+	escapedByteLarge = `\127\128\129` +
+		`\130\131\132\133\134\135\136\137\138\139` +
+		`\140\141\142\143\144\145\146\147\148\149` +
+		`\150\151\152\153\154\155\156\157\158\159` +
+		`\160\161\162\163\164\165\166\167\168\169` +
+		`\170\171\172\173\174\175\176\177\178\179` +
+		`\180\181\182\183\184\185\186\187\188\189` +
+		`\190\191\192\193\194\195\196\197\198\199` +
+		`\200\201\202\203\204\205\206\207\208\209` +
+		`\210\211\212\213\214\215\216\217\218\219` +
+		`\220\221\222\223\224\225\226\227\228\229` +
+		`\230\231\232\233\234\235\236\237\238\239` +
+		`\240\241\242\243\244\245\246\247\248\249` +
+		`\250\251\252\253\254\255`
+)
+
+func escapeByte(b byte) string {
+	if b < ' ' {
+		return escapedByteSmall[b*4 : b*4+4]
+	}
+
+	b -= '~' + 1
+	// The cast here is needed as b*4 may overflow byte.
+	return escapedByteLarge[int(b)*4 : int(b)*4+4]
+}
+
+func isDigit(b byte) bool { return b >= '0' && b <= '9' }
+
+func dddToByte(s []byte) byte {
+	_ = s[2] // bounds check hint to compiler; see golang.org/issue/14808
+	return byte((s[0]-'0')*100 + (s[1]-'0')*10 + (s[2] - '0'))
+}
+
+func dddStringToByte(s string) byte {
+	_ = s[2] // bounds check hint to compiler; see golang.org/issue/14808
+	return byte((s[0]-'0')*100 + (s[1]-'0')*10 + (s[2] - '0'))
+}
+
+func nextByte(s string, offset int) (byte, int) {
+	if offset >= len(s) {
+		return 0, 0
+	}
+	if s[offset] != '\\' {
+		// not an escape sequence
+		return s[offset], 1
+	}
+	switch len(s) - offset {
+	case 1: // dangling escape
+		return 0, 0
+	case 2, 3: // too short to be \ddd
+	default: // maybe \ddd
+		if isDigit(s[offset+1]) && isDigit(s[offset+2]) && isDigit(s[offset+3]) {
+			return dddStringToByte(s[offset+1:]), 4
+		}
+	}
+	// not \ddd, just an RFC 1035 "quoted" character
+	return s[offset+1], 2
+}
+func euiToString(eui uint64, bits int) (hex string) {
+	switch bits {
+	case 64:
+		hex = fmt.Sprintf("%16.16x", eui)
+		hex = hex[0:2] + "-" + hex[2:4] + "-" + hex[4:6] + "-" + hex[6:8] +
+			"-" + hex[8:10] + "-" + hex[10:12] + "-" + hex[12:14] + "-" + hex[14:16]
+	case 48:
+		hex = fmt.Sprintf("%12.12x", eui)
+		hex = hex[0:2] + "-" + hex[2:4] + "-" + hex[4:6] + "-" + hex[6:8] +
+			"-" + hex[8:10] + "-" + hex[10:12]
+	}
+	return
+}
+
+func sprintTxtOctet(s string) string {
+	var dst strings.Builder
+	dst.Grow(2 + len(s))
+	dst.WriteByte('"')
+	for i := 0; i < len(s); {
+		if i+1 < len(s) && s[i] == '\\' && s[i+1] == '.' {
+			dst.WriteString(s[i : i+2])
+			i += 2
+			continue
+		}
+		b, n := nextByte(s, i)
+		switch {
+		case n == 0:
+			i++ // dangling back slash
+		case b == '.':
+			dst.WriteByte('.')
+		case b < ' ' || b > '~':
+			dst.WriteString(escapeByte(b))
+		default:
+			dst.WriteByte(b)
+		}
+		i += n
+	}
+	dst.WriteByte('"')
+	return dst.String()
+}
+
+// <<<<< END GOOGLE CODE
 
 func makeBaseAnswer(hdr *dns.RR_Header, answer string) Answer {
 	retv := Answer{
@@ -577,6 +720,10 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Answer:     makeBaseAnswer(&cAns.Hdr, node),
 			Preference: cAns.Preference,
 		}
+	case *dns.EUI48:
+		return makeBaseAnswer(&cAns.Hdr, euiToString(cAns.Address, 48))
+	case *dns.EUI64:
+		return makeBaseAnswer(&cAns.Hdr, euiToString(cAns.Address, 64))
 	case *dns.LP:
 		return MXAnswer{
 			Answer:     makeBaseAnswer(&cAns.Hdr, cAns.Fqdn),
