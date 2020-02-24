@@ -498,8 +498,6 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Answer:     makeBaseAnswer(&cAns.Hdr, cAns.Mx),
 			Preference: cAns.Preference,
 		}
-	case *dns.TXT:
-		return makeBaseAnswer(&cAns.Hdr, strings.Join(cAns.Txt, "\n"))
 	case *dns.SOA:
 		return SOAAnswer{
 			Answer:  makeBaseAnswer(&cAns.Hdr, ""),
@@ -511,6 +509,8 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Expire:  cAns.Expire,
 			Minttl:  cAns.Minttl,
 		}
+	case *dns.TXT:
+		return makeBaseAnswer(&cAns.Hdr, strings.Join(cAns.Txt, "\n"))
 	case *dns.CAA:
 		return CAAAnswer{
 			Answer: makeBaseAnswer(&cAns.Hdr, ""),
@@ -528,8 +528,40 @@ func ParseAnswer(ans dns.RR) interface{} {
 		}
 	case *dns.SPF:
 		return makeBaseAnswer(&cAns.Hdr, cAns.String())
+	case *dns.DS:
+		return DSAnswer{
+			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
+			KeyTag:     cAns.KeyTag,
+			Algorithm:  cAns.Algorithm,
+			DigestType: cAns.DigestType,
+			Digest:     cAns.Digest,
+		}
+	case *dns.CDS:
+		return DSAnswer{
+			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
+			KeyTag:     cAns.KeyTag,
+			Algorithm:  cAns.Algorithm,
+			DigestType: cAns.DigestType,
+			Digest:     cAns.Digest,
+		}
+	case *dns.RRSIG:
+		return RRSIGAnswer{
+			Answer:      makeBaseAnswer(&cAns.Hdr, ""),
+			TypeCovered: cAns.TypeCovered,
+			Algorithm:   cAns.Algorithm,
+			Labels:      cAns.Labels,
+			OriginalTtl: cAns.OrigTtl,
+			Expiration:  dns.TimeToString(cAns.Expiration),
+			Inception:   dns.TimeToString(cAns.Inception),
+			KeyTag:      cAns.KeyTag,
+			SignerName:  cAns.SignerName,
+			Signature:   cAns.Signature,
+		}
 	// begin "the rest". Protocols we won't very likely ever see and order
-	// would be effectively random. As such, just alphabetize
+	// would is effectively random. Hopefully, folks who are you using these
+	// are going to use them everywhere and branch prediction helps out. Not
+	// much else that we could do other than not try to parse them, which is
+	// worse
 	case *dns.NULL:
 		return makeBaseAnswer(&cAns.Hdr, cAns.Data)
 	case *dns.MB:
@@ -556,22 +588,6 @@ func ParseAnswer(ans dns.RR) interface{} {
 		return makeBaseAnswer(&cAns.Hdr, cAns.Digest)
 	case *dns.NINFO:
 		return makeBaseAnswer(&cAns.Hdr, strings.Join(cAns.ZSData, "\n"))
-	case *dns.DS:
-		return DSAnswer{
-			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
-			KeyTag:     cAns.KeyTag,
-			Algorithm:  cAns.Algorithm,
-			DigestType: cAns.DigestType,
-			Digest:     cAns.Digest,
-		}
-	case *dns.CDS:
-		return DSAnswer{
-			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
-			KeyTag:     cAns.KeyTag,
-			Algorithm:  cAns.Algorithm,
-			DigestType: cAns.DigestType,
-			Digest:     cAns.Digest,
-		}
 	case *dns.TKEY:
 		return TKEYAnswer{
 			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
@@ -610,19 +626,6 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Replacement: cAns.Replacement,
 		}
 	case *dns.SIG:
-		return RRSIGAnswer{
-			Answer:      makeBaseAnswer(&cAns.Hdr, ""),
-			TypeCovered: cAns.TypeCovered,
-			Algorithm:   cAns.Algorithm,
-			Labels:      cAns.Labels,
-			OriginalTtl: cAns.OrigTtl,
-			Expiration:  dns.TimeToString(cAns.Expiration),
-			Inception:   dns.TimeToString(cAns.Inception),
-			KeyTag:      cAns.KeyTag,
-			SignerName:  cAns.SignerName,
-			Signature:   cAns.Signature,
-		}
-	case *dns.RRSIG:
 		return RRSIGAnswer{
 			Answer:      makeBaseAnswer(&cAns.Hdr, ""),
 			TypeCovered: cAns.TypeCovered,
