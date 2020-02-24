@@ -41,32 +41,32 @@ var typeNames = map[uint16]string{
 	dns.TypeEID:        "EID",        // Answer
 	dns.TypeNIMLOC:     "NIMLOC",     // Answer
 	dns.TypeSRV:        "SRV",        // SRVAnswer
-	dns.TypeATMA:       "ATMA",       //
-	dns.TypeNAPTR:      "NAPTR",      //
+	dns.TypeATMA:       "ATMA",       // TODO: No Miekg module
+	dns.TypeNAPTR:      "NAPTR",      // NAPTRAnswer
 	dns.TypeKX:         "KX",         // KXAnswer
 	dns.TypeCERT:       "CERT",       // CERTAnswer
 	dns.TypeDNAME:      "DNAME",      // Answer
-	dns.TypeOPT:        "OPT",        //
+	dns.TypeOPT:        "OPT",        // [not real type, edns]
 	dns.TypeDS:         "DS",         // DSAnswer
-	dns.TypeSSHFP:      "SSHFP",      //
+	dns.TypeSSHFP:      "SSHFP",      // SSHFPAnswer
 	dns.TypeRRSIG:      "RRSIG",      // RRSIGAnswer
 	dns.TypeNSEC:       "NSEC",       // ??
-	dns.TypeDNSKEY:     "DNSKEY",     // ??
-	dns.TypeDHCID:      "DHCID",      //
+	dns.TypeDNSKEY:     "DNSKEY",     // DNSKEYAnswer
+	dns.TypeDHCID:      "DHCID",      // Answer
 	dns.TypeNSEC3:      "NSEC3",      // ??
 	dns.TypeNSEC3PARAM: "NSEC3PARAM", // ??
 	dns.TypeTLSA:       "TLSA",       // TLSAAnswer
-	dns.TypeSMIMEA:     "SMIMEA",     //
+	dns.TypeSMIMEA:     "SMIMEA",     // SMIMEAAnswer
 	dns.TypeHIP:        "HIP",        // HIPAnswer
 	dns.TypeNINFO:      "NINFO",      // Answer
 	dns.TypeRKEY:       "RKEY",       // DNSKeyAnswer
 	dns.TypeTALINK:     "TALINK",     //
 	dns.TypeCDS:        "CDS",        // DNSKeyAnswer
-	dns.TypeCDNSKEY:    "CDNSKEY",    // DNSKeyAnswer
+	dns.TypeCDNSKEY:    "CDNSKEY",    // DNSKEYAnswer
 	dns.TypeOPENPGPKEY: "OPENPGPKEY", // Answer
 	dns.TypeCSYNC:      "CSYNC",      //
 	dns.TypeSPF:        "SPF",        // SPFAnswer
-	dns.TypeUINFO:      "UINFO",      //
+	dns.TypeUINFO:      "UINFO",      // Answer
 	dns.TypeUID:        "UID",        //
 	dns.TypeGID:        "GID",        //
 	dns.TypeUNSPEC:     "UNSPEC",     //
@@ -190,10 +190,6 @@ type NAPTRAnswer struct {
 	Replacement string `json:"replacement" groups:"short,normal,long,trace"`
 }
 
-type NIDAnswer struct {
-	Answer
-}
-
 type NSEC3Answer struct {
 	Answer
 	HashAlgorithm uint8  `json:"hash_algorithm" groups:"short,normal,long,trace"`
@@ -242,6 +238,14 @@ type RTAnswer struct {
 	Host       string `json:"host" groups:"short,normal,long,trace"`
 }
 
+type SMIMEAAnswer struct {
+	Answer
+	Usage        uint8  `json:"usage" groups:"short,normal,long,trace"`
+	Selector     uint8  `json:"selector" groups:"short,normal,long,trace"`
+	MatchingType uint8  `json:"matching_type" groups:"short,normal,long,trace"`
+	Certificate  string `json:"certificate" groups:"short,normal,long,trace"`
+}
+
 type SOAAnswer struct {
 	Answer
 	Ns      string `json:"ns" groups:"short,normal,long,trace"`
@@ -251,6 +255,13 @@ type SOAAnswer struct {
 	Retry   uint32 `json:"retry" groups:"short,normal,long,trace"`
 	Expire  uint32 `json:"expire" groups:"short,normal,long,trace"`
 	Minttl  uint32 `json:"min_ttl" groups:"short,normal,long,trace"`
+}
+
+type SSHFPAnswer struct {
+	Answer
+	Algorithm   uint8  `json:"algorithm" groups:"short,normal,long,trace"`
+	Type        uint8  `json:"type" groups:"short,normal,long,trace"`
+	FingerPrint string `json:"fingerprint" groups:"short,normal,long,trace"`
 }
 
 type SRVAnswer struct {
@@ -345,6 +356,10 @@ func ParseAnswer(ans dns.RR) interface{} {
 		return makeBaseAnswer(&cAns.Hdr, strings.Join(cAns.Txt, "\n"))
 	case *dns.EID:
 		return makeBaseAnswer(&cAns.Hdr, cAns.Endpoint)
+	case *dns.UINFO:
+		return makeBaseAnswer(&cAns.Hdr, cAns.Uinfo)
+	case *dns.DHCID:
+		return makeBaseAnswer(&cAns.Hdr, cAns.Digest)
 	case *dns.NINFO:
 		return makeBaseAnswer(&cAns.Hdr, strings.Join(cAns.ZSData, "\n"))
 	case *dns.MX:
@@ -468,7 +483,15 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Iterations:    cAns.Iterations,
 			Salt:          cAns.Salt,
 		}
-	case *dns.DNSKEY: // does this work for CDNSKEY?
+	case *dns.DNSKEY:
+		return DNSKEYAnswer{
+			Answer:    makeBaseAnswer(&cAns.Hdr, ""),
+			Flags:     cAns.Flags,
+			Protocol:  cAns.Protocol,
+			Algorithm: cAns.Algorithm,
+			PublicKey: cAns.PublicKey,
+		}
+	case *dns.CDNSKEY:
 		return DNSKEYAnswer{
 			Answer:    makeBaseAnswer(&cAns.Hdr, ""),
 			Flags:     cAns.Flags,
@@ -541,6 +564,21 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
 			Preference: cAns.Preference,
 			Exchanger:  cAns.Exchanger,
+		}
+	case *dns.SSHFP:
+		return SSHFPAnswer{
+			Answer:      makeBaseAnswer(&cAns.Hdr, ""),
+			Algorithm:   cAns.Algorithm,
+			Type:        cAns.Type,
+			FingerPrint: cAns.FingerPrint,
+		}
+	case *dns.SMIMEA:
+		return SMIMEAAnswer{
+			Answer:       makeBaseAnswer(&cAns.Hdr, ""),
+			Usage:        cAns.Usage,
+			Selector:     cAns.Selector,
+			MatchingType: cAns.MatchingType,
+			Certificate:  cAns.Certificate,
 		}
 
 	default:
