@@ -280,6 +280,12 @@ type TLSAAnswer struct {
 	Certificate  string `json:"certificate" groups:"short,normal,long,trace"`
 }
 
+type TALINKAnswer struct {
+	Answer
+	PreviousName string `json:"previous_name" groups:"short,normal,long,trace"`
+	NextName     string `json:"next_name" groups:"short,normal,long,trace"`
+}
+
 type X25Answer struct {
 	Answer
 	PSDNAddress string `json:"psdn_address" groups:"short,normal,long,trace"`
@@ -579,6 +585,12 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Selector:     cAns.Selector,
 			MatchingType: cAns.MatchingType,
 			Certificate:  cAns.Certificate,
+		}
+	case *dns.TALINK:
+		return TALINKAnswer{
+			Answer:       makeBaseAnswer(&cAns.Hdr, ""),
+			PreviousName: cAns.PreviousName,
+			NextName:     cAns.NextName,
 		}
 
 	default:
