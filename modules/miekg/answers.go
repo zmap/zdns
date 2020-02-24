@@ -1,6 +1,7 @@
 package miekg
 
 import (
+	"fmt"
 	"net"
 	"strings"
 
@@ -27,9 +28,9 @@ var typeNames = map[uint16]string{
 	dns.TypeTXT:        "TXT",        // Answer
 	dns.TypeRP:         "RP",         // RPAnswer
 	dns.TypeAFSDB:      "AFSDB",      // AFSDBAnswer
-	dns.TypeX25:        "X25",        // X25Answer
+	dns.TypeX25:        "X25",        // Answer
 	dns.TypeISDN:       "ISDN",       // TODO: No Miekg module
-	dns.TypeRT:         "RT",         // RTAnswer
+	dns.TypeRT:         "RT",         // Answer
 	dns.TypeNSAPPTR:    "NSAPPTR",    // NSAPPTR
 	dns.TypeSIG:        "SIG",        // RRSIGAnswer
 	dns.TypeKEY:        "KEY",        // DNSKeyAnswer
@@ -72,8 +73,8 @@ var typeNames = map[uint16]string{
 	dns.TypeUNSPEC:     "UNSPEC",     // [no definition, unclear if real]
 	dns.TypeNID:        "NID",        //
 	dns.TypeL32:        "L32",        //
-	dns.TypeL64:        "L64",        //
-	dns.TypeLP:         "LP",         //
+	dns.TypeL64:        "L64",        // L64Answer
+	dns.TypeLP:         "LP",         // Answer
 	dns.TypeEUI48:      "EUI48",      //
 	dns.TypeEUI64:      "EUI64",      //
 	dns.TypeURI:        "URI",        //
@@ -152,12 +153,6 @@ type HIPAnswer struct {
 	RendezvousServers  []string `json:"rendezvous_servers" groups:"short,normal,long,trace"`
 }
 
-type KXAnswer struct {
-	Answer
-	Preference uint16 `json:"preference" groups:"short,normal,long,trace"`
-	Exchanger  string `json:"exchanger" groups:"short,normal,long,trace"`
-}
-
 type LOCAnswer struct {
 	Answer
 	Version   uint8  `json:"version" groups:"short,normal,long,trace"`
@@ -167,12 +162,6 @@ type LOCAnswer struct {
 	Latitude  uint32 `json:"latitude" groups:"short,normal,long,trace"`
 	Longitude uint32 `json:"longitude" groups:"short,normal,long,trace"`
 	Altitude  uint32 `json:"altitude" groups:"short,normal,long,trace"`
-}
-
-type L64Answer struct {
-	Answer
-	Preference uint16 `json:"preference" groups:"short,normal,long,trace"`
-	Locator64  uint64 `json:"locator64" groups:"short,normal,long,trace"`
 }
 
 type MINFOAnswer struct {
@@ -238,12 +227,6 @@ type RPAnswer struct {
 	Txt  string `json:"txt" groups:"short,normal,long,trace"`
 }
 
-type RTAnswer struct {
-	Answer
-	Preference uint16 `json:"preference" groups:"short,normal,long,trace"`
-	Host       string `json:"host" groups:"short,normal,long,trace"`
-}
-
 type SMIMEAAnswer struct {
 	Answer
 	Usage        uint8  `json:"usage" groups:"short,normal,long,trace"`
@@ -290,11 +273,6 @@ type TALINKAnswer struct {
 	Answer
 	PreviousName string `json:"previous_name" groups:"short,normal,long,trace"`
 	NextName     string `json:"next_name" groups:"short,normal,long,trace"`
-}
-
-type X25Answer struct {
-	Answer
-	PSDNAddress string `json:"psdn_address" groups:"short,normal,long,trace"`
 }
 
 func makeBaseAnswer(hdr *dns.RR_Header, answer string) Answer {
@@ -518,16 +496,12 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Hostname: cAns.Hostname,
 		}
 	case *dns.RT:
-		return RTAnswer{
-			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
+		return MXAnswer{
+			Answer:     makeBaseAnswer(&cAns.Hdr, cAns.Host),
 			Preference: cAns.Preference,
-			Host:       cAns.Host,
 		}
 	case *dns.X25:
-		return X25Answer{
-			Answer:      makeBaseAnswer(&cAns.Hdr, ""),
-			PSDNAddress: cAns.PSDNAddress,
-		}
+		return makeBaseAnswer(&cAns.Hdr, cAns.PSDNAddress)
 	case *dns.CERT:
 		return CERTAnswer{
 			Answer:      makeBaseAnswer(&cAns.Hdr, ""),
@@ -572,10 +546,9 @@ func ParseAnswer(ans dns.RR) interface{} {
 			RendezvousServers:  cAns.RendezvousServers,
 		}
 	case *dns.KX:
-		return KXAnswer{
-			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
+		return MXAnswer{
+			Answer:     makeBaseAnswer(&cAns.Hdr, cAns.Exchanger),
 			Preference: cAns.Preference,
-			Exchanger:  cAns.Exchanger,
 		}
 	case *dns.SSHFP:
 		return SSHFPAnswer{
@@ -599,11 +572,17 @@ func ParseAnswer(ans dns.RR) interface{} {
 			NextName:     cAns.NextName,
 		}
 	case *dns.L64:
-		return L64Answer{
-			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
+		node := fmt.Sprintf("%0.16X", cAns.Locator64)
+		return MXAnswer{
+			Answer:     makeBaseAnswer(&cAns.Hdr, node),
 			Preference: cAns.Preference,
-			Locator64:  cAns.Locator64,
 		}
+	case *dns.LP:
+		return MXAnswer{
+			Answer:     makeBaseAnswer(&cAns.Hdr, cAns.Fqdn),
+			Preference: cAns.Preference,
+		}
+
 	default:
 		return struct {
 			Type     string `json:"type"`
