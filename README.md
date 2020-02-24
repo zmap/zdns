@@ -135,6 +135,11 @@ returns:
 }
 ```
 
+Other DNS Modules
+-----------------
+
+ZDNS also supports special "debug" DNS queries. Modules include: `BINDVERSION`.
+
 Local Recursion
 ---------------
 
@@ -170,6 +175,30 @@ result verbosity levels: `short`, `normal` (default), `long`, and `trace`:
 Users can also include specific additional fields using the `--include-fields`
 flag and specifying a list of fields, e.g., `--include-fields=flags,resolver`.
 Additional fields are: class, protocol, ttl, resolver, flags.
+
+Name Server Mode
+----------------
+
+By default ZDNS expects to receive a list of names to lookup on a small number
+of name servers. For example:
+
+```echo "google.com" | ./zdns A --name-servers=8.8.8.8,8.8.4.4```
+
+However, there are times where you instead want to lookup the same name across
+a large number of servers. This can be accomplished using _name server mode_.
+For example:
+
+```echo "8.8.8.8" | ./zdns A --name-server-mode --override-name="google.com"```
+
+Here, every line piped in ZDNS is sent an A query for `google.com`. ZDNS also
+supports mixing and matching both modes by piping in a comma-delimited list of
+`name,nameServer`. For example:
+
+```echo "google.com,8.8.8.8" | ./zdns A``` will send an `A` query for
+`google.com` to `8.8.8.8` regardless of what name servers are specified by
+`--name-servers=` flag. Lines that do not explicitly specify a name server will
+use the servers specified by the OS or `--name-servers` flag as would normally
+happen.
 
 
 Running ZDNS
