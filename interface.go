@@ -45,7 +45,7 @@ import (
 // one Lookup per IP/name/connection ==========================================
 //
 type Lookup interface {
-	DoLookup(name string) (interface{}, []interface{}, Status, error)
+	DoLookup(name string, nameServer string) (interface{}, []interface{}, Status, error)
 	DoZonefileLookup(record *dns.Token) (interface{}, Status, error)
 }
 

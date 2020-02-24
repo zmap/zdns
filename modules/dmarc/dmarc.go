@@ -32,9 +32,9 @@ type Lookup struct {
 	miekg.Lookup
 }
 
-func (s *Lookup) DoLookup(name string) (interface{}, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name string, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
 	var res Result
-	innerRes, trace, status, err := s.DoTxtLookup(name)
+	innerRes, trace, status, err := s.DoTxtLookup(name, nameServer)
 	if status != zdns.STATUS_NOERROR {
 		return res, nil, status, err
 	}
