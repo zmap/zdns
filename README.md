@@ -28,9 +28,9 @@ Usage
 
 ZDNS provides several types of modules:
 
-	#. *Raw DNS modules* provide the raw DNS reponse from the server similar to dig, but in JSON. There is a module for (nearly) every type of DNS record
-	#. *Lookup modules* provide more helpful responses when multiple queries are required (e.g., completing additional `A` lookup if a `CNAME` is received)
-	#. *Raw DNS modules* provide the raw DNS reponse from the server similar to dig, but in JSON
+- *Raw DNS modules* provide the raw DNS reponse from the server similar to dig, but in JSON. There is a module for (nearly) every type of DNS record
+- *Lookup modules* provide more helpful responses when multiple queries are required (e.g., completing additional `A` lookup if a `CNAME` is received)
+- *Misc modules* provide other additional means of querying servers (e.g., `bind.version`)
 
 We detail the modules below:
 
