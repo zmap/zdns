@@ -3,6 +3,7 @@ import copy
 import subprocess
 import json
 import unittest
+import tempfile
 
 def recursiveSort(obj):
 
@@ -28,6 +29,7 @@ def recursiveSort(obj):
     else:
         return obj
 
+
 class Tests(unittest.TestCase):
 
     maxDiff = None
@@ -36,6 +38,17 @@ class Tests(unittest.TestCase):
         c = u"echo '%s' | %s" % (name, command)
         o = subprocess.check_output(c, shell=True)
         return c, json.loads(o.rstrip())
+
+    def run_zdns_multiline(self, command, names):
+        d = tempfile.mkdtemp
+        f = "/".join([d,"temp"])
+        with open(f) as fd:
+            for name in names:
+                fd.writeline(name)
+        c = u"cat '%s' | %s" % (f, command)
+        o = subprocess.check_output(c, shell=True)
+        os.rm(f)
+        return c, [json.loads(l.rstrip()) for l in o]
 
     ROOT_A = set([
         u"1.2.3.4",
@@ -56,16 +69,20 @@ class Tests(unittest.TestCase):
         u"name":"zdns-testing.com"} for x in ROOT_AAAA]
 
     MX_SERVERS = [
-            {u"answer":"mx1.zdns-testing.com", u"preference":1, u"type":"MX", u"class":"IN", 'name':'zdns-testing.com'},
-            {u"answer":"mx2.zdns-testing.com", u"preference":5, u"type":"MX", u"class":"IN", 'name':'zdns-testing.com'},
-            {u"answer":"mx1.censys.io", u"preference":10, u"type":"MX", u"class":"IN", 'name':'zdns-testing.com'},
+            {u"answer":"mx1.zdns-testing.com.", u"preference":1, u"type":"MX", u"class":"IN", 'name':'zdns-testing.com'},
+            {u"answer":"mx2.zdns-testing.com.", u"preference":5, u"type":"MX", u"class":"IN", 'name':'zdns-testing.com'},
+            {u"answer":"mx1.censys.io.", u"preference":10, u"type":"MX", u"class":"IN", 'name':'zdns-testing.com'},
     ]
 
     NS_SERVERS = [
-            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-c2.googledomains.com"},
-            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-c3.googledomains.com"},
-            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-c1.googledomains.com"},
-            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-c4.googledomains.com"},
+            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com",
+                u"answer": u"ns-cloud-c2.googledomains.com."},
+            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com",
+                u"answer": u"ns-cloud-c3.googledomains.com."},
+            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com",
+                u"answer": u"ns-cloud-c1.googledomains.com."},
+            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com",
+                u"answer": u"ns-cloud-c4.googledomains.com."},
     ]
 
     NXDOMAIN_ANSWER = {
@@ -138,7 +155,6 @@ class Tests(unittest.TestCase):
         }
     }
 
-
     A_LOOKUP_IPV4_WWW_ZDNS_TESTING = copy.deepcopy(A_LOOKUP_WWW_ZDNS_TESTING)
     del A_LOOKUP_IPV4_WWW_ZDNS_TESTING["data"]["ipv6_addresses"]
     A_LOOKUP_IPV6_WWW_ZDNS_TESTING = copy.deepcopy(A_LOOKUP_WWW_ZDNS_TESTING)
@@ -157,7 +173,7 @@ class Tests(unittest.TestCase):
       {
         u"type": u"CAA",
         u"class": u"IN",
-        u"name": u"zdns-testing.com.",
+        u"name": u"zdns-testing.com",
         u"tag": u"issue",
         u"value": u"letsencrypt.org",
         "flag": 0
@@ -318,7 +334,19 @@ class Tests(unittest.TestCase):
     def assertEqualAnswers(self, res, correct, cmd, key='answer'):
         for answer in res["data"]["answers"]:
             del answer["ttl"]
-        self.assertEqual(sorted(res["data"]["answers"], key=lambda x: x[key]), sorted(correct, key=lambda x: x[key]), cmd)
+        a = sorted(res["data"]["answers"], key=lambda x: x[key])
+        b = sorted(correct, key=lambda x: x[key])
+        helptext = "%s\nExpected:\n%s\n\nActual:\n%s" % (cmd,
+                json.dumps(b,indent=4), json.dumps(a,indent=4))
+        def _lowercase(obj):
+            """ Make dictionary lowercase """
+            if isinstance(obj, dict):
+                for k, v in obj.items():
+                    if k == "name":
+                        obj[k] = v.lower()
+                    else:
+                        _lowercase(v)
+        self.assertEqual(_lowercase(a), _lowercase(b), helptext)
 
     def assertEqualNXDOMAIN(self, res, correct):
         self.assertEqual(res["name"], correct["name"])
@@ -386,7 +414,6 @@ class Tests(unittest.TestCase):
         name = u"zdns-testing-nxdomain.com"
         cmd, res = self.run_zdns(c, name)
         self.assertEqualNXDOMAIN(res, self.NXDOMAIN_ANSWER)
-
 
     def test_aaaa(self):
         c = u"./zdns/zdns AAAA"
@@ -570,6 +597,26 @@ class Tests(unittest.TestCase):
         self.assertEquals(res["data"]["protocol"], "tcp")
         self.assertEqualAnswers(res, self.TCP_LARGE_TXT_ANSWERS, cmd,
                 key="answer")
+
+    def test_override_name(self):
+        c = u"./zdns/zdns A --override-name=zdns-testing.com"
+        name = u"notrealname.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+
+    def test_server_mode_a_lookup_ipv4(self):
+        c = u"./zdns/zdns A --override-name=zdns-testing.com --name-server-mode"
+        name = u"8.8.8.8:53"
+        cmd, res = self.run_zdns(c, name)
+        self.assertEqual(res["data"]["resolver"], "8.8.8.8:53")
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+
+    def test_mixed_mode_a_lookup_ipv4(self):
+        c = u"./zdns/zdns A --name-servers=0.0.0.0"
+        name = u"zdns-testing.com,8.8.8.8:53"
+        cmd, res = self.run_zdns(c, name)
+        self.assertEqual(res["data"]["resolver"], "8.8.8.8:53")
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
 
 
 if __name__ == '__main__':
