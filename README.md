@@ -37,10 +37,13 @@ We detail the modules below:
 Raw DNS Modules
 ---------------
 
-The `A`, `AAAA`, `ANY`, `AXFR`, `CAA`, `CDS`, `CDNSKEY`, `CNAME`, `DMARC`,
-`DS`, `DNSKEY`, `MX`, `NAPTR`, `NS`, `NSEC`, `NSEC3`, `NSEC3PARAM`, `PTR`,
-`RRSIG`, `SOA`, `SPF`, `SRV`, `TLSA`, and `TXT` modules provide the raw DNS
-response in JSON form, similar to dig.
+A, AAAA, AFSDB, ANY, ATMA, AVC, AXFR, BINDVERSION, CAA, CDNSKEY, CDS, CERT,
+CNAME, CSYNC, DHCID, DMARC, DNSKEY, DS, EID, EUI48, EUI64, GID, GPOS, HINFO,
+HIP, ISDN, KEY, KX, L32, L64, LOC, LP, MB, MD, MF, MG, MR, MX, NAPTR, NID,
+NINFO, NS, NSAPPTR, NSEC, NSEC3, NSEC3PARAM, NSLOOKUP, NULL, NXT, OPENPGPKEY,
+PTR, PX, RP, RRSIG, RT, SMIMEA, SOA, SPF, SRV, SSHFP, TALINK, TKEY, TLSA, TXT,
+UID, UINFO, UNSPEC, and URI modules provide the raw DNS response in JSON form,
+similar to dig.
 
 For example, the command:
 
