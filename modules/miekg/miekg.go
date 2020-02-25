@@ -169,12 +169,12 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, d
 	// don't bother to move this to the top of the linked list. we're going
 	// to add this record back in momentarily and that will take care of this
 	i, ok := s.IterativeCache.GetNoMove(key)
-	ca, ok := i.(CachedResult)
+	ca, ok := i.(*CachedResult)
 	if !ok && i != nil {
 		panic("unable to cast cached result")
 	}
 	if !ok {
-		ca = CachedResult{}
+		ca = &CachedResult{}
 		ca.Answers = make(map[interface{}]TimedAnswer)
 	}
 	// we have an existing record. Let's add this answer to it.
@@ -201,7 +201,7 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, isAut
 	retv.Authorities = make([]interface{}, 0)
 	retv.Answers = make([]interface{}, 0)
 	retv.Additional = make([]interface{}, 0)
-	cachedRes, ok := unres.(CachedResult)
+	cachedRes, ok := unres.(*CachedResult)
 	if !ok {
 		panic("bad cache entry")
 	}
