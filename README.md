@@ -6,7 +6,7 @@ ZDNS
 
 ZDNS is a command-line utility that provides high-speed DNS lookups. ZDNS is
 written in Go and contains its own recrusive resolution code and a cache
-optimized for performing a diverse set of names. We use
+optimized for performing lookups of a diverse set of names. We use
 https://github.com/miekg/dns to construct and parse raw DNS packets.
 
 As an example, the following will perform MX lookups and a secondary A lookup
@@ -28,19 +28,21 @@ Usage
 
 ZDNS provides several types of modules:
 
-	#. *Raw DNS modules* provide the raw DNS reponse from the server similar to dig, but in JSON. There is a module for (nearly) every type of DNS record
-	#. *Lookup modules* provide more helpful responses when multiple queries are required (e.g., completing additional `A` lookup if a `CNAME` is received)
-	#. *Raw DNS modules* provide the raw DNS reponse from the server similar to dig, but in JSON
+- *Raw DNS modules* provide the raw DNS reponse from the server similar to dig, but in JSON. There is a module for (nearly) every type of DNS record
+- *Lookup modules* provide more helpful responses when multiple queries are required (e.g., completing additional `A` lookup if a `CNAME` is received)
+- *Misc modules* provide other additional means of querying servers (e.g., `bind.version`)
 
 We detail the modules below:
 
 Raw DNS Modules
 ---------------
-
-The `A`, `AAAA`, `ANY`, `AXFR`, `CAA`, `CDS`, `CDNSKEY`, `CNAME`, `DMARC`,
-`DS`, `DNSKEY`, `MX`, `NAPTR`, `NS`, `NSEC`, `NSEC3`, `NSEC3PARAM`, `PTR`,
-`RRSIG`, `SOA`, `SPF`, `SRV`, `TLSA`, and `TXT` modules provide the raw DNS
-response in JSON form, similar to dig.
+The A, AAAA, AFSDB, ANY, ATMA, AVC, AXFR, BINDVERSION, CAA, CDNSKEY, CDS, CERT,
+CNAME, CSYNC, DHCID, DMARC, DNSKEY, DS, EID, EUI48, EUI64, GID, GPOS, HINFO,
+HIP, ISDN, KEY, KX, L32, L64, LOC, LP, MB, MD, MF, MG, MR, MX, NAPTR, NID,
+NINFO, NS, NSAPPTR, NSEC, NSEC3, NSEC3PARAM, NSLOOKUP, NULL, NXT, OPENPGPKEY,
+PTR, PX, RP, RRSIG, RT, SMIMEA, SOA, SPF, SRV, SSHFP, TALINK, TKEY, TLSA, TXT,
+UID, UINFO, UNSPEC, and URI modules provide the raw DNS response in JSON form,
+similar to dig.
 
 For example, the command:
 

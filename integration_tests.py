@@ -69,16 +69,20 @@ class Tests(unittest.TestCase):
         u"name":"zdns-testing.com"} for x in ROOT_AAAA]
 
     MX_SERVERS = [
-            {u"answer":"mx1.zdns-testing.com", u"preference":1, u"type":"MX", u"class":"IN", 'name':'zdns-testing.com'},
-            {u"answer":"mx2.zdns-testing.com", u"preference":5, u"type":"MX", u"class":"IN", 'name':'zdns-testing.com'},
-            {u"answer":"mx1.censys.io", u"preference":10, u"type":"MX", u"class":"IN", 'name':'zdns-testing.com'},
+            {u"answer":"mx1.zdns-testing.com.", u"preference":1, u"type":"MX", u"class":"IN", 'name':'zdns-testing.com'},
+            {u"answer":"mx2.zdns-testing.com.", u"preference":5, u"type":"MX", u"class":"IN", 'name':'zdns-testing.com'},
+            {u"answer":"mx1.censys.io.", u"preference":10, u"type":"MX", u"class":"IN", 'name':'zdns-testing.com'},
     ]
 
     NS_SERVERS = [
-            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-c2.googledomains.com"},
-            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-c3.googledomains.com"},
-            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-c1.googledomains.com"},
-            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com", u"answer": u"ns-cloud-c4.googledomains.com"},
+            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com",
+                u"answer": u"ns-cloud-c2.googledomains.com."},
+            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com",
+                u"answer": u"ns-cloud-c3.googledomains.com."},
+            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com",
+                u"answer": u"ns-cloud-c1.googledomains.com."},
+            {u"type": u"NS", u"class": u"IN", u"name": u"zdns-testing.com",
+                u"answer": u"ns-cloud-c4.googledomains.com."},
     ]
 
     NXDOMAIN_ANSWER = {
@@ -169,7 +173,7 @@ class Tests(unittest.TestCase):
       {
         u"type": u"CAA",
         u"class": u"IN",
-        u"name": u"zdns-testing.com.",
+        u"name": u"zdns-testing.com",
         u"tag": u"issue",
         u"value": u"letsencrypt.org",
         "flag": 0
@@ -334,7 +338,15 @@ class Tests(unittest.TestCase):
         b = sorted(correct, key=lambda x: x[key])
         helptext = "%s\nExpected:\n%s\n\nActual:\n%s" % (cmd,
                 json.dumps(b,indent=4), json.dumps(a,indent=4))
-        self.assertEqual(a, b, helptext)
+        def _lowercase(obj):
+            """ Make dictionary lowercase """
+            if isinstance(obj, dict):
+                for k, v in obj.items():
+                    if k == "name":
+                        obj[k] = v.lower()
+                    else:
+                        _lowercase(v)
+        self.assertEqual(_lowercase(a), _lowercase(b), helptext)
 
     def assertEqualNXDOMAIN(self, res, correct):
         self.assertEqual(res["name"], correct["name"])

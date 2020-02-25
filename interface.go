@@ -17,6 +17,7 @@ package zdns
 import (
 	"flag"
 	"math/rand"
+	"sort"
 	"strings"
 	"sync"
 
@@ -182,6 +183,7 @@ func ValidlookupsString() string {
 		valid[i] = k
 		i++
 	}
+	sort.Strings(valid)
 	return strings.Join(valid, ", ")
 }
 
