@@ -57,7 +57,7 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-func (s *Lookup) LookupIPs(name string) (CachedAddresses, []interface{}) {
+func (s *Lookup) LookupIPs(name string, nameServer string) (CachedAddresses, []interface{}) {
 	s.Factory.Factory.CHmu.Lock()
 	// XXX this should be changed to a miekglookup
 	res, found := s.Factory.Factory.CacheHash.Get(name)
@@ -69,7 +69,7 @@ func (s *Lookup) LookupIPs(name string) (CachedAddresses, []interface{}) {
 	trace := make([]interface{}, 0)
 	// ipv4
 	if s.Factory.Factory.IPv4Lookup || !s.Factory.Factory.IPv6Lookup {
-		res, secondTrace, status, _ := s.DoTypedMiekgLookup(name, dns.TypeA)
+		res, secondTrace, status, _ := s.DoTypedMiekgLookup(name, dns.TypeA, nameServer)
 		trace = append(trace, secondTrace...)
 		if status == zdns.STATUS_NOERROR {
 			cast, _ := res.(miekg.Result)
@@ -84,7 +84,7 @@ func (s *Lookup) LookupIPs(name string) (CachedAddresses, []interface{}) {
 	}
 	// ipv6
 	if s.Factory.Factory.IPv6Lookup {
-		res, secondTrace, status, _ := s.DoTypedMiekgLookup(name, dns.TypeAAAA)
+		res, secondTrace, status, _ := s.DoTypedMiekgLookup(name, dns.TypeAAAA, nameServer)
 		trace = append(trace, secondTrace...)
 		if status == zdns.STATUS_NOERROR {
 			cast, _ := res.(miekg.Result)
@@ -103,9 +103,9 @@ func (s *Lookup) LookupIPs(name string) (CachedAddresses, []interface{}) {
 	return retv, trace
 }
 
-func (s *Lookup) DoLookup(name string) (interface{}, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name string, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
 	retv := Result{Servers: []MXRecord{}}
-	res, trace, status, err := s.DoTypedMiekgLookup(name, dns.TypeMX)
+	res, trace, status, err := s.DoTypedMiekgLookup(name, dns.TypeMX, nameServer)
 	if status != zdns.STATUS_NOERROR {
 		return retv, trace, status, err
 	}
@@ -114,10 +114,10 @@ func (s *Lookup) DoLookup(name string) (interface{}, []interface{}, zdns.Status,
 		panic("could not cast correctly")
 	}
 	for _, ans := range r.Answers {
-		if mxAns, ok := ans.(miekg.MXAnswer); ok {
+		if mxAns, ok := ans.(miekg.PrefAnswer); ok {
 			name = strings.TrimSuffix(mxAns.Answer.Answer, ".")
 			rec := MXRecord{TTL: mxAns.Ttl, Type: mxAns.Type, Class: mxAns.Class, Name: name, Preference: mxAns.Preference}
-			ips, secondTrace := s.LookupIPs(name)
+			ips, secondTrace := s.LookupIPs(name, nameServer)
 			rec.IPv4Addresses = ips.IPv4Addresses
 			rec.IPv6Addresses = ips.IPv6Addresses
 			retv.Servers = append(retv.Servers, rec)

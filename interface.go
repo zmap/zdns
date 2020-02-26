@@ -18,6 +18,7 @@ import (
 	"flag"
 	"math/rand"
 	"net"
+	"sort"
 	"strings"
 	"sync"
 
@@ -46,7 +47,7 @@ import (
 // one Lookup per IP/name/connection ==========================================
 //
 type Lookup interface {
-	DoLookup(name string) (interface{}, []interface{}, Status, error)
+	DoLookup(name string, nameServer string) (interface{}, []interface{}, Status, error)
 	DoZonefileLookup(record *dns.Token) (interface{}, Status, error)
 }
 
@@ -58,7 +59,7 @@ func (base *BaseLookup) DoLookup(name string, class uint16) (interface{}, Status
 	return nil, STATUS_ERROR, nil
 }
 
-func (base *BaseLookup) DoZonefileLookup(record *dns.Token) (interface{}, Status, error) {
+func (base *BaseLookup) DoZonefileLookup(*dns.Token) (interface{}, Status, error) {
 	log.Fatal("Unimplemented DoZonefileLookup")
 	return nil, STATUS_ERROR, nil
 }
@@ -194,6 +195,7 @@ func ValidlookupsString() string {
 		valid[i] = k
 		i++
 	}
+	sort.Strings(valid)
 	return strings.Join(valid, ", ")
 }
 

@@ -12,7 +12,7 @@
  * permissions and limitations under the License.
  */
 
-package dmarc
+package bindversion
 
 import (
 	"github.com/miekg/dns"
@@ -22,7 +22,7 @@ import (
 
 // result to be returned by scan of host
 type Result struct {
-	Dmarc string `json:"dmarc,omitempty" groups:"short,normal,long,trace"`
+	BindVersion string `json:"version,omitempty" groups:"short,normal,long,trace"`
 }
 
 // Per Connection Lookup ======================================================
@@ -32,13 +32,13 @@ type Lookup struct {
 	miekg.Lookup
 }
 
-func (s *Lookup) DoLookup(name string, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(_ string, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
 	var res Result
-	innerRes, trace, status, err := s.DoTxtLookup(name, nameServer)
+	innerRes, trace, status, err := s.DoTxtLookup("VERSION.BIND", nameServer)
 	if status != zdns.STATUS_NOERROR {
-		return res, nil, status, err
+		return res, trace, status, err
 	}
-	res.Dmarc = innerRes
+	res.BindVersion = innerRes
 	return res, trace, zdns.STATUS_NOERROR, nil
 }
 
@@ -52,8 +52,7 @@ type RoutineLookupFactory struct {
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 	a := Lookup{Factory: s}
 	nameServer := s.Factory.RandomNameServer()
-	a.Initialize(nameServer, dns.TypeTXT, dns.ClassINET, &s.RoutineLookupFactory)
-	a.Prefix = "v=DMARC"
+	a.Initialize(nameServer, dns.TypeTXT, dns.ClassCHAOS, &s.RoutineLookupFactory)
 	return &a, nil
 }
 
@@ -65,8 +64,8 @@ type GlobalLookupFactory struct {
 
 func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
-	r.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
 	r.Initialize(s.GlobalConf)
+	r.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
 	r.Factory = s
 	r.ThreadID = threadID
 	return r, nil
@@ -76,5 +75,5 @@ func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLook
 //
 func init() {
 	s := new(GlobalLookupFactory)
-	zdns.RegisterLookup("DMARC", s)
+	zdns.RegisterLookup("BINDVERSION", s)
 }
