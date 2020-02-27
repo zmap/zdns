@@ -184,8 +184,8 @@ func main() {
 	if gc.NameServerMode && gc.AlexaFormat {
 		log.Fatal("Alexa mode is incompatible with name server mode")
 	}
-	if gc.NameServerMode && gc.NameOverride == "" {
-		log.Fatal("Static Name must be defined with --override-name in --name-server-mode")
+	if gc.NameServerMode && gc.NameOverride == "" && gc.Module != "BINDVERSION" {
+		log.Fatal("Static Name must be defined with --override-name in --name-server-mode unless DNS module does not expect names (e.g., BINDVERSION).")
 	}
 	// Output Groups are defined by a base + any additional fields that the user wants
 	groups := strings.Split(gc.IncludeInOutput, ",")
