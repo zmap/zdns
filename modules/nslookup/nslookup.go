@@ -52,10 +52,12 @@ func (s *Lookup) lookupIPs(name string, dnsType uint16, nameServer string) ([]st
 	var addresses []string
 	res, trace, status, _ := s.DoTypedMiekgLookup(name, dnsType, nameServer)
 	if status == zdns.STATUS_NOERROR {
-		cast, _ := res.(miekg.Result)
-		for _, innerRes := range cast.Answers {
-			castInnerRes := innerRes.(miekg.Answer)
-			addresses = append(addresses, castInnerRes.Answer)
+		if cast, ok := res.(miekg.Result); ok {
+			for _, innerRes := range cast.Answers {
+				if castInnerRes, ok := innerRes.(miekg.Answer); ok {
+					addresses = append(addresses, castInnerRes.Answer)
+				}
+			}
 		}
 	}
 	return addresses, trace
