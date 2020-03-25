@@ -26,15 +26,15 @@ import (
 // result to be returned by scan of host
 
 type NSRecord struct {
-	Name          string   `json:"name"`
-	Type          string   `json:"type"`
-	IPv4Addresses []string `json:"ipv4_addresses,omitempty"`
-	IPv6Addresses []string `json:"ipv6_addresses,omitempty"`
-	TTL           uint32   `json:"ttl"`
+	Name          string   `json:"name" groups:"short,normal,long,trace"`
+	Type          string   `json:"type" groups:"short,normal,long,trace"`
+	IPv4Addresses []string `json:"ipv4_addresses,omitempty" groups:"short,normal,long,trace"`
+	IPv6Addresses []string `json:"ipv6_addresses,omitempty" groups:"short,normal,long,trace"`
+	TTL           uint32   `json:"ttl" groups:"normal,long,trace"`
 }
 
 type Result struct {
-	Servers []NSRecord `json:"servers,omitempty"`
+	Servers []NSRecord `json:"servers,omitempty" groups:"short,normal,long,trace"`
 }
 
 // Per Connection Lookup ======================================================
@@ -52,10 +52,12 @@ func (s *Lookup) lookupIPs(name string, dnsType uint16, nameServer string) ([]st
 	var addresses []string
 	res, trace, status, _ := s.DoTypedMiekgLookup(name, dnsType, nameServer)
 	if status == zdns.STATUS_NOERROR {
-		cast, _ := res.(miekg.Result)
-		for _, innerRes := range cast.Answers {
-			castInnerRes := innerRes.(miekg.Answer)
-			addresses = append(addresses, castInnerRes.Answer)
+		if cast, ok := res.(miekg.Result); ok {
+			for _, innerRes := range cast.Answers {
+				if castInnerRes, ok := innerRes.(miekg.Answer); ok {
+					addresses = append(addresses, castInnerRes.Answer)
+				}
+			}
 		}
 	}
 	return addresses, trace

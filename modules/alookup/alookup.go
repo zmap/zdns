@@ -64,9 +64,8 @@ func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16
 			return nil, trace, status, err
 		}
 		for _, a := range miekgResult.(miekg.Result).Answers {
-			ans, ok := a.(miekg.Answer)
 			// filter only valid answers of requested type or CNAME (#163)
-			if ok {
+			if ans, ok := a.(miekg.Answer); ok {
 				lowerCaseName := strings.ToLower(ans.Name)
 				ansType := dns.StringToType[ans.Type]
 				if dnsType == ansType {
@@ -79,9 +78,8 @@ func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16
 			}
 		}
 		for _, a := range miekgResult.(miekg.Result).Additional {
-			ans, ok := a.(miekg.Answer)
 			// filter only valid answers of requested type or CNAME (#163)
-			if ok {
+			if ans, ok := a.(miekg.Answer); ok {
 				lowerCaseName := strings.ToLower(ans.Name)
 				ansType := dns.StringToType[ans.Type]
 				if dnsType == ansType {
