@@ -35,7 +35,7 @@ type CachedAddresses struct {
 type MXRecord struct {
 	Name          string   `json:"name" groups:"short,normal,long,trace"`
 	Type          string   `json:"type" groups:"short,normal,long,trace"`
-	Class         string   `json:"class" groups:"short,normal,long,trace"`
+	Class         string   `json:"class" groups:"normal,long,trace"`
 	Preference    uint16   `json:"preference" groups:"short,normal,long,trace"`
 	IPv4Addresses []string `json:"ipv4_addresses,omitempty" groups:"short,normal,long,trace"`
 	IPv6Addresses []string `json:"ipv6_addresses,omitempty" groups:"short,normal,long,trace"`
