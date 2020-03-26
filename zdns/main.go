@@ -18,6 +18,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"math/rand"
+	"net"
 	"os"
 	"runtime"
 	"strings"
@@ -67,6 +68,8 @@ func main() {
 	flags.BoolVar(&gc.UDPOnly, "udp-only", false, "Only perform lookups over UDP")
 	flags.BoolVar(&gc.NameServerMode, "name-server-mode", false, "Treats input as nameservers to query with a static query rather than queries to send to a static name server")
 	servers_string := flags.String("name-servers", "", "List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53.")
+	localaddr_string := flags.String("local-addr", "", "comma-delimited list of local addresses to use")
+	localif_string := flags.String("local-interface", "", "local interface to use")
 	config_file := flags.String("conf-file", "/etc/resolv.conf", "config file for DNS servers")
 	timeout := flags.Int("timeout", 15, "timeout for resolving an individual name")
 	iterationTimeout := flags.Int("iteration-timeout", 4, "timeout for resolving a single iteration in an iterative query")
@@ -166,6 +169,37 @@ func main() {
 		}
 		gc.NameServers = ns
 		gc.NameServersSpecified = true
+	}
+	if *localaddr_string != "" {
+		for _, la := range strings.Split(*localaddr_string, ",") {
+			ip := net.ParseIP(la)
+			if ip != nil {
+				gc.LocalAddrs = append(gc.LocalAddrs, ip)
+			} else {
+				log.Fatal("Invalid argument for --local-addr (", la, "). Must be a comma-separted list of valid IP addresses.")
+			}
+		}
+		log.Info("using local address: ", localaddr_string)
+		gc.LocalAddrSpecified = true
+	}
+	if *localif_string != "" {
+		if gc.LocalAddrSpecified {
+			log.Fatal("Both --local-addr and --local-interface specified.")
+		} else {
+			li, err := net.InterfaceByName(*localif_string)
+			if err != nil {
+				log.Fatal("Invalid local interface specified: ", err)
+			}
+			addrs, err := li.Addrs()
+			if err != nil {
+				log.Fatal("Unable to detect addresses of local interface: ", err)
+			}
+			for _, la := range addrs {
+				gc.LocalAddrs = append(gc.LocalAddrs, la.(*net.IPNet).IP)
+				gc.LocalAddrSpecified = true
+			}
+			log.Info("using local interface: ", localif_string)
+		}
 	}
 	if *nanoSeconds {
 		gc.TimeFormat = time.RFC3339Nano
