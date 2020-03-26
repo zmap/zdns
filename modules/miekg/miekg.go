@@ -789,6 +789,7 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 				Timeout:   s.Timeout,
 				LocalAddr: &net.UDPAddr{IP: localIP},
 			}
+			s.Client.LocalAddr = localIP
 		}
 	}
 
@@ -801,6 +802,7 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 				Timeout:   s.Timeout,
 				LocalAddr: &net.TCPAddr{IP: localIP},
 			}
+			s.Client.LocalAddr = localIP
 		}
 	}
 
