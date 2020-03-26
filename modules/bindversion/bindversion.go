@@ -23,6 +23,7 @@ import (
 // result to be returned by scan of host
 type Result struct {
 	BindVersion string `json:"version,omitempty" groups:"short,normal,long,trace"`
+	Resolver    string `json:"resolver" groups:"resolver,short,normal,long,trace"`
 }
 
 // Per Connection Lookup ======================================================
@@ -34,6 +35,7 @@ type Lookup struct {
 
 func (s *Lookup) DoLookup(_ string, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
 	var res Result
+	res.Resolver = nameServer
 	innerRes, trace, status, err := s.DoTxtLookup("VERSION.BIND", nameServer)
 	if status != zdns.STATUS_NOERROR {
 		return res, trace, status, err
@@ -60,6 +62,12 @@ func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 //
 type GlobalLookupFactory struct {
 	miekg.GlobalLookupFactory
+}
+
+func (f *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
+	f.GlobalLookupFactory.Initialize(c)
+	c.Class = dns.ClassCHAOS
+	return nil
 }
 
 func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
