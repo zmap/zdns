@@ -179,7 +179,7 @@ func main() {
 				log.Fatal("Invalid argument for --local-addr (", la, "). Must be a comma-separted list of valid IP addresses.")
 			}
 		}
-		log.Info("using local address: ", localaddr_string)
+		log.Info("Using user-specified local address(es): ", localaddr_string)
 		gc.LocalAddrSpecified = true
 	}
 	if *localif_string != "" {
@@ -198,8 +198,24 @@ func main() {
 				gc.LocalAddrs = append(gc.LocalAddrs, la.(*net.IPNet).IP)
 				gc.LocalAddrSpecified = true
 			}
-			log.Info("using local interface: ", localif_string)
+			ipstrs := make([]string, len(gc.LocalAddrs))
+			for i, ip := range gc.LocalAddrs {
+				ipstrs[i] = ip.String()
+			}
+			ipstr := strings.Join(ipstrs, ", ")
+			log.Info("Using user-specified interface: ", localif_string, "with auto-detected IPs: ", ipstr)
 		}
+	}
+	// if we still don't know a good source IP address, attempt to coax it out of the system
+	if !gc.LocalAddrSpecified {
+		initConn, err := net.Dial("udp", "8.8.8.8:53")
+		if err != nil {
+			log.Fatal("Unable to detect local source addresss: ", err)
+		}
+		gc.LocalAddrs = append(gc.LocalAddrs, initConn.LocalAddr().(*net.UDPAddr).IP)
+		gc.LocalAddrSpecified = true
+		log.Info("Using automatically detected source IP address: ", gc.LocalAddrs[0].String())
+
 	}
 	if *nanoSeconds {
 		gc.TimeFormat = time.RFC3339Nano
