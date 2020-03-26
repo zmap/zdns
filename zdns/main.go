@@ -18,10 +18,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"math/rand"
-<<<<<<< HEAD
 	"net"
-=======
->>>>>>> master
 	"os"
 	"runtime"
 	"strings"
