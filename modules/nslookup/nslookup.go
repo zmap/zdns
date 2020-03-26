@@ -26,15 +26,15 @@ import (
 // result to be returned by scan of host
 
 type NSRecord struct {
-	Name          string   `json:"name"`
-	Type          string   `json:"type"`
-	IPv4Addresses []string `json:"ipv4_addresses,omitempty"`
-	IPv6Addresses []string `json:"ipv6_addresses,omitempty"`
-	TTL           uint32   `json:"ttl"`
+	Name          string   `json:"name" groups:"short,normal,long,trace"`
+	Type          string   `json:"type" groups:"short,normal,long,trace"`
+	IPv4Addresses []string `json:"ipv4_addresses,omitempty" groups:"short,normal,long,trace"`
+	IPv6Addresses []string `json:"ipv6_addresses,omitempty" groups:"short,normal,long,trace"`
+	TTL           uint32   `json:"ttl" groups:"normal,long,trace"`
 }
 
 type Result struct {
-	Servers []NSRecord `json:"servers,omitempty"`
+	Servers []NSRecord `json:"servers,omitempty" groups:"short,normal,long,trace"`
 }
 
 // Per Connection Lookup ======================================================
@@ -48,22 +48,24 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-func (s *Lookup) lookupIPs(name string, dnsType uint16) ([]string, []interface{}) {
+func (s *Lookup) lookupIPs(name string, dnsType uint16, nameServer string) ([]string, []interface{}) {
 	var addresses []string
-	res, trace, status, _ := s.DoTypedMiekgLookup(name, dnsType)
+	res, trace, status, _ := s.DoTypedMiekgLookup(name, dnsType, nameServer)
 	if status == zdns.STATUS_NOERROR {
-		cast, _ := res.(miekg.Result)
-		for _, innerRes := range cast.Answers {
-			castInnerRes := innerRes.(miekg.Answer)
-			addresses = append(addresses, castInnerRes.Answer)
+		if cast, ok := res.(miekg.Result); ok {
+			for _, innerRes := range cast.Answers {
+				if castInnerRes, ok := innerRes.(miekg.Answer); ok {
+					addresses = append(addresses, castInnerRes.Answer)
+				}
+			}
 		}
 	}
 	return addresses, trace
 }
 
-func (s *Lookup) DoNSLookup(name string, lookupIPv4 bool, lookupIPv6 bool) (Result, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoNSLookup(name string, lookupIPv4 bool, lookupIPv6 bool, nameServer string) (Result, []interface{}, zdns.Status, error) {
 	var retv Result
-	res, trace, status, err := s.DoTypedMiekgLookup(name, dns.TypeNS)
+	res, trace, status, err := s.DoTypedMiekgLookup(name, dns.TypeNS, nameServer)
 	if status != zdns.STATUS_NOERROR || err != nil {
 		return retv, trace, status, nil
 	}
@@ -96,7 +98,7 @@ func (s *Lookup) DoNSLookup(name string, lookupIPv4 bool, lookupIPv6 bool) (Resu
 		rec.TTL = a.Ttl
 		if lookupIPv4 || !lookupIPv6 {
 			var secondTrace []interface{}
-			rec.IPv4Addresses, secondTrace = s.lookupIPs(rec.Name, dns.TypeA)
+			rec.IPv4Addresses, secondTrace = s.lookupIPs(rec.Name, dns.TypeA, nameServer)
 			trace = append(trace, secondTrace...)
 		} else if ip, ok := ipv4s[rec.Name]; ok {
 			rec.IPv4Addresses = []string{ip}
@@ -105,7 +107,7 @@ func (s *Lookup) DoNSLookup(name string, lookupIPv4 bool, lookupIPv6 bool) (Resu
 		}
 		if lookupIPv6 {
 			var secondTrace []interface{}
-			rec.IPv6Addresses, secondTrace = s.lookupIPs(rec.Name, dns.TypeAAAA)
+			rec.IPv6Addresses, secondTrace = s.lookupIPs(rec.Name, dns.TypeAAAA, nameServer)
 			trace = append(trace, secondTrace...)
 		} else if ip, ok := ipv6s[rec.Name]; ok {
 			rec.IPv6Addresses = []string{ip}
@@ -122,8 +124,8 @@ func (s *Lookup) DoNSLookup(name string, lookupIPv4 bool, lookupIPv6 bool) (Resu
 
 }
 
-func (s *Lookup) DoLookup(name string) (interface{}, []interface{}, zdns.Status, error) {
-	return s.DoNSLookup(name, s.Factory.Factory.IPv4Lookup, s.Factory.Factory.IPv6Lookup)
+func (s *Lookup) DoLookup(name string, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+	return s.DoNSLookup(name, s.Factory.Factory.IPv4Lookup, s.Factory.Factory.IPv6Lookup, nameServer)
 }
 
 // Per GoRoutine Factory ======================================================

@@ -36,8 +36,10 @@ type Lookup struct {
 	miekg.Lookup
 }
 
-func (s *Lookup) DoLookup(name string) (interface{}, []interface{}, zdns.Status, error) {
-	nameServer := s.Factory.Factory.RandomNameServer()
+func (s *Lookup) DoLookup(name string, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+	if nameServer == "" {
+		nameServer = s.Factory.Factory.RandomNameServer()
+	}
 	return s.DoTargetedLookup(name, nameServer)
 }
 
@@ -57,14 +59,13 @@ func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16
 		var miekgResult interface{}
 		var status zdns.Status
 		var err error
-		miekgResult, trace, status, err = s.DoTypedMiekgLookup(name, dnsType)
+		miekgResult, trace, status, err = s.DoTypedMiekgLookup(name, dnsType, nameServer)
 		if status != zdns.STATUS_NOERROR || err != nil {
 			return nil, trace, status, err
 		}
 		for _, a := range miekgResult.(miekg.Result).Answers {
-			ans, ok := a.(miekg.Answer)
 			// filter only valid answers of requested type or CNAME (#163)
-			if ok {
+			if ans, ok := a.(miekg.Answer); ok {
 				lowerCaseName := strings.ToLower(ans.Name)
 				ansType := dns.StringToType[ans.Type]
 				if dnsType == ansType {
@@ -77,9 +78,8 @@ func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16
 			}
 		}
 		for _, a := range miekgResult.(miekg.Result).Additional {
-			ans, ok := a.(miekg.Answer)
 			// filter only valid answers of requested type or CNAME (#163)
-			if ok {
+			if ans, ok := a.(miekg.Answer); ok {
 				lowerCaseName := strings.ToLower(ans.Name)
 				ansType := dns.StringToType[ans.Type]
 				if dnsType == ansType {
