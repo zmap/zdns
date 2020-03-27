@@ -65,10 +65,10 @@ type GlobalLookupFactory struct {
 
 func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
-	r.Initialize(s.GlobalConf)
 	r.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
 	r.Factory = s
 	r.ThreadID = threadID
+	r.Initialize(s.GlobalConf)
 	return r, nil
 }
 
