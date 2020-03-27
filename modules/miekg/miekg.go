@@ -132,9 +132,9 @@ func (s *GlobalLookupFactory) SetDNSClass(dnsClass uint16) {
 func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
 	r.Factory = s
-	r.Initialize(s.GlobalConf)
 	r.DNSType = s.DNSType
 	r.ThreadID = threadID
+	r.Initialize(s.GlobalConf)
 	return r, nil
 }
 
@@ -259,6 +259,9 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 	}
 
 	var localIP net.IP
+	if s.Factory == nil {
+		panic("null factory")
+	}
 	if c.LocalAddrSpecified {
 		localIP = s.Factory.RandomLocalAddr()
 	} else {
