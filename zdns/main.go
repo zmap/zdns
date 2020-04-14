@@ -36,12 +36,16 @@ import (
 	_ "github.com/zmap/zdns/modules/nslookup"
 	_ "github.com/zmap/zdns/modules/spf"
 
-	_ "github.com/zmap/zdns/iohandlers/file"
+	"github.com/zmap/zdns/iohandlers/file"
 )
 
 func main() {
 
-	var gc zdns.GlobalConf
+	gc := zdns.GlobalConf{
+		InputHandler:  &file.FileInputHandler{},
+		OutputHandler: &file.FileOutputHandler{},
+	}
+
 	// global flags relevant to every lookup module
 	flags := flag.NewFlagSet("flags", flag.ExitOnError)
 	flags.IntVar(&gc.Threads, "threads", 1000, "number of lightweight go threads")
@@ -62,8 +66,6 @@ func main() {
 	flags.IntVar(&gc.Retries, "retries", 1, "how many times should zdns retry query if timeout or temporary failure")
 	flags.IntVar(&gc.MaxDepth, "max-depth", 10, "how deep should we recurse when performing iterative lookups")
 	flags.IntVar(&gc.CacheSize, "cache-size", 10000, "how many items can be stored in internal recursive cache")
-	flags.StringVar(&gc.InputHandler, "input-handler", "file", "handler to input names")
-	flags.StringVar(&gc.OutputHandler, "output-handler", "file", "handler to output names")
 	flags.BoolVar(&gc.TCPOnly, "tcp-only", false, "Only perform lookups over TCP")
 	flags.BoolVar(&gc.UDPOnly, "udp-only", false, "Only perform lookups over UDP")
 	flags.BoolVar(&gc.NameServerMode, "name-server-mode", false, "Treats input as nameservers to query with a static query rather than queries to send to a static name server")

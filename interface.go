@@ -174,20 +174,6 @@ func RegisterLookup(name string, s GlobalLookupFactory) {
 	lookups[name] = s
 }
 
-func RegisterInputHandler(name string, h InputHandler) {
-	if inputHandlers == nil {
-		inputHandlers = make(map[string]InputHandler)
-	}
-	inputHandlers[name] = h
-}
-
-func RegisterOutputHandler(name string, h OutputHandler) {
-	if outputHandlers == nil {
-		outputHandlers = make(map[string]OutputHandler)
-	}
-	outputHandlers[name] = h
-}
-
 func ValidlookupsString() string {
 	valid := make([]string, len(lookups))
 	i := 0
@@ -200,26 +186,8 @@ func ValidlookupsString() string {
 }
 
 func GetLookup(name string) GlobalLookupFactory {
-
-	factory, ok := lookups[name]
-	if !ok {
-		return nil
+	if factory, ok := lookups[name]; ok {
+		return factory
 	}
-	return factory
-}
-
-func GetInputHandler(name string) InputHandler {
-	inHandler, ok := inputHandlers[name]
-	if !ok {
-		return nil
-	}
-	return inHandler
-}
-
-func GetOutputHandler(name string) OutputHandler {
-	outHandler, ok := outputHandlers[name]
-	if !ok {
-		return nil
-	}
-	return outHandler
+	return nil
 }
