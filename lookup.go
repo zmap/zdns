@@ -185,12 +185,12 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	inHandler := GetInputHandler(c.InputHandler)
 	outHandler := GetOutputHandler(c.OutputHandler)
 	if inHandler == nil {
-		log.Fatal("Uknown input handler \"" + c.InputHandler + "\"")
+		log.Fatal("Unknown input handler \"" + c.InputHandler + "\"")
 	} else {
 		inHandler.Initialize(c)
 	}
 	if outHandler == nil {
-		log.Fatal("Uknown outnput handler \"" + c.OutputHandler + "\"")
+		log.Fatal("Unknown output handler \"" + c.OutputHandler + "\"")
 	} else {
 		outHandler.Initialize(c)
 	}
