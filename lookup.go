@@ -186,13 +186,11 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	if inHandler == nil {
 		log.Fatal("Input handler is nil")
 	}
-	inHandler.Initialize(c)
 
 	outHandler := c.OutputHandler
 	if outHandler == nil {
 		log.Fatal("Output handler is nil")
 	}
-	outHandler.Initialize(c)
 
 	// Use handlers to populate the input and output/results channel
 	go inHandler.FeedChannel(inChan, &routineWG, (*g).ZonefileInput())

@@ -36,15 +36,12 @@ import (
 	_ "github.com/zmap/zdns/modules/nslookup"
 	_ "github.com/zmap/zdns/modules/spf"
 
-	"github.com/zmap/zdns/iohandlers/file"
+	"github.com/zmap/zdns/iohandlers"
 )
 
 func main() {
 
-	gc := zdns.GlobalConf{
-		InputHandler:  &file.FileInputHandler{},
-		OutputHandler: &file.FileOutputHandler{},
-	}
+	var gc zdns.GlobalConf
 
 	// global flags relevant to every lookup module
 	flags := flag.NewFlagSet("flags", flag.ExitOnError)
@@ -250,6 +247,10 @@ func main() {
 	if !factory.AllowStdIn() && gc.InputFilePath == "-" {
 		log.Fatal("Specified module does not allow reading from stdin")
 	}
+
+	// setup i/o
+	gc.InputHandler = iohandlers.NewFileInputHandler(gc.InputFilePath)
+	gc.OutputHandler = iohandlers.NewFileOutputHandler(gc.OutputFilePath)
 
 	// allow the factory to initialize itself
 	if err := factory.Initialize(&gc); err != nil {
