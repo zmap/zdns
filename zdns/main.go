@@ -158,7 +158,7 @@ func main() {
 				log.Fatalf("Unable to read file (%s): %s", filepath, err.Error())
 			}
 			if len(f) == 0 {
-				log.Fatalf("Emtpy file (%s)", filepath)
+				log.Fatalf("Empty file (%s)", filepath)
 			}
 			ns = strings.Split(strings.Trim(string(f), "\n"), "\n")
 		} else {
@@ -176,7 +176,7 @@ func main() {
 			if ip != nil {
 				gc.LocalAddrs = append(gc.LocalAddrs, ip)
 			} else {
-				log.Fatal("Invalid argument for --local-addr (", la, "). Must be a comma-separted list of valid IP addresses.")
+				log.Fatal("Invalid argument for --local-addr (", la, "). Must be a comma-separated list of valid IP addresses.")
 			}
 		}
 		log.Info("Using user-specified local address(es): ", localaddr_string)
@@ -248,8 +248,8 @@ func main() {
 
 	if len(flags.Args()) > 0 {
 		stat, _ := os.Stdin.Stat()
-		// If stdin is piped from the terminal, and we havent specified a file, and if we have unparsed args
-		// use them for a dig like reslution
+		// If stdin is piped from the terminal, and we haven't specified a file, and if we have unparsed args
+		// use them for a dig-like resolution
 		if (stat.Mode()&os.ModeCharDevice) != 0 && gc.InputFilePath == "-" && len(flags.Args()) == 1 {
 			gc.PassedName = flags.Args()[0]
 		} else {
@@ -273,7 +273,7 @@ func main() {
 	if err := zdns.DoLookups(&factory, &gc); err != nil {
 		log.Fatal("Unable to run lookups:", err.Error())
 	}
-	// allow the factory to initialize itself
+	// allow the factory to finalize itself
 	if err := factory.Finalize(); err != nil {
 		log.Fatal("Factory was unable to finalize:", err.Error())
 	}
