@@ -463,7 +463,7 @@ func (s *Lookup) tracedRetryingLookup(dnsType uint16, dnsClass uint16, name stri
 }
 
 func (s *Lookup) retryingLookup(dnsType uint16, dnsClass uint16, name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
-	s.VerboseLog(1, "****WIRE LOOKUP*** ", typeNames[dnsType], " ", name, " ", nameServer)
+	s.VerboseLog(1, "****WIRE LOOKUP*** ", dns.TypeToString[dnsType], " ", name, " ", nameServer)
 
 	var origTimeout time.Duration
 	if s.Factory.Client != nil {
