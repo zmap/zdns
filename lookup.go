@@ -182,17 +182,14 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	metaChan := make(chan routineMetadata, c.Threads)
 	var routineWG sync.WaitGroup
 
-	inHandler := GetInputHandler(c.InputHandler)
-	outHandler := GetOutputHandler(c.OutputHandler)
+	inHandler := c.InputHandler
 	if inHandler == nil {
-		log.Fatal("Unknown input handler \"" + c.InputHandler + "\"")
-	} else {
-		inHandler.Initialize(c)
+		log.Fatal("Input handler is nil")
 	}
+
+	outHandler := c.OutputHandler
 	if outHandler == nil {
-		log.Fatal("Unknown output handler \"" + c.OutputHandler + "\"")
-	} else {
-		outHandler.Initialize(c)
+		log.Fatal("Output handler is nil")
 	}
 
 	// Use handlers to populate the input and output/results channel

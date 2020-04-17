@@ -45,8 +45,8 @@ type GlobalConf struct {
 	LocalAddrSpecified   bool
 	LocalAddrs           []net.IP
 
-	InputHandler  string
-	OutputHandler string
+	InputHandler  InputHandler
+	OutputHandler OutputHandler
 
 	InputFilePath    string
 	OutputFilePath   string
