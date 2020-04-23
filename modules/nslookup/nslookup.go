@@ -63,7 +63,7 @@ func (s *Lookup) lookupIPs(name string, dnsType uint16, nameServer string) ([]st
 	return addresses, trace
 }
 
-func (s *Lookup) DoNSLookup(name string, lookupIPv4 bool, lookupIPv6 bool, nameServer string) (Result, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoNSLookup(name string, lookupIPv4, lookupIPv6 bool, nameServer string) (Result, []interface{}, zdns.Status, error) {
 	var retv Result
 	res, trace, status, err := s.DoTypedMiekgLookup(name, dns.TypeNS, nameServer)
 	if status != zdns.STATUS_NOERROR || err != nil {
@@ -124,7 +124,7 @@ func (s *Lookup) DoNSLookup(name string, lookupIPv4 bool, lookupIPv6 bool, nameS
 
 }
 
-func (s *Lookup) DoLookup(name string, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
 	return s.DoNSLookup(name, s.Factory.Factory.IPv4Lookup, s.Factory.Factory.IPv6Lookup, nameServer)
 }
 

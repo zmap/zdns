@@ -332,12 +332,12 @@ func (s *Lookup) Initialize(nameServer string, dnsType uint16, dnsClass uint16, 
 	return nil
 }
 
-func (s *Lookup) doLookup(dnsType uint16, dnsClass uint16, name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
+func (s *Lookup) doLookup(dnsType, dnsClass uint16, name, nameServer string, recursive bool) (Result, zdns.Status, error) {
 	return DoLookupWorker(s.Factory.Client, s.Factory.TCPClient, dnsType, dnsClass, name, nameServer, recursive)
 }
 
 // Expose the inner logic so other tools can use it
-func DoLookupWorker(udp *dns.Client, tcp *dns.Client, dnsType uint16, dnsClass uint16, name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
+func DoLookupWorker(udp *dns.Client, tcp *dns.Client, dnsType, dnsClass uint16, name, nameServer string, recursive bool) (Result, zdns.Status, error) {
 	res := Result{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 	res.Resolver = nameServer
 
@@ -440,7 +440,7 @@ func (s *Lookup) cacheUpdate(layer string, result Result, depth int) {
 	}
 }
 
-func (s *Lookup) tracedRetryingLookup(dnsType uint16, dnsClass uint16, name string, nameServer string, recursive bool) (Result, []interface{}, zdns.Status, error) {
+func (s *Lookup) tracedRetryingLookup(dnsType, dnsClass uint16, name, nameServer string, recursive bool) (Result, []interface{}, zdns.Status, error) {
 
 	res, status, err := s.retryingLookup(dnsType, dnsClass, name, nameServer, recursive)
 
@@ -462,7 +462,7 @@ func (s *Lookup) tracedRetryingLookup(dnsType uint16, dnsClass uint16, name stri
 	return res, trace, status, err
 }
 
-func (s *Lookup) retryingLookup(dnsType uint16, dnsClass uint16, name string, nameServer string, recursive bool) (Result, zdns.Status, error) {
+func (s *Lookup) retryingLookup(dnsType, dnsClass uint16, name, nameServer string, recursive bool) (Result, zdns.Status, error) {
 	s.VerboseLog(1, "****WIRE LOOKUP*** ", dns.TypeToString[dnsType], " ", name, " ", nameServer)
 
 	var origTimeout time.Duration
@@ -492,7 +492,7 @@ func (s *Lookup) retryingLookup(dnsType uint16, dnsClass uint16, name string, na
 	panic("loop must return")
 }
 
-func (s *Lookup) cachedRetryingLookup(dnsType uint16, dnsClass uint16, name string, nameServer string, layer string, depth int) (Result, IsCached, zdns.Status, error) {
+func (s *Lookup) cachedRetryingLookup(dnsType, dnsClass uint16, name, nameServer, layer string, depth int) (Result, IsCached, zdns.Status, error) {
 	var isCached IsCached
 	isCached = false
 	s.VerboseLog(depth+1, "Cached retrying lookup. Name: ", name, ", Layer: ", layer, ", Nameserver: ", nameServer)
@@ -557,7 +557,7 @@ func (s *Lookup) cachedRetryingLookup(dnsType uint16, dnsClass uint16, name stri
 	return result, isCached, status, err
 }
 
-func nameIsBeneath(name string, layer string) (bool, string) {
+func nameIsBeneath(name, layer string) (bool, string) {
 	name = strings.ToLower(name)
 	layer = strings.ToLower(layer)
 	name = strings.TrimSuffix(name, ".")
@@ -571,7 +571,7 @@ func nameIsBeneath(name string, layer string) (bool, string) {
 	return false, ""
 }
 
-func nextAuthority(name string, layer string) (string, error) {
+func nextAuthority(name, layer string) (string, error) {
 	// We are our own authority for PTRs
 	// (This is dealt with elsewhere)
 	if strings.HasSuffix(name, "in-addr.arpa") && layer == "." {
@@ -707,7 +707,7 @@ func handleStatus(status *zdns.Status, err error) (*zdns.Status, error) {
 	}
 }
 
-func (s *Lookup) iterateOnAuthorities(dnsType uint16, dnsClass uint16, name string,
+func (s *Lookup) iterateOnAuthorities(dnsType, dnsClass uint16, name string,
 	depth int, result Result, layer string, trace []interface{}) (Result, []interface{}, zdns.Status, error) {
 	//
 	if len(result.Authorities) == 0 {
@@ -755,7 +755,7 @@ func (s *Lookup) iterateOnAuthorities(dnsType uint16, dnsClass uint16, name stri
 	return r, trace, zdns.STATUS_ERROR, errors.New("could not find authoritative name server")
 }
 
-func (s *Lookup) iterativeLookup(dnsType uint16, dnsClass uint16, name string, nameServer string,
+func (s *Lookup) iterativeLookup(dnsType, dnsClass uint16, name, nameServer string,
 	depth int, layer string, trace []interface{}) (Result, []interface{}, zdns.Status, error) {
 	//
 	if log.GetLevel() == log.DebugLevel {
@@ -808,7 +808,7 @@ func (s *Lookup) iterativeLookup(dnsType uint16, dnsClass uint16, name string, n
 	}
 }
 
-func (s *Lookup) DoMiekgLookup(name string, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoMiekgLookup(name, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
 	if s.DNSType == dns.TypePTR {
 		var err error
 		name, err = dns.ReverseAddr(name)
@@ -912,7 +912,7 @@ func (s *Lookup) DoTxtLookup(name string, nameServer string) (string, []interfac
 }
 
 // allow miekg to be used as a ZDNS module
-func (s *Lookup) DoLookup(name string, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
 	return s.DoMiekgLookup(name, nameServer)
 }
 
