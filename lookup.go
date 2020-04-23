@@ -67,7 +67,7 @@ func parseNormalInputLine(line string) (string, string) {
 	}
 }
 
-func makeName(name string, prefix string, nameOverride string) (string, bool) {
+func makeName(name, prefix, nameOverride string) (string, bool) {
 	if nameOverride != "" {
 		return nameOverride, true
 	}
