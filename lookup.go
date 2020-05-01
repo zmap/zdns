@@ -78,8 +78,8 @@ func makeName(name, prefix, nameOverride string) (string, bool) {
 	}
 }
 
-func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup, threadID int) error {
-	f, err := (*g).MakeRoutineFactory(threadID)
+func doLookup(g GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup, threadID int) error {
+	f, err := g.MakeRoutineFactory(threadID)
 	if err != nil {
 		log.Fatal("Unable to create new routine factory", err.Error())
 	}
@@ -95,7 +95,7 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, 
 		if err != nil {
 			log.Fatal("Unable to build lookup instance", err)
 		}
-		if (*g).ZonefileInput() {
+		if g.ZonefileInput() {
 			length := len(genericInput.(*dns.Token).RR.Header().Name)
 			if length == 0 {
 				continue
@@ -155,7 +155,7 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, 
 		metadata.Status[status]++
 	}
 	metaChan <- metadata
-	(*wg).Done()
+	wg.Done()
 	return nil
 }
 
@@ -171,7 +171,7 @@ func aggregateMetadata(c <-chan routineMetadata) Metadata {
 	return meta
 }
 
-func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
+func DoLookups(g GlobalLookupFactory, c *GlobalConf) error {
 	// DoLookup:
 	//	- n threads that do processing from in and place results in out
 	//	- process until inChan closes, then wg.done()
@@ -193,7 +193,7 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	}
 
 	// Use handlers to populate the input and output/results channel
-	go inHandler.FeedChannel(inChan, &routineWG, (*g).ZonefileInput())
+	go inHandler.FeedChannel(inChan, &routineWG, g.ZonefileInput())
 	go outHandler.WriteResults(outChan, &routineWG)
 	routineWG.Add(2)
 
