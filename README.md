@@ -18,9 +18,14 @@ for the IPs of MX servers for the domains in the Alexa Top Million:
 Install
 =======
 
-ZDNS can be installed by running:
+ZDNS can be installed by checking out the repository and running `go build`.
 
-	go get github.com/zmap/zdns/zdns
+	git checkout https://github.com/zmap/zdns.git
+	cd zdns
+	go build
+
+You _cannot_ just run `go get` because we use a forked version of miekg's DNS
+library that has additional performance fixes.A
 
 
 Usage
