@@ -67,7 +67,7 @@ func parseNormalInputLine(line string) (string, string) {
 	}
 }
 
-func makeName(name string, prefix string, nameOverride string) (string, bool) {
+func makeName(name, prefix, nameOverride string) (string, bool) {
 	if nameOverride != "" {
 		return nameOverride, true
 	}
@@ -78,8 +78,8 @@ func makeName(name string, prefix string, nameOverride string) (string, bool) {
 	}
 }
 
-func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup, threadID int) error {
-	f, err := (*g).MakeRoutineFactory(threadID)
+func doLookup(g GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup, threadID int) error {
+	f, err := g.MakeRoutineFactory(threadID)
 	if err != nil {
 		log.Fatal("Unable to create new routine factory", err.Error())
 	}
@@ -95,7 +95,7 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, 
 		if err != nil {
 			log.Fatal("Unable to build lookup instance", err)
 		}
-		if (*g).ZonefileInput() {
+		if g.ZonefileInput() {
 			length := len(genericInput.(*dns.Token).RR.Header().Name)
 			if length == 0 {
 				continue
@@ -155,7 +155,7 @@ func doLookup(g *GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, 
 		metadata.Status[status]++
 	}
 	metaChan <- metadata
-	(*wg).Done()
+	wg.Done()
 	return nil
 }
 
@@ -171,7 +171,7 @@ func aggregateMetadata(c <-chan routineMetadata) Metadata {
 	return meta
 }
 
-func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
+func DoLookups(g GlobalLookupFactory, c *GlobalConf) error {
 	// DoLookup:
 	//	- n threads that do processing from in and place results in out
 	//	- process until inChan closes, then wg.done()
@@ -182,21 +182,18 @@ func DoLookups(g *GlobalLookupFactory, c *GlobalConf) error {
 	metaChan := make(chan routineMetadata, c.Threads)
 	var routineWG sync.WaitGroup
 
-	inHandler := GetInputHandler(c.InputHandler)
-	outHandler := GetOutputHandler(c.OutputHandler)
+	inHandler := c.InputHandler
 	if inHandler == nil {
-		log.Fatal("Uknown input handler \"" + c.InputHandler + "\"")
-	} else {
-		inHandler.Initialize(c)
+		log.Fatal("Input handler is nil")
 	}
+
+	outHandler := c.OutputHandler
 	if outHandler == nil {
-		log.Fatal("Uknown outnput handler \"" + c.OutputHandler + "\"")
-	} else {
-		outHandler.Initialize(c)
+		log.Fatal("Output handler is nil")
 	}
 
 	// Use handlers to populate the input and output/results channel
-	go inHandler.FeedChannel(inChan, &routineWG, (*g).ZonefileInput())
+	go inHandler.FeedChannel(inChan, &routineWG, g.ZonefileInput())
 	go outHandler.WriteResults(outChan, &routineWG)
 	routineWG.Add(2)
 

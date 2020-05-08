@@ -33,7 +33,7 @@ type Lookup struct {
 	miekg.Lookup
 }
 
-func (s *Lookup) DoLookup(_ string, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(_, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
 	var res Result
 	res.Resolver = nameServer
 	innerRes, trace, status, err := s.DoTxtLookup("VERSION.BIND", nameServer)

@@ -36,12 +36,13 @@ import (
 	_ "github.com/zmap/zdns/modules/nslookup"
 	_ "github.com/zmap/zdns/modules/spf"
 
-	_ "github.com/zmap/zdns/iohandlers/file"
+	"github.com/zmap/zdns/iohandlers"
 )
 
 func main() {
 
 	var gc zdns.GlobalConf
+
 	// global flags relevant to every lookup module
 	flags := flag.NewFlagSet("flags", flag.ExitOnError)
 	flags.IntVar(&gc.Threads, "threads", 1000, "number of lightweight go threads")
@@ -62,8 +63,6 @@ func main() {
 	flags.IntVar(&gc.Retries, "retries", 1, "how many times should zdns retry query if timeout or temporary failure")
 	flags.IntVar(&gc.MaxDepth, "max-depth", 10, "how deep should we recurse when performing iterative lookups")
 	flags.IntVar(&gc.CacheSize, "cache-size", 10000, "how many items can be stored in internal recursive cache")
-	flags.StringVar(&gc.InputHandler, "input-handler", "file", "handler to input names")
-	flags.StringVar(&gc.OutputHandler, "output-handler", "file", "handler to output names")
 	flags.BoolVar(&gc.TCPOnly, "tcp-only", false, "Only perform lookups over TCP")
 	flags.BoolVar(&gc.UDPOnly, "udp-only", false, "Only perform lookups over UDP")
 	flags.BoolVar(&gc.NameServerMode, "name-server-mode", false, "Treats input as nameservers to query with a static query rather than queries to send to a static name server")
@@ -158,7 +157,7 @@ func main() {
 				log.Fatalf("Unable to read file (%s): %s", filepath, err.Error())
 			}
 			if len(f) == 0 {
-				log.Fatalf("Emtpy file (%s)", filepath)
+				log.Fatalf("Empty file (%s)", filepath)
 			}
 			ns = strings.Split(strings.Trim(string(f), "\n"), "\n")
 		} else {
@@ -176,7 +175,7 @@ func main() {
 			if ip != nil {
 				gc.LocalAddrs = append(gc.LocalAddrs, ip)
 			} else {
-				log.Fatal("Invalid argument for --local-addr (", la, "). Must be a comma-separted list of valid IP addresses.")
+				log.Fatal("Invalid argument for --local-addr (", la, "). Must be a comma-separated list of valid IP addresses.")
 			}
 		}
 		log.Info("using local address: ", localaddr_string)
@@ -232,8 +231,8 @@ func main() {
 
 	if len(flags.Args()) > 0 {
 		stat, _ := os.Stdin.Stat()
-		// If stdin is piped from the terminal, and we havent specified a file, and if we have unparsed args
-		// use them for a dig like reslution
+		// If stdin is piped from the terminal, and we haven't specified a file, and if we have unparsed args
+		// use them for a dig-like resolution
 		if (stat.Mode()&os.ModeCharDevice) != 0 && gc.InputFilePath == "-" && len(flags.Args()) == 1 {
 			gc.PassedName = flags.Args()[0]
 		} else {
@@ -249,15 +248,19 @@ func main() {
 		log.Fatal("Specified module does not allow reading from stdin")
 	}
 
+	// setup i/o
+	gc.InputHandler = iohandlers.NewFileInputHandler(gc.InputFilePath)
+	gc.OutputHandler = iohandlers.NewFileOutputHandler(gc.OutputFilePath)
+
 	// allow the factory to initialize itself
 	if err := factory.Initialize(&gc); err != nil {
 		log.Fatal("Factory was unable to initialize:", err.Error())
 	}
 	// run it.
-	if err := zdns.DoLookups(&factory, &gc); err != nil {
+	if err := zdns.DoLookups(factory, &gc); err != nil {
 		log.Fatal("Unable to run lookups:", err.Error())
 	}
-	// allow the factory to initialize itself
+	// allow the factory to finalize itself
 	if err := factory.Finalize(); err != nil {
 		log.Fatal("Factory was unable to finalize:", err.Error())
 	}

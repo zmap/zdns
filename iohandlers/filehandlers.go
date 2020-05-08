@@ -1,4 +1,4 @@
-package file
+package iohandlers
 
 import (
 	"bufio"
@@ -7,18 +7,19 @@ import (
 
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
-	"github.com/zmap/zdns"
 )
 
-type InputHandler struct {
+type FileInputHandler struct {
 	filepath string
 }
 
-func (h *InputHandler) Initialize(conf *zdns.GlobalConf) {
-	h.filepath = conf.InputFilePath
+func NewFileInputHandler(filepath string) *FileInputHandler {
+	return &FileInputHandler{
+		filepath: filepath,
+	}
 }
 
-func (h *InputHandler) FeedChannel(in chan<- interface{}, wg *sync.WaitGroup, zonefileInput bool) error {
+func (h *FileInputHandler) FeedChannel(in chan<- interface{}, wg *sync.WaitGroup, zonefileInput bool) error {
 	defer close(in)
 	defer (*wg).Done()
 
@@ -29,7 +30,7 @@ func (h *InputHandler) FeedChannel(in chan<- interface{}, wg *sync.WaitGroup, zo
 		var err error
 		f, err = os.Open(h.filepath)
 		if err != nil {
-			log.Fatal("unable to open input file:", err.Error())
+			log.Fatalf("unable to open input file: %v", err)
 		}
 	}
 	if zonefileInput {
@@ -43,21 +44,23 @@ func (h *InputHandler) FeedChannel(in chan<- interface{}, wg *sync.WaitGroup, zo
 			in <- s.Text()
 		}
 		if err := s.Err(); err != nil {
-			log.Fatal("input unable to read file", err)
+			log.Fatalf("input unable to read file: %v", err)
 		}
 	}
 	return nil
 }
 
-type OutputHandler struct {
+type FileOutputHandler struct {
 	filepath string
 }
 
-func (h *OutputHandler) Initialize(conf *zdns.GlobalConf) {
-	h.filepath = conf.OutputFilePath
+func NewFileOutputHandler(filepath string) *FileOutputHandler {
+	return &FileOutputHandler{
+		filepath: filepath,
+	}
 }
 
-func (h *OutputHandler) WriteResults(results <-chan string, wg *sync.WaitGroup) error {
+func (h *FileOutputHandler) WriteResults(results <-chan string, wg *sync.WaitGroup) error {
 	defer (*wg).Done()
 
 	var f *os.File
@@ -67,7 +70,7 @@ func (h *OutputHandler) WriteResults(results <-chan string, wg *sync.WaitGroup) 
 		var err error
 		f, err = os.OpenFile(h.filepath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 		if err != nil {
-			log.Fatal("unable to open output file:", err.Error())
+			log.Fatalf("unable to open output file: %v", err)
 		}
 		defer f.Close()
 	}
@@ -75,13 +78,4 @@ func (h *OutputHandler) WriteResults(results <-chan string, wg *sync.WaitGroup) 
 		f.WriteString(n + "\n")
 	}
 	return nil
-}
-
-// register handlers
-func init() {
-	in := new(InputHandler)
-	zdns.RegisterInputHandler("file", in)
-
-	out := new(OutputHandler)
-	zdns.RegisterOutputHandler("file", out)
 }

@@ -51,7 +51,7 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-func (s *Lookup) DoAXFR(name string, server string) AXFRServerResult {
+func (s *Lookup) DoAXFR(name, server string) AXFRServerResult {
 	var retv AXFRServerResult
 	retv.Server = server
 	// check if the server address is blacklisted and if so, exclude
@@ -95,7 +95,7 @@ func (s *Lookup) DoAXFR(name string, server string) AXFRServerResult {
 	return retv
 }
 
-func (s *Lookup) DoLookup(name string, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
 	var retv AXFRResult
 	if nameServer == "" {
 		parsedNS, trace, status, err := s.DoNSLookup(name, true, false, nameServer)

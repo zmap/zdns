@@ -36,14 +36,14 @@ type Lookup struct {
 	miekg.Lookup
 }
 
-func (s *Lookup) DoLookup(name string, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
 	if nameServer == "" {
 		nameServer = s.Factory.Factory.RandomNameServer()
 	}
 	return s.DoTargetedLookup(name, nameServer)
 }
 
-func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16, candidateSet map[string][]miekg.Answer, cnameSet map[string][]miekg.Answer, origName string, depth int) ([]string, []interface{}, zdns.Status, error) {
+func (s *Lookup) doLookupProtocol(name, nameServer string, dnsType uint16, candidateSet map[string][]miekg.Answer, cnameSet map[string][]miekg.Answer, origName string, depth int) ([]string, []interface{}, zdns.Status, error) {
 	// avoid infinite loops
 	if name == origName && depth != 0 {
 		return nil, make([]interface{}, 0), zdns.STATUS_ERROR, errors.New("Infinite redirection loop")
@@ -63,6 +63,7 @@ func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16
 		if status != zdns.STATUS_NOERROR || err != nil {
 			return nil, trace, status, err
 		}
+
 		for _, a := range miekgResult.(miekg.Result).Answers {
 			// filter only valid answers of requested type or CNAME (#163)
 			if ans, ok := a.(miekg.Answer); ok {
@@ -115,7 +116,7 @@ func (s *Lookup) doLookupProtocol(name string, nameServer string, dnsType uint16
 	}
 }
 
-func (s *Lookup) DoTargetedLookup(name string, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoTargetedLookup(name, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
 	res := Result{}
 	candidateSet := map[string][]miekg.Answer{}
 	cnameSet := map[string][]miekg.Answer{}
