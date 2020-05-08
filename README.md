@@ -25,7 +25,7 @@ ZDNS can be installed by checking out the repository and running `go build`.
 	go build
 
 You _cannot_ just run `go get` because we use a forked version of miekg's DNS
-library that has additional performance fixes.A
+library that has additional performance fixes.
 
 
 Usage
