@@ -20,7 +20,7 @@ Install
 
 ZDNS can be installed by checking out the repository and running `go build`.
 
-	git checkout https://github.com/zmap/zdns.git
+	git clone https://github.com/zmap/zdns.git
 	cd zdns
 	go build
 
