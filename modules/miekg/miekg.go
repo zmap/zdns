@@ -183,8 +183,8 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, d
 		ExpiresAt: expiresAt}
 	ca.Answers[a] = ta
 	s.IterativeCache.Add(key, ca)
-	s.IterativeCache.Unlock(key)
 	s.VerboseGlobalLog(depth+1, threadID, "Add cached answer ", key, " ", ca)
+	s.IterativeCache.Unlock(key)
 }
 
 func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, isAuthCheck bool, depth int, threadID int) (Result, bool) {
