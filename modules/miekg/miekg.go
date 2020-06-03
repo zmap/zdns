@@ -714,7 +714,7 @@ func (s *Lookup) iterateOnAuthorities(dnsType, dnsClass uint16, name string,
 		var r Result
 		return r, trace, zdns.STATUS_SERVFAIL, nil
 	}
-	for _, elem := range result.Authorities {
+	for i, elem := range result.Authorities {
 		s.VerboseLog(depth+1, "Trying Authority: ", elem)
 		ns, ns_status, layer, trace := s.extractAuthority(elem, layer, depth, result, trace)
 		s.VerboseLog((depth + 1), "Output from extract authorities: ", ns)
@@ -726,12 +726,20 @@ func (s *Lookup) iterateOnAuthorities(dnsType, dnsClass uint16, name string,
 			new_status, err := handleStatus(&ns_status, err)
 			// default case we continue
 			if new_status == nil && err == nil {
-				s.VerboseLog((depth + 2), "--> Auth find Failed: ", ns_status)
+				s.VerboseLog((depth + 2), "--> Auth find Failed. Unknown error. Continue: ", ns_status)
 				continue
 			} else {
 				// otherwise we hit a status we know
 				var r Result
-				return r, trace, *new_status, err
+				if i + 1 == len(result.Authorities) {
+					// We don't allow the continue fall through in order to report the last auth falure code, not STATUS_EROR
+					s.VerboseLog((depth + 2), "--> Final auth find non-success. Last auth. Terminating: ", ns_status)
+					return r, trace, *new_status, err
+				} else {
+					s.VerboseLog((depth + 2), "--> Auth find non-success. Trying next: ", ns_status)
+					continue
+				}
+
 			}
 		}
 		r, trace, status, err := s.iterativeLookup(dnsType, dnsClass, name, ns, depth+1, layer, trace)
@@ -745,6 +753,14 @@ func (s *Lookup) iterateOnAuthorities(dnsType, dnsClass uint16, name string,
 			} else {
 				// otherwise we hit a status we know
 				return r, trace, *new_status, err
+				if i + 1 == len(result.Authorities) {
+					// We don't allow the continue fall through in order to report the last auth falure code, not STATUS_EROR
+					s.VerboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed. Last auth. Terminating: ", status)
+					return r, trace, *new_status, err
+				} else {
+					s.VerboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed. Trying next: ", status)
+					continue
+				}
 			}
 		}
 		s.VerboseLog((depth + 1), "--> Auth Resolution success: ", status)
