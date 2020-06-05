@@ -752,13 +752,20 @@ func (s *Lookup) iterateOnAuthorities(dnsType, dnsClass uint16, name string,
 
 			} else {
 				// otherwise we hit a status we know
-				return r, trace, *new_status, err
+
+				// If we get here, querying this domain all the way down yielded an NXDOMAIN. Thats a fatal error
+				//  don't try other auths
+				if status == zdns.STATUS_NXDOMAIN {
+					s.VerboseLog((depth + 2), "--> Iterative resolution of ", name, " at ", ns, " yielded NXDOMAIN. Failing")
+					return r, trace, *new_status, err
+				}
+
 				if i + 1 == len(result.Authorities) {
 					// We don't allow the continue fall through in order to report the last auth falure code, not STATUS_EROR
-					s.VerboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed. Last auth. Terminating: ", status)
+					s.VerboseLog((depth + 2), "--> Iterative resolution of ", name, " at ", ns," Failed. Last auth. Terminating: ", status)
 					return r, trace, *new_status, err
 				} else {
-					s.VerboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed. Trying next: ", status)
+					s.VerboseLog((depth + 2), "--> Iterative resolution of ", name, " at ", ns, " Failed. Trying next: ", status)
 					continue
 				}
 			}
