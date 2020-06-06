@@ -756,7 +756,7 @@ func (s *Lookup) iterateOnAuthorities(dnsType, dnsClass uint16, name string,
 		} else if i+1 < len(result.Authorities) {
 			s.VerboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed: ", status, ". Will try next authority")
 			continue
-		} else
+		} else {
 			// We don't allow the continue fall through in order to report the last auth falure code, not STATUS_EROR
 			s.VerboseLog((depth + 2), "--> Iterative resolution of ", name, " at ", ns, " Failed. Last auth. Terminating: ", status)
 			return r, trace, status, err
