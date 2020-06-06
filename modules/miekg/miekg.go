@@ -747,20 +747,19 @@ func (s *Lookup) iterateOnAuthorities(dnsType, dnsClass uint16, name string,
 					s.VerboseLog((depth + 2), "--> Auth find non-success. Trying next: ", ns_status)
 					continue
 				}
-
 			}
 		}
 		r, trace, status, err := s.iterativeLookup(dnsType, dnsClass, name, ns, depth+1, layer, trace)
 		if isStatusAnswer(status) {
 			s.VerboseLog((depth + 1), "--> Auth Resolution success: ", status)
 			return r, trace, status, err
-		} else if i+1 == len(result.Authorities) {
+		} else if i+1 < len(result.Authorities) {
+			s.VerboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed: ", status, ". Will try next authority")
+			continue
+		} else
 			// We don't allow the continue fall through in order to report the last auth falure code, not STATUS_EROR
 			s.VerboseLog((depth + 2), "--> Iterative resolution of ", name, " at ", ns, " Failed. Last auth. Terminating: ", status)
 			return r, trace, status, err
-		} else {
-			s.VerboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed: ", status, ". Will try next authority")
-			continue
 		}
 	}
 	panic("should not be able to reach here")
