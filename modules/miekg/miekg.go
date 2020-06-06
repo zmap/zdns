@@ -615,7 +615,7 @@ func (s *Lookup) checkGlue(server string, depth int, result Result) (Result, zdn
 		if !ok {
 			continue
 		}
-		if (ans.Type == "A" || ans.Type == "AAAA") && strings.TrimSuffix(ans.Name, ".") == server {
+		if ans.Type == "A" && strings.TrimSuffix(ans.Name, ".") == server {
 			var retv Result
 			retv.Authorities = make([]interface{}, 0)
 			retv.Answers = make([]interface{}, 0)

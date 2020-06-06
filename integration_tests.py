@@ -255,7 +255,61 @@ class Tests(unittest.TestCase):
         "class": "IN",
         "name": "large-text.zdns-testing.com",
         "answer": "We present the scanner architecture, experimentally characterize its performance and accuracy, "
-      }
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "and explore the security implications of high speed Internet-scale network surveys, both offensive and defensive."
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "We also discuss best practices for good Internet citizenship when performing Internet-wide"
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "surveys, informed by our own experiences conducting a long-term research survey over the past year."
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur."
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt."
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem."
+      },
     ]
 
     WWW_CNAME_ANSWERS = [
