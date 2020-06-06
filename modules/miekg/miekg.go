@@ -82,6 +82,13 @@ func TranslateMiekgErrorCode(err int) zdns.Status {
 	return zdns.Status(dns.RcodeToString[err])
 }
 
+func isStatusAnswer(s zdns.Status) bool {
+	if s == zdns.STATUS_NOERROR || s == zdns.STATUS_NXDOMAIN {
+		return true
+	}
+	return false
+}
+
 // ZDNS Module
 
 type GlobalLookupFactory struct {
@@ -608,7 +615,7 @@ func (s *Lookup) checkGlue(server string, depth int, result Result) (Result, zdn
 		if !ok {
 			continue
 		}
-		if ans.Type == "A" && strings.TrimSuffix(ans.Name, ".") == server {
+		if (ans.Type == "A" || ans.Type == "AAAA") && strings.TrimSuffix(ans.Name, ".") == server {
 			var retv Result
 			retv.Authorities = make([]interface{}, 0)
 			retv.Answers = make([]interface{}, 0)
@@ -618,9 +625,8 @@ func (s *Lookup) checkGlue(server string, depth int, result Result) (Result, zdn
 			return retv, zdns.STATUS_NOERROR
 		}
 	}
-
 	var r Result
-	return r, zdns.STATUS_SERVFAIL
+	return r, zdns.STATUS_ERROR
 }
 
 func (s *Lookup) extractAuthority(authority interface{}, layer string, depth int, result Result, trace []interface{}) (string, zdns.Status, string, []interface{}) {
@@ -628,7 +634,7 @@ func (s *Lookup) extractAuthority(authority interface{}, layer string, depth int
 	// Is it an answer
 	ans, ok := authority.(Answer)
 	if !ok {
-		return "", zdns.STATUS_SERVFAIL, layer, trace
+		return "", zdns.STATUS_FORMERR, layer, trace
 	}
 
 	// Is the layering correct
@@ -712,7 +718,7 @@ func (s *Lookup) iterateOnAuthorities(dnsType, dnsClass uint16, name string,
 	//
 	if len(result.Authorities) == 0 {
 		var r Result
-		return r, trace, zdns.STATUS_SERVFAIL, nil
+		return r, trace, zdns.STATUS_NOAUTH, nil
 	}
 	for i, elem := range result.Authorities {
 		s.VerboseLog(depth+1, "Trying Authority: ", elem)
@@ -720,6 +726,8 @@ func (s *Lookup) iterateOnAuthorities(dnsType, dnsClass uint16, name string,
 		s.VerboseLog((depth + 1), "Output from extract authorities: ", ns)
 		if ns_status == zdns.STATUS_ITER_TIMEOUT {
 			s.VerboseLog((depth + 2), "--> Hit iterative timeout: ")
+			var r Result
+			return r, trace, zdns.STATUS_ITER_TIMEOUT, nil
 		}
 		if ns_status != zdns.STATUS_NOERROR {
 			var err error
@@ -731,7 +739,7 @@ func (s *Lookup) iterateOnAuthorities(dnsType, dnsClass uint16, name string,
 			} else {
 				// otherwise we hit a status we know
 				var r Result
-				if i + 1 == len(result.Authorities) {
+				if i+1 == len(result.Authorities) {
 					// We don't allow the continue fall through in order to report the last auth falure code, not STATUS_EROR
 					s.VerboseLog((depth + 2), "--> Final auth find non-success. Last auth. Terminating: ", ns_status)
 					return r, trace, *new_status, err
@@ -743,39 +751,19 @@ func (s *Lookup) iterateOnAuthorities(dnsType, dnsClass uint16, name string,
 			}
 		}
 		r, trace, status, err := s.iterativeLookup(dnsType, dnsClass, name, ns, depth+1, layer, trace)
-		if status != zdns.STATUS_NOERROR {
-			new_status, err := handleStatus(&status, err)
-			// default case is a status we don't handle, so we continue
-			if new_status == nil && err == nil {
-				s.VerboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed: ", status)
-				continue
-
-			} else {
-				// otherwise we hit a status we know
-
-				// If we get here, querying this domain all the way down yielded an NXDOMAIN. Thats a fatal error
-				//  don't try other auths
-				if status == zdns.STATUS_NXDOMAIN {
-					s.VerboseLog((depth + 2), "--> Iterative resolution of ", name, " at ", ns, " yielded NXDOMAIN. Failing")
-					return r, trace, *new_status, err
-				}
-
-				if i + 1 == len(result.Authorities) {
-					// We don't allow the continue fall through in order to report the last auth falure code, not STATUS_EROR
-					s.VerboseLog((depth + 2), "--> Iterative resolution of ", name, " at ", ns," Failed. Last auth. Terminating: ", status)
-					return r, trace, *new_status, err
-				} else {
-					s.VerboseLog((depth + 2), "--> Iterative resolution of ", name, " at ", ns, " Failed. Trying next: ", status)
-					continue
-				}
-			}
+		if isStatusAnswer(status) {
+			s.VerboseLog((depth + 1), "--> Auth Resolution success: ", status)
+			return r, trace, status, err
+		} else if i+1 == len(result.Authorities) {
+			// We don't allow the continue fall through in order to report the last auth falure code, not STATUS_EROR
+			s.VerboseLog((depth + 2), "--> Iterative resolution of ", name, " at ", ns, " Failed. Last auth. Terminating: ", status)
+			return r, trace, status, err
+		} else {
+			s.VerboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed: ", status, ". Will try next authority")
+			continue
 		}
-		s.VerboseLog((depth + 1), "--> Auth Resolution success: ", status)
-		return r, trace, status, err
 	}
-	s.VerboseLog((depth + 1), "Unable to find authoritative name server")
-	var r Result
-	return r, trace, zdns.STATUS_ERROR, errors.New("could not find authoritative name server")
+	panic("should not be able to reach here")
 }
 
 func (s *Lookup) iterativeLookup(dnsType, dnsClass uint16, name, nameServer string,

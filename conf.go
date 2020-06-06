@@ -93,9 +93,16 @@ type TargetedDomain struct {
 type Status string
 
 const (
-	STATUS_NOERROR       Status = "NOERROR"
+	// Standardized RCODE
+	STATUS_NOERROR   Status = "NOERROR" // No Error
+	STATUS_FORMERR   Status = "FORMERR" // Format Error
+	STATUS_SERVFAIL  Status = "SERVFAIL"
+	STATUS_NXDOMAIN  Status = "NXDOMAIN"
+	STATUS_NOTIMP    Status = "NOT_IMPL"
+	STATUS_REFUSED   Status = "REFUSED"
+	STATUS_TRUNCATED Status = "TRUNCATED"
+
 	STATUS_ERROR         Status = "ERROR"
-	STATUS_SERVFAIL      Status = "SERVFAIL"
 	STATUS_AUTHFAIL      Status = "AUTHFAIL"
 	STATUS_NO_RECORD     Status = "NORECORD"
 	STATUS_BLACKLIST     Status = "BLACKLIST"
@@ -105,9 +112,8 @@ const (
 	STATUS_TIMEOUT       Status = "TIMEOUT"
 	STATUS_ITER_TIMEOUT  Status = "ITERATIVE_TIMEOUT"
 	STATUS_TEMPORARY     Status = "TEMPORARY"
-	STATUS_TRUNCATED     Status = "TRUNCATED"
-	STATUS_NXDOMAIN      Status = "NXDOMAIN"
-	STATUS_REFUSED       Status = "REFUSED"
+	STATUS_NOAUTH        Status = "NOAUTH"
+	STATUS_NODATA        Status = "NODATA"
 )
 
 var RootServers = [...]string{
