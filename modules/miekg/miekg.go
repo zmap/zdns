@@ -59,7 +59,7 @@ type TraceStep struct {
 }
 
 type TimedAnswer struct {
-	Answer    Answer
+	Answer    interface{}
 	ExpiresAt time.Time
 }
 
