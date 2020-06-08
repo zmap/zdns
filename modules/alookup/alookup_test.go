@@ -18,13 +18,14 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/modules/miekg"
 )
 
 // Mock the actual Miekg lookup.
-func (s *Lookup) DoTypedMiekgLookup(name string, dnsType uint16, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
-	if res, ok := mockResults[name]; ok {
+func (s *Lookup) DoMiekgLookup(question miekg.Question, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+	if res, ok := mockResults[question.Name]; ok {
 		return res, nil, zdns.STATUS_NOERROR, nil
 	} else {
 		return nil, nil, zdns.STATUS_NO_ANSWER, nil
