@@ -48,7 +48,7 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-func (s *Lookup) lookupIPs(name string, dnsType uint16, nameServer string) ([]string, []interface{}) {
+func (s *Lookup) lookupIPs(name string, dnsType uint16, nameServer string) ([]string, zdns.Trace) {
 	var addresses []string
 	res, trace, status, _ := s.DoMiekgLookup(miekg.Question{Name:name, Type:dnsType}, nameServer)
 	if status == zdns.STATUS_NOERROR {
@@ -63,7 +63,7 @@ func (s *Lookup) lookupIPs(name string, dnsType uint16, nameServer string) ([]st
 	return addresses, trace
 }
 
-func (s *Lookup) DoNSLookup(name string, lookupIPv4, lookupIPv6 bool, nameServer string) (Result, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoNSLookup(name string, lookupIPv4, lookupIPv6 bool, nameServer string) (Result, zdns.Trace, zdns.Status, error) {
 	var retv Result
 	res, trace, status, err := s.DoMiekgLookup(miekg.Question{Name:name, Type:dns.TypeNS}, nameServer)
 	if status != zdns.STATUS_NOERROR || err != nil {
@@ -124,7 +124,7 @@ func (s *Lookup) DoNSLookup(name string, lookupIPv4, lookupIPv6 bool, nameServer
 
 }
 
-func (s *Lookup) DoLookup(name, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	return s.DoNSLookup(name, s.Factory.Factory.IPv4Lookup, s.Factory.Factory.IPv6Lookup, nameServer)
 }
 

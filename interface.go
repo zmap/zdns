@@ -46,8 +46,11 @@ import (
 
 // one Lookup per IP/name/connection ==========================================
 //
+
+type Trace []interface{}
+
 type Lookup interface {
-	DoLookup(name, nameServer string) (interface{}, []interface{}, Status, error)
+	DoLookup(name, nameServer string) (interface{}, Trace, Status, error)
 	DoZonefileLookup(record *dns.Token) (interface{}, Status, error)
 }
 

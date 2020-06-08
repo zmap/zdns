@@ -29,8 +29,6 @@ type DNSFlags struct {
 	ErrorCode          int  `json:"error_code" groups:"flags,long,trace"`
 }
 
-type Trace []TraceStep
-
 type Question struct {
 	Type  uint16
 	Class uint16
@@ -448,7 +446,7 @@ func (s *Lookup) cacheUpdate(layer string, result Result, depth int) {
 	}
 }
 
-func (s *Lookup) tracedRetryingLookup(q Question, nameServer string, recursive bool) (Result, []interface{}, zdns.Status, error) {
+func (s *Lookup) tracedRetryingLookup(q Question, nameServer string, recursive bool) (Result, zdns.Trace, zdns.Status, error) {
 
 	res, status, err := s.retryingLookup(q, nameServer, recursive)
 
@@ -825,7 +823,7 @@ func (s *Lookup) iterativeLookup(q Question, nameServer string,
 	}
 }
 
-func (s *Lookup) DoMiekgLookup(q Question, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoMiekgLookup(q Question, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	if nameServer == "" {
 		nameServer = s.NameServer
 	}
@@ -857,7 +855,7 @@ func (s *Lookup) DoMiekgLookup(q Question, nameServer string) (interface{}, []in
 	}
 }
 
-func (s *Lookup) DoTxtLookup(name string, nameServer string) (string, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoTxtLookup(name string, nameServer string) (string, zdns.Trace, zdns.Status, error) {
 	res, trace, status, err := s.DoMiekgLookup(Question{Name: name, Type:s.DNSType, Class:s.DNSClass}, nameServer)
 	if status != zdns.STATUS_NOERROR {
 		return "", trace, status, err
@@ -874,6 +872,6 @@ func (s *Lookup) DoTxtLookup(name string, nameServer string) (string, []interfac
 }
 
 // allow miekg to be used as a ZDNS module
-func (s *Lookup) DoLookup(name, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	return s.DoMiekgLookup(Question{Name:name, Type: s.DNSType, Class: s.DNSClass}, nameServer)
 }

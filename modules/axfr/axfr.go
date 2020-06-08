@@ -95,7 +95,7 @@ func (s *Lookup) DoAXFR(name, server string) AXFRServerResult {
 	return retv
 }
 
-func (s *Lookup) DoLookup(name, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	var retv AXFRResult
 	if nameServer == "" {
 		parsedNS, trace, status, err := s.DoNSLookup(name, true, false, nameServer)

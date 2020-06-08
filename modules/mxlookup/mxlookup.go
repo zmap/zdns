@@ -57,7 +57,7 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-func (s *Lookup) LookupIPs(name, nameServer string) (CachedAddresses, []interface{}) {
+func (s *Lookup) LookupIPs(name, nameServer string) (CachedAddresses, zdns.Trace) {
 	s.Factory.Factory.CHmu.Lock()
 	// XXX this should be changed to a miekglookup
 	res, found := s.Factory.Factory.CacheHash.Get(name)
@@ -103,7 +103,7 @@ func (s *Lookup) LookupIPs(name, nameServer string) (CachedAddresses, []interfac
 	return retv, trace
 }
 
-func (s *Lookup) DoLookup(name, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	retv := Result{Servers: []MXRecord{}}
 	res, trace, status, err := s.DoMiekgLookup(miekg.Question{Name:name, Type: dns.TypeMX}, nameServer)
 	if status != zdns.STATUS_NOERROR {
