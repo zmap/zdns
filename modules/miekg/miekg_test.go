@@ -150,13 +150,13 @@ func verifyResult(t *testing.T, answer interface{}, original dns.RR, expectedAns
 		t.Errorf("Unxpected name. Expected %v, got %v", original.Header().Name, ans.Name)
 	}
 	if ans.RrType != original.Header().Rrtype {
-		t.Errorf("Unxpected RR type. Expected %v, got %v", original.Header().Rrtype, ans.rrType)
+		t.Errorf("Unxpected RR type. Expected %v, got %v", original.Header().Rrtype, ans.RrType)
 	}
 	if ans.Type != dns.TypeToString[original.Header().Rrtype] {
 		t.Errorf("Unxpected RR type (string). Expected %v, got %v", dns.TypeToString[original.Header().Rrtype], ans.Type)
 	}
 	if ans.RrClass != original.Header().Class {
-		t.Errorf("Unxpected RR class. Expected %v, got %v", original.Header().Class, ans.rrClass)
+		t.Errorf("Unxpected RR class. Expected %v, got %v", original.Header().Class, ans.RrClass)
 	}
 	if ans.Class != dns.ClassToString[original.Header().Class] {
 		t.Errorf("Unxpected RR class (string). Expected %v, got %v", dns.TypeToString[original.Header().Class], ans.Class)
