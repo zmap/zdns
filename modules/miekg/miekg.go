@@ -825,22 +825,24 @@ func (s *Lookup) iterativeLookup(q Question, nameServer string,
 	}
 }
 
-func (s *Lookup) DoMiekgLookup(name, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
-	if s.DNSType == dns.TypePTR {
-		var err error
-		name, err = dns.ReverseAddr(name)
-		if err != nil {
-			return nil, nil, zdns.STATUS_ILLEGAL_INPUT, err
-		}
-		name = name[:len(name)-1]
-	}
+func (s *Lookup) DoMiekgLookup(q Question, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
 	if nameServer == "" {
 		nameServer = s.NameServer
 	}
-	var q Question
-	q.Type = s.DNSType
-	q.Class = s.DNSClass
-	q.Name = name
+	if q.Type == 0 {
+		q.Type = s.DNSType
+	}
+	if q.Class == 0 {
+		q.Class = s.DNSClass
+	}
+	if s.DNSType == dns.TypePTR {
+		var err error
+		q.Name, err = dns.ReverseAddr(q.Name)
+		if err != nil {
+			return nil, nil, zdns.STATUS_ILLEGAL_INPUT, err
+		}
+		q.Name = q.Name[:len(q.Name)-1]
+	}
 	if s.Factory.IterativeResolution {
 		s.VerboseLog(0, "MIEKG-IN: iterative lookup for ", q.Name, " (", q.Type, ")")
 		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
@@ -855,79 +857,8 @@ func (s *Lookup) DoMiekgLookup(name, nameServer string) (interface{}, []interfac
 	}
 }
 
-func (s *Lookup) DoMiekgLookupForClass(name string, dnsClass uint16, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
-	if nameServer == "" {
-		nameServer = s.NameServer
-	}
-	var q Question
-	q.Name = name
-	q.Class = dnsClass
-	q.Type = s.DNSType
-
-	if s.Factory.IterativeResolution {
-		s.VerboseLog(0, "MIEKG-IN: iterative lookup for ", name, " (", s.DNSType, ") in class ", dnsClass)
-		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
-		result, trace, status, err := s.iterativeLookup(q, nameServer, 1, ".", make([]interface{}, 0))
-		s.VerboseLog(0, "MIEKG-OUT: iterative lookup for ", name, " (", s.DNSType, "): status: ", status, " , err: ", err)
-		if s.Factory.Trace {
-			return result, trace, status, err
-		}
-		return result, trace, status, err
-
-	} else {
-		return s.tracedRetryingLookup(q, nameServer, true)
-	}
-}
-
-func (s *Lookup) DoTypedMiekgLookup(name string, dnsType uint16, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
-	if s.Factory == nil {
-		panic("factory not defined")
-	}
-	if nameServer == "" {
-		nameServer = s.NameServer
-	}
-	var q Question
-	q.Name = name
-	q.Class = s.DNSClass
-	q.Type = dnsType
-
-	if s.Factory.IterativeResolution {
-		s.VerboseLog(0, "MIEKG-IN: iterative lookup for ", name, " (", dnsType, ")")
-		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
-		result, trace, status, err := s.iterativeLookup(q, nameServer, 1, ".", make([]interface{}, 0))
-		s.VerboseLog(0, "MIEKG-OUT: iterative lookup for ", name, " (", dnsType, "): status: ", status, " , err: ", err)
-		if s.Factory.Trace {
-			return result, trace, status, err
-		}
-		return result, trace, status, err
-	} else {
-		return s.tracedRetryingLookup(q, nameServer, true)
-	}
-}
-
-func (s *Lookup) DoTypedMiekgLookupInClass(q Question, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
-	if s.Factory == nil {
-		panic("factory not defined")
-	}
-	if nameServer == "" {
-		nameServer = s.NameServer
-	}
-	if s.Factory.IterativeResolution {
-		s.VerboseLog(0, "MIEKG-IN: iterative lookup for ", q.Name, " (", q.Type, ") in class ", q.Class)
-		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
-		result, trace, status, err := s.iterativeLookup(q, nameServer, 1, ".", make([]interface{}, 0))
-		s.VerboseLog(0, "MIEKG-OUT: iterative lookup for ", q.Name, " (", q.Type, "): status: ", status, " , err: ", err)
-		if s.Factory.Trace {
-			return result, trace, status, err
-		}
-		return result, trace, status, err
-	} else {
-		return s.tracedRetryingLookup(q, nameServer, true)
-	}
-}
-
 func (s *Lookup) DoTxtLookup(name string, nameServer string) (string, []interface{}, zdns.Status, error) {
-	res, trace, status, err := s.DoMiekgLookup(name, nameServer)
+	res, trace, status, err := s.DoMiekgLookup(Question{Name: name, Type:s.DNSType, Class:s.DNSClass}, nameServer)
 	if status != zdns.STATUS_NOERROR {
 		return "", trace, status, err
 	}
@@ -944,9 +875,5 @@ func (s *Lookup) DoTxtLookup(name string, nameServer string) (string, []interfac
 
 // allow miekg to be used as a ZDNS module
 func (s *Lookup) DoLookup(name, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
-	return s.DoMiekgLookup(name, nameServer)
-}
-
-func (s *GlobalLookupFactory) Help() string {
-	return ""
+	return s.DoMiekgLookup(Question{Name:name, Type: s.DNSType, Class: s.DNSClass}, nameServer)
 }
