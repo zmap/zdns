@@ -44,6 +44,7 @@ func TestDoLookup(t *testing.T) {
 
 	rlf := new(RoutineLookupFactory)
 	rlf.Factory = glf
+	rlf.Client = new(dns.Client)
 
 	l, err := rlf.MakeLookup()
 	if l == nil || err != nil {
