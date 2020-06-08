@@ -29,6 +29,14 @@ type DNSFlags struct {
 	ErrorCode          int  `json:"error_code" groups:"flags,long,trace"`
 }
 
+type Trace []TraceStep
+
+type Question struct {
+	Type    uint16
+	Class   uint16
+	Name       string
+}
+
 // result to be returned by scan of host
 type Result struct {
 	Answers     []interface{} `json:"answers,omitempty" groups:"short,normal,long,trace"`
@@ -51,7 +59,7 @@ type TraceStep struct {
 }
 
 type TimedAnswer struct {
-	Answer    interface{}
+	Answer    Answer
 	ExpiresAt time.Time
 }
 
@@ -87,6 +95,10 @@ func isStatusAnswer(s zdns.Status) bool {
 		return true
 	}
 	return false
+}
+
+func questionFromAnswer(a Answer) Question {
+	return Question{Name: a.Name, Type: a.RrType, Class: a.RrClass}
 }
 
 // ZDNS Module
@@ -145,37 +157,23 @@ func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLook
 	return r, nil
 }
 
-func makeCacheKey(name string, dnsType uint16) interface{} {
-	return struct {
-		Name    string
-		DnsType uint16
-	}{
-		Name:    strings.ToLower(name),
-		DnsType: dnsType,
-	}
-}
+func (s *GlobalLookupFactory) AddCachedAnswer(a Answer, depth int, threadID int) {
+	q := questionFromAnswer(a)
 
-func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, dnsType uint16, ttl uint32, depth int, threadID int) {
-	a, ok := answer.(Answer)
-	if !ok {
-		// we can't cache this entry because we have no idea what to name it
-		return
-	}
 	// only cache records that can help prevent future iteration: A(AAA), NS, (C|D)NAME.
 	// This will prevent some entries that will never help future iteration (e.g., PTR)
 	// from causing unnecessary cache evictions.
 	// TODO: this is overly broad right now and will unnecessarily cache some leaf A/AAAA records. However,
 	// it's a lot of work to understand _why_ we're doing a specific lookup and this will still help
 	// in other cases, e.g., PTR lookups
-	if !(dnsType == dns.TypeA || dnsType == dns.TypeAAAA || dnsType == dns.TypeNS || dnsType == dns.TypeDNAME || dnsType == dns.TypeCNAME) {
+	if !(q.Type == dns.TypeA || q.Type == dns.TypeAAAA || q.Type == dns.TypeNS || q.Type == dns.TypeDNAME || q.Type == dns.TypeCNAME) {
 		return
 	}
-	key := makeCacheKey(name, dnsType)
-	expiresAt := time.Now().Add(time.Duration(ttl) * time.Second)
-	s.IterativeCache.Lock(key)
+	expiresAt := time.Now().Add(time.Duration(a.Ttl) * time.Second)
+	s.IterativeCache.Lock(q)
 	// don't bother to move this to the top of the linked list. we're going
 	// to add this record back in momentarily and that will take care of this
-	i, ok := s.IterativeCache.GetNoMove(key)
+	i, ok := s.IterativeCache.GetNoMove(q)
 	ca, ok := i.(CachedResult)
 	if !ok && i != nil {
 		panic("unable to cast cached result")
@@ -186,23 +184,22 @@ func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, name string, d
 	}
 	// we have an existing record. Let's add this answer to it.
 	ta := TimedAnswer{
-		Answer:    answer,
+		Answer:    a,
 		ExpiresAt: expiresAt}
 	ca.Answers[a] = ta
-	s.IterativeCache.Add(key, ca)
-	s.VerboseGlobalLog(depth+1, threadID, "Add cached answer ", key, " ", ca)
-	s.IterativeCache.Unlock(key)
+	s.IterativeCache.Add(q, ca)
+	s.VerboseGlobalLog(depth+1, threadID, "Add cached answer ", q, " ", ca)
+	s.IterativeCache.Unlock(q)
 }
 
-func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, isAuthCheck bool, depth int, threadID int) (Result, bool) {
-	s.VerboseGlobalLog(depth+1, threadID, "Cache request for: ", name, " (", dnsType, ")")
+func (s *GlobalLookupFactory) GetCachedResult(q Question, isAuthCheck bool, depth int, threadID int) (Result, bool) {
+	s.VerboseGlobalLog(depth+1, threadID, "Cache request for: ", q.Name, " (", q.Type, ")")
 	var retv Result
-	key := makeCacheKey(name, dnsType)
-	s.IterativeCache.Lock(key)
-	unres, ok := s.IterativeCache.Get(key)
+	s.IterativeCache.Lock(q)
+	unres, ok := s.IterativeCache.Get(q)
 	if !ok { // nothing found
 		s.VerboseGlobalLog(depth+2, threadID, "-> no entry found in cache")
-		s.IterativeCache.Unlock(key)
+		s.IterativeCache.Unlock(q)
 		return retv, false
 	}
 	retv.Authorities = make([]interface{}, 0)
@@ -231,7 +228,7 @@ func (s *GlobalLookupFactory) GetCachedResult(name string, dnsType uint16, isAut
 			}
 		}
 	}
-	s.IterativeCache.Unlock(key)
+	s.IterativeCache.Unlock(q)
 	// Don't return an empty response.
 	if len(retv.Answers) == 0 && len(retv.Authorities) == 0 && len(retv.Additional) == 0 {
 		s.VerboseGlobalLog(depth+2, threadID, "-> no entry found in cache, after expiration")
@@ -339,18 +336,18 @@ func (s *Lookup) Initialize(nameServer string, dnsType uint16, dnsClass uint16, 
 	return nil
 }
 
-func (s *Lookup) doLookup(dnsType, dnsClass uint16, name, nameServer string, recursive bool) (Result, zdns.Status, error) {
-	return DoLookupWorker(s.Factory.Client, s.Factory.TCPClient, dnsType, dnsClass, name, nameServer, recursive)
+func (s *Lookup) doLookup(q Question, nameServer string, recursive bool) (Result, zdns.Status, error) {
+	return DoLookupWorker(s.Factory.Client, s.Factory.TCPClient, q, nameServer, recursive)
 }
 
 // Expose the inner logic so other tools can use it
-func DoLookupWorker(udp *dns.Client, tcp *dns.Client, dnsType, dnsClass uint16, name, nameServer string, recursive bool) (Result, zdns.Status, error) {
+func DoLookupWorker(udp *dns.Client, tcp *dns.Client, q Question, nameServer string, recursive bool) (Result, zdns.Status, error) {
 	res := Result{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 	res.Resolver = nameServer
 
 	m := new(dns.Msg)
-	m.SetQuestion(dotName(name), dnsType)
-	m.Question[0].Qclass = dnsClass
+	m.SetQuestion(dotName(q.Name), q.Type)
+	m.Question[0].Qclass = q.Class
 	m.RecursionDesired = recursive
 
 	var r *dns.Msg
@@ -361,7 +358,7 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, dnsType, dnsClass uint16, 
 		// if record comes back truncated, but we have a TCP connection, try again with that
 		if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
 			if tcp != nil {
-				return DoLookupWorker(nil, tcp, dnsType, dnsClass, name, nameServer, recursive)
+				return DoLookupWorker(nil, tcp, q, nameServer, recursive)
 			} else {
 				return res, zdns.STATUS_TRUNCATED, err
 			}
@@ -419,48 +416,42 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, dnsType, dnsClass uint16, 
 	return res, zdns.STATUS_NOERROR, nil
 }
 
-func (s *Lookup) SafeAddCachedAnswer(a interface{}, layer string, debugType string, depth int) {
-	ans, ok := a.(Answer)
-	if !ok {
-		s.VerboseLog(depth+1, "unable to cast ", debugType, ": ", layer, ": ", a)
+func (s *Lookup) SafeAddCachedAnswer(a Answer, layer string, debugType string, depth int) {
+	if ok, _ := nameIsBeneath(a.Name, layer); !ok {
+		log.Info("detected poison ", debugType, ": ", a.Name, "(", a.Type, "): ", layer, ": ", a)
 		return
 	}
-	ok, _ = nameIsBeneath(ans.Name, layer)
-	if !ok {
-		log.Info("detected poison ", debugType, ": ", ans.Name, "(", ans.Type, "): ", layer, ": ", a)
-		return
-	}
-	s.Factory.Factory.AddCachedAnswer(a, ans.Name, ans.rrType, ans.Ttl, depth, s.Factory.ThreadID)
+	s.Factory.Factory.AddCachedAnswer(a, depth, s.Factory.ThreadID)
 }
 
 func (s *Lookup) cacheUpdate(layer string, result Result, depth int) {
 	for _, a := range result.Additional {
-		s.SafeAddCachedAnswer(a, layer, "additional", depth)
+		s.SafeAddCachedAnswer(a.(Answer), layer, "additional", depth)
 	}
 	for _, a := range result.Authorities {
-		s.SafeAddCachedAnswer(a, layer, "authority", depth)
+		s.SafeAddCachedAnswer(a.(Answer), layer, "authority", depth)
 	}
 	if result.Flags.Authoritative == true {
 		for _, a := range result.Answers {
-			s.SafeAddCachedAnswer(a, layer, "anwer", depth)
+			s.SafeAddCachedAnswer(a.(Answer), layer, "anwer", depth)
 		}
 	}
 }
 
-func (s *Lookup) tracedRetryingLookup(dnsType, dnsClass uint16, name, nameServer string, recursive bool) (Result, []interface{}, zdns.Status, error) {
+func (s *Lookup) tracedRetryingLookup(q Question, nameServer string, recursive bool) (Result, []interface{}, zdns.Status, error) {
 
-	res, status, err := s.retryingLookup(dnsType, dnsClass, name, nameServer, recursive)
+	res, status, err := s.retryingLookup(q, nameServer, recursive)
 
 	trace := make([]interface{}, 0)
 
 	if s.Factory.Trace {
 		var t TraceStep
 		t.Result = res
-		t.DnsType = dnsType
-		t.DnsClass = dnsClass
-		t.Name = name
+		t.DnsType = q.Type
+		t.DnsClass = q.Class
+		t.Name = q.Name
 		t.NameServer = nameServer
-		t.Layer = name
+		t.Layer = q.Name
 		t.Depth = 1
 		t.Cached = false
 		trace = append(trace, t)
@@ -469,8 +460,8 @@ func (s *Lookup) tracedRetryingLookup(dnsType, dnsClass uint16, name, nameServer
 	return res, trace, status, err
 }
 
-func (s *Lookup) retryingLookup(dnsType, dnsClass uint16, name, nameServer string, recursive bool) (Result, zdns.Status, error) {
-	s.VerboseLog(1, "****WIRE LOOKUP*** ", dns.TypeToString[dnsType], " ", name, " ", nameServer)
+func (s *Lookup) retryingLookup(q Question, nameServer string, recursive bool) (Result, zdns.Status, error) {
+	s.VerboseLog(1, "****WIRE LOOKUP*** ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
 
 	var origTimeout time.Duration
 	if s.Factory.Client != nil {
@@ -479,7 +470,7 @@ func (s *Lookup) retryingLookup(dnsType, dnsClass uint16, name, nameServer strin
 		origTimeout = s.Factory.TCPClient.Timeout
 	}
 	for i := 0; i < s.Factory.Retries; i++ {
-		result, status, err := s.doLookup(dnsType, dnsClass, name, nameServer, recursive)
+		result, status, err := s.doLookup(q, nameServer, recursive)
 		if (status != zdns.STATUS_TIMEOUT && status != zdns.STATUS_TEMPORARY) || i+1 == s.Factory.Retries {
 			if s.Factory.Client != nil {
 				s.Factory.Client.Timeout = origTimeout
@@ -499,17 +490,17 @@ func (s *Lookup) retryingLookup(dnsType, dnsClass uint16, name, nameServer strin
 	panic("loop must return")
 }
 
-func (s *Lookup) cachedRetryingLookup(dnsType, dnsClass uint16, name, nameServer, layer string, depth int) (Result, IsCached, zdns.Status, error) {
+func (s *Lookup) cachedRetryingLookup(q Question, nameServer, layer string, depth int) (Result, IsCached, zdns.Status, error) {
 	var isCached IsCached
 	isCached = false
-	s.VerboseLog(depth+1, "Cached retrying lookup. Name: ", name, ", Layer: ", layer, ", Nameserver: ", nameServer)
+	s.VerboseLog(depth+1, "Cached retrying lookup. Name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
 	if s.IterativeStop.Before(time.Now()) {
-		s.VerboseLog(depth+2, "ITERATIVE_TIMEOUT ", name, ", Layer: ", layer, ", Nameserver: ", nameServer)
+		s.VerboseLog(depth+2, "ITERATIVE_TIMEOUT ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
 		var r Result
 		return r, isCached, zdns.STATUS_ITER_TIMEOUT, nil
 	}
 	// First, we check the answer
-	cachedResult, ok := s.Factory.Factory.GetCachedResult(name, dnsType, false, depth+1, s.Factory.ThreadID)
+	cachedResult, ok := s.Factory.Factory.GetCachedResult(q, false, depth+1, s.Factory.ThreadID)
 	if ok {
 		isCached = true
 		return cachedResult, isCached, zdns.STATUS_NOERROR, nil
@@ -526,7 +517,7 @@ func (s *Lookup) cachedRetryingLookup(dnsType, dnsClass uint16, name, nameServer
 			return r, isCached, zdns.STATUS_ERROR, err
 		} else if blacklisted {
 			s.Factory.Factory.BlMu.Unlock()
-			s.VerboseLog(depth+2, "Hit blacklisted nameserver ", name, ", Layer: ", layer, ", Nameserver: ", nameServer)
+			s.VerboseLog(depth+2, "Hit blacklisted nameserver ", q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 			var r Result
 			return r, isCached, zdns.STATUS_BLACKLIST, nil
 		}
@@ -534,7 +525,7 @@ func (s *Lookup) cachedRetryingLookup(dnsType, dnsClass uint16, name, nameServer
 	}
 
 	// Now, we check the authoritative:
-	name = strings.ToLower(name)
+	name := strings.ToLower(q.Name)
 	layer = strings.ToLower(layer)
 	authName, err := nextAuthority(name, layer)
 	if err != nil {
@@ -549,7 +540,11 @@ func (s *Lookup) cachedRetryingLookup(dnsType, dnsClass uint16, name, nameServer
 			return r, isCached, zdns.STATUS_AUTHFAIL, nil
 		}
 		s.VerboseLog(depth+2, "Cache auth check for ", authName)
-		cachedResult, ok = s.Factory.Factory.GetCachedResult(authName, dns.TypeNS, true, depth+2, s.Factory.ThreadID)
+		var qAuth Question
+		qAuth.Name = authName
+		qAuth.Type = dns.TypeNS
+		qAuth.Class = dns.ClassINET
+		cachedResult, ok = s.Factory.Factory.GetCachedResult(qAuth, true, depth+2, s.Factory.ThreadID)
 		if ok {
 			isCached = true
 			return cachedResult, isCached, zdns.STATUS_NOERROR, nil
@@ -557,8 +552,8 @@ func (s *Lookup) cachedRetryingLookup(dnsType, dnsClass uint16, name, nameServer
 	}
 
 	// Alright, we're not sure what to do, go to the wire.
-	s.VerboseLog(depth+2, "Wire lookup for name: ", name, " (", dnsType, ") at nameserver: ", nameServer)
-	result, status, err := s.retryingLookup(dnsType, dnsClass, name, nameServer, false)
+	s.VerboseLog(depth+2, "Wire lookup for name: ", q.Name, " (", q.Type, ") at nameserver: ", nameServer)
+	result, status, err := s.retryingLookup(q, nameServer, false)
 
 	s.cacheUpdate(layer, result, depth+2)
 	return result, isCached, status, err
@@ -651,7 +646,11 @@ func (s *Lookup) extractAuthority(authority interface{}, layer string, depth int
 	res, status := s.checkGlue(server, depth, result)
 	if status != zdns.STATUS_NOERROR {
 		// Fall through to normal query
-		res, trace, status, _ = s.iterativeLookup(dns.TypeA, dns.ClassINET, server, s.NameServer, depth+1, ".", trace)
+		var q Question
+		q.Name = server
+		q.Type = dns.TypeA
+		q.Class = dns.ClassINET
+		res, trace, status, _ = s.iterativeLookup(q, s.NameServer, depth+1, ".", trace)
 	}
 	if status == zdns.STATUS_ITER_TIMEOUT {
 		return "", status, "", trace
@@ -713,8 +712,7 @@ func handleStatus(status *zdns.Status, err error) (*zdns.Status, error) {
 	}
 }
 
-func (s *Lookup) iterateOnAuthorities(dnsType, dnsClass uint16, name string,
-	depth int, result Result, layer string, trace []interface{}) (Result, []interface{}, zdns.Status, error) {
+func (s *Lookup) iterateOnAuthorities(q Question, depth int, result Result, layer string, trace []interface{}) (Result, []interface{}, zdns.Status, error) {
 	//
 	if len(result.Authorities) == 0 {
 		var r Result
@@ -749,7 +747,7 @@ func (s *Lookup) iterateOnAuthorities(dnsType, dnsClass uint16, name string,
 				}
 			}
 		}
-		r, trace, status, err := s.iterativeLookup(dnsType, dnsClass, name, ns, depth+1, layer, trace)
+		r, trace, status, err := s.iterativeLookup(q, ns, depth+1, layer, trace)
 		if isStatusAnswer(status) {
 			s.VerboseLog((depth + 1), "--> Auth Resolution success: ", status)
 			return r, trace, status, err
@@ -758,32 +756,31 @@ func (s *Lookup) iterateOnAuthorities(dnsType, dnsClass uint16, name string,
 			continue
 		} else {
 			// We don't allow the continue fall through in order to report the last auth falure code, not STATUS_EROR
-			s.VerboseLog((depth + 2), "--> Iterative resolution of ", name, " at ", ns, " Failed. Last auth. Terminating: ", status)
+			s.VerboseLog((depth + 2), "--> Iterative resolution of ", q.Name, " at ", ns, " Failed. Last auth. Terminating: ", status)
 			return r, trace, status, err
 		}
 	}
 	panic("should not be able to reach here")
 }
 
-func (s *Lookup) iterativeLookup(dnsType, dnsClass uint16, name, nameServer string,
+func (s *Lookup) iterativeLookup(q Question, nameServer string,
 	depth int, layer string, trace []interface{}) (Result, []interface{}, zdns.Status, error) {
 	//
 	if log.GetLevel() == log.DebugLevel {
-		//s.VerboseLog((depth), "iterative lookup for ", name, " (", dnsType, ") against ", nameServer, " (", debugReverseLookup(nameServer), ") layer ", layer)
-		s.VerboseLog((depth), "iterative lookup for ", name, " (", dnsType, ") against ", nameServer, " layer ", layer)
+		s.VerboseLog((depth), "iterative lookup for ", q.Name, " (", q.Type, ") against ", nameServer, " layer ", layer)
 	}
 	if depth > s.Factory.MaxDepth {
 		var r Result
 		s.VerboseLog((depth + 1), "-> Max recursion depth reached")
 		return r, trace, zdns.STATUS_ERROR, errors.New("Max recursion depth reached")
 	}
-	result, isCached, status, err := s.cachedRetryingLookup(dnsType, dnsClass, name, nameServer, layer, depth)
+	result, isCached, status, err := s.cachedRetryingLookup(q, nameServer, layer, depth)
 	if s.Factory.Trace && status == zdns.STATUS_NOERROR {
 		var t TraceStep
 		t.Result = result
-		t.DnsType = dnsType
-		t.DnsClass = dnsClass
-		t.Name = name
+		t.DnsType = q.Type
+		t.DnsClass = q.Class
+		t.Name = q.Name
 		t.NameServer = nameServer
 		t.Layer = layer
 		t.Depth = depth
@@ -811,7 +808,7 @@ func (s *Lookup) iterativeLookup(dnsType, dnsClass uint16, name, nameServer stri
 		return result, trace, status, err
 	} else if len(result.Authorities) != 0 {
 		s.VerboseLog((depth + 1), "-> Authority found, iterating")
-		return s.iterateOnAuthorities(dnsType, dnsClass, name, depth, result, layer, trace)
+		return s.iterateOnAuthorities(q, depth, result, layer, trace)
 	} else {
 		s.VerboseLog((depth + 1), "-> No Authority found, error")
 		return result, trace, zdns.STATUS_ERROR, errors.New("NOERROR record without any answers or authorities")
@@ -830,17 +827,21 @@ func (s *Lookup) DoMiekgLookup(name, nameServer string) (interface{}, []interfac
 	if nameServer == "" {
 		nameServer = s.NameServer
 	}
+	var q Question
+	q.Type = s.DNSType
+	q.Class = s.DNSClass
+	q.Name = name
 	if s.Factory.IterativeResolution {
-		s.VerboseLog(0, "MIEKG-IN: iterative lookup for ", name, " (", s.DNSType, ")")
+		s.VerboseLog(0, "MIEKG-IN: iterative lookup for ", q.Name, " (", q.Type, ")")
 		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
-		result, trace, status, err := s.iterativeLookup(s.DNSType, s.DNSClass, name, nameServer, 1, ".", make([]interface{}, 0))
-		s.VerboseLog(0, "MIEKG-OUT: iterative lookup for ", name, " (", s.DNSType, "): status: ", status, " , err: ", err)
+		result, trace, status, err := s.iterativeLookup(q, nameServer, 1, ".", make([]interface{}, 0))
+		s.VerboseLog(0, "MIEKG-OUT: iterative lookup for ", q.Name, " (", q.Type, "): status: ", status, " , err: ", err)
 		if s.Factory.Trace {
 			return result, trace, status, err
 		}
 		return result, trace, status, err
 	} else {
-		return s.tracedRetryingLookup(s.DNSType, s.DNSClass, name, nameServer, true)
+		return s.tracedRetryingLookup(q, nameServer, true)
 	}
 }
 
@@ -848,10 +849,15 @@ func (s *Lookup) DoMiekgLookupForClass(name string, dnsClass uint16, nameServer 
 	if nameServer == "" {
 		nameServer = s.NameServer
 	}
+	var q Question
+	q.Name = name
+	q.Class = dnsClass
+	q.Type = s.DNSType
+
 	if s.Factory.IterativeResolution {
 		s.VerboseLog(0, "MIEKG-IN: iterative lookup for ", name, " (", s.DNSType, ") in class ", dnsClass)
 		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
-		result, trace, status, err := s.iterativeLookup(s.DNSType, s.DNSClass, name, nameServer, 1, ".", make([]interface{}, 0))
+		result, trace, status, err := s.iterativeLookup(q, nameServer, 1, ".", make([]interface{}, 0))
 		s.VerboseLog(0, "MIEKG-OUT: iterative lookup for ", name, " (", s.DNSType, "): status: ", status, " , err: ", err)
 		if s.Factory.Trace {
 			return result, trace, status, err
@@ -859,7 +865,7 @@ func (s *Lookup) DoMiekgLookupForClass(name string, dnsClass uint16, nameServer 
 		return result, trace, status, err
 
 	} else {
-		return s.tracedRetryingLookup(s.DNSType, s.DNSClass, name, nameServer, true)
+		return s.tracedRetryingLookup(q, nameServer, true)
 	}
 }
 
@@ -870,21 +876,26 @@ func (s *Lookup) DoTypedMiekgLookup(name string, dnsType uint16, nameServer stri
 	if nameServer == "" {
 		nameServer = s.NameServer
 	}
+	var q Question
+	q.Name = name
+	q.Class = s.DNSClass
+	q.Type = dnsType
+
 	if s.Factory.IterativeResolution {
 		s.VerboseLog(0, "MIEKG-IN: iterative lookup for ", name, " (", dnsType, ")")
 		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
-		result, trace, status, err := s.iterativeLookup(dnsType, s.DNSClass, name, nameServer, 1, ".", make([]interface{}, 0))
+		result, trace, status, err := s.iterativeLookup(q, nameServer, 1, ".", make([]interface{}, 0))
 		s.VerboseLog(0, "MIEKG-OUT: iterative lookup for ", name, " (", dnsType, "): status: ", status, " , err: ", err)
 		if s.Factory.Trace {
 			return result, trace, status, err
 		}
 		return result, trace, status, err
 	} else {
-		return s.tracedRetryingLookup(dnsType, s.DNSClass, name, nameServer, true)
+		return s.tracedRetryingLookup(q, nameServer, true)
 	}
 }
 
-func (s *Lookup) DoTypedMiekgLookupInClass(name string, dnsType uint16, dnsClass uint16, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoTypedMiekgLookupInClass(q Question, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
 	if s.Factory == nil {
 		panic("factory not defined")
 	}
@@ -892,16 +903,16 @@ func (s *Lookup) DoTypedMiekgLookupInClass(name string, dnsType uint16, dnsClass
 		nameServer = s.NameServer
 	}
 	if s.Factory.IterativeResolution {
-		s.VerboseLog(0, "MIEKG-IN: iterative lookup for ", name, " (", dnsType, ") in class ", dnsClass)
+		s.VerboseLog(0, "MIEKG-IN: iterative lookup for ", q.Name, " (", q.Type, ") in class ", q.Class)
 		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
-		result, trace, status, err := s.iterativeLookup(dnsType, dnsClass, name, nameServer, 1, ".", make([]interface{}, 0))
-		s.VerboseLog(0, "MIEKG-OUT: iterative lookup for ", name, " (", dnsType, "): status: ", status, " , err: ", err)
+		result, trace, status, err := s.iterativeLookup(q, nameServer, 1, ".", make([]interface{}, 0))
+		s.VerboseLog(0, "MIEKG-OUT: iterative lookup for ", q.Name, " (", q.Type, "): status: ", status, " , err: ", err)
 		if s.Factory.Trace {
 			return result, trace, status, err
 		}
 		return result, trace, status, err
 	} else {
-		return s.tracedRetryingLookup(dnsType, dnsClass, name, nameServer, true)
+		return s.tracedRetryingLookup(q, nameServer, true)
 	}
 }
 
