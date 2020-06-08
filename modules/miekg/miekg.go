@@ -157,7 +157,12 @@ func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLook
 	return r, nil
 }
 
-func (s *GlobalLookupFactory) AddCachedAnswer(a Answer, depth int, threadID int) {
+func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, depth int, threadID int) {
+	a, ok := answer.(Answer)
+	if !ok {
+		// we can't cache this entry because we have no idea what to name it
+		return
+	}
 	q := questionFromAnswer(a)
 
 	// only cache records that can help prevent future iteration: A(AAA), NS, (C|D)NAME.
@@ -184,7 +189,7 @@ func (s *GlobalLookupFactory) AddCachedAnswer(a Answer, depth int, threadID int)
 	}
 	// we have an existing record. Let's add this answer to it.
 	ta := TimedAnswer{
-		Answer:    a,
+		Answer:    answer,
 		ExpiresAt: expiresAt}
 	ca.Answers[a] = ta
 	s.IterativeCache.Add(q, ca)
@@ -416,9 +421,14 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, q Question, nameServer str
 	return res, zdns.STATUS_NOERROR, nil
 }
 
-func (s *Lookup) SafeAddCachedAnswer(a Answer, layer string, debugType string, depth int) {
-	if ok, _ := nameIsBeneath(a.Name, layer); !ok {
-		log.Info("detected poison ", debugType, ": ", a.Name, "(", a.Type, "): ", layer, ": ", a)
+func (s *Lookup) SafeAddCachedAnswer(a interface{}, layer string, debugType string, depth int) {
+	ans, ok := a.(Answer)
+	if !ok {
+		s.VerboseLog(depth+1, "unable to cast ", debugType, ": ", layer, ": ", a)
+		return
+	}
+	if ok, _ := nameIsBeneath(ans.Name, layer); !ok {
+		log.Info("detected poison ", debugType, ": ", ans.Name, "(", ans.Type, "): ", layer, ": ", a)
 		return
 	}
 	s.Factory.Factory.AddCachedAnswer(a, depth, s.Factory.ThreadID)
@@ -426,14 +436,14 @@ func (s *Lookup) SafeAddCachedAnswer(a Answer, layer string, debugType string, d
 
 func (s *Lookup) cacheUpdate(layer string, result Result, depth int) {
 	for _, a := range result.Additional {
-		s.SafeAddCachedAnswer(a.(Answer), layer, "additional", depth)
+		s.SafeAddCachedAnswer(a, layer, "additional", depth)
 	}
 	for _, a := range result.Authorities {
-		s.SafeAddCachedAnswer(a.(Answer), layer, "authority", depth)
+		s.SafeAddCachedAnswer(a, layer, "authority", depth)
 	}
 	if result.Flags.Authoritative == true {
 		for _, a := range result.Answers {
-			s.SafeAddCachedAnswer(a.(Answer), layer, "anwer", depth)
+			s.SafeAddCachedAnswer(a, layer, "anwer", depth)
 		}
 	}
 }
