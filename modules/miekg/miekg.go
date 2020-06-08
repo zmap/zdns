@@ -32,9 +32,9 @@ type DNSFlags struct {
 type Trace []TraceStep
 
 type Question struct {
-	Type    uint16
-	Class   uint16
-	Name       string
+	Type  uint16
+	Class uint16
+	Name  string
 }
 
 // result to be returned by scan of host
