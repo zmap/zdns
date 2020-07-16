@@ -57,7 +57,7 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-func (s *Lookup) LookupIPs(name, nameServer string) (CachedAddresses, []interface{}) {
+func (s *Lookup) LookupIPs(name, nameServer string) (CachedAddresses, zdns.Trace) {
 	s.Factory.Factory.CHmu.Lock()
 	// XXX this should be changed to a miekglookup
 	res, found := s.Factory.Factory.CacheHash.Get(name)
@@ -69,7 +69,7 @@ func (s *Lookup) LookupIPs(name, nameServer string) (CachedAddresses, []interfac
 	trace := make([]interface{}, 0)
 	// ipv4
 	if s.Factory.Factory.IPv4Lookup || !s.Factory.Factory.IPv6Lookup {
-		res, secondTrace, status, _ := s.DoTypedMiekgLookup(name, dns.TypeA, nameServer)
+		res, secondTrace, status, _ := s.DoMiekgLookup(miekg.Question{Name:name, Type:dns.TypeA}, nameServer)
 		trace = append(trace, secondTrace...)
 		if status == zdns.STATUS_NOERROR {
 			cast, _ := res.(miekg.Result)
@@ -84,7 +84,7 @@ func (s *Lookup) LookupIPs(name, nameServer string) (CachedAddresses, []interfac
 	}
 	// ipv6
 	if s.Factory.Factory.IPv6Lookup {
-		res, secondTrace, status, _ := s.DoTypedMiekgLookup(name, dns.TypeAAAA, nameServer)
+		res, secondTrace, status, _ := s.DoMiekgLookup(miekg.Question{Name:name, Type:dns.TypeAAAA}, nameServer)
 		trace = append(trace, secondTrace...)
 		if status == zdns.STATUS_NOERROR {
 			cast, _ := res.(miekg.Result)
@@ -103,9 +103,9 @@ func (s *Lookup) LookupIPs(name, nameServer string) (CachedAddresses, []interfac
 	return retv, trace
 }
 
-func (s *Lookup) DoLookup(name, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	retv := Result{Servers: []MXRecord{}}
-	res, trace, status, err := s.DoTypedMiekgLookup(name, dns.TypeMX, nameServer)
+	res, trace, status, err := s.DoMiekgLookup(miekg.Question{Name:name, Type: dns.TypeMX}, nameServer)
 	if status != zdns.STATUS_NOERROR {
 		return retv, trace, status, err
 	}

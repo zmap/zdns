@@ -12,9 +12,9 @@ import (
 type Answer struct {
 	Ttl     uint32 `json:"ttl" groups:"ttl,normal,long,trace"`
 	Type    string `json:"type,omitempty" groups:"short,normal,long,trace"`
-	rrType  uint16
+	RrType  uint16 `json:"-"`
 	Class   string `json:"class,omitempty" groups:"short,normal,long,trace"`
-	rrClass uint16
+	RrClass uint16 `json:"-"`
 	Name    string `json:"name,omitempty" groups:"short,normal,long,trace"`
 	Answer  string `json:"answer,omitempty" groups:"short,normal,long,trace"`
 }
@@ -377,9 +377,9 @@ func makeBaseAnswer(hdr *dns.RR_Header, answer string) Answer {
 	return Answer{
 		Ttl:     hdr.Ttl,
 		Type:    dns.Type(hdr.Rrtype).String(),
-		rrType:  hdr.Rrtype,
+		RrType:  hdr.Rrtype,
 		Class:   dns.Class(hdr.Class).String(),
-		rrClass: hdr.Class,
+		RrClass: hdr.Class,
 		Name:    strings.TrimSuffix(hdr.Name, "."),
 		Answer:  answer}
 }

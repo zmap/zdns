@@ -36,7 +36,7 @@ type Lookup struct {
 	miekg.Lookup
 }
 
-func (s *Lookup) DoLookup(name, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	if nameServer == "" {
 		nameServer = s.Factory.Factory.RandomNameServer()
 	}
@@ -59,7 +59,7 @@ func (s *Lookup) doLookupProtocol(name, nameServer string, dnsType uint16, candi
 		var miekgResult interface{}
 		var status zdns.Status
 		var err error
-		miekgResult, trace, status, err = s.DoTypedMiekgLookup(name, dnsType, nameServer)
+		miekgResult, trace, status, err = s.DoMiekgLookup(miekg.Question{Name: name, Type: dnsType}, nameServer)
 		if status != zdns.STATUS_NOERROR || err != nil {
 			return nil, trace, status, err
 		}
