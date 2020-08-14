@@ -5,7 +5,7 @@ ZDNS
 [![Go Report Card](https://goreportcard.com/badge/github.com/zmap/zdns)](https://goreportcard.com/report/github.com/zmap/zdns)
 
 ZDNS is a command-line utility that provides high-speed DNS lookups. ZDNS is
-written in Go and contains its own recrusive resolution code and a cache
+written in Go and contains its own recursive resolution code and a cache
 optimized for performing lookups of a diverse set of names. We use
 https://github.com/miekg/dns to construct and parse raw DNS packets.
 
