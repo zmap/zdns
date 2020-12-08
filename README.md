@@ -12,7 +12,7 @@ https://github.com/miekg/dns to construct and parse raw DNS packets.
 As an example, the following will perform MX lookups and a secondary A lookup
 for the IPs of MX servers for the domains in the Alexa Top Million:
 
-	cat top-1m.csv | zdns MX --ipv4-lookup --alexa
+	cat top-1m.csv | ./zdns MX --ipv4-lookup --alexa
 
 
 Install
@@ -21,7 +21,7 @@ Install
 ZDNS can be installed by checking out the repository and running `go build`.
 
 	git clone https://github.com/zmap/zdns.git
-	cd zdns
+	cd zdns/zdns
 	go build
 
 You _cannot_ just run `go get` because we use a forked version of miekg's DNS
@@ -51,7 +51,7 @@ similar to dig.
 
 For example, the command:
 
-	echo "censys.io" | zdns A
+	echo "censys.io" | ./zdns A
 
 returns:
 ```json
