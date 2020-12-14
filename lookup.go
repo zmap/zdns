@@ -95,42 +95,27 @@ func doLookup(g GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, o
 		if err != nil {
 			log.Fatal("Unable to build lookup instance", err)
 		}
-		if g.ZonefileInput() {
-			length := len(genericInput.(*dns.Token).RR.Header().Name)
-			if length == 0 {
-				continue
-			}
-			res.Name = genericInput.(*dns.Token).RR.Header().Name[0 : length-1]
-			res.Class = dns.Class(gc.Class).String()
-			switch typ := genericInput.(*dns.Token).RR.(type) {
-			case *dns.NS:
-				ns := strings.ToLower(typ.Ns)
-				res.Nameserver = ns[:len(ns)-1]
-			}
-			innerRes, status, err = l.DoZonefileLookup(genericInput.(*dns.Token))
+		line := genericInput.(string)
+		var changed bool
+		var lookupName string
+		rawName := ""
+		nameServer := ""
+		var rank int
+		if gc.AlexaFormat == true {
+			rawName, rank = parseAlexa(line)
+			res.AlexaRank = rank
+		} else if gc.NameServerMode {
+			nameServer = AddDefaultPortToDNSServerName(line)
 		} else {
-			line := genericInput.(string)
-			var changed bool
-			var lookupName string
-			rawName := ""
-			nameServer := ""
-			var rank int
-			if gc.AlexaFormat == true {
-				rawName, rank = parseAlexa(line)
-				res.AlexaRank = rank
-			} else if gc.NameServerMode {
-				nameServer = AddDefaultPortToDNSServerName(line)
-			} else {
-				rawName, nameServer = parseNormalInputLine(line)
-			}
-			lookupName, changed = makeName(rawName, gc.NamePrefix, gc.NameOverride)
-			if changed {
-				res.AlteredName = lookupName
-			}
-			res.Name = rawName
-			res.Class = dns.Class(gc.Class).String()
-			innerRes, trace, status, err = l.DoLookup(lookupName, nameServer)
+			rawName, nameServer = parseNormalInputLine(line)
 		}
+		lookupName, changed = makeName(rawName, gc.NamePrefix, gc.NameOverride)
+		if changed {
+			res.AlteredName = lookupName
+		}
+		res.Name = rawName
+		res.Class = dns.Class(gc.Class).String()
+		innerRes, trace, status, err = l.DoLookup(lookupName, nameServer)
 		res.Timestamp = time.Now().Format(gc.TimeFormat)
 		if status != STATUS_NO_OUTPUT {
 			res.Status = string(status)

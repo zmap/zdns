@@ -5,7 +5,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -19,23 +18,16 @@ func NewStreamInputHandler(r io.Reader) *StreamInputHandler {
 	}
 }
 
-func (h *StreamInputHandler) FeedChannel(in chan<- interface{}, wg *sync.WaitGroup, zonefileInput bool) error {
+func (h *StreamInputHandler) FeedChannel(in chan<- interface{}, wg *sync.WaitGroup) error {
 	defer close(in)
 	defer (*wg).Done()
 
-	if zonefileInput {
-		tokens := dns.ParseZone(h.reader, ".", "")
-		for t := range tokens {
-			in <- t
-		}
-	} else {
-		s := bufio.NewScanner(h.reader)
-		for s.Scan() {
-			in <- s.Text()
-		}
-		if err := s.Err(); err != nil {
-			log.Fatalf("unable to read input stream: %v", err)
-		}
+	s := bufio.NewScanner(h.reader)
+	for s.Scan() {
+		in <- s.Text()
+	}
+	if err := s.Err(); err != nil {
+		log.Fatalf("unable to read input stream: %v", err)
 	}
 	return nil
 }
