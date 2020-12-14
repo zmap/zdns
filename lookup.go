@@ -178,7 +178,7 @@ func DoLookups(g GlobalLookupFactory, c *GlobalConf) error {
 	}
 
 	// Use handlers to populate the input and output/results channel
-	go inHandler.FeedChannel(inChan, &routineWG, g.ZonefileInput())
+	go inHandler.FeedChannel(inChan, &routineWG)
 	go outHandler.WriteResults(outChan, &routineWG)
 	routineWG.Add(2)
 
