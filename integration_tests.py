@@ -35,6 +35,7 @@ class Tests(unittest.TestCase):
     maxDiff = None
 
     def run_zdns(self, command, name):
+        command = command + " --threads=10"
         c = u"echo '%s' | %s" % (name, command)
         o = subprocess.check_output(c, shell=True)
         return c, json.loads(o.rstrip())
@@ -45,6 +46,7 @@ class Tests(unittest.TestCase):
         with open(f) as fd:
             for name in names:
                 fd.writeline(name)
+        command = command + " --threads=10"
         c = u"cat '%s' | %s" % (f, command)
         o = subprocess.check_output(c, shell=True)
         os.rm(f)

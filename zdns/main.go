@@ -180,8 +180,7 @@ func main() {
 		}
 		log.Info("using local address: ", localaddr_string)
 		gc.LocalAddrSpecified = true
-	}
-	if *localif_string != "" {
+	} else if *localif_string != "" {
 		if gc.LocalAddrSpecified {
 			log.Fatal("Both --local-addr and --local-interface specified.")
 		} else {
@@ -198,6 +197,13 @@ func main() {
 				gc.LocalAddrSpecified = true
 			}
 			log.Info("using local interface: ", localif_string)
+		}
+	} else {
+		// Find local address for use in unbound UDP sockets
+		if conn, err := net.Dial("udp", "8.8.8.8:53"); err != nil {
+			log.Fatal("Unable to find default IP address: ", err)
+		} else {
+			gc.LocalAddrs = append(gc.LocalAddrs, conn.LocalAddr().(*net.UDPAddr).IP)
 		}
 	}
 	if *nanoSeconds {
