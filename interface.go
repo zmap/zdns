@@ -91,7 +91,7 @@ type GlobalLookupFactory interface {
 // handle domain input
 type InputHandler interface {
 	// FeedChannel takes a channel to write domains to, the WaitGroup managing them, and if it's a zonefile input
-	FeedChannel(in chan<- interface{}, wg *sync.WaitGroup, zonefileInput bool) error
+	FeedChannel(in chan<- interface{}, wg *sync.WaitGroup) error
 }
 
 // handle output results
