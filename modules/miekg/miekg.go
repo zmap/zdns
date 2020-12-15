@@ -134,7 +134,6 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	}
 	s.IterativeCache.Init(c.CacheSize, 4096)
 	s.DNSClass = dns.ClassINET
-
 	return nil
 }
 
@@ -255,6 +254,8 @@ type RoutineLookupFactory struct {
 	Trace               bool
 	DNSType             uint16
 	DNSClass            uint16
+	LocalAddr           net.IP
+	Conn                *dns.Conn
 	ThreadID            int
 }
 
@@ -265,40 +266,35 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 		s.Timeout = c.Timeout
 	}
 
-	var localIP net.IP
 	if s.Factory == nil {
 		panic("null factory")
 	}
-	if c.LocalAddrSpecified {
-		localIP = s.Factory.RandomLocalAddr()
-	} else {
-		localIP = nil
-	}
+	s.LocalAddr = s.Factory.RandomLocalAddr()
 
 	if !c.TCPOnly {
 		s.Client = new(dns.Client)
 		s.Client.Timeout = s.Timeout
-		if localIP != nil {
-			s.Client.Dialer = &net.Dialer{
-				Timeout:   s.Timeout,
-				LocalAddr: &net.UDPAddr{IP: localIP},
-			}
-			s.Client.LocalAddr = localIP
+		s.Client.Dialer = &net.Dialer{
+			Timeout:   s.Timeout,
+			LocalAddr: &net.UDPAddr{IP: s.LocalAddr},
 		}
 	}
-
 	if !c.UDPOnly {
 		s.TCPClient = new(dns.Client)
 		s.TCPClient.Net = "tcp"
 		s.TCPClient.Timeout = s.Timeout
-		if localIP != nil {
-			s.TCPClient.Dialer = &net.Dialer{
-				Timeout:   s.Timeout,
-				LocalAddr: &net.TCPAddr{IP: localIP},
-			}
-			s.Client.LocalAddr = localIP
+		s.TCPClient.Dialer = &net.Dialer{
+			Timeout:   s.Timeout,
+			LocalAddr: &net.TCPAddr{IP: s.LocalAddr},
 		}
 	}
+	// create PacketConn for use throughout thread's life
+	conn, err := net.ListenPacket("udp", s.LocalAddr.String()+":0")
+	if err != nil {
+		log.Fatal("unable to create socket", err)
+	}
+	s.Conn = new(dns.Conn)
+	s.Conn.UDPConn = &conn
 
 	s.IterativeTimeout = c.Timeout
 	s.Retries = c.Retries
@@ -329,6 +325,8 @@ type Lookup struct {
 	Prefix        string
 	NameServer    string
 	IterativeStop time.Time
+
+	Conn *dns.Conn
 }
 
 func (s *Lookup) Initialize(nameServer string, dnsType uint16, dnsClass uint16, factory *RoutineLookupFactory) error {
@@ -336,15 +334,17 @@ func (s *Lookup) Initialize(nameServer string, dnsType uint16, dnsClass uint16, 
 	s.NameServer = nameServer
 	s.DNSType = dnsType
 	s.DNSClass = dnsClass
+	s.Conn = factory.Conn
+
 	return nil
 }
 
 func (s *Lookup) doLookup(q Question, nameServer string, recursive bool) (Result, zdns.Status, error) {
-	return DoLookupWorker(s.Factory.Client, s.Factory.TCPClient, q, nameServer, recursive)
+	return DoLookupWorker(s.Factory.Client, s.Factory.TCPClient, s.Conn, q, nameServer, recursive)
 }
 
 // Expose the inner logic so other tools can use it
-func DoLookupWorker(udp *dns.Client, tcp *dns.Client, q Question, nameServer string, recursive bool) (Result, zdns.Status, error) {
+func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question, nameServer string, recursive bool) (Result, zdns.Status, error) {
 	res := Result{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 	res.Resolver = nameServer
 
@@ -357,11 +357,14 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, q Question, nameServer str
 	var err error
 	if udp != nil {
 		res.Protocol = "udp"
-		r, _, err = udp.Exchange(m, nameServer)
+
+		dst, _ := net.ResolveUDPAddr("udp", nameServer)
+		(*conn).RemoteAddr = dst
+		r, _, err = udp.ExchangeWithConn(m, conn)
 		// if record comes back truncated, but we have a TCP connection, try again with that
 		if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
 			if tcp != nil {
-				return DoLookupWorker(nil, tcp, q, nameServer, recursive)
+				return DoLookupWorker(nil, tcp, conn, q, nameServer, recursive)
 			} else {
 				return res, zdns.STATUS_TRUNCATED, err
 			}
@@ -477,7 +480,7 @@ func (s *Lookup) retryingLookup(q Question, nameServer string, recursive bool) (
 	} else {
 		origTimeout = s.Factory.TCPClient.Timeout
 	}
-	for i := 0; i < s.Factory.Retries + 1; i++ {
+	for i := 0; i < s.Factory.Retries+1; i++ {
 		result, status, err := s.doLookup(q, nameServer, recursive)
 		if (status != zdns.STATUS_TIMEOUT && status != zdns.STATUS_TEMPORARY) || i+1 == s.Factory.Retries {
 			if s.Factory.Client != nil {
@@ -856,7 +859,7 @@ func (s *Lookup) DoMiekgLookup(q Question, nameServer string) (interface{}, zdns
 }
 
 func (s *Lookup) DoTxtLookup(name string, nameServer string) (string, zdns.Trace, zdns.Status, error) {
-	res, trace, status, err := s.DoMiekgLookup(Question{Name: name, Type:s.DNSType, Class:s.DNSClass}, nameServer)
+	res, trace, status, err := s.DoMiekgLookup(Question{Name: name, Type: s.DNSType, Class: s.DNSClass}, nameServer)
 	if status != zdns.STATUS_NOERROR {
 		return "", trace, status, err
 	}
@@ -873,5 +876,5 @@ func (s *Lookup) DoTxtLookup(name string, nameServer string) (string, zdns.Trace
 
 // allow miekg to be used as a ZDNS module
 func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
-	return s.DoMiekgLookup(Question{Name:name, Type: s.DNSType, Class: s.DNSClass}, nameServer)
+	return s.DoMiekgLookup(Question{Name: name, Type: s.DNSType, Class: s.DNSClass}, nameServer)
 }
