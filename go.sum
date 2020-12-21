@@ -30,6 +30,8 @@ github.com/zmap/dns v1.1.28-zmap-2 h1:J9YfDoPWEK9SqoE+ukTCXn8IYJ+NlqM+eE2k2aRk8H
 github.com/zmap/dns v1.1.28-zmap-2/go.mod h1:KNUDUusw/aVsxyTYZM1oqvCicbwhgbNgztCETuNZ7xM=
 github.com/zmap/dns v1.1.28-zmap-3 h1:PPkRBqfcqozGYAX2gl5qooTLpAHS5BP+i97VF/ZK7jM=
 github.com/zmap/dns v1.1.28-zmap-3/go.mod h1:KNUDUusw/aVsxyTYZM1oqvCicbwhgbNgztCETuNZ7xM=
+github.com/zmap/dns v1.1.35-zdns h1:7TuV2DYHcprAObquu3+eOIRfc93KeQa0qDC5LBV28kI=
+github.com/zmap/dns v1.1.35-zdns/go.mod h1:KNUDUusw/aVsxyTYZM1oqvCicbwhgbNgztCETuNZ7xM=
 github.com/zmap/go-iptree v0.0.0-20170831022036-1948b1097e25 h1:LRoXAcKX48QV4LV23W5ZtsG/MbJOgNUNvWiXwM0iLWw=
 github.com/zmap/go-iptree v0.0.0-20170831022036-1948b1097e25/go.mod h1:qOasALtPByO1Jk6LhgpNv6htPMK2QJfiGorUk57nO/U=
 github.com/zmap/miekg-dns v0.0.0-20200121181113-4f232ec664fc h1:CXJLoVIEd6SoiuGWv04LIOeQYZeIbUo0L7HGJurLrCQ=

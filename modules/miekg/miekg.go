@@ -3,7 +3,6 @@ package miekg
 import (
 	"errors"
 	"flag"
-	"fmt"
 	"net"
 	"strings"
 	"sync"
@@ -14,7 +13,6 @@ import (
 	"github.com/miekg/dns"
 	"github.com/zmap/go-iptree/blacklist"
 	"github.com/zmap/zdns"
-	"github.com/zmap/zdns/cachehash"
 )
 
 type DNSFlags struct {
@@ -56,22 +54,6 @@ type TraceStep struct {
 	Cached     IsCached `json:"cached" groups:"trace"`
 }
 
-type TimedAnswer struct {
-	Answer    interface{}
-	ExpiresAt time.Time
-}
-
-type CachedResult struct {
-	Answers map[interface{}]TimedAnswer
-}
-
-type IsCached bool
-
-// Helpers
-func makeVerbosePrefix(depth int, threadID int) string {
-	return fmt.Sprintf("THREADID %06d,DEPTH %02d", threadID, depth) + ":" + strings.Repeat("  ", 2*depth)
-}
-
 func (s *GlobalLookupFactory) VerboseGlobalLog(depth int, threadID int, args ...interface{}) {
 	log.Debug(makeVerbosePrefix(depth, threadID), args)
 }
@@ -80,30 +62,12 @@ func (s *Lookup) VerboseLog(depth int, args ...interface{}) {
 	log.Debug(makeVerbosePrefix(depth, s.Factory.ThreadID), args)
 }
 
-func dotName(name string) string {
-	return strings.Join([]string{name, "."}, "")
-}
-
-func TranslateMiekgErrorCode(err int) zdns.Status {
-	return zdns.Status(dns.RcodeToString[err])
-}
-
-func isStatusAnswer(s zdns.Status) bool {
-	if s == zdns.STATUS_NOERROR || s == zdns.STATUS_NXDOMAIN {
-		return true
-	}
-	return false
-}
-
-func questionFromAnswer(a Answer) Question {
-	return Question{Name: a.Name, Type: a.RrType, Class: a.RrClass}
-}
 
 // ZDNS Module
 
 type GlobalLookupFactory struct {
 	zdns.BaseGlobalLookupFactory
-	IterativeCache cachehash.ShardedCacheHash
+	IterativeCache Cache
 	DNSType        uint16
 	DNSClass       uint16
 	BlacklistPath  string
@@ -132,7 +96,7 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 	if err != nil {
 		return err
 	}
-	s.IterativeCache.Init(c.CacheSize, 4096)
+	s.IterativeCache.Init(c.CacheSize)
 	s.DNSClass = dns.ClassINET
 	return nil
 }
@@ -154,93 +118,6 @@ func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLook
 	return r, nil
 }
 
-func (s *GlobalLookupFactory) AddCachedAnswer(answer interface{}, depth int, threadID int) {
-	a, ok := answer.(Answer)
-	if !ok {
-		// we can't cache this entry because we have no idea what to name it
-		return
-	}
-	q := questionFromAnswer(a)
-
-	// only cache records that can help prevent future iteration: A(AAA), NS, (C|D)NAME.
-	// This will prevent some entries that will never help future iteration (e.g., PTR)
-	// from causing unnecessary cache evictions.
-	// TODO: this is overly broad right now and will unnecessarily cache some leaf A/AAAA records. However,
-	// it's a lot of work to understand _why_ we're doing a specific lookup and this will still help
-	// in other cases, e.g., PTR lookups
-	if !(q.Type == dns.TypeA || q.Type == dns.TypeAAAA || q.Type == dns.TypeNS || q.Type == dns.TypeDNAME || q.Type == dns.TypeCNAME) {
-		return
-	}
-	expiresAt := time.Now().Add(time.Duration(a.Ttl) * time.Second)
-	s.IterativeCache.Lock(q)
-	// don't bother to move this to the top of the linked list. we're going
-	// to add this record back in momentarily and that will take care of this
-	i, ok := s.IterativeCache.GetNoMove(q)
-	ca, ok := i.(CachedResult)
-	if !ok && i != nil {
-		panic("unable to cast cached result")
-	}
-	if !ok {
-		ca = CachedResult{}
-		ca.Answers = make(map[interface{}]TimedAnswer)
-	}
-	// we have an existing record. Let's add this answer to it.
-	ta := TimedAnswer{
-		Answer:    answer,
-		ExpiresAt: expiresAt}
-	ca.Answers[a] = ta
-	s.IterativeCache.Add(q, ca)
-	s.VerboseGlobalLog(depth+1, threadID, "Add cached answer ", q, " ", ca)
-	s.IterativeCache.Unlock(q)
-}
-
-func (s *GlobalLookupFactory) GetCachedResult(q Question, isAuthCheck bool, depth int, threadID int) (Result, bool) {
-	s.VerboseGlobalLog(depth+1, threadID, "Cache request for: ", q.Name, " (", q.Type, ")")
-	var retv Result
-	s.IterativeCache.Lock(q)
-	unres, ok := s.IterativeCache.Get(q)
-	if !ok { // nothing found
-		s.VerboseGlobalLog(depth+2, threadID, "-> no entry found in cache")
-		s.IterativeCache.Unlock(q)
-		return retv, false
-	}
-	retv.Authorities = make([]interface{}, 0)
-	retv.Answers = make([]interface{}, 0)
-	retv.Additional = make([]interface{}, 0)
-	cachedRes, ok := unres.(CachedResult)
-	if !ok {
-		panic("bad cache entry")
-	}
-	// great we have a result. let's go through the entries and build
-	// and build a result. In the process, throw away anything that's expired
-	now := time.Now()
-	for k, cachedAnswer := range cachedRes.Answers {
-		if cachedAnswer.ExpiresAt.Before(now) {
-			// if we have a write lock, we can perform the necessary actions
-			// and then write this back to the cache. However, if we don't,
-			// we need to start this process over with a write lock
-			s.VerboseGlobalLog(depth+2, threadID, "Expiring cache entry ", k)
-			delete(cachedRes.Answers, k)
-		} else {
-			// this result is valid. append it to the Result we're going to hand to the user
-			if isAuthCheck {
-				retv.Authorities = append(retv.Authorities, cachedAnswer.Answer)
-			} else {
-				retv.Answers = append(retv.Answers, cachedAnswer.Answer)
-			}
-		}
-	}
-	s.IterativeCache.Unlock(q)
-	// Don't return an empty response.
-	if len(retv.Answers) == 0 && len(retv.Authorities) == 0 && len(retv.Additional) == 0 {
-		s.VerboseGlobalLog(depth+2, threadID, "-> no entry found in cache, after expiration")
-		var emptyRetv Result
-		return emptyRetv, false
-	}
-
-	s.VerboseGlobalLog(depth+2, threadID, "Cache hit: ", retv)
-	return retv, true
-}
 
 type RoutineLookupFactory struct {
 	Factory             *GlobalLookupFactory
@@ -422,33 +299,6 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question
 	return res, zdns.STATUS_NOERROR, nil
 }
 
-func (s *Lookup) SafeAddCachedAnswer(a interface{}, layer string, debugType string, depth int) {
-	ans, ok := a.(Answer)
-	if !ok {
-		s.VerboseLog(depth+1, "unable to cast ", debugType, ": ", layer, ": ", a)
-		return
-	}
-	if ok, _ := nameIsBeneath(ans.Name, layer); !ok {
-		log.Info("detected poison ", debugType, ": ", ans.Name, "(", ans.Type, "): ", layer, ": ", a)
-		return
-	}
-	s.Factory.Factory.AddCachedAnswer(a, depth, s.Factory.ThreadID)
-}
-
-func (s *Lookup) cacheUpdate(layer string, result Result, depth int) {
-	for _, a := range result.Additional {
-		s.SafeAddCachedAnswer(a, layer, "additional", depth)
-	}
-	for _, a := range result.Authorities {
-		s.SafeAddCachedAnswer(a, layer, "authority", depth)
-	}
-	if result.Flags.Authoritative == true {
-		for _, a := range result.Answers {
-			s.SafeAddCachedAnswer(a, layer, "anwer", depth)
-		}
-	}
-}
-
 func (s *Lookup) tracedRetryingLookup(q Question, nameServer string, recursive bool) (Result, zdns.Trace, zdns.Status, error) {
 
 	res, status, err := s.retryingLookup(q, nameServer, recursive)
@@ -511,7 +361,7 @@ func (s *Lookup) cachedRetryingLookup(q Question, nameServer, layer string, dept
 		return r, isCached, zdns.STATUS_ITER_TIMEOUT, nil
 	}
 	// First, we check the answer
-	cachedResult, ok := s.Factory.Factory.GetCachedResult(q, false, depth+1, s.Factory.ThreadID)
+	cachedResult, ok := s.Factory.Factory.IterativeCache.GetCachedResult(q, false, depth+1, s.Factory.ThreadID)
 	if ok {
 		isCached = true
 		return cachedResult, isCached, zdns.STATUS_NOERROR, nil
@@ -555,7 +405,7 @@ func (s *Lookup) cachedRetryingLookup(q Question, nameServer, layer string, dept
 		qAuth.Name = authName
 		qAuth.Type = dns.TypeNS
 		qAuth.Class = dns.ClassINET
-		cachedResult, ok = s.Factory.Factory.GetCachedResult(qAuth, true, depth+2, s.Factory.ThreadID)
+		cachedResult, ok = s.Factory.Factory.IterativeCache.GetCachedResult(qAuth, true, depth+2, s.Factory.ThreadID)
 		if ok {
 			isCached = true
 			return cachedResult, isCached, zdns.STATUS_NOERROR, nil
@@ -566,73 +416,8 @@ func (s *Lookup) cachedRetryingLookup(q Question, nameServer, layer string, dept
 	s.VerboseLog(depth+2, "Wire lookup for name: ", q.Name, " (", q.Type, ") at nameserver: ", nameServer)
 	result, status, err := s.retryingLookup(q, nameServer, false)
 
-	s.cacheUpdate(layer, result, depth+2)
+	s.Factory.Factory.IterativeCache.CacheUpdate(layer, result, depth+2, s.Factory.ThreadID)
 	return result, isCached, status, err
-}
-
-func nameIsBeneath(name, layer string) (bool, string) {
-	name = strings.ToLower(name)
-	layer = strings.ToLower(layer)
-	name = strings.TrimSuffix(name, ".")
-	if layer == "." {
-		return true, name
-	}
-
-	if strings.HasSuffix(name, "."+layer) || name == layer {
-		return true, name
-	}
-	return false, ""
-}
-
-func nextAuthority(name, layer string) (string, error) {
-	// We are our own authority for PTRs
-	// (This is dealt with elsewhere)
-	if strings.HasSuffix(name, "in-addr.arpa") && layer == "." {
-		return "in-addr.arpa", nil
-	}
-
-	idx := strings.LastIndex(name, ".")
-	if idx < 0 || (idx+1) >= len(name) {
-		return name, nil
-	}
-	if layer == "." {
-		return name[idx+1:], nil
-	}
-
-	if !strings.HasSuffix(name, layer) {
-		return "", errors.New("Server did not provide appropriate resolvers to continue recursion")
-	}
-
-	// Limit the search space to the prefix of the string that isnt layer
-	idx = strings.LastIndex(name, layer) - 1
-	if idx < 0 || (idx+1) >= len(name) {
-		// Out of bounds. We are our own authority
-		return name, nil
-	}
-	// Find the next step in the layer
-	idx = strings.LastIndex(name[0:idx], ".")
-	next := name[idx+1:]
-	return next, nil
-}
-
-func (s *Lookup) checkGlue(server string, depth int, result Result) (Result, zdns.Status) {
-	for _, additional := range result.Additional {
-		ans, ok := additional.(Answer)
-		if !ok {
-			continue
-		}
-		if ans.Type == "A" && strings.TrimSuffix(ans.Name, ".") == server {
-			var retv Result
-			retv.Authorities = make([]interface{}, 0)
-			retv.Answers = make([]interface{}, 0)
-			retv.Additional = make([]interface{}, 0)
-			retv.Answers = append(retv.Answers, ans)
-			s.VerboseLog(depth+1, "Glue hit for Authority: ", server, ". ", ans)
-			return retv, zdns.STATUS_NOERROR
-		}
-	}
-	var r Result
-	return r, zdns.STATUS_ERROR
 }
 
 func (s *Lookup) extractAuthority(authority interface{}, layer string, depth int, result Result, trace []interface{}) (string, zdns.Status, string, []interface{}) {
@@ -654,7 +439,7 @@ func (s *Lookup) extractAuthority(authority interface{}, layer string, depth int
 	// Short circuit a lookup from the glue
 	// Normally this would be handled by caching, but we want to support following glue
 	// that would normally be cache poison. Because it's "ok" and quite common
-	res, status := s.checkGlue(server, depth, result)
+	res, status := checkGlue(server, depth, result)
 	if status != zdns.STATUS_NOERROR {
 		// Fall through to normal query
 		var q Question
