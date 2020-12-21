@@ -164,12 +164,12 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 		}
 	}
 	// create PacketConn for use throughout thread's life
-	conn, err := net.ListenPacket("udp", s.LocalAddr.String()+":0")
+	conn, err := net.ListenUDP("udp", &net.UDPAddr{s.LocalAddr, 0, ""})
 	if err != nil {
 		log.Fatal("unable to create socket", err)
 	}
 	s.Conn = new(dns.Conn)
-	s.Conn.UDPConn = &conn
+	s.Conn.Conn = conn
 
 	s.IterativeTimeout = c.Timeout
 	s.Retries = c.Retries
@@ -234,8 +234,7 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question
 		res.Protocol = "udp"
 
 		dst, _ := net.ResolveUDPAddr("udp", nameServer)
-		(*conn).RemoteAddr = dst
-		r, _, err = udp.ExchangeWithConn(m, conn)
+		r, _, err = udp.ExchangeWithConnTo(m, conn, dst)
 		// if record comes back truncated, but we have a TCP connection, try again with that
 		if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
 			if tcp != nil {
