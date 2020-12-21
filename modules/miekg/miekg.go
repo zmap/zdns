@@ -62,7 +62,6 @@ func (s *Lookup) VerboseLog(depth int, args ...interface{}) {
 	log.Debug(makeVerbosePrefix(depth, s.Factory.ThreadID), args)
 }
 
-
 // ZDNS Module
 
 type GlobalLookupFactory struct {
@@ -117,7 +116,6 @@ func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLook
 	r.Initialize(s.GlobalConf)
 	return r, nil
 }
-
 
 type RoutineLookupFactory struct {
 	Factory             *GlobalLookupFactory

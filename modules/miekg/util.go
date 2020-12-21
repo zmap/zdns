@@ -1,10 +1,9 @@
 package miekg
 
-
 import (
-	"strings"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
@@ -96,5 +95,3 @@ func checkGlue(server string, depth int, result Result) (Result, zdns.Status) {
 func makeVerbosePrefix(depth int, threadID int) string {
 	return fmt.Sprintf("THREADID %06d,DEPTH %02d", threadID, depth) + ":" + strings.Repeat("  ", 2*depth)
 }
-
-
