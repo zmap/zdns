@@ -50,6 +50,7 @@ func main() {
 	flags.StringVar(&gc.NamePrefix, "prefix", "", "name to be prepended to what's passed in (e.g., www.)")
 	flags.StringVar(&gc.NameOverride, "override-name", "", "name overrides all passed in names")
 	flags.BoolVar(&gc.AlexaFormat, "alexa", false, "is input file from Alexa Top Million download")
+	flags.BoolVar(&gc.MetadataFormat, "metadata", false, "is input file has the form 'name,METADATA', METADATA will be propagated to the output")
 	flags.BoolVar(&gc.IterativeResolution, "iterative", false, "Perform own iteration instead of relying on recursive resolver")
 	flags.StringVar(&gc.InputFilePath, "input-file", "-", "names to read")
 	flags.StringVar(&gc.OutputFilePath, "output-file", "-", "where should JSON output be saved")
@@ -223,6 +224,9 @@ func main() {
 	if gc.NameServerMode && gc.AlexaFormat {
 		log.Fatal("Alexa mode is incompatible with name server mode")
 	}
+        if gc.NameServerMode && gc.MetadataFormat {
+                log.Fatal("Metadata mode is incompatible with name server mode")
+        }
 	if gc.NameServerMode && gc.NameOverride == "" && gc.Module != "BINDVERSION" {
 		log.Fatal("Static Name must be defined with --override-name in --name-server-mode unless DNS module does not expect names (e.g., BINDVERSION).")
 	}
