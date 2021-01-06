@@ -25,6 +25,7 @@ type GlobalConf struct {
 	IterationTimeout      time.Duration
 	Retries               int
 	AlexaFormat           bool
+	MetadataFormat        bool
 	NameServerInputFormat bool
 	IterativeResolution   bool
 
@@ -78,6 +79,7 @@ type Result struct {
 	Nameserver  string        `json:"nameserver,omitempty" groups:"normal,long,trace"`
 	Class       string        `json:"class,omitempty" groups:"long,trace"`
 	AlexaRank   int           `json:"alexa_rank,omitempty" groups:"short,normal,long,trace"`
+	Metadata    string        `json:"metadata,omitempty" groups:"short,normal,long,trace"`
 	Status      string        `json:"status,omitempty" groups:"short,normal,long,trace"`
 	Error       string        `json:"error,omitempty" groups:"short,normal,long,trace"`
 	Timestamp   string        `json:"timestamp,omitempty" groups:"short,normal,long,trace"`
