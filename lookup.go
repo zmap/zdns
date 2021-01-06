@@ -58,6 +58,14 @@ func parseAlexa(line string) (string, int) {
 	return s[1], rank
 }
 
+func parseMetadataInputLine(line string) (string, string) {
+	s := strings.SplitN(line, ",", 2)
+	if len(s) == 1 {
+		return s[0], ""
+	}
+	return s[0], s[1]
+}
+
 func parseNormalInputLine(line string) (string, string) {
 	s := strings.SplitN(line, ",", 2)
 	if len(s) == 1 {
@@ -101,9 +109,13 @@ func doLookup(g GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, o
 		rawName := ""
 		nameServer := ""
 		var rank int
+		var entryMetadata string
 		if gc.AlexaFormat == true {
 			rawName, rank = parseAlexa(line)
 			res.AlexaRank = rank
+		} else if gc.MetadataFormat {
+			rawName, entryMetadata = parseMetadataInputLine(line)
+			res.Metadata = entryMetadata
 		} else if gc.NameServerMode {
 			nameServer = AddDefaultPortToDNSServerName(line)
 		} else {
