@@ -527,12 +527,12 @@ func (s *Lookup) iterateOnAuthorities(q Question, depth int, result Result, laye
 			// default case we continue
 			if new_status == nil && err == nil {
 				if i+1 == len(result.Authorities) {
-					s.VerboseLog((depth + 2), "--> Auth find Failed. Unknown error. Continue: ", ns_status)
-					continue
-				} else {
 					s.VerboseLog((depth + 2), "--> Auth find Failed. Unknown error. No more authorities to try, terminating: ", ns_status)
 					var r Result
 					return r, trace, ns_status, err
+				} else {
+					s.VerboseLog((depth + 2), "--> Auth find Failed. Unknown error. Continue: ", ns_status)
+					continue
 				}
 			} else {
 				// otherwise we hit a status we know
