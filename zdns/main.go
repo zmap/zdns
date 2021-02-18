@@ -224,9 +224,9 @@ func main() {
 	if gc.NameServerMode && gc.AlexaFormat {
 		log.Fatal("Alexa mode is incompatible with name server mode")
 	}
-        if gc.NameServerMode && gc.MetadataFormat {
-                log.Fatal("Metadata mode is incompatible with name server mode")
-        }
+	if gc.NameServerMode && gc.MetadataFormat {
+		log.Fatal("Metadata mode is incompatible with name server mode")
+	}
 	if gc.NameServerMode && gc.NameOverride == "" && gc.Module != "BINDVERSION" {
 		log.Fatal("Static Name must be defined with --override-name in --name-server-mode unless DNS module does not expect names (e.g., BINDVERSION).")
 	}
