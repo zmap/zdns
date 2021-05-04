@@ -79,10 +79,12 @@ func makeName(name, prefix, nameOverride string) (string, bool) {
 	if nameOverride != "" {
 		return nameOverride, true
 	}
+	trimmedName := strings.TrimSuffix(name, ".")
+	changed := name != trimmedName
 	if prefix == "" {
-		return name, false
+		return trimmedName, false || changed
 	} else {
-		return strings.Join([]string{prefix, name}, ""), true
+		return strings.Join([]string{prefix, trimmedName}, ""), true
 	}
 }
 
