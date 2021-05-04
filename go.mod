@@ -14,4 +14,4 @@ require (
 	golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa // indirect
 )
 
-replace github.com/miekg/dns => github.com/zmap/dns v1.1.35-zdns-1
+replace github.com/miekg/dns => github.com/zmap/dns v1.1.35-zdns-2
