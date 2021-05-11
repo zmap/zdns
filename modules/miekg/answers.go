@@ -195,6 +195,13 @@ type SRVAnswer struct {
 	Target   string `json:"target" groups:"short,normal,long,trace"`
 }
 
+type SVCBAnswer struct {
+	Answer
+	Priority  uint16                 `json:"priority" groups:"short,normal,long,trace"`
+	Target    string                 `json:"target" groups:"short,normal,long,trace"`
+	SVCParams map[string]interface{} `json:"svcparams,omitempty" groups:"short,normal,long,trace"`
+}
+
 type TKEYAnswer struct {
 	Answer
 	Algorithm  string `json:"algorithm" groups:"short,normal,long,trace"`
@@ -382,6 +389,47 @@ func makeBaseAnswer(hdr *dns.RR_Header, answer string) Answer {
 		RrClass: hdr.Class,
 		Name:    strings.TrimSuffix(hdr.Name, "."),
 		Answer:  answer}
+}
+
+func makeSVCBAnswer(cAns *dns.SVCB) SVCBAnswer {
+	var params map[string]interface{}
+	if len(cAns.Value) > 0 {
+		params = make(map[string]interface{})
+		for _, ikv := range cAns.Value {
+			// this could be reduced by adding, e.g., a new Data()
+			// method to the miekg/dns SVCBKeyValue interface
+			switch kv := ikv.(type) {
+			case *dns.SVCBMandatory:
+				keys := make([]string, len(kv.Code))
+				for i, e := range kv.Code {
+					keys[i] = e.String()
+				}
+				params[ikv.Key().String()] = keys
+			case *dns.SVCBAlpn:
+				params[ikv.Key().String()] = kv.Alpn
+			case *dns.SVCBNoDefaultAlpn:
+				params[ikv.Key().String()] = true
+			case *dns.SVCBPort:
+				params[ikv.Key().String()] = kv.Port
+			case *dns.SVCBIPv4Hint:
+				params[ikv.Key().String()] = kv.Hint
+			case *dns.SVCBECHConfig:
+				params[ikv.Key().String()] = kv.ECH
+			case *dns.SVCBIPv6Hint:
+				params[ikv.Key().String()] = kv.Hint
+			case *dns.SVCBLocal: //SVCBLocal is the default case for unknown keys
+				params[ikv.Key().String()] = kv.Data
+			default: //should not happen
+				params["unknown"] = true
+			}
+		}
+	}
+	return SVCBAnswer{
+		Answer:    makeBaseAnswer(&cAns.Hdr, ""),
+		Priority:  cAns.Priority,
+		Target:    cAns.Target,
+		SVCParams: params,
+	}
 }
 
 func ParseAnswer(ans dns.RR) interface{} {
@@ -722,6 +770,10 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Answer:     makeBaseAnswer(&cAns.Hdr, cAns.Fqdn),
 			Preference: cAns.Preference,
 		}
+	case *dns.HTTPS:
+		return makeSVCBAnswer(&cAns.SVCB)
+	case *dns.SVCB:
+		return makeSVCBAnswer(cAns)
 	default:
 		return struct {
 			Type     string `json:"type"`
