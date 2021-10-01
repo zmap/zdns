@@ -18,7 +18,10 @@ import (
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/modules/miekg"
+	"regexp"
 )
+
+const spfPrefixRegexp = "(?i)^v=spf1.*"
 
 // result to be returned by scan of host
 type Result struct {
@@ -46,14 +49,31 @@ func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdn
 //
 type RoutineLookupFactory struct {
 	miekg.RoutineLookupFactory
-	Factory *GlobalLookupFactory
+	Factory         *GlobalLookupFactory
+	spfPrefixRegexp *regexp.Regexp
+}
+
+func (s *Lookup) DoTxtLookup(name string, nameServer string) (string, zdns.Trace, zdns.Status, error) {
+	res, trace, status, err := s.DoMiekgLookup(miekg.Question{Name: name, Type: s.DNSType, Class: s.DNSClass}, nameServer)
+	if status != zdns.STATUS_NOERROR {
+		return "", trace, status, err
+	}
+
+	for _, a := range res.(miekg.Result).Answers {
+		ans, _ := a.(miekg.Answer)
+		if s.PrefixRegexp.MatchString(ans.Answer) {
+			return ans.Answer, trace, zdns.STATUS_NOERROR, err
+		}
+	}
+
+	return "", trace, zdns.STATUS_NO_RECORD, nil
 }
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 	a := Lookup{Factory: s}
 	nameServer := s.Factory.RandomNameServer()
 	a.Initialize(nameServer, dns.TypeTXT, dns.ClassINET, &s.RoutineLookupFactory)
-	a.Prefix = "v=spf"
+	a.PrefixRegexp = s.spfPrefixRegexp
 	return &a, nil
 }
 
@@ -67,6 +87,7 @@ func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLook
 	r := new(RoutineLookupFactory)
 	r.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
 	r.Factory = s
+	r.spfPrefixRegexp = regexp.MustCompile(spfPrefixRegexp)
 	r.ThreadID = threadID
 	r.Initialize(s.GlobalConf)
 	return r, nil

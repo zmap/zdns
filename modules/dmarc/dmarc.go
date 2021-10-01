@@ -18,7 +18,10 @@ import (
 	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/modules/miekg"
+	"regexp"
 )
+
+const dmarcPrefixRegexp = "v[\x09\x20]*=[\x09\x20]*DMARC1[\x09\x20]*;[\x09\x20]*"
 
 // result to be returned by scan of host
 type Result struct {
@@ -46,14 +49,15 @@ func (s *Lookup) DoLookup(name string, nameServer string) (interface{}, zdns.Tra
 //
 type RoutineLookupFactory struct {
 	miekg.RoutineLookupFactory
-	Factory *GlobalLookupFactory
+	Factory           *GlobalLookupFactory
+	dmarcPrefixRegexp *regexp.Regexp
 }
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 	a := Lookup{Factory: s}
 	nameServer := s.Factory.RandomNameServer()
 	a.Initialize(nameServer, dns.TypeTXT, dns.ClassINET, &s.RoutineLookupFactory)
-	a.Prefix = "v=DMARC"
+	a.PrefixRegexp = s.dmarcPrefixRegexp
 	return &a, nil
 }
 
@@ -66,6 +70,7 @@ type GlobalLookupFactory struct {
 func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
 	r.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
+	r.dmarcPrefixRegexp = regexp.MustCompile(dmarcPrefixRegexp)
 	r.Initialize(s.GlobalConf)
 	r.Factory = s
 	r.ThreadID = threadID

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"net"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -197,7 +198,7 @@ type Lookup struct {
 	Factory       *RoutineLookupFactory
 	DNSType       uint16
 	DNSClass      uint16
-	Prefix        string
+	PrefixRegexp  *regexp.Regexp
 	NameServer    string
 	IterativeStop time.Time
 
@@ -654,7 +655,7 @@ func (s *Lookup) DoTxtLookup(name string, nameServer string) (string, zdns.Trace
 	if parsedResult, ok := res.(Result); ok {
 		for _, a := range parsedResult.Answers {
 			ans, _ := a.(Answer)
-			if strings.HasPrefix(ans.Answer, s.Prefix) {
+			if s.PrefixRegexp.MatchString(ans.Answer) {
 				return ans.Answer, trace, zdns.STATUS_NOERROR, err
 			}
 		}
