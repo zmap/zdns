@@ -16,6 +16,7 @@ package zdns
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"strconv"
 	"strings"
@@ -34,17 +35,21 @@ type routineMetadata struct {
 }
 
 func GetDNSServers(path string) ([]string, error) {
-	c, err := dns.ClientConfigFromFile(path)
-	if err != nil {
-		return []string{}, err
-	}
 	var servers []string
-	for _, s := range c.Servers {
-		if s[0:1] != "[" && strings.Contains(s, ":") {
-			s = "[" + s + "]"
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		servers = append(servers, "8.8.8.8:53", "8.8.4.4:53")
+	} else {
+		c, err := dns.ClientConfigFromFile(path)
+		if err != nil {
+			return []string{}, err
 		}
-		full := strings.Join([]string{s, c.Port}, ":")
-		servers = append(servers, full)
+		for _, s := range c.Servers {
+			if s[0:1] != "[" && strings.Contains(s, ":") {
+				s = "[" + s + "]"
+			}
+			full := strings.Join([]string{s, c.Port}, ":")
+			servers = append(servers, full)
+		}
 	}
 	return servers, nil
 }
@@ -81,7 +86,7 @@ func makeName(name, prefix, nameOverride string) (string, bool) {
 	}
 	trimmedName := strings.TrimSuffix(name, ".")
 	if prefix == "" {
-		return trimmedName,  name != trimmedName
+		return trimmedName, name != trimmedName
 	} else {
 		return strings.Join([]string{prefix, trimmedName}, ""), true
 	}
