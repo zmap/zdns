@@ -42,6 +42,7 @@ import (
 func main() {
 
 	var gc zdns.GlobalConf
+	default_resolvers := []string{"8.8.8.8:53", "8.8.4.4:53"}
 
 	// global flags relevant to every lookup module
 	flags := flag.NewFlagSet("flags", flag.ExitOnError)
@@ -140,7 +141,7 @@ func main() {
 		} else {
 			ns, err := zdns.GetDNSServers(*config_file)
 			if err != nil {
-				log.Fatal("Unable to fetch correct name servers:", err.Error())
+				ns = default_resolvers
 			}
 			gc.NameServers = ns
 		}
