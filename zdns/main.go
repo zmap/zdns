@@ -39,10 +39,11 @@ import (
 	"github.com/zmap/zdns/iohandlers"
 )
 
+const defaultResolvers := []string{"8.8.8.8:53", "8.8.4.4:53", "1.1.1.1:53", "1.0.0.1:53"}
+
 func main() {
 
 	var gc zdns.GlobalConf
-	default_resolvers := []string{"8.8.8.8:53", "8.8.4.4:53"}
 
 	// global flags relevant to every lookup module
 	flags := flag.NewFlagSet("flags", flag.ExitOnError)
@@ -141,12 +142,13 @@ func main() {
 		} else {
 			ns, err := zdns.GetDNSServers(*config_file)
 			if err != nil {
-				ns = default_resolvers
+				ns = defaultResolvers
+				log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(defaultResolvers, ", "))
 			}
 			gc.NameServers = ns
 		}
 		gc.NameServersSpecified = false
-		log.Info("no name servers specified. will use: ", strings.Join(gc.NameServers, ", "))
+		log.Info("No name servers specified. will use: ", strings.Join(gc.NameServers, ", "))
 	} else {
 		if gc.NameServerMode {
 			log.Fatal("name servers cannot be specified on command line in --name-server-mode")
