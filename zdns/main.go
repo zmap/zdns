@@ -76,9 +76,7 @@ func main() {
 	class_string := flags.String("class", "INET", "DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY. Default: INET.")
 	nanoSeconds := flags.Bool("nanoseconds", false, "Use nanosecond resolution timestamps")
 	// allow module to initialize and add its own flags before we parse
-
 	if len(os.Args) < 2 {
-		log.Info(len(os.Args))
 		log.Fatal("No lookup module specified. Valid modules: ", zdns.ValidlookupsString(), ".")
 	}
 	gc.Module = strings.ToUpper(os.Args[1])
