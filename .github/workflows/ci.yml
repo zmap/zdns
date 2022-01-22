@@ -1,0 +1,26 @@
+name: CI
+on: [ push, pull_request ]
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.13'
+      - name: Build
+        run: |
+          go version
+          go build ./...
+          cd zdns
+          go build
+      - name: Unit Tests
+        run: go test -v ./...
+      - name: Integration Tests
+        run: |
+          sudo rm /etc/resolv.conf
+          sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+          python --version
+          ./integration_tests.py

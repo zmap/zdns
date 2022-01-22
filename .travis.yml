@@ -1,8 +1,0 @@
-language: go
-go:
-- "1.13.4"
-script:
-- go build ./...
-- go test -v ./...
-- cd ./zdns && go build && cd ..
-- "./integration_tests.py"
