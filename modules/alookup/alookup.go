@@ -137,12 +137,12 @@ func (s *Lookup) DoTargetedLookup(name, nameServer string) (interface{}, []inter
 		copy(res.IPv6Addresses, ipv6)
 	}
 
-	ipv4Trace = append(ipv4Trace, ipv6Trace...)
+	combinedTrace := append(ipv4Trace, ipv6Trace...)
 
 	if len(res.IPv4Addresses) == 0 && len(res.IPv6Addresses) == 0 {
-		return nil, ipv4Trace, zdns.STATUS_NO_ANSWER, nil
+		return nil, combinedTrace, zdns.STATUS_NO_ANSWER, nil
 	}
-	return res, ipv4Trace, zdns.STATUS_NOERROR, nil
+	return res, combinedTrace, zdns.STATUS_NOERROR, nil
 }
 
 // Per GoRoutine Factory ======================================================
