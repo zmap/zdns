@@ -39,8 +39,6 @@ import (
 	"github.com/zmap/zdns/iohandlers"
 )
 
-const defaultResolvers := []string{"8.8.8.8:53", "8.8.4.4:53", "1.1.1.1:53", "1.0.0.1:53"}
-
 func main() {
 
 	var gc zdns.GlobalConf
@@ -142,8 +140,8 @@ func main() {
 		} else {
 			ns, err := zdns.GetDNSServers(*config_file)
 			if err != nil {
-				ns = defaultResolvers
-				log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(defaultResolvers, ", "))
+				ns = getDefaultResolvers()
+				log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(ns, ", "))
 			}
 			gc.NameServers = ns
 		}
@@ -277,4 +275,9 @@ func main() {
 	if err := factory.Finalize(); err != nil {
 		log.Fatal("Factory was unable to finalize:", err.Error())
 	}
+}
+
+// getDefaultResolvers returns a slice of default DNS resolvers to be used when no system resolvers could be discovered.
+func getDefaultResolvers() []string {
+	return []string{"8.8.8.8:53", "8.8.4.4:53", "1.1.1.1:53", "1.0.0.1:53"}
 }
