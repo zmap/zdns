@@ -22,7 +22,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -46,9 +45,11 @@ import (
 
 // one Lookup per IP/name/connection ==========================================
 //
+
+type Trace []interface{}
+
 type Lookup interface {
-	DoLookup(name, nameServer string) (interface{}, []interface{}, Status, error)
-	DoZonefileLookup(record *dns.Token) (interface{}, Status, error)
+	DoLookup(name, nameServer string) (interface{}, Trace, Status, error)
 }
 
 type BaseLookup struct {
@@ -56,11 +57,6 @@ type BaseLookup struct {
 
 func (base *BaseLookup) DoLookup(name string, class uint16) (interface{}, Status, error) {
 	log.Fatal("Unimplemented DoLookup")
-	return nil, STATUS_ERROR, nil
-}
-
-func (base *BaseLookup) DoZonefileLookup(record *dns.Token) (interface{}, Status, error) {
-	log.Fatal("Unimplemented DoZonefileLookup")
 	return nil, STATUS_ERROR, nil
 }
 
@@ -95,7 +91,7 @@ type GlobalLookupFactory interface {
 // handle domain input
 type InputHandler interface {
 	// FeedChannel takes a channel to write domains to, the WaitGroup managing them, and if it's a zonefile input
-	FeedChannel(in chan<- interface{}, wg *sync.WaitGroup, zonefileInput bool) error
+	FeedChannel(in chan<- interface{}, wg *sync.WaitGroup) error
 }
 
 // handle output results

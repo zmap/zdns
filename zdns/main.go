@@ -39,6 +39,8 @@ import (
 	"github.com/zmap/zdns/iohandlers"
 )
 
+const defaultResolvers := []string{"8.8.8.8:53", "8.8.4.4:53", "1.1.1.1:53", "1.0.0.1:53"}
+
 func main() {
 
 	var gc zdns.GlobalConf
@@ -50,6 +52,7 @@ func main() {
 	flags.StringVar(&gc.NamePrefix, "prefix", "", "name to be prepended to what's passed in (e.g., www.)")
 	flags.StringVar(&gc.NameOverride, "override-name", "", "name overrides all passed in names")
 	flags.BoolVar(&gc.AlexaFormat, "alexa", false, "is input file from Alexa Top Million download")
+	flags.BoolVar(&gc.MetadataFormat, "metadata-passthrough", false, "if input records have the form 'name,METADATA', METADATA will be propagated to the output")
 	flags.BoolVar(&gc.IterativeResolution, "iterative", false, "Perform own iteration instead of relying on recursive resolver")
 	flags.StringVar(&gc.InputFilePath, "input-file", "-", "names to read")
 	flags.StringVar(&gc.OutputFilePath, "output-file", "-", "where should JSON output be saved")
@@ -139,12 +142,13 @@ func main() {
 		} else {
 			ns, err := zdns.GetDNSServers(*config_file)
 			if err != nil {
-				log.Fatal("Unable to fetch correct name servers:", err.Error())
+				ns = defaultResolvers
+				log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(defaultResolvers, ", "))
 			}
 			gc.NameServers = ns
 		}
 		gc.NameServersSpecified = false
-		log.Info("no name servers specified. will use: ", strings.Join(gc.NameServers, ", "))
+		log.Info("No name servers specified. will use: ", strings.Join(gc.NameServers, ", "))
 	} else {
 		if gc.NameServerMode {
 			log.Fatal("name servers cannot be specified on command line in --name-server-mode")
@@ -180,8 +184,7 @@ func main() {
 		}
 		log.Info("using local address: ", localaddr_string)
 		gc.LocalAddrSpecified = true
-	}
-	if *localif_string != "" {
+	} else if *localif_string != "" {
 		if gc.LocalAddrSpecified {
 			log.Fatal("Both --local-addr and --local-interface specified.")
 		} else {
@@ -198,6 +201,13 @@ func main() {
 				gc.LocalAddrSpecified = true
 			}
 			log.Info("using local interface: ", localif_string)
+		}
+	} else {
+		// Find local address for use in unbound UDP sockets
+		if conn, err := net.Dial("udp", "8.8.8.8:53"); err != nil {
+			log.Fatal("Unable to find default IP address: ", err)
+		} else {
+			gc.LocalAddrs = append(gc.LocalAddrs, conn.LocalAddr().(*net.UDPAddr).IP)
 		}
 	}
 	if *nanoSeconds {
@@ -216,6 +226,9 @@ func main() {
 	}
 	if gc.NameServerMode && gc.AlexaFormat {
 		log.Fatal("Alexa mode is incompatible with name server mode")
+	}
+	if gc.NameServerMode && gc.MetadataFormat {
+		log.Fatal("Metadata mode is incompatible with name server mode")
 	}
 	if gc.NameServerMode && gc.NameOverride == "" && gc.Module != "BINDVERSION" {
 		log.Fatal("Static Name must be defined with --override-name in --name-server-mode unless DNS module does not expect names (e.g., BINDVERSION).")

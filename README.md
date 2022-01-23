@@ -5,14 +5,14 @@ ZDNS
 [![Go Report Card](https://goreportcard.com/badge/github.com/zmap/zdns)](https://goreportcard.com/report/github.com/zmap/zdns)
 
 ZDNS is a command-line utility that provides high-speed DNS lookups. ZDNS is
-written in Go and contains its own recrusive resolution code and a cache
+written in Go and contains its own recursive resolution code and a cache
 optimized for performing lookups of a diverse set of names. We use
 https://github.com/miekg/dns to construct and parse raw DNS packets.
 
 As an example, the following will perform MX lookups and a secondary A lookup
 for the IPs of MX servers for the domains in the Alexa Top Million:
 
-	cat top-1m.csv | zdns MX --ipv4-lookup --alexa
+	cat top-1m.csv | ./zdns MX --ipv4-lookup --alexa
 
 
 Install
@@ -20,8 +20,8 @@ Install
 
 ZDNS can be installed by checking out the repository and running `go build`.
 
-	git checkout https://github.com/zmap/zdns.git
-	cd zdns
+	git clone https://github.com/zmap/zdns.git
+	cd zdns/zdns
 	go build
 
 You _cannot_ just run `go get` because we use a forked version of miekg's DNS
@@ -43,15 +43,15 @@ Raw DNS Modules
 ---------------
 The A, AAAA, AFSDB, ANY, ATMA, AVC, AXFR, BINDVERSION, CAA, CDNSKEY, CDS, CERT,
 CNAME, CSYNC, DHCID, DMARC, DNSKEY, DS, EID, EUI48, EUI64, GID, GPOS, HINFO,
-HIP, ISDN, KEY, KX, L32, L64, LOC, LP, MB, MD, MF, MG, MR, MX, NAPTR, NID,
+HIP, HTTPS, ISDN, KEY, KX, L32, L64, LOC, LP, MB, MD, MF, MG, MR, MX, NAPTR, NID,
 NINFO, NS, NSAPPTR, NSEC, NSEC3, NSEC3PARAM, NSLOOKUP, NULL, NXT, OPENPGPKEY,
-PTR, PX, RP, RRSIG, RT, SMIMEA, SOA, SPF, SRV, SSHFP, TALINK, TKEY, TLSA, TXT,
+PTR, PX, RP, RRSIG, RT, SVCBS, MIMEA, SOA, SPF, SRV, SSHFP, TALINK, TKEY, TLSA, TXT,
 UID, UINFO, UNSPEC, and URI modules provide the raw DNS response in JSON form,
 similar to dig.
 
 For example, the command:
 
-	echo "censys.io" | zdns A
+	echo "censys.io" | ./zdns A
 
 returns:
 ```json

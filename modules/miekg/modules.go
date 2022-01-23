@@ -94,6 +94,10 @@ func init() {
 	hip.SetDNSType(dns.TypeHIP)
 	zdns.RegisterLookup("HIP", hip)
 
+	https := new(GlobalLookupFactory)
+	https.SetDNSType(dns.TypeHTTPS)
+	zdns.RegisterLookup("HTTPS", https)
+
 	isdn := new(GlobalLookupFactory)
 	isdn.SetDNSType(dns.TypeISDN)
 	zdns.RegisterLookup("ISDN", isdn)
@@ -237,6 +241,10 @@ func init() {
 	srv := new(GlobalLookupFactory)
 	srv.SetDNSType(dns.TypeSRV)
 	zdns.RegisterLookup("SRV", srv)
+
+	svcb := new(GlobalLookupFactory)
+	svcb.SetDNSType(dns.TypeSVCB)
+	zdns.RegisterLookup("SVCB", svcb)
 
 	talink := new(GlobalLookupFactory)
 	talink.SetDNSType(dns.TypeTALINK)

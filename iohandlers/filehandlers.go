@@ -5,7 +5,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -19,7 +18,7 @@ func NewFileInputHandler(filepath string) *FileInputHandler {
 	}
 }
 
-func (h *FileInputHandler) FeedChannel(in chan<- interface{}, wg *sync.WaitGroup, zonefileInput bool) error {
+func (h *FileInputHandler) FeedChannel(in chan<- interface{}, wg *sync.WaitGroup) error {
 	defer close(in)
 	defer (*wg).Done()
 
@@ -33,19 +32,12 @@ func (h *FileInputHandler) FeedChannel(in chan<- interface{}, wg *sync.WaitGroup
 			log.Fatalf("unable to open input file: %v", err)
 		}
 	}
-	if zonefileInput {
-		tokens := dns.ParseZone(f, ".", h.filepath)
-		for t := range tokens {
-			in <- t
-		}
-	} else {
-		s := bufio.NewScanner(f)
-		for s.Scan() {
-			in <- s.Text()
-		}
-		if err := s.Err(); err != nil {
-			log.Fatalf("input unable to read file: %v", err)
-		}
+	s := bufio.NewScanner(f)
+	for s.Scan() {
+		in <- s.Text()
+	}
+	if err := s.Err(); err != nil {
+		log.Fatalf("input unable to read file: %v", err)
 	}
 	return nil
 }

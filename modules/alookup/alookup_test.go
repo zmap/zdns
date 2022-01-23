@@ -18,13 +18,14 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/miekg/dns"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/modules/miekg"
 )
 
 // Mock the actual Miekg lookup.
-func (s *Lookup) DoTypedMiekgLookup(name string, dnsType uint16, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
-	if res, ok := mockResults[name]; ok {
+func (s *Lookup) DoMiekgLookup(question miekg.Question, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
+	if res, ok := mockResults[question.Name]; ok {
 		return res, nil, zdns.STATUS_NOERROR, nil
 	} else {
 		return nil, nil, zdns.STATUS_NO_ANSWER, nil
@@ -44,6 +45,7 @@ func TestDoLookup(t *testing.T) {
 
 	rlf := new(RoutineLookupFactory)
 	rlf.Factory = glf
+	rlf.Client = new(dns.Client)
 
 	l, err := rlf.MakeLookup()
 	if l == nil || err != nil {
@@ -208,13 +210,14 @@ func TestDoLookup(t *testing.T) {
 	}
 
 	res, _, status, _ := l.DoLookup("example.com", "")
+
 	if status != zdns.STATUS_NO_ANSWER {
 		t.Errorf("Expected NO_ANSWER status, got %v", status)
 	} else if res != nil {
-		t.Error("Received results where expected none")
+		t.Errorf("Expected no results, got %v", res)
 	}
 
-	// Case 3: unexpected MX record in answer section, but valid A record in additionals
+	// Case 9: unexpected MX record in answer section, but valid A record in additionals
 	mockResults["example.com"] = miekg.Result{
 		Answers: []interface{}{miekg.Answer{
 			Ttl:    3600,
@@ -244,6 +247,22 @@ func TestDoLookup(t *testing.T) {
 
 	res, _, _, _ = l.DoLookup("example.com", "")
 	verifyResult(t, res.(Result), []string{"192.0.2.3"}, []string{"2001:db8::4"})
+
+	// Case 10: No results returned
+	mockResults["example.com"] = miekg.Result{
+		Answers:     nil,
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       miekg.DNSFlags{},
+	}
+
+	res, _, status, _ = l.DoLookup("example.com", "")
+	if status != zdns.STATUS_NO_ANSWER {
+		t.Errorf("Expected NO_ANSWER status, got %v", status)
+	} else if res != nil {
+		t.Errorf("Expected no results, got %v", res)
+	}
 }
 
 func verifyResult(t *testing.T, res Result, ipv4 []string, ipv6 []string) {
@@ -259,12 +278,12 @@ func verifyResult(t *testing.T, res Result, ipv4 []string, ipv6 []string) {
 		}
 	}
 
-	if ipv6 == nil && res.IPv6Addresses != nil && len(res.IPv4Addresses) > 0 {
+	if ipv6 == nil && res.IPv6Addresses != nil && len(res.IPv6Addresses) > 0 {
 		t.Error("Received no IPv6 addresses while expected")
 	} else if ipv6 != nil {
 		if res.IPv6Addresses == nil || len(res.IPv6Addresses) == 0 {
 			t.Error("Received no IPv6 addresses while expected")
-		} else if len(res.IPv4Addresses) != len(ipv4) {
+		} else if len(res.IPv6Addresses) != len(ipv6) {
 			t.Errorf("Received %v IPv6 addresses while %v is expected", len(res.IPv6Addresses), len(ipv6))
 		} else if !reflect.DeepEqual(res.IPv6Addresses, ipv6) {
 			t.Error("Received unexpected IPv6 address(es)")
