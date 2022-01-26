@@ -629,7 +629,7 @@ class Tests(unittest.TestCase):
         command = c + " --threads=10 ; exit 0"
         c = u"echo '%s' | %s" % (name, command)
         o = subprocess.check_output(c, shell=True, stderr=subprocess.STDOUT)
-        self.assertEqual("Both --local-addr and --local-interface specified." in o, True)
+        self.assertEqual("Both --local-addr and --local-interface specified." in o.decode(), True)
 
 
 if __name__ == "__main__":
