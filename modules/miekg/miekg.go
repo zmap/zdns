@@ -227,6 +227,7 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question
 	m.SetQuestion(dotName(q.Name), q.Type)
 	m.Question[0].Qclass = q.Class
 	m.RecursionDesired = recursive
+	m.SetEdns0(1232, true)
 
 	var r *dns.Msg
 	var err error
