@@ -23,25 +23,26 @@ import (
 	"github.com/zmap/zdns/modules/miekg"
 )
 
+var mockResults = make(map[string]miekg.Result)
+
+var errCode = zdns.STATUS_NOERROR
+
 // Mock the actual Miekg lookup.
 func (s *Lookup) DoMiekgLookup(question miekg.Question, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
 	if res, ok := mockResults[question.Name]; ok {
-		return res, nil, zdns.STATUS_NOERROR, nil
+		return res, nil, errCode, nil
 	} else {
-		return nil, nil, zdns.STATUS_NO_ANSWER, nil
+		return nil, nil, zdns.STATUS_NXDOMAIN, nil
 	}
 }
 
-var mockResults = make(map[string]miekg.Result)
-
-func TestDoLookup(t *testing.T) {
+func InitTest() (*zdns.GlobalConf, *GlobalLookupFactory, *RoutineLookupFactory, zdns.Lookup) {
+	mockResults = make(map[string]miekg.Result)
 	gc := new(zdns.GlobalConf)
 	gc.NameServers = []string{"127.0.0.1"}
 
 	glf := new(GlobalLookupFactory)
 	glf.GlobalConf = gc
-	glf.IPv4Lookup = true
-	glf.IPv6Lookup = false
 
 	rlf := new(RoutineLookupFactory)
 	rlf.Factory = glf
@@ -49,10 +50,14 @@ func TestDoLookup(t *testing.T) {
 
 	l, err := rlf.MakeLookup()
 	if l == nil || err != nil {
-		t.Error("Failed to initialize lookup")
+		panic("Failed to initialize lookup")
 	}
+	return gc, glf, rlf, l
+}
 
-	// Case 1: single A response
+func TestOneA(t *testing.T) {
+	_, glf, _, l := InitTest()
+	glf.IPv4Lookup = true
 	mockResults["example.com"] = miekg.Result{
 		Answers: []interface{}{miekg.Answer{
 			Ttl:    3600,
@@ -66,11 +71,13 @@ func TestDoLookup(t *testing.T) {
 		Protocol:    "",
 		Flags:       miekg.DNSFlags{},
 	}
-
 	res, _, _, _ := l.DoLookup("example.com", "")
 	verifyResult(t, res.(Result), []string{"192.0.2.1"}, nil)
+}
 
-	// Case 2: double A response
+func TestTwoA(t *testing.T) {
+	_, glf, _, l := InitTest()
+	glf.IPv4Lookup = true
 	mockResults["example.com"] = miekg.Result{
 		Answers: []interface{}{miekg.Answer{
 			Ttl:    3600,
@@ -91,11 +98,13 @@ func TestDoLookup(t *testing.T) {
 		Protocol:    "",
 		Flags:       miekg.DNSFlags{},
 	}
-
-	res, _, _, _ = l.DoLookup("example.com", "")
+	res, _, _, _ := l.DoLookup("example.com", "")
 	verifyResult(t, res.(Result), []string{"192.0.2.1", "192.0.2.2"}, nil)
+}
 
-	// Case 3: mixed A and AAAA response
+func TestQuadAWithoutFlag(t *testing.T) {
+	_, glf, _, l := InitTest()
+	glf.IPv4Lookup = true
 	mockResults["example.com"] = miekg.Result{
 		Answers: []interface{}{miekg.Answer{
 			Ttl:    3600,
@@ -117,16 +126,69 @@ func TestDoLookup(t *testing.T) {
 		Flags:       miekg.DNSFlags{},
 	}
 
-	res, _, _, _ = l.DoLookup("example.com", "")
+	res, _, _, _ := l.DoLookup("example.com", "")
 	verifyResult(t, res.(Result), []string{"192.0.2.1"}, nil)
+}
 
-	// Case 4: same mixed response, but both types requested.
+func TestOnlyQuadA(t *testing.T) {
+	_, glf, _, l := InitTest()
 	glf.IPv6Lookup = true
+	mockResults["example.com"] = miekg.Result{
+		Answers: []interface{}{miekg.Answer{
+			Ttl:    3600,
+			Type:   "A",
+			Class:  "IN",
+			Name:   "example.com",
+			Answer: "192.0.2.1",
+		},
+			miekg.Answer{
+				Ttl:    3600,
+				Type:   "AAAA",
+				Class:  "IN",
+				Name:   "example.com",
+				Answer: "2001:db8::1",
+			}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       miekg.DNSFlags{},
+	}
+	res, _, _, _ := l.DoLookup("example.com", "")
+	verifyResult(t, res.(Result), nil, []string{"2001:db8::1"})
+}
 
-	res, _, _, _ = l.DoLookup("example.com", "")
+func TestAandQuadA(t *testing.T) {
+	_, glf, _, l := InitTest()
+	glf.IPv4Lookup = true
+	glf.IPv6Lookup = true
+	mockResults["example.com"] = miekg.Result{
+		Answers: []interface{}{miekg.Answer{
+			Ttl:    3600,
+			Type:   "A",
+			Class:  "IN",
+			Name:   "example.com",
+			Answer: "192.0.2.1",
+		},
+			miekg.Answer{
+				Ttl:    3600,
+				Type:   "AAAA",
+				Class:  "IN",
+				Name:   "example.com",
+				Answer: "2001:db8::1",
+			}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       miekg.DNSFlags{},
+	}
+	res, _, _, _ := l.DoLookup("example.com", "")
 	verifyResult(t, res.(Result), []string{"192.0.2.1"}, []string{"2001:db8::1"})
+}
 
-	// Case 5: double AAAA response
+func TestTwoQuadA(t *testing.T) {
+	_, glf, _, l := InitTest()
+	glf.IPv4Lookup = true
+	glf.IPv6Lookup = true
 	mockResults["example.com"] = miekg.Result{
 		Answers: []interface{}{miekg.Answer{
 			Ttl:    3600,
@@ -148,10 +210,13 @@ func TestDoLookup(t *testing.T) {
 		Flags:       miekg.DNSFlags{},
 	}
 
-	res, _, _, _ = l.DoLookup("example.com", "")
+	res, _, _, _ := l.DoLookup("example.com", "")
 	verifyResult(t, res.(Result), nil, []string{"2001:db8::1", "2001:db8::2"})
+}
 
-	// Case 6: CNAME
+func TestCname(t *testing.T) {
+	_, glf, _, l := InitTest()
+	glf.IPv4Lookup = true
 	mockResults["cname.example.com"] = miekg.Result{
 		Answers: []interface{}{miekg.Answer{
 			Ttl:    3600,
@@ -165,11 +230,28 @@ func TestDoLookup(t *testing.T) {
 		Protocol:    "",
 		Flags:       miekg.DNSFlags{},
 	}
+	mockResults["example.com"] = miekg.Result{
+		Answers: []interface{}{miekg.Answer{
+			Ttl:    3600,
+			Type:   "A",
+			Class:  "IN",
+			Name:   "example.com",
+			Answer: "192.0.2.1",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       miekg.DNSFlags{},
+	}
 
-	res, _, _, _ = l.DoLookup("cname.example.com", "")
-	verifyResult(t, res.(Result), nil, []string{"2001:db8::1", "2001:db8::2"})
+	res, _, _, _ := l.DoLookup("cname.example.com", "")
+	verifyResult(t, res.(Result), []string{"192.0.2.1"}, nil)
+}
 
-	// Case 7: AAAA + CNAME (if this ever happens to be returned)
+func TestQuadAWithCname(t *testing.T) {
+	_, glf, _, l := InitTest()
+	glf.IPv4Lookup = true
+	glf.IPv6Lookup = true
 	mockResults["cname.example.com"] = miekg.Result{
 		Answers: []interface{}{miekg.Answer{
 			Ttl:    3600,
@@ -191,10 +273,13 @@ func TestDoLookup(t *testing.T) {
 		Flags:       miekg.DNSFlags{},
 	}
 
-	res, _, _, _ = l.DoLookup("cname.example.com", "")
+	res, _, _, _ := l.DoLookup("cname.example.com", "")
 	verifyResult(t, res.(Result), nil, []string{"2001:db8::3"})
+}
 
-	// Case 8: unexpected MX record only
+func TestUnexpectedMxOnly(t *testing.T) {
+	_, glf, _, l := InitTest()
+	glf.IPv4Lookup = true
 	mockResults["example.com"] = miekg.Result{
 		Answers: []interface{}{miekg.Answer{
 			Ttl:    3600,
@@ -211,13 +296,17 @@ func TestDoLookup(t *testing.T) {
 
 	res, _, status, _ := l.DoLookup("example.com", "")
 
-	if status != zdns.STATUS_NO_ANSWER {
-		t.Errorf("Expected NO_ANSWER status, got %v", status)
+	if status != zdns.STATUS_ERROR {
+		t.Errorf("Expected ERROR status, got %v", status)
 	} else if res != nil {
 		t.Errorf("Expected no results, got %v", res)
 	}
+}
 
-	// Case 9: unexpected MX record in answer section, but valid A record in additionals
+func TestMxAndAdditionals(t *testing.T) {
+	_, glf, _, l := InitTest()
+	glf.IPv4Lookup = true
+	glf.IPv6Lookup = true
 	mockResults["example.com"] = miekg.Result{
 		Answers: []interface{}{miekg.Answer{
 			Ttl:    3600,
@@ -245,10 +334,13 @@ func TestDoLookup(t *testing.T) {
 		Flags:       miekg.DNSFlags{},
 	}
 
-	res, _, _, _ = l.DoLookup("example.com", "")
+	res, _, _, _ := l.DoLookup("example.com", "")
 	verifyResult(t, res.(Result), []string{"192.0.2.3"}, []string{"2001:db8::4"})
+}
 
-	// Case 10: No results returned
+func TestNoResults(t *testing.T) {
+	_, glf, _, l := InitTest()
+	glf.IPv4Lookup = true
 	mockResults["example.com"] = miekg.Result{
 		Answers:     nil,
 		Additional:  nil,
@@ -257,9 +349,140 @@ func TestDoLookup(t *testing.T) {
 		Flags:       miekg.DNSFlags{},
 	}
 
-	res, _, status, _ = l.DoLookup("example.com", "")
-	if status != zdns.STATUS_NO_ANSWER {
-		t.Errorf("Expected NO_ANSWER status, got %v", status)
+	res, _, status, _ := l.DoLookup("example.com", "")
+	if status != zdns.STATUS_NOERROR {
+		t.Errorf("Expected NOERROR status, got %v", status)
+	} else if res != nil {
+		t.Errorf("Expected no results, got %v", res)
+	}
+}
+
+func TestMismatchIpType(t *testing.T) {
+	_, glf, _, l := InitTest()
+	glf.IPv4Lookup = true
+	glf.IPv6Lookup = true
+	mockResults["example.com"] = miekg.Result{
+		Answers: []interface{}{miekg.Answer{
+			Ttl:    3600,
+			Type:   "A",
+			Class:  "IN",
+			Name:   "example.com",
+			Answer: "2001:db8::4",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       miekg.DNSFlags{},
+	}
+
+	res, _, status, _ := l.DoLookup("example.com", "")
+	if status != zdns.STATUS_ERROR {
+		t.Errorf("Expected NOERROR status, got %v", status)
+	} else if res != nil {
+		t.Errorf("Expected no results, got %v", res)
+	}
+}
+
+func TestCnameLoops(t *testing.T) {
+	_, glf, _, l := InitTest()
+	glf.IPv4Lookup = true
+	mockResults["cname.example.com"] = miekg.Result{
+		Answers: []interface{}{miekg.Answer{
+			Ttl:    3600,
+			Type:   "CNAME",
+			Class:  "IN",
+			Name:   "cname.example.com",
+			Answer: "example.com.",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       miekg.DNSFlags{},
+	}
+	mockResults["example.com"] = miekg.Result{
+		Answers: []interface{}{miekg.Answer{
+			Ttl:    3600,
+			Type:   "CNAME",
+			Class:  "IN",
+			Name:   "example.com",
+			Answer: "cname.example.com.",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       miekg.DNSFlags{},
+	}
+
+	res, _, status, _ := l.DoLookup("example.com", "")
+	if status != zdns.STATUS_ERROR {
+		t.Errorf("Expected ERROR status, got %v", status)
+	} else if res != nil {
+		t.Errorf("Expected no results, got %v", res)
+	}
+}
+
+func TestEmptyNonTerminal(t *testing.T) {
+	_, glf, _, l := InitTest()
+	glf.IPv4Lookup = true
+	mockResults["leaf.intermediate.example.com"] = miekg.Result{
+		Answers: []interface{}{miekg.Answer{
+			Ttl:    3600,
+			Type:   "A",
+			Class:  "IN",
+			Name:   "leaf.intermediate.example.com",
+			Answer: "192.0.2.3",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       miekg.DNSFlags{},
+	}
+	mockResults["intermediate.example.com"] = miekg.Result{
+		Answers:     nil,
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       miekg.DNSFlags{},
+	}
+	// Verify leaf returns correctly
+	res, _, _, _ := l.DoLookup("leaf.intermediate.example.com", "")
+	verifyResult(t, res.(Result), []string{"192.0.2.3"}, nil)
+
+	// Verify empty non-terminal returns no answer
+	res, _, status, _ := l.DoLookup("intermediate.example.com", "")
+	if status != zdns.STATUS_NOERROR {
+		t.Errorf("Expected STATUS_NOERROR status, got %v", status)
+	} else if res != nil {
+		t.Errorf("Expected no results, got %v", res)
+	}
+}
+
+func TestNXDomain(t *testing.T) {
+	_, glf, _, l := InitTest()
+	glf.IPv4Lookup = true
+	res, _, status, _ := l.DoLookup("nonexistent.example.com", "")
+	if status != zdns.STATUS_NXDOMAIN {
+		t.Errorf("Expected STATUS_NOERROR status, got %v", status)
+	} else if res != nil {
+		t.Errorf("Expected no results, got %v", res)
+	}
+}
+
+func TestServFail(t *testing.T) {
+	errCode = zdns.STATUS_SERVFAIL
+	_, glf, _, l := InitTest()
+	glf.IPv4Lookup = true
+	mockResults["example.com"] = miekg.Result{
+		Answers:     nil,
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       miekg.DNSFlags{},
+	}
+	res, _, status, _ := l.DoLookup("example.com", "")
+
+	if status != errCode {
+		t.Errorf("Expected %v status, got %v", errCode, status)
 	} else if res != nil {
 		t.Errorf("Expected no results, got %v", res)
 	}
@@ -279,7 +502,7 @@ func verifyResult(t *testing.T, res Result, ipv4 []string, ipv6 []string) {
 	}
 
 	if ipv6 == nil && res.IPv6Addresses != nil && len(res.IPv6Addresses) > 0 {
-		t.Error("Received no IPv6 addresses while expected")
+		t.Error("Received IPv6 addresses while none expected")
 	} else if ipv6 != nil {
 		if res.IPv6Addresses == nil || len(res.IPv6Addresses) == 0 {
 			t.Error("Received no IPv6 addresses while expected")
