@@ -1,7 +1,7 @@
 package miekg
 
 import (
-	"github.com/miekg/dns"
+	"github.com/zmap/dns"
 	"github.com/zmap/zdns"
 )
 

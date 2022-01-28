@@ -24,8 +24,8 @@ import (
 
 	"github.com/hashicorp/go-version"
 	"github.com/liip/sheriff"
-	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
+	"github.com/zmap/dns"
 )
 
 type routineMetadata struct {

@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/miekg/dns"
+	"github.com/zmap/dns"
 )
 
 type Answer struct {
@@ -236,7 +236,7 @@ type URIAnswer struct {
 	Target   string `json:"previous_name" groups:"short,normal,long,trace"`
 }
 
-// copy-paste from miekg/dns/types.go >>>>>
+// copy-paste from zmap/dns/types.go >>>>>
 //
 // Copyright (c) 2009 The Go Authors.
 //
@@ -397,7 +397,7 @@ func makeSVCBAnswer(cAns *dns.SVCB) SVCBAnswer {
 		params = make(map[string]interface{})
 		for _, ikv := range cAns.Value {
 			// this could be reduced by adding, e.g., a new Data()
-			// method to the miekg/dns SVCBKeyValue interface
+			// method to the zmap/dns SVCBKeyValue interface
 			switch kv := ikv.(type) {
 			case *dns.SVCBMandatory:
 				keys := make([]string, len(kv.Code))

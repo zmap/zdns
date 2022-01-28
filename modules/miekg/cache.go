@@ -5,7 +5,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/miekg/dns"
+	"github.com/zmap/dns"
 	"github.com/zmap/zdns/cachehash"
 )
 
