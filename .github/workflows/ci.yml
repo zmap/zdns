@@ -1,5 +1,11 @@
 name: CI
-on: [ push, pull_request ]
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -24,3 +30,21 @@ jobs:
           sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
           python --version
           ./integration_tests.py
+
+  # Only tag releases off the master branch: these checks are strictly needed
+  # but are useful in case we start building off other branches in the future
+  release:
+    if: ${{ github.ref == 'refs/heads/master' }}
+    needs: build-and-test
+    name: Release Next Tag
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: [ 1.17.x ]
+    steps:
+    - name: Release Tag
+      id: tag_version
+      uses: mathieudutour/github-tag-action@v6.0
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        release_branches: master
