@@ -7,9 +7,11 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/zmap/zdns/pkg/zdns"
 )
@@ -120,4 +122,27 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 	}
+	// Bind the current command's flags to viper
+	bindFlags(rootCmd, viper.GetViper())
+}
+
+// Reference: https://github.com/carolynvs/stingoftheviper/blob/main/main.go
+// For how to make cobra/viper sync up, and still use custom struct
+// Bind each cobra flag to its associated viper configuration (config file and environment variable)
+func bindFlags(cmd *cobra.Command, v *viper.Viper) {
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		log.Info(f.Name, ": ", f.Value)
+		// Environment variables can't have dashes in them, so bind them to their equivalent
+		// keys with underscores, e.g. --alexa to ZDNS_ALEXA
+		if strings.Contains(f.Name, "-") {
+			envVarSuffix := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
+			v.BindEnv(f.Name, fmt.Sprintf("%s_%s", envPrefix, envVarSuffix))
+		}
+
+		// Apply the viper config value to the flag when the flag is not set and viper has a value
+		if !f.Changed && v.IsSet(f.Name) {
+			val := v.Get(f.Name)
+			cmd.Flags().Set(f.Name, fmt.Sprintf("%v", val))
+		}
+	})
 }
