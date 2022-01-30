@@ -8,11 +8,16 @@ import (
 	"fmt"
 	"os"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/zmap/zdns/pkg/zdns"
 )
 
 var cfgFile string
+var gc zdns.GlobalConf
+
+const envPrefix = "ZDNS"
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -25,7 +30,17 @@ and parsing raw DNS packets.
 ZDNS also includes its own recursive resolution and a cache to further optimize performance.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+
+	Run: func(cmd *cobra.Command, args []string) {
+		log.Info(viper.AllKeys())
+		log.Info(args)
+		log.Info(gc.AlexaFormat)
+		log.Info(viper.GetBool("alexa"))
+		log.Info(cmd.Flags().GetBool("alexa"))
+		// if len(args) < 1 {
+		// 	log.Fatal("No lookup module specified. Valid modules: ", zdns.ValidlookupsString(), ".")
+		// }
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -48,7 +63,38 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	rootCmd.PersistentFlags().IntVar(&gc.Threads, "threads", 1000, "number of lightweight go threads")
+	rootCmd.PersistentFlags().IntVar(&gc.GoMaxProcs, "go-processes", 0, "number of OS processes (GOMAXPROCS)")
+	rootCmd.PersistentFlags().StringVar(&gc.NamePrefix, "prefix", "", "name to be prepended to what's passed in (e.g., www.)")
+	rootCmd.PersistentFlags().StringVar(&gc.NameOverride, "override-name", "", "name overrides all passed in names")
+	rootCmd.PersistentFlags().BoolVar(&gc.AlexaFormat, "alexa", false, "is input file from Alexa Top Million download")
+	rootCmd.PersistentFlags().BoolVar(&gc.MetadataFormat, "metadata-passthrough", false, "if input records have the form 'name,METADATA', METADATA will be propagated to the output")
+	rootCmd.PersistentFlags().BoolVar(&gc.IterativeResolution, "iterative", false, "Perform own iteration instead of relying on recursive resolver")
+	rootCmd.PersistentFlags().StringVar(&gc.InputFilePath, "input-file", "-", "names to read")
+	rootCmd.PersistentFlags().StringVar(&gc.OutputFilePath, "output-file", "-", "where should JSON output be saved")
+	rootCmd.PersistentFlags().StringVar(&gc.MetadataFilePath, "metadata-file", "", "where should JSON metadata be saved")
+	rootCmd.PersistentFlags().StringVar(&gc.LogFilePath, "log-file", "", "where should JSON logs be saved")
+
+	rootCmd.PersistentFlags().StringVar(&gc.ResultVerbosity, "result-verbosity", "normal", "Sets verbosity of each output record. Options: short, normal, long, trace")
+	rootCmd.PersistentFlags().StringVar(&gc.IncludeInOutput, "include-fields", "", "Comma separated list of fields to additionally output beyond result verbosity. Options: class, protocol, ttl, resolver, flags")
+
+	rootCmd.PersistentFlags().IntVar(&gc.Verbosity, "verbosity", 3, "log verbosity: 1 (lowest)--5 (highest)")
+	rootCmd.PersistentFlags().IntVar(&gc.Retries, "retries", 1, "how many times should zdns retry query if timeout or temporary failure")
+	rootCmd.PersistentFlags().IntVar(&gc.MaxDepth, "max-depth", 10, "how deep should we recurse when performing iterative lookups")
+	rootCmd.PersistentFlags().IntVar(&gc.CacheSize, "cache-size", 10000, "how many items can be stored in internal recursive cache")
+	rootCmd.PersistentFlags().BoolVar(&gc.TCPOnly, "tcp-only", false, "Only perform lookups over TCP")
+	rootCmd.PersistentFlags().BoolVar(&gc.UDPOnly, "udp-only", false, "Only perform lookups over UDP")
+	rootCmd.PersistentFlags().BoolVar(&gc.NameServerMode, "name-server-mode", false, "Treats input as nameservers to query with a static query rather than queries to send to a static name server")
+
+	rootCmd.PersistentFlags().String("name-servers", "", "List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53.")
+	rootCmd.PersistentFlags().String("local-addr", "", "comma-delimited list of local addresses to use")
+	rootCmd.PersistentFlags().String("local-interface", "", "local interface to use")
+	rootCmd.PersistentFlags().String("conf-file", "/etc/resolv.conf", "config file for DNS servers")
+	rootCmd.PersistentFlags().Int("timeout", 15, "timeout for resolving an individual name")
+	rootCmd.PersistentFlags().Int("iteration-timeout", 4, "timeout for resolving a single iteration in an iterative query")
+	rootCmd.PersistentFlags().String("class", "INET", "DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY. Default: INET.")
+	rootCmd.PersistentFlags().Bool("nanoseconds", false, "Use nanosecond resolution timestamps")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -67,7 +113,8 @@ func initConfig() {
 		viper.SetConfigName(".zdns")
 	}
 
-	viper.AutomaticEnv() // read in environment variables that match
+	viper.SetEnvPrefix(envPrefix)
+	viper.AutomaticEnv()
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
