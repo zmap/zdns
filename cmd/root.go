@@ -17,13 +17,12 @@ var cfgFile string
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "zdns",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short: "High-speed, low-drag DNS lookups",
+	Long: `ZDNS is a library and CLI tool for making very fast DNS requests. It's built upon
+https://github.com/zmap/dns (and in turn https://github.com/miekg/dns) for constructing
+and parsing raw DNS packets. 
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+ZDNS also includes its own recursive resolution and a cache to further optimize performance.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },

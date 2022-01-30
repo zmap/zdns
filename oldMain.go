@@ -26,15 +26,16 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
-	_ "github.com/zmap/zdns/modules/alookup"
-	_ "github.com/zmap/zdns/modules/axfr"
-	_ "github.com/zmap/zdns/modules/bindversion"
-	_ "github.com/zmap/zdns/modules/dmarc"
-	_ "github.com/zmap/zdns/modules/miekg"
-	_ "github.com/zmap/zdns/modules/mxlookup"
-	_ "github.com/zmap/zdns/modules/nslookup"
-	_ "github.com/zmap/zdns/modules/spf"
-	"github.com/zmap/zdns/zdns"
+	"github.com/zmap/zdns/internal/util"
+	_ "github.com/zmap/zdns/pkg/alookup"
+	_ "github.com/zmap/zdns/pkg/axfr"
+	_ "github.com/zmap/zdns/pkg/bindversion"
+	_ "github.com/zmap/zdns/pkg/dmarc"
+	_ "github.com/zmap/zdns/pkg/miekg"
+	_ "github.com/zmap/zdns/pkg/mxlookup"
+	_ "github.com/zmap/zdns/pkg/nslookup"
+	_ "github.com/zmap/zdns/pkg/spf"
+	"github.com/zmap/zdns/pkg/zdns"
 
 	"github.com/zmap/zdns/iohandlers"
 )
@@ -166,7 +167,7 @@ func oldMain() {
 			ns = strings.Split(*servers_string, ",")
 		}
 		for i, s := range ns {
-			ns[i] = zdns.AddDefaultPortToDNSServerName(s)
+			ns[i] = util.AddDefaultPortToDNSServerName(s)
 		}
 		gc.NameServers = ns
 		gc.NameServersSpecified = true
