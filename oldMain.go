@@ -26,7 +26,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
-	"github.com/zmap/zdns"
 	_ "github.com/zmap/zdns/modules/alookup"
 	_ "github.com/zmap/zdns/modules/axfr"
 	_ "github.com/zmap/zdns/modules/bindversion"
@@ -35,11 +34,12 @@ import (
 	_ "github.com/zmap/zdns/modules/mxlookup"
 	_ "github.com/zmap/zdns/modules/nslookup"
 	_ "github.com/zmap/zdns/modules/spf"
+	"github.com/zmap/zdns/zdns"
 
 	"github.com/zmap/zdns/iohandlers"
 )
 
-func main() {
+func oldMain() {
 
 	var gc zdns.GlobalConf
 
