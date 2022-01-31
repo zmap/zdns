@@ -243,6 +243,8 @@ func oldMain() {
 	gc.OutputGroups = append(gc.OutputGroups, gc.ResultVerbosity)
 	gc.OutputGroups = append(gc.OutputGroups, groups...)
 
+	log.Info("Somehow here")
+
 	if len(flags.Args()) > 0 {
 		stat, _ := os.Stdin.Stat()
 		// If stdin is piped from the terminal, and we haven't specified a file, and if we have unparsed args

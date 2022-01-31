@@ -177,6 +177,17 @@ func ValidlookupsString() string {
 	return strings.Join(valid, ", ")
 }
 
+func Validlookups() []string {
+	valid := make([]string, len(lookups))
+	i := 0
+	for k := range lookups {
+		valid[i] = k
+		i++
+	}
+	sort.Strings(valid)
+	return valid
+}
+
 func GetLookup(name string) GlobalLookupFactory {
 	if factory, ok := lookups[name]; ok {
 		return factory

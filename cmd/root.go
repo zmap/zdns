@@ -21,6 +21,17 @@ var gc zdns.GlobalConf
 
 const envPrefix = "ZDNS"
 
+var (
+	servers_string   string
+	localaddr_string string
+	localif_string   string
+	config_file      string
+	timeout          int
+	iterationTimeout int
+	class_string     string
+	nanoSeconds      bool
+)
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "zdns",
@@ -30,18 +41,16 @@ https://github.com/zmap/dns (and in turn https://github.com/miekg/dns) for const
 and parsing raw DNS packets. 
 
 ZDNS also includes its own recursive resolution and a cache to further optimize performance.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-
+	ValidArgs: zdns.Validlookups(),
+	Args:      cobra.ExactValidArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		log.Info(viper.AllKeys())
-		log.Info(args)
-		log.Info(gc.AlexaFormat)
-		log.Info(viper.GetBool("alexa"))
-		log.Info(cmd.Flags().GetBool("alexa"))
-		// if len(args) < 1 {
-		// 	log.Fatal("No lookup module specified. Valid modules: ", zdns.ValidlookupsString(), ".")
-		// }
+		gc.Module = strings.ToUpper(args[0])
+		log.Info("running")
+		zdns.Run(gc, cmd.Flags(),
+			&timeout, &iterationTimeout,
+			&class_string, &servers_string,
+			&config_file, &localaddr_string,
+			&localif_string, &nanoSeconds)
 	},
 }
 
@@ -65,7 +74,6 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-
 	rootCmd.PersistentFlags().IntVar(&gc.Threads, "threads", 1000, "number of lightweight go threads")
 	rootCmd.PersistentFlags().IntVar(&gc.GoMaxProcs, "go-processes", 0, "number of OS processes (GOMAXPROCS)")
 	rootCmd.PersistentFlags().StringVar(&gc.NamePrefix, "prefix", "", "name to be prepended to what's passed in (e.g., www.)")
@@ -89,14 +97,14 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&gc.UDPOnly, "udp-only", false, "Only perform lookups over UDP")
 	rootCmd.PersistentFlags().BoolVar(&gc.NameServerMode, "name-server-mode", false, "Treats input as nameservers to query with a static query rather than queries to send to a static name server")
 
-	rootCmd.PersistentFlags().String("name-servers", "", "List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53.")
-	rootCmd.PersistentFlags().String("local-addr", "", "comma-delimited list of local addresses to use")
-	rootCmd.PersistentFlags().String("local-interface", "", "local interface to use")
-	rootCmd.PersistentFlags().String("conf-file", "/etc/resolv.conf", "config file for DNS servers")
-	rootCmd.PersistentFlags().Int("timeout", 15, "timeout for resolving an individual name")
-	rootCmd.PersistentFlags().Int("iteration-timeout", 4, "timeout for resolving a single iteration in an iterative query")
-	rootCmd.PersistentFlags().String("class", "INET", "DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY. Default: INET.")
-	rootCmd.PersistentFlags().Bool("nanoseconds", false, "Use nanosecond resolution timestamps")
+	rootCmd.PersistentFlags().StringVar(&servers_string, "name-servers", "", "List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53.")
+	rootCmd.PersistentFlags().StringVar(&localaddr_string, "local-addr", "", "comma-delimited list of local addresses to use")
+	rootCmd.PersistentFlags().StringVar(&localif_string, "local-interface", "", "local interface to use")
+	rootCmd.PersistentFlags().StringVar(&config_file, "conf-file", "/etc/resolv.conf", "config file for DNS servers")
+	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 15, "timeout for resolving an individual name")
+	rootCmd.PersistentFlags().IntVar(&iterationTimeout, "iteration-timeout", 4, "timeout for resolving a single iteration in an iterative query")
+	rootCmd.PersistentFlags().StringVar(&class_string, "class", "INET", "DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY. Default: INET.")
+	rootCmd.PersistentFlags().BoolVar(&nanoSeconds, "nanoseconds", false, "Use nanosecond resolution timestamps")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -131,7 +139,6 @@ func initConfig() {
 // Bind each cobra flag to its associated viper configuration (config file and environment variable)
 func bindFlags(cmd *cobra.Command, v *viper.Viper) {
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
-		log.Info(f.Name, ": ", f.Value)
 		// Environment variables can't have dashes in them, so bind them to their equivalent
 		// keys with underscores, e.g. --alexa to ZDNS_ALEXA
 		if strings.Contains(f.Name, "-") {
