@@ -44,7 +44,7 @@ func TestDmarcLookup_Valid_1(t *testing.T) {
 			miekg.Answer{Name: "_dmarc.zdns-testing.com", Answer: "v=DMARC1; p=none; rua=mailto:postmaster@censys.io"}},
 	}
 	res, _, status, _ := l.DoLookup("example.com", "")
-	assert.Equal(t, string(zdns.STATUS_NOERROR), string(status))
+	assert.Equal(t, zdns.STATUS_NOERROR, status)
 	assert.Equal(t, res.(Result).Dmarc, "v=DMARC1; p=none; rua=mailto:postmaster@censys.io")
 }
 
@@ -57,7 +57,7 @@ func TestDmarcLookup_Valid_2(t *testing.T) {
 			miekg.Answer{Name: "_dmarc.zdns-testing.com", Answer: "V=DMARC1; p=none; rua=mailto:postmaster@censys.io"}},
 	}
 	res, _, status, _ := l.DoLookup("example.com", "")
-	assert.Equal(t, string(zdns.STATUS_NOERROR), string(status))
+	assert.Equal(t, zdns.STATUS_NOERROR, status)
 	assert.Equal(t, res.(Result).Dmarc, "V=DMARC1; p=none; rua=mailto:postmaster@censys.io")
 }
 
@@ -70,7 +70,7 @@ func TestDmarcLookup_Valid_3(t *testing.T) {
 			miekg.Answer{Name: "_dmarc.zdns-testing.com", Answer: "v\t\t\t=\t\t  DMARC1\t\t; p=none; rua=mailto:postmaster@censys.io"}},
 	}
 	res, _, status, _ := l.DoLookup("example.com", "")
-	assert.Equal(t, string(zdns.STATUS_NOERROR), string(status))
+	assert.Equal(t, zdns.STATUS_NOERROR, status)
 	assert.Equal(t, res.(Result).Dmarc, "v\t\t\t=\t\t  DMARC1\t\t; p=none; rua=mailto:postmaster@censys.io")
 }
 
@@ -83,7 +83,7 @@ func TestDmarcLookup_NotValid_1(t *testing.T) {
 			miekg.Answer{Name: "_dmarc.zdns-testing.com", Answer: "\t\t   v   =DMARC1; p=none; rua=mailto:postmaster@censys.io"}},
 	}
 	res, _, status, _ := l.DoLookup("example.com", "")
-	assert.Equal(t, string(zdns.STATUS_NO_RECORD), string(status))
+	assert.Equal(t, zdns.STATUS_NO_RECORD, status)
 	assert.Equal(t, res.(Result).Dmarc, "")
 }
 

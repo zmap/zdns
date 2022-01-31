@@ -44,7 +44,7 @@ func TestLookup_DoTxtLookup_Valid_1(t *testing.T) {
 			miekg.Answer{Name: "google.com", Answer: "v=spf1 mx include:_spf.google.com -all"}},
 	}
 	res, _, status, _ := l.DoLookup("google.com", "")
-	assert.Equal(t, string(zdns.STATUS_NOERROR), string(status))
+	assert.Equal(t, zdns.STATUS_NOERROR, status)
 	assert.Equal(t, res.(Result).Spf, "v=spf1 mx include:_spf.google.com -all")
 }
 
@@ -56,7 +56,7 @@ func TestLookup_DoTxtLookup_Valid_2(t *testing.T) {
 			miekg.Answer{Name: "google.com", Answer: "V=SpF1 mx include:_spf.google.com -all"}},
 	}
 	res, _, status, _ := l.DoLookup("google.com", "")
-	assert.Equal(t, string(zdns.STATUS_NOERROR), string(status))
+	assert.Equal(t, zdns.STATUS_NOERROR, status)
 	assert.Equal(t, res.(Result).Spf, "V=SpF1 mx include:_spf.google.com -all")
 }
 
@@ -68,7 +68,7 @@ func TestLookup_DoTxtLookup_NotValid_1(t *testing.T) {
 			miekg.Answer{Name: "google.com", Answer: "  V  =  SpF1 mx include:_spf.google.com -all"}},
 	}
 	res, _, status, _ := l.DoLookup("google.com", "")
-	assert.Equal(t, string(zdns.STATUS_NO_RECORD), string(status))
+	assert.Equal(t, zdns.STATUS_NO_RECORD, status)
 	assert.Equal(t, res.(Result).Spf, "")
 }
 
@@ -80,13 +80,13 @@ func TestLookup_DoTxtLookup_NotValid_2(t *testing.T) {
 			miekg.Answer{Name: "google.com", Answer: "some other TXT record but no SPF"}},
 	}
 	res, _, status, _ := l.DoLookup("google.com", "")
-	assert.Equal(t, string(zdns.STATUS_NO_RECORD), string(status))
+	assert.Equal(t, zdns.STATUS_NO_RECORD, status)
 	assert.Equal(t, res.(Result).Spf, "")
 }
 
 func TestLookup_DoTxtLookup_NoTXT(t *testing.T) {
 	_, _, _, l := InitTest()
 	res, _, status, _ := l.DoLookup("example.com", "")
-	assert.Equal(t, string(zdns.STATUS_NO_ANSWER), string(status))
+	assert.Equal(t, zdns.STATUS_NO_ANSWER, status)
 	assert.Equal(t, res.(Result).Spf, "")
 }
