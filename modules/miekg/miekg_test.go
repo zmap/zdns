@@ -1,7 +1,9 @@
 package miekg
 
 import (
+	"github.com/stretchr/testify/assert"
 	"net"
+	"regexp"
 	"testing"
 
 	"github.com/zmap/dns"
@@ -165,4 +167,110 @@ func verifyResult(t *testing.T, answer interface{}, original dns.RR, expectedAns
 	if ans.Answer != expectedAnswer {
 		t.Errorf("Unxpected answer. Expected %v, got %v", expectedAnswer, ans.Answer)
 	}
+}
+
+func TestLookup_DoTxtLookup_1(t *testing.T) {
+	testRegexp := regexp.MustCompile(".*")
+	var txtRecord = Lookup{Factory: &RoutineLookupFactory{PrefixRegexp: testRegexp}}
+	input := Result{
+		Answers: []interface{}{Answer{
+			Ttl:    3600,
+			Type:   "TXT",
+			Class:  "IN",
+			Name:   "example.com",
+			Answer: "asdfasdfasdf",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       DNSFlags{},
+	}
+
+	resultString, err := txtRecord.FindTxtRecord(input)
+	assert.Nil(t, err)
+	assert.Equal(t, "asdfasdfasdf", resultString)
+}
+
+func TestLookup_DoTxtLookup_2(t *testing.T) {
+	testRegexp := regexp.MustCompile("^google-site-verification=.*")
+	var txtRecord = Lookup{Factory: &RoutineLookupFactory{PrefixRegexp: testRegexp}}
+	input := Result{
+		Answers: []interface{}{
+			Answer{
+				Ttl:    3600,
+				Type:   "TXT",
+				Class:  "IN",
+				Name:   "example.com",
+				Answer: "testing TXT prefix: hello world!",
+			}, Answer{
+				Ttl:    3600,
+				Type:   "TXT",
+				Class:  "IN",
+				Name:   "example.com",
+				Answer: "google-site-verification=A2WZWCNQHrGV_TWwKh7KHY90UY0SHZo_rnyMJoDaG0",
+			}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       DNSFlags{},
+	}
+
+	resultString, err := txtRecord.FindTxtRecord(input)
+	assert.Nil(t, err)
+	assert.Equal(t, "google-site-verification=A2WZWCNQHrGV_TWwKh7KHY90UY0SHZo_rnyMJoDaG0", resultString)
+}
+
+func TestLookup_DoTxtLookup_3(t *testing.T) {
+	testRegexp := regexp.MustCompile("(?i)^v=spf1.*")
+	var txtRecord = Lookup{Factory: &RoutineLookupFactory{PrefixRegexp: testRegexp}}
+	input := Result{
+		Answers: []interface{}{
+			Answer{
+				Ttl:    3600,
+				Type:   "TXT",
+				Class:  "IN",
+				Name:   "example.com",
+				Answer: "testing TXT prefix: hello world!",
+			}, Answer{
+				Ttl:    3600,
+				Type:   "TXT",
+				Class:  "IN",
+				Name:   "example.com",
+				Answer: "google-site-verification=A2WZWCNQHrGV_TWwKh7KHY90UY0SHZo_rnyMJoDaG0s",
+			}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       DNSFlags{},
+	}
+	resultString, err := txtRecord.FindTxtRecord(input)
+	assert.NotNil(t, err)
+	assert.Empty(t, resultString)
+}
+
+func TestLookup_DoTxtLookup_4(t *testing.T) {
+	testRegexp := regexp.MustCompile("(?i)^v=spf1.*")
+	var txtRecord = Lookup{Factory: &RoutineLookupFactory{PrefixRegexp: testRegexp}}
+	input := Result{
+		Answers: []interface{}{},
+	}
+	resultString, err := txtRecord.FindTxtRecord(input)
+	assert.NotNil(t, err)
+	assert.Empty(t, resultString)
+}
+
+func TestLookup_DoTxtLookup_5(t *testing.T) {
+	var txtRecord = Lookup{Factory: &RoutineLookupFactory{}}
+	input := Result{
+		Answers: []interface{}{Answer{
+			Ttl:    3600,
+			Type:   "TXT",
+			Class:  "IN",
+			Name:   "example.com",
+			Answer: "google-site-verification=A2WZWCNQHrGV_TWwKh7KHY90UY0SHZo_rnyMJoDaG0s",
+		}},
+	}
+	resultString, err := txtRecord.FindTxtRecord(input)
+	assert.Nil(t, err)
+	assert.Equal(t, "google-site-verification=A2WZWCNQHrGV_TWwKh7KHY90UY0SHZo_rnyMJoDaG0s", resultString)
 }
