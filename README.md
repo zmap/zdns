@@ -7,7 +7,7 @@ ZDNS
 ZDNS is a command-line utility that provides high-speed DNS lookups. ZDNS is
 written in Go and contains its own recursive resolution code and a cache
 optimized for performing lookups of a diverse set of names. We use
-https://github.com/miekg/dns to construct and parse raw DNS packets.
+https://github.com/zmap/dns to construct and parse raw DNS packets.
 
 As an example, the following will perform MX lookups and a secondary A lookup
 for the IPs of MX servers for the domains in the Alexa Top Million:

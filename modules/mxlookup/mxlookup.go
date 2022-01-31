@@ -19,7 +19,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/miekg/dns"
+	"github.com/zmap/dns"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/cachehash"
 	"github.com/zmap/zdns/modules/miekg"
