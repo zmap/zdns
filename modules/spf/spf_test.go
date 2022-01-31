@@ -1,9 +1,9 @@
 package spf
 
 import (
-	"github.com/stretchr/testify/suite"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/modules/miekg"
+	"gotest.tools/v3/assert"
 	"testing"
 )
 
@@ -17,83 +17,76 @@ func (s *Lookup) DoMiekgLookup(question miekg.Question, nameServer string) (miek
 	}
 }
 
-type SpfTestSuite struct {
-	suite.Suite
-	gc  *zdns.GlobalConf
-	glf *GlobalLookupFactory
-	rlf *RoutineLookupFactory
-	l   zdns.Lookup
-}
-
-func (suite *SpfTestSuite) SetupTest() {
+func InitTest() (*zdns.GlobalConf, *GlobalLookupFactory, *RoutineLookupFactory, zdns.Lookup) {
 	mockResults = make(map[string]miekg.Result)
-	suite.gc = new(zdns.GlobalConf)
-	suite.gc.NameServers = []string{"127.0.0.1"}
+	gc := new(zdns.GlobalConf)
+	gc.NameServers = []string{"127.0.0.1"}
 
-	suite.glf = new(GlobalLookupFactory)
-	suite.glf.GlobalConf = suite.gc
+	glf := new(GlobalLookupFactory)
+	glf.GlobalConf = gc
 
-	suite.rlf = new(RoutineLookupFactory)
-	suite.rlf.Factory = suite.glf
-	suite.rlf.InitPrefixRegexp()
+	rlf := new(RoutineLookupFactory)
+	rlf.Factory = glf
+	rlf.InitPrefixRegexp()
 
-	var err error
-	suite.l, err = suite.rlf.MakeLookup()
-	if suite.l == nil || err != nil {
-		suite.T().Error("Failed to initialize lookup")
+	l, err := rlf.MakeLookup()
+	if l == nil || err != nil {
+		panic("Failed to initialize lookup")
 	}
+	return gc, glf, rlf, l
 }
 
-func (suite *SpfTestSuite) TestLookup_DoTxtLookup_Valid_1() {
+func TestLookup_DoTxtLookup_Valid_1(t *testing.T) {
+	_, _, _, l := InitTest()
 	mockResults["google.com"] = miekg.Result{
 		Answers: []interface{}{
 			miekg.Answer{Name: "google.com", Answer: "some TXT record"},
 			miekg.Answer{Name: "google.com", Answer: "v=spf1 mx include:_spf.google.com -all"}},
 	}
-	res, _, status, _ := suite.l.DoLookup("google.com", "")
-	suite.Equal(string(zdns.STATUS_NOERROR), string(status))
-	suite.Equal(res.(Result).Spf, "v=spf1 mx include:_spf.google.com -all")
+	res, _, status, _ := l.DoLookup("google.com", "")
+	assert.Equal(t, string(zdns.STATUS_NOERROR), string(status))
+	assert.Equal(t, res.(Result).Spf, "v=spf1 mx include:_spf.google.com -all")
 }
 
-func (suite *SpfTestSuite) TestLookup_DoTxtLookup_Valid_2() {
+func TestLookup_DoTxtLookup_Valid_2(t *testing.T) {
+	_, _, _, l := InitTest()
 	mockResults["google.com"] = miekg.Result{
 		Answers: []interface{}{
 			miekg.Answer{Name: "google.com", Answer: "some TXT record"},
 			miekg.Answer{Name: "google.com", Answer: "V=SpF1 mx include:_spf.google.com -all"}},
 	}
-	res, _, status, _ := suite.l.DoLookup("google.com", "")
-	suite.Equal(string(zdns.STATUS_NOERROR), string(status))
-	suite.Equal(res.(Result).Spf, "V=SpF1 mx include:_spf.google.com -all")
+	res, _, status, _ := l.DoLookup("google.com", "")
+	assert.Equal(t, string(zdns.STATUS_NOERROR), string(status))
+	assert.Equal(t, res.(Result).Spf, "V=SpF1 mx include:_spf.google.com -all")
 }
 
-func (suite *SpfTestSuite) TestLookup_DoTxtLookup_NotValid_1() {
+func TestLookup_DoTxtLookup_NotValid_1(t *testing.T) {
+	_, _, _, l := InitTest()
 	mockResults["google.com"] = miekg.Result{
 		Answers: []interface{}{
 			miekg.Answer{Name: "google.com", Answer: "some TXT record"},
 			miekg.Answer{Name: "google.com", Answer: "  V  =  SpF1 mx include:_spf.google.com -all"}},
 	}
-	res, _, status, _ := suite.l.DoLookup("google.com", "")
-	suite.Equal(string(zdns.STATUS_NO_RECORD), string(status))
-	suite.Equal(res.(Result).Spf, "")
+	res, _, status, _ := l.DoLookup("google.com", "")
+	assert.Equal(t, string(zdns.STATUS_NO_RECORD), string(status))
+	assert.Equal(t, res.(Result).Spf, "")
 }
 
-func (suite *SpfTestSuite) TestLookup_DoTxtLookup_NotValid_2() {
+func TestLookup_DoTxtLookup_NotValid_2(t *testing.T) {
+	_, _, _, l := InitTest()
 	mockResults["google.com"] = miekg.Result{
 		Answers: []interface{}{
 			miekg.Answer{Name: "google.com", Answer: "some TXT record"},
 			miekg.Answer{Name: "google.com", Answer: "some other TXT record but no SPF"}},
 	}
-	res, _, status, _ := suite.l.DoLookup("google.com", "")
-	suite.Equal(string(zdns.STATUS_NO_RECORD), string(status))
-	suite.Equal(res.(Result).Spf, "")
+	res, _, status, _ := l.DoLookup("google.com", "")
+	assert.Equal(t, string(zdns.STATUS_NO_RECORD), string(status))
+	assert.Equal(t, res.(Result).Spf, "")
 }
 
-func (suite *SpfTestSuite) TestLookup_DoTxtLookup_NoTXT() {
-	res, _, status, _ := suite.l.DoLookup("example.com", "")
-	suite.Equal(string(zdns.STATUS_NO_ANSWER), string(status))
-	suite.Equal(res.(Result).Spf, "")
-}
-
-func TestSpfTestSuite(t *testing.T) {
-	suite.Run(t, new(SpfTestSuite))
+func TestLookup_DoTxtLookup_NoTXT(t *testing.T) {
+	_, _, _, l := InitTest()
+	res, _, status, _ := l.DoLookup("example.com", "")
+	assert.Equal(t, string(zdns.STATUS_NO_ANSWER), string(status))
+	assert.Equal(t, res.(Result).Spf, "")
 }
