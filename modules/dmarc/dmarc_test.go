@@ -1,9 +1,9 @@
 package dmarc
 
 import (
-	"github.com/stretchr/testify/suite"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/modules/miekg"
+	"gotest.tools/v3/assert"
 	"testing"
 )
 
@@ -17,104 +17,98 @@ func (s *Lookup) DoMiekgLookup(question miekg.Question, nameServer string) (miek
 	}
 }
 
-type DmarcTestSuite struct {
-	suite.Suite
-	gc  *zdns.GlobalConf
-	glf *GlobalLookupFactory
-	rlf *RoutineLookupFactory
-	l   zdns.Lookup
-}
-
-func (suite *DmarcTestSuite) SetupTest() {
+func InitTest() (*zdns.GlobalConf, *GlobalLookupFactory, *RoutineLookupFactory, zdns.Lookup) {
 	mockResults = make(map[string]miekg.Result)
-	suite.gc = new(zdns.GlobalConf)
-	suite.gc.NameServers = []string{"127.0.0.1"}
+	gc := new(zdns.GlobalConf)
+	gc.NameServers = []string{"127.0.0.1"}
 
-	suite.glf = new(GlobalLookupFactory)
-	suite.glf.GlobalConf = suite.gc
+	glf := new(GlobalLookupFactory)
+	glf.GlobalConf = gc
 
-	suite.rlf = new(RoutineLookupFactory)
-	suite.rlf.Factory = suite.glf
-	suite.rlf.InitPrefixRegexp()
+	rlf := new(RoutineLookupFactory)
+	rlf.Factory = glf
+	rlf.InitPrefixRegexp()
 
-	var err error
-	suite.l, err = suite.rlf.MakeLookup()
-	if suite.l == nil || err != nil {
-		suite.T().Error("Failed to initialize lookup")
+	l, err := rlf.MakeLookup()
+	if l == nil || err != nil {
+		panic("Failed to initialize lookup")
 	}
+	return gc, glf, rlf, l
 }
 
-func (suite *DmarcTestSuite) TestLookup_DoTxtLookup_Valid_1() {
+func TestDmarcLookup_Valid_1(t *testing.T) {
+	_, _, _, l := InitTest()
 	mockResults["example.com"] = miekg.Result{
 		Answers: []interface{}{
 			miekg.Answer{Name: "_dmarc.zdns-testing.com", Answer: "some TXT record"},
 			miekg.Answer{Name: "_dmarc.zdns-testing.com", Answer: "v=DMARC1; p=none; rua=mailto:postmaster@censys.io"}},
 	}
-	res, _, status, _ := suite.l.DoLookup("example.com", "")
-	suite.Equal(string(zdns.STATUS_NOERROR), string(status))
-	suite.Equal(res.(Result).Dmarc, "v=DMARC1; p=none; rua=mailto:postmaster@censys.io")
+	res, _, status, _ := l.DoLookup("example.com", "")
+	assert.Equal(t, string(zdns.STATUS_NOERROR), string(status))
+	assert.Equal(t, res.(Result).Dmarc, "v=DMARC1; p=none; rua=mailto:postmaster@censys.io")
 }
 
-func (suite *DmarcTestSuite) TestLookup_DoTxtLookup_Valid_2() {
+func TestDmarcLookup_Valid_2(t *testing.T) {
+	_, _, _, l := InitTest()
 	mockResults["example.com"] = miekg.Result{
 		Answers: []interface{}{
 			miekg.Answer{Name: "_dmarc.zdns-testing.com", Answer: "some TXT record"},
 			// Capital V in V=DMARC1; should pass
 			miekg.Answer{Name: "_dmarc.zdns-testing.com", Answer: "V=DMARC1; p=none; rua=mailto:postmaster@censys.io"}},
 	}
-	res, _, status, _ := suite.l.DoLookup("example.com", "")
-	suite.Equal(string(zdns.STATUS_NOERROR), string(status))
-	suite.Equal(res.(Result).Dmarc, "V=DMARC1; p=none; rua=mailto:postmaster@censys.io")
+	res, _, status, _ := l.DoLookup("example.com", "")
+	assert.Equal(t, string(zdns.STATUS_NOERROR), string(status))
+	assert.Equal(t, res.(Result).Dmarc, "V=DMARC1; p=none; rua=mailto:postmaster@censys.io")
 }
 
-func (suite *DmarcTestSuite) TestLookup_DoTxtLookup_Valid_3() {
+func TestDmarcLookup_Valid_3(t *testing.T) {
+	_, _, _, l := InitTest()
 	mockResults["example.com"] = miekg.Result{
 		Answers: []interface{}{
 			miekg.Answer{Name: "_dmarc.zdns-testing.com", Answer: "some TXT record"},
 			// spaces and tabs should pass
 			miekg.Answer{Name: "_dmarc.zdns-testing.com", Answer: "v\t\t\t=\t\t  DMARC1\t\t; p=none; rua=mailto:postmaster@censys.io"}},
 	}
-	res, _, status, _ := suite.l.DoLookup("example.com", "")
-	suite.Equal(string(zdns.STATUS_NOERROR), string(status))
-	suite.Equal(res.(Result).Dmarc, "v\t\t\t=\t\t  DMARC1\t\t; p=none; rua=mailto:postmaster@censys.io")
+	res, _, status, _ := l.DoLookup("example.com", "")
+	assert.Equal(t, string(zdns.STATUS_NOERROR), string(status))
+	assert.Equal(t, res.(Result).Dmarc, "v\t\t\t=\t\t  DMARC1\t\t; p=none; rua=mailto:postmaster@censys.io")
 }
 
-func (suite *DmarcTestSuite) TestLookup_DoTxtLookup_NotValid_1() {
+func TestDmarcLookup_NotValid_1(t *testing.T) {
+	_, _, _, l := InitTest()
 	mockResults["example.com"] = miekg.Result{
 		Answers: []interface{}{
 			miekg.Answer{Name: "_dmarc.zdns-testing.com", Answer: "some TXT record"},
 			// spaces before "v" should not be accepted
 			miekg.Answer{Name: "_dmarc.zdns-testing.com", Answer: "\t\t   v   =DMARC1; p=none; rua=mailto:postmaster@censys.io"}},
 	}
-	res, _, status, _ := suite.l.DoLookup("example.com", "")
-	suite.Equal(string(zdns.STATUS_NO_RECORD), string(status))
-	suite.Equal(res.(Result).Dmarc, "")
+	res, _, status, _ := l.DoLookup("example.com", "")
+	assert.Equal(t, string(zdns.STATUS_NO_RECORD), string(status))
+	assert.Equal(t, res.(Result).Dmarc, "")
 }
 
-func (suite *DmarcTestSuite) TestLookup_DoTxtLookup_NotValid_2() {
+func TestDmarcLookup_NotValid_2(t *testing.T) {
+	_, _, _, l := InitTest()
 	mockResults["example.com"] = miekg.Result{
 		Answers: []interface{}{
 			miekg.Answer{Name: "_dmarc.zdns-testing.com", Answer: "some TXT record"},
 			// DMARC1 should be capital letters
 			miekg.Answer{Name: "_dmarc.zdns-testing.com", Answer: "v=DMARc1; p=none; rua=mailto:postmaster@censys.io"}},
 	}
-	res, _, status, _ := suite.l.DoLookup("example.com", "")
-	suite.Equal(zdns.STATUS_NO_RECORD, status)
-	suite.Equal(res.(Result).Dmarc, "")
+	res, _, status, _ := l.DoLookup("example.com", "")
+	assert.Equal(t, zdns.STATUS_NO_RECORD, status)
+	assert.Equal(t, res.(Result).Dmarc, "")
 }
 
-func (suite *DmarcTestSuite) TestLookup_DoTxtLookup_NotValid_3() {
+func TestDmarcLookup_NotValid_3(t *testing.T) {
+	_, _, _, l := InitTest()
 	mockResults["example.com"] = miekg.Result{
 		Answers: []interface{}{
 			miekg.Answer{Name: "_dmarc.zdns-testing.com", Answer: "some TXT record"},
 			// ; has to be present after DMARC1
 			miekg.Answer{Name: "_dmarc.zdns-testing.com", Answer: "v=DMARc1. p=none; rua=mailto:postmaster@censys.io"}},
 	}
-	res, _, status, _ := suite.l.DoLookup("example.com", "")
-	suite.Equal(zdns.STATUS_NO_RECORD, status)
-	suite.Equal(res.(Result).Dmarc, "")
-}
-
-func TestDmarcTestSuite(t *testing.T) {
-	suite.Run(t, new(DmarcTestSuite))
+	res, _, status, _ := l.DoLookup("example.com", "")
+	assert.Equal(t, zdns.STATUS_NO_RECORD, status)
+	assert.Equal(t, res.(Result).Dmarc, "")
 }

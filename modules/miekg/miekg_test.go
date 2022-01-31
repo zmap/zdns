@@ -1,12 +1,11 @@
 package miekg
 
 import (
-	"github.com/stretchr/testify/assert"
+	"github.com/zmap/dns"
+	"gotest.tools/v3/assert"
 	"net"
 	"regexp"
 	"testing"
-
-	"github.com/zmap/dns"
 )
 
 func TestParseAnswer(t *testing.T) {
@@ -187,7 +186,7 @@ func TestLookup_DoTxtLookup_1(t *testing.T) {
 	}
 
 	resultString, err := txtRecord.FindTxtRecord(input)
-	assert.Nil(t, err)
+	assert.NilError(t, err)
 	assert.Equal(t, "asdfasdfasdf", resultString)
 }
 
@@ -216,7 +215,7 @@ func TestLookup_DoTxtLookup_2(t *testing.T) {
 	}
 
 	resultString, err := txtRecord.FindTxtRecord(input)
-	assert.Nil(t, err)
+	assert.NilError(t, err)
 	assert.Equal(t, "google-site-verification=A2WZWCNQHrGV_TWwKh7KHY90UY0SHZo_rnyMJoDaG0", resultString)
 }
 
@@ -244,8 +243,8 @@ func TestLookup_DoTxtLookup_3(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 	resultString, err := txtRecord.FindTxtRecord(input)
-	assert.NotNil(t, err)
-	assert.Empty(t, resultString)
+	assert.Error(t, err, "no such TXT record found")
+	assert.Assert(t, resultString == "")
 }
 
 func TestLookup_DoTxtLookup_4(t *testing.T) {
@@ -255,8 +254,8 @@ func TestLookup_DoTxtLookup_4(t *testing.T) {
 		Answers: []interface{}{},
 	}
 	resultString, err := txtRecord.FindTxtRecord(input)
-	assert.NotNil(t, err)
-	assert.Empty(t, resultString)
+	assert.Error(t, err, "no such TXT record found")
+	assert.Assert(t, resultString == "")
 }
 
 func TestLookup_DoTxtLookup_5(t *testing.T) {
@@ -271,6 +270,6 @@ func TestLookup_DoTxtLookup_5(t *testing.T) {
 		}},
 	}
 	resultString, err := txtRecord.FindTxtRecord(input)
-	assert.Nil(t, err)
+	assert.NilError(t, err)
 	assert.Equal(t, "google-site-verification=A2WZWCNQHrGV_TWwKh7KHY90UY0SHZo_rnyMJoDaG0s", resultString)
 }
