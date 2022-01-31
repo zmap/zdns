@@ -21,7 +21,7 @@ import (
 	"regexp"
 )
 
-const spfPrefixRegexp = "(?i)^v=spf1.*"
+const spfPrefixRegexp = "(?i)^v=spf1"
 
 // result to be returned by scan of host
 type Result struct {
