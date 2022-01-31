@@ -34,14 +34,10 @@ type Lookup struct {
 }
 
 func (s *Lookup) DoLookup(_, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
-	var res Result
-	res.Resolver = nameServer
-	innerRes, trace, status, err := s.DoTxtLookup("VERSION.BIND", nameServer)
-	if status != zdns.STATUS_NOERROR {
-		return res, trace, status, err
-	}
-	res.BindVersion = innerRes
-	return res, trace, zdns.STATUS_NOERROR, nil
+	innerRes, trace, status, err := s.DoLookup("VERSION.BIND", nameServer)
+	resString, resStatus, err := s.CheckTxtRecords(innerRes, status, err)
+	res := Result{BindVersion: resString}
+	return res, trace, resStatus, err
 }
 
 // Per GoRoutine Factory ======================================================

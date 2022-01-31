@@ -21,7 +21,7 @@ import (
 	"regexp"
 )
 
-const dmarcPrefixRegexp = "v[\x09\x20]*=[\x09\x20]*DMARC1[\x09\x20]*;[\x09\x20]*"
+const dmarcPrefixRegexp = "^[vV][\x09\x20]*=[\x09\x20]*DMARC1[\x09\x20]*;[\x09\x20]*"
 
 // result to be returned by scan of host
 type Result struct {
@@ -31,34 +31,33 @@ type Result struct {
 // Per Connection Lookup ======================================================
 //
 type Lookup struct {
-	Factory *RoutineLookupFactory
 	miekg.Lookup
+	Factory *RoutineLookupFactory
 }
 
 func (s *Lookup) DoLookup(name string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
-	var res Result
-	innerRes, trace, status, err := s.DoTxtLookup(name, nameServer)
-	if status != zdns.STATUS_NOERROR {
-		return res, nil, status, err
-	}
-	res.Dmarc = innerRes
-	return res, trace, zdns.STATUS_NOERROR, nil
+	innerRes, trace, status, err := s.DoMiekgLookup(miekg.Question{Name: name, Type: s.DNSType, Class: s.DNSClass}, nameServer)
+	resString, resStatus, err := s.CheckTxtRecords(innerRes, status, err)
+	res := Result{Dmarc: resString}
+	return res, trace, resStatus, err
 }
 
 // Per GoRoutine Factory ======================================================
 //
 type RoutineLookupFactory struct {
 	miekg.RoutineLookupFactory
-	Factory           *GlobalLookupFactory
-	dmarcPrefixRegexp *regexp.Regexp
+	Factory *GlobalLookupFactory
 }
 
-func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
-	a := Lookup{Factory: s}
-	nameServer := s.Factory.RandomNameServer()
-	a.Initialize(nameServer, dns.TypeTXT, dns.ClassINET, &s.RoutineLookupFactory)
-	a.PrefixRegexp = s.dmarcPrefixRegexp
-	return &a, nil
+func (rlf *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
+	lookup := Lookup{Factory: rlf}
+	nameServer := rlf.Factory.RandomNameServer()
+	lookup.Initialize(nameServer, dns.TypeTXT, dns.ClassINET, &rlf.RoutineLookupFactory)
+	return &lookup, nil
+}
+
+func (rlf *RoutineLookupFactory) InitPrefixRegexp() {
+	rlf.PrefixRegexp = regexp.MustCompile(dmarcPrefixRegexp)
 }
 
 // Global Factory =============================================================
@@ -67,14 +66,14 @@ type GlobalLookupFactory struct {
 	miekg.GlobalLookupFactory
 }
 
-func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
-	r := new(RoutineLookupFactory)
-	r.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
-	r.dmarcPrefixRegexp = regexp.MustCompile(dmarcPrefixRegexp)
-	r.Initialize(s.GlobalConf)
-	r.Factory = s
-	r.ThreadID = threadID
-	return r, nil
+func (glf *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
+	rlf := new(RoutineLookupFactory)
+	rlf.RoutineLookupFactory.Factory = &glf.GlobalLookupFactory
+	rlf.InitPrefixRegexp()
+	rlf.Initialize(glf.GlobalConf)
+	rlf.Factory = glf
+	rlf.ThreadID = threadID
+	return rlf, nil
 }
 
 // Global Registration ========================================================
