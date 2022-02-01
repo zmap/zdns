@@ -13,8 +13,6 @@ jobs:
       - name: Build
         run: |
           go version
-          go build ./...
-          cd zdns
           go build
       - name: Unit Tests
         run: go test -v ./...
