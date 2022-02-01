@@ -13,7 +13,7 @@ jobs:
       - name: Build
         run: |
           go version
-          go build
+          make
       - name: Unit Tests
         run: go test -v ./...
       - name: Integration Tests
