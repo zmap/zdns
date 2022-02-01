@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -45,7 +44,6 @@ ZDNS also includes its own recursive resolution and a cache to further optimize 
 	Args:      cobra.ExactValidArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		gc.Module = strings.ToUpper(args[0])
-		log.Info("running")
 		zdns.Run(gc, cmd.Flags(),
 			&timeout, &iterationTimeout,
 			&class_string, &servers_string,
