@@ -9,8 +9,6 @@ import (
 	"os"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/zmap/zdns/internal/util"
@@ -43,7 +41,6 @@ ZDNS also includes its own recursive resolution and a cache to further optimize 
 	ValidArgs: zdns.Validlookups(),
 	Args:      cobra.ExactValidArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		log.Info(cmd.Flags())
 		gc.Module = strings.ToUpper(args[0])
 		zdns.Run(gc, cmd.Flags(),
 			&timeout, &iterationTimeout,
@@ -104,6 +101,11 @@ func init() {
 	rootCmd.PersistentFlags().IntVar(&iterationTimeout, "iteration-timeout", 4, "timeout for resolving a single iteration in an iterative query")
 	rootCmd.PersistentFlags().StringVar(&class_string, "class", "INET", "DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY. Default: INET.")
 	rootCmd.PersistentFlags().BoolVar(&nanoSeconds, "nanoseconds", false, "Use nanosecond resolution timestamps")
+
+	rootCmd.PersistentFlags().Bool("ipv4-lookup", false, "Perform an IPv4 Lookup in modules")
+	rootCmd.PersistentFlags().Bool("ipv6-lookup", false, "Perform an IPv6 Lookup in modules")
+	rootCmd.PersistentFlags().String("blacklist-file", "", "blacklist file for servers to exclude from lookups")
+	rootCmd.PersistentFlags().Int("mx-cache-size", 1000, "number of records to store in MX -> A/AAAA cache")
 }
 
 // initConfig reads in config file and ENV variables if set.

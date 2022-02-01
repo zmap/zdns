@@ -10,8 +10,8 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-
 	"github.com/spf13/pflag"
+
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/internal/util"
 	"github.com/zmap/zdns/iohandlers"
@@ -28,6 +28,8 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 	if factory == nil {
 		log.Fatal("Invalid lookup module specified. Valid modules: ", ValidlookupsString())
 	}
+
+	factory.AddFlags(flags)
 
 	if gc.LogFilePath != "" {
 		f, err := os.OpenFile(gc.LogFilePath, os.O_WRONLY|os.O_CREATE, 0666)

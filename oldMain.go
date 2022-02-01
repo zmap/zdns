@@ -86,7 +86,7 @@ func oldMain() {
 		flags.Parse(os.Args[1:])
 		log.Fatal("Invalid lookup module specified. Valid modules: ", zdns.ValidlookupsString(), ".")
 	}
-	factory.AddFlags(flags)
+	//factory.AddFlags(flags)
 	flags.Parse(os.Args[2:])
 	// Do some basic sanity checking
 	// setup global logging

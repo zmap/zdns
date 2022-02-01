@@ -15,9 +15,9 @@
 package nslookup
 
 import (
-	"flag"
 	"strings"
 
+	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/pkg/miekg"
 	"github.com/zmap/zdns/pkg/zdns"
@@ -150,9 +150,11 @@ type GlobalLookupFactory struct {
 	IPv6Lookup bool
 }
 
-func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
-	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", false, "perform A lookups for each name server")
-	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", false, "perform AAAA record lookups for each name server")
+func (s *GlobalLookupFactory) AddFlags(f *pflag.FlagSet) {
+	// If error, take the default value that comes out
+	// TODO: Might be a cleaner way here
+	s.IPv4Lookup, _ = f.GetBool("ipv4-lookup")
+	s.IPv6Lookup, _ = f.GetBool("ipv6-lookup")
 }
 
 // Command-line Help Documentation. This is the descriptive text what is
