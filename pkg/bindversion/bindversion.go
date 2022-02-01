@@ -16,8 +16,8 @@ package bindversion
 
 import (
 	"github.com/zmap/dns"
-	"github.com/zmap/zdns"
-	"github.com/zmap/zdns/modules/miekg"
+	"github.com/zmap/zdns/pkg/miekg"
+	"github.com/zmap/zdns/pkg/zdns"
 )
 
 // result to be returned by scan of host

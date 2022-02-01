@@ -26,6 +26,7 @@ import (
 	"github.com/liip/sheriff"
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
+	"github.com/zmap/zdns/internal/util"
 )
 
 type routineMetadata struct {
@@ -71,7 +72,7 @@ func parseNormalInputLine(line string) (string, string) {
 	if len(s) == 1 {
 		return s[0], ""
 	} else {
-		return s[0], AddDefaultPortToDNSServerName(s[1])
+		return s[0], util.AddDefaultPortToDNSServerName(s[1])
 	}
 }
 
@@ -118,7 +119,7 @@ func doLookup(g GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, o
 			rawName, entryMetadata = parseMetadataInputLine(line)
 			res.Metadata = entryMetadata
 		} else if gc.NameServerMode {
-			nameServer = AddDefaultPortToDNSServerName(line)
+			nameServer = util.AddDefaultPortToDNSServerName(line)
 		} else {
 			rawName, nameServer = parseNormalInputLine(line)
 		}

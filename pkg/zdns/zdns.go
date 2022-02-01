@@ -12,10 +12,9 @@
  * permissions and limitations under the License.
  */
 
-package main
+package zdns
 
 import (
-	"flag"
 	"io/ioutil"
 	"math/rand"
 	"net"
@@ -25,70 +24,26 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
-	"github.com/zmap/zdns"
-	_ "github.com/zmap/zdns/modules/alookup"
-	_ "github.com/zmap/zdns/modules/axfr"
-	_ "github.com/zmap/zdns/modules/bindversion"
-	_ "github.com/zmap/zdns/modules/dmarc"
-	_ "github.com/zmap/zdns/modules/miekg"
-	_ "github.com/zmap/zdns/modules/mxlookup"
-	_ "github.com/zmap/zdns/modules/nslookup"
-	_ "github.com/zmap/zdns/modules/spf"
-
+	"github.com/zmap/zdns/internal/util"
 	"github.com/zmap/zdns/iohandlers"
 )
 
-func main() {
+func Run(gc GlobalConf, flags *pflag.FlagSet,
+	timeout *int, iterationTimeout *int,
+	class_string *string, servers_string *string,
+	config_file *string, localaddr_string *string,
+	localif_string *string, nanoSeconds *bool) {
 
-	var gc zdns.GlobalConf
+	factory := GetLookup(gc.Module)
 
-	// global flags relevant to every lookup module
-	flags := flag.NewFlagSet("flags", flag.ExitOnError)
-	flags.IntVar(&gc.Threads, "threads", 1000, "number of lightweight go threads")
-	flags.IntVar(&gc.GoMaxProcs, "go-processes", 0, "number of OS processes (GOMAXPROCS)")
-	flags.StringVar(&gc.NamePrefix, "prefix", "", "name to be prepended to what's passed in (e.g., www.)")
-	flags.StringVar(&gc.NameOverride, "override-name", "", "name overrides all passed in names")
-	flags.BoolVar(&gc.AlexaFormat, "alexa", false, "is input file from Alexa Top Million download")
-	flags.BoolVar(&gc.MetadataFormat, "metadata-passthrough", false, "if input records have the form 'name,METADATA', METADATA will be propagated to the output")
-	flags.BoolVar(&gc.IterativeResolution, "iterative", false, "Perform own iteration instead of relying on recursive resolver")
-	flags.StringVar(&gc.InputFilePath, "input-file", "-", "names to read")
-	flags.StringVar(&gc.OutputFilePath, "output-file", "-", "where should JSON output be saved")
-	flags.StringVar(&gc.MetadataFilePath, "metadata-file", "", "where should JSON metadata be saved")
-	flags.StringVar(&gc.LogFilePath, "log-file", "", "where should JSON logs be saved")
-
-	flags.StringVar(&gc.ResultVerbosity, "result-verbosity", "normal", "Sets verbosity of each output record. Options: short, normal, long, trace")
-	flags.StringVar(&gc.IncludeInOutput, "include-fields", "", "Comma separated list of fields to additionally output beyond result verbosity. Options: class, protocol, ttl, resolver, flags")
-
-	flags.IntVar(&gc.Verbosity, "verbosity", 3, "log verbosity: 1 (lowest)--5 (highest)")
-	flags.IntVar(&gc.Retries, "retries", 1, "how many times should zdns retry query if timeout or temporary failure")
-	flags.IntVar(&gc.MaxDepth, "max-depth", 10, "how deep should we recurse when performing iterative lookups")
-	flags.IntVar(&gc.CacheSize, "cache-size", 10000, "how many items can be stored in internal recursive cache")
-	flags.BoolVar(&gc.TCPOnly, "tcp-only", false, "Only perform lookups over TCP")
-	flags.BoolVar(&gc.UDPOnly, "udp-only", false, "Only perform lookups over UDP")
-	flags.BoolVar(&gc.NameServerMode, "name-server-mode", false, "Treats input as nameservers to query with a static query rather than queries to send to a static name server")
-	servers_string := flags.String("name-servers", "", "List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53.")
-	localaddr_string := flags.String("local-addr", "", "comma-delimited list of local addresses to use")
-	localif_string := flags.String("local-interface", "", "local interface to use")
-	config_file := flags.String("conf-file", "/etc/resolv.conf", "config file for DNS servers")
-	timeout := flags.Int("timeout", 15, "timeout for resolving an individual name")
-	iterationTimeout := flags.Int("iteration-timeout", 4, "timeout for resolving a single iteration in an iterative query")
-	class_string := flags.String("class", "INET", "DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY. Default: INET.")
-	nanoSeconds := flags.Bool("nanoseconds", false, "Use nanosecond resolution timestamps")
-	// allow module to initialize and add its own flags before we parse
-	if len(os.Args) < 2 {
-		log.Fatal("No lookup module specified. Valid modules: ", zdns.ValidlookupsString(), ".")
-	}
-	gc.Module = strings.ToUpper(os.Args[1])
-	factory := zdns.GetLookup(gc.Module)
 	if factory == nil {
-		flags.Parse(os.Args[1:])
-		log.Fatal("Invalid lookup module specified. Valid modules: ", zdns.ValidlookupsString(), ".")
+		log.Fatal("Invalid lookup module specified. Valid modules: ", ValidlookupsString())
 	}
-	factory.AddFlags(flags)
-	flags.Parse(os.Args[2:])
-	// Do some basic sanity checking
-	// setup global logging
+
+	factory.SetFlags(flags)
+
 	if gc.LogFilePath != "" {
 		f, err := os.OpenFile(gc.LogFilePath, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
@@ -96,6 +51,7 @@ func main() {
 		}
 		log.SetOutput(f)
 	}
+
 	// Translate the assigned verbosity level to a logrus log level.
 	switch gc.Verbosity {
 	case 1: // Fatal
@@ -111,9 +67,11 @@ func main() {
 	default:
 		log.Fatal("Unknown verbosity level specified. Must be between 1 (lowest)--5 (highest)")
 	}
+
 	// complete post facto global initialization based on command line arguments
 	gc.Timeout = time.Duration(time.Second * time.Duration(*timeout))
 	gc.IterationTimeout = time.Duration(time.Second * time.Duration(*iterationTimeout))
+
 	// class initialization
 	switch strings.ToUpper(*class_string) {
 	case "INET", "IN":
@@ -132,15 +90,16 @@ func main() {
 		log.Fatal("Unknown record class specified. Valid valued are INET (default), CSNET, CHAOS, HESIOD, NONE, ANY")
 
 	}
+
 	if *servers_string == "" {
 		// if we're doing recursive resolution, figure out default OS name servers
 		// otherwise, use the set of 13 root name servers
 		if gc.IterativeResolution {
-			gc.NameServers = zdns.RootServers[:]
+			gc.NameServers = RootServers[:]
 		} else {
-			ns, err := zdns.GetDNSServers(*config_file)
+			ns, err := GetDNSServers(*config_file)
 			if err != nil {
-				ns = getDefaultResolvers()
+				ns = util.GetDefaultResolvers()
 				log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(ns, ", "))
 			}
 			gc.NameServers = ns
@@ -166,11 +125,12 @@ func main() {
 			ns = strings.Split(*servers_string, ",")
 		}
 		for i, s := range ns {
-			ns[i] = zdns.AddDefaultPortToDNSServerName(s)
+			ns[i] = util.AddDefaultPortToDNSServerName(s)
 		}
 		gc.NameServers = ns
 		gc.NameServersSpecified = true
 	}
+
 	if *localaddr_string != "" {
 		for _, la := range strings.Split(*localaddr_string, ",") {
 			ip := net.ParseIP(la)
@@ -183,6 +143,7 @@ func main() {
 		log.Info("using local address: ", localaddr_string)
 		gc.LocalAddrSpecified = true
 	}
+
 	if *localif_string != "" {
 		if gc.LocalAddrSpecified {
 			log.Fatal("Both --local-addr and --local-interface specified.")
@@ -242,17 +203,6 @@ func main() {
 	gc.OutputGroups = append(gc.OutputGroups, gc.ResultVerbosity)
 	gc.OutputGroups = append(gc.OutputGroups, groups...)
 
-	if len(flags.Args()) > 0 {
-		stat, _ := os.Stdin.Stat()
-		// If stdin is piped from the terminal, and we haven't specified a file, and if we have unparsed args
-		// use them for a dig-like resolution
-		if (stat.Mode()&os.ModeCharDevice) != 0 && gc.InputFilePath == "-" && len(flags.Args()) == 1 {
-			gc.PassedName = flags.Args()[0]
-		} else {
-			log.Fatal("Unused command line flags: ", flags.Args())
-		}
-	}
-
 	// Seeding for RandomNameServer()
 	rand.Seed(time.Now().UnixNano())
 
@@ -270,16 +220,11 @@ func main() {
 		log.Fatal("Factory was unable to initialize:", err.Error())
 	}
 	// run it.
-	if err := zdns.DoLookups(factory, &gc); err != nil {
+	if err := DoLookups(factory, &gc); err != nil {
 		log.Fatal("Unable to run lookups:", err.Error())
 	}
 	// allow the factory to finalize itself
 	if err := factory.Finalize(); err != nil {
 		log.Fatal("Factory was unable to finalize:", err.Error())
 	}
-}
-
-// getDefaultResolvers returns a slice of default DNS resolvers to be used when no system resolvers could be discovered.
-func getDefaultResolvers() []string {
-	return []string{"8.8.8.8:53", "8.8.4.4:53", "1.1.1.1:53", "1.0.0.1:53"}
 }
