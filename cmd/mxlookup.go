@@ -20,27 +20,18 @@ var mxlookupCmd = &cobra.Command{
 	Long: `mxlookup will additionally do an A lookup for the IP addresses that
 correspond with an exchange record.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		gc.Module = strings.ToUpper("mxlookup")
-		zdns.Run(gc, cmd.Flags(),
-			&timeout, &iterationTimeout,
-			&class_string, &servers_string,
-			&config_file, &localaddr_string,
-			&localif_string, &nanoSeconds)
+		GC.Module = strings.ToUpper("mxlookup")
+		//TODO: don't think these params exist.
+		zdns.Run(GC, cmd.Flags(),
+			&Timeout, &IterationTimeout,
+			&Class_string, &Servers_string,
+			&Config_file, &Localaddr_string,
+			&Localif_string, &NanoSeconds)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(mxlookupCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// mxlookupCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// mxlookupCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
 	mxlookupCmd.PersistentFlags().Bool("ipv4-lookup", false, "perform A lookups for each MX server")
 	mxlookupCmd.PersistentFlags().Bool("ipv6-lookup", false, "perform AAAA record lookups for each MX server")

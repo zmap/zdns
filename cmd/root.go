@@ -16,17 +16,18 @@ import (
 )
 
 var cfgFile string
-var gc zdns.GlobalConf
+var GC zdns.GlobalConf
 
+//TODO: these options may need to be set as flags or in GC, to standardize.
 var (
-	servers_string   string
-	localaddr_string string
-	localif_string   string
-	config_file      string
-	timeout          int
-	iterationTimeout int
-	class_string     string
-	nanoSeconds      bool
+	Servers_string   string
+	Localaddr_string string
+	Localif_string   string
+	Config_file      string
+	Timeout          int
+	IterationTimeout int
+	Class_string     string
+	NanoSeconds      bool
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -41,12 +42,12 @@ ZDNS also includes its own recursive resolution and a cache to further optimize 
 	ValidArgs: zdns.Validlookups(),
 	Args:      cobra.ExactValidArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		gc.Module = strings.ToUpper(args[0])
-		zdns.Run(gc, cmd.Flags(),
-			&timeout, &iterationTimeout,
-			&class_string, &servers_string,
-			&config_file, &localaddr_string,
-			&localif_string, &nanoSeconds)
+		GC.Module = strings.ToUpper(args[0])
+		zdns.Run(GC, cmd.Flags(),
+			&Timeout, &IterationTimeout,
+			&Class_string, &Servers_string,
+			&Config_file, &Localaddr_string,
+			&Localif_string, &NanoSeconds)
 	},
 }
 
@@ -70,37 +71,37 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.PersistentFlags().IntVar(&gc.Threads, "threads", 1000, "number of lightweight go threads")
-	rootCmd.PersistentFlags().IntVar(&gc.GoMaxProcs, "go-processes", 0, "number of OS processes (GOMAXPROCS)")
-	rootCmd.PersistentFlags().StringVar(&gc.NamePrefix, "prefix", "", "name to be prepended to what's passed in (e.g., www.)")
-	rootCmd.PersistentFlags().StringVar(&gc.NameOverride, "override-name", "", "name overrides all passed in names")
-	rootCmd.PersistentFlags().BoolVar(&gc.AlexaFormat, "alexa", false, "is input file from Alexa Top Million download")
-	rootCmd.PersistentFlags().BoolVar(&gc.MetadataFormat, "metadata-passthrough", false, "if input records have the form 'name,METADATA', METADATA will be propagated to the output")
-	rootCmd.PersistentFlags().BoolVar(&gc.IterativeResolution, "iterative", false, "Perform own iteration instead of relying on recursive resolver")
-	rootCmd.PersistentFlags().StringVar(&gc.InputFilePath, "input-file", "-", "names to read")
-	rootCmd.PersistentFlags().StringVar(&gc.OutputFilePath, "output-file", "-", "where should JSON output be saved")
-	rootCmd.PersistentFlags().StringVar(&gc.MetadataFilePath, "metadata-file", "", "where should JSON metadata be saved")
-	rootCmd.PersistentFlags().StringVar(&gc.LogFilePath, "log-file", "", "where should JSON logs be saved")
+	rootCmd.PersistentFlags().IntVar(&GC.Threads, "threads", 1000, "number of lightweight go threads")
+	rootCmd.PersistentFlags().IntVar(&GC.GoMaxProcs, "go-processes", 0, "number of OS processes (GOMAXPROCS)")
+	rootCmd.PersistentFlags().StringVar(&GC.NamePrefix, "prefix", "", "name to be prepended to what's passed in (e.g., www.)")
+	rootCmd.PersistentFlags().StringVar(&GC.NameOverride, "override-name", "", "name overrides all passed in names")
+	rootCmd.PersistentFlags().BoolVar(&GC.AlexaFormat, "alexa", false, "is input file from Alexa Top Million download")
+	rootCmd.PersistentFlags().BoolVar(&GC.MetadataFormat, "metadata-passthrough", false, "if input records have the form 'name,METADATA', METADATA will be propagated to the output")
+	rootCmd.PersistentFlags().BoolVar(&GC.IterativeResolution, "iterative", false, "Perform own iteration instead of relying on recursive resolver")
+	rootCmd.PersistentFlags().StringVar(&GC.InputFilePath, "input-file", "-", "names to read")
+	rootCmd.PersistentFlags().StringVar(&GC.OutputFilePath, "output-file", "-", "where should JSON output be saved")
+	rootCmd.PersistentFlags().StringVar(&GC.MetadataFilePath, "metadata-file", "", "where should JSON metadata be saved")
+	rootCmd.PersistentFlags().StringVar(&GC.LogFilePath, "log-file", "", "where should JSON logs be saved")
 
-	rootCmd.PersistentFlags().StringVar(&gc.ResultVerbosity, "result-verbosity", "normal", "Sets verbosity of each output record. Options: short, normal, long, trace")
-	rootCmd.PersistentFlags().StringVar(&gc.IncludeInOutput, "include-fields", "", "Comma separated list of fields to additionally output beyond result verbosity. Options: class, protocol, ttl, resolver, flags")
+	rootCmd.PersistentFlags().StringVar(&GC.ResultVerbosity, "result-verbosity", "normal", "Sets verbosity of each output record. Options: short, normal, long, trace")
+	rootCmd.PersistentFlags().StringVar(&GC.IncludeInOutput, "include-fields", "", "Comma separated list of fields to additionally output beyond result verbosity. Options: class, protocol, ttl, resolver, flags")
 
-	rootCmd.PersistentFlags().IntVar(&gc.Verbosity, "verbosity", 3, "log verbosity: 1 (lowest)--5 (highest)")
-	rootCmd.PersistentFlags().IntVar(&gc.Retries, "retries", 1, "how many times should zdns retry query if timeout or temporary failure")
-	rootCmd.PersistentFlags().IntVar(&gc.MaxDepth, "max-depth", 10, "how deep should we recurse when performing iterative lookups")
-	rootCmd.PersistentFlags().IntVar(&gc.CacheSize, "cache-size", 10000, "how many items can be stored in internal recursive cache")
-	rootCmd.PersistentFlags().BoolVar(&gc.TCPOnly, "tcp-only", false, "Only perform lookups over TCP")
-	rootCmd.PersistentFlags().BoolVar(&gc.UDPOnly, "udp-only", false, "Only perform lookups over UDP")
-	rootCmd.PersistentFlags().BoolVar(&gc.NameServerMode, "name-server-mode", false, "Treats input as nameservers to query with a static query rather than queries to send to a static name server")
+	rootCmd.PersistentFlags().IntVar(&GC.Verbosity, "verbosity", 3, "log verbosity: 1 (lowest)--5 (highest)")
+	rootCmd.PersistentFlags().IntVar(&GC.Retries, "retries", 1, "how many times should zdns retry query if timeout or temporary failure")
+	rootCmd.PersistentFlags().IntVar(&GC.MaxDepth, "max-depth", 10, "how deep should we recurse when performing iterative lookups")
+	rootCmd.PersistentFlags().IntVar(&GC.CacheSize, "cache-size", 10000, "how many items can be stored in internal recursive cache")
+	rootCmd.PersistentFlags().BoolVar(&GC.TCPOnly, "tcp-only", false, "Only perform lookups over TCP")
+	rootCmd.PersistentFlags().BoolVar(&GC.UDPOnly, "udp-only", false, "Only perform lookups over UDP")
+	rootCmd.PersistentFlags().BoolVar(&GC.NameServerMode, "name-server-mode", false, "Treats input as nameservers to query with a static query rather than queries to send to a static name server")
 
-	rootCmd.PersistentFlags().StringVar(&servers_string, "name-servers", "", "List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53.")
-	rootCmd.PersistentFlags().StringVar(&localaddr_string, "local-addr", "", "comma-delimited list of local addresses to use")
-	rootCmd.PersistentFlags().StringVar(&localif_string, "local-interface", "", "local interface to use")
-	rootCmd.PersistentFlags().StringVar(&config_file, "conf-file", "/etc/resolv.conf", "config file for DNS servers")
-	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 15, "timeout for resolving an individual name")
-	rootCmd.PersistentFlags().IntVar(&iterationTimeout, "iteration-timeout", 4, "timeout for resolving a single iteration in an iterative query")
-	rootCmd.PersistentFlags().StringVar(&class_string, "class", "INET", "DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY. Default: INET.")
-	rootCmd.PersistentFlags().BoolVar(&nanoSeconds, "nanoseconds", false, "Use nanosecond resolution timestamps")
+	rootCmd.PersistentFlags().StringVar(&Servers_string, "name-servers", "", "List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53.")
+	rootCmd.PersistentFlags().StringVar(&Localaddr_string, "local-addr", "", "comma-delimited list of local addresses to use")
+	rootCmd.PersistentFlags().StringVar(&Localif_string, "local-interface", "", "local interface to use")
+	rootCmd.PersistentFlags().StringVar(&Config_file, "conf-file", "/etc/resolv.conf", "config file for DNS servers")
+	rootCmd.PersistentFlags().IntVar(&Timeout, "timeout", 15, "timeout for resolving an individual name")
+	rootCmd.PersistentFlags().IntVar(&IterationTimeout, "iteration-timeout", 4, "timeout for resolving a single iteration in an iterative query")
+	rootCmd.PersistentFlags().StringVar(&Class_string, "class", "INET", "DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY. Default: INET.")
+	rootCmd.PersistentFlags().BoolVar(&NanoSeconds, "nanoseconds", false, "Use nanosecond resolution timestamps")
 
 	rootCmd.PersistentFlags().Bool("ipv4-lookup", false, "Perform an IPv4 Lookup in modules")
 	rootCmd.PersistentFlags().Bool("ipv6-lookup", false, "Perform an IPv6 Lookup in modules")
