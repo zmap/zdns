@@ -1,13 +1,13 @@
-all: zdns/zdns
+all: zdns
 
-zdns/zdns:
-	cd zdns && go build
+zdns:
+	go build
 
 clean:
-	rm -f zdns/zdns
+	rm -f zdns
 
-install: zdns/zdns
-	cd zdns && go install
+install: zdns
+	go install
 
-.PHONY: zdns/zdns clean
+.PHONY: zdns clean
 
