@@ -142,7 +142,7 @@ func (s *GlobalLookupFactory) Help() string {
 	return ""
 }
 
-func (s *GlobalLookupFactory) AddFlags(f *pflag.FlagSet) {
+func (s *GlobalLookupFactory) SetFlags(f *pflag.FlagSet) {
 	// If error, take the default value that comes out
 	// TODO: Might be a cleaner way here
 	s.BlacklistPath, _ = f.GetString("blacklist-file")

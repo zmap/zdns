@@ -28,7 +28,7 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 		log.Fatal("Invalid lookup module specified. Valid modules: ", ValidlookupsString())
 	}
 
-	factory.AddFlags(flags)
+	factory.SetFlags(flags)
 
 	if gc.LogFilePath != "" {
 		f, err := os.OpenFile(gc.LogFilePath, os.O_WRONLY|os.O_CREATE, 0666)

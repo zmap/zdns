@@ -152,7 +152,7 @@ type GlobalLookupFactory struct {
 	CHmu        sync.Mutex
 }
 
-func (s *GlobalLookupFactory) AddFlags(f *pflag.FlagSet) {
+func (s *GlobalLookupFactory) SetFlags(f *pflag.FlagSet) {
 	// If error, take the default value that comes out
 	// TODO: Might be a cleaner way here
 	s.IPv4Lookup, _ = f.GetBool("ipv4-lookup")

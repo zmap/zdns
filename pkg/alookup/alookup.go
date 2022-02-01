@@ -167,7 +167,7 @@ type GlobalLookupFactory struct {
 	IPv6Lookup bool
 }
 
-func (s *GlobalLookupFactory) AddFlags(f *pflag.FlagSet) {
+func (s *GlobalLookupFactory) SetFlags(f *pflag.FlagSet) {
 	// If error, take the default value that comes out
 	// TODO: Might be a cleaner way here
 	s.IPv4Lookup, _ = f.GetBool("ipv4-lookup")

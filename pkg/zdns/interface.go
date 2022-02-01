@@ -71,7 +71,7 @@ type RoutineLookupFactory interface {
 type GlobalLookupFactory interface {
 	// TODO: somewhat deceivingly named. This captures the values of flags,
 	// but doesn't actually set them.
-	AddFlags(flags *pflag.FlagSet)
+	SetFlags(flags *pflag.FlagSet)
 	// global initialization. Gets called once globally
 	// This is called after command line flags have been parsed
 	Initialize(conf *GlobalConf) error
@@ -113,7 +113,7 @@ func (f *BaseGlobalLookupFactory) Finalize() error {
 	return nil
 }
 
-func (s *BaseGlobalLookupFactory) AddFlags(f *pflag.FlagSet) {
+func (s *BaseGlobalLookupFactory) SetFlags(f *pflag.FlagSet) {
 }
 
 func (s *BaseGlobalLookupFactory) Help() string {
