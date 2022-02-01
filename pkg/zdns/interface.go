@@ -69,8 +69,8 @@ type RoutineLookupFactory interface {
 // one RoutineLookupFactory per execution =====================================
 //
 type GlobalLookupFactory interface {
-	// TODO: somewhat deceivingly named. This captures the values of flags,
-	// but doesn't actually set them.
+	// Capture the values of cobra/viper flags and add them to the
+	// global factory as appropriate.
 	SetFlags(flags *pflag.FlagSet)
 	// global initialization. Gets called once globally
 	// This is called after command line flags have been parsed
