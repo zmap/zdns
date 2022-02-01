@@ -11,7 +11,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
-
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/internal/util"
 	"github.com/zmap/zdns/iohandlers"
@@ -130,8 +129,7 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 		log.Info("using local address: ", localaddr_string)
 		gc.LocalAddrSpecified = true
 	}
-	log.Info(*localif_string)
-	log.Info(gc.LocalAddrSpecified)
+
 	if *localif_string != "" {
 		if gc.LocalAddrSpecified {
 			log.Fatal("Both --local-addr and --local-interface specified.")
