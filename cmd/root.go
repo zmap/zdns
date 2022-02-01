@@ -9,16 +9,16 @@ import (
 	"os"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"github.com/zmap/zdns/internal/util"
 	"github.com/zmap/zdns/pkg/zdns"
 )
 
 var cfgFile string
 var gc zdns.GlobalConf
-
-const envPrefix = "ZDNS"
 
 var (
 	servers_string   string
@@ -43,6 +43,7 @@ ZDNS also includes its own recursive resolution and a cache to further optimize 
 	ValidArgs: zdns.Validlookups(),
 	Args:      cobra.ExactValidArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		log.Info(cmd.Flags())
 		gc.Module = strings.ToUpper(args[0])
 		zdns.Run(gc, cmd.Flags(),
 			&timeout, &iterationTimeout,
@@ -121,7 +122,7 @@ func initConfig() {
 		viper.SetConfigName(".zdns")
 	}
 
-	viper.SetEnvPrefix(envPrefix)
+	viper.SetEnvPrefix(util.EnvPrefix)
 	viper.AutomaticEnv()
 
 	// If a config file is found, read it in.
@@ -129,25 +130,5 @@ func initConfig() {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 	}
 	// Bind the current command's flags to viper
-	bindFlags(rootCmd, viper.GetViper())
-}
-
-// Reference: https://github.com/carolynvs/stingoftheviper/blob/main/main.go
-// For how to make cobra/viper sync up, and still use custom struct
-// Bind each cobra flag to its associated viper configuration (config file and environment variable)
-func bindFlags(cmd *cobra.Command, v *viper.Viper) {
-	cmd.Flags().VisitAll(func(f *pflag.Flag) {
-		// Environment variables can't have dashes in them, so bind them to their equivalent
-		// keys with underscores, e.g. --alexa to ZDNS_ALEXA
-		if strings.Contains(f.Name, "-") {
-			envVarSuffix := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
-			v.BindEnv(f.Name, fmt.Sprintf("%s_%s", envPrefix, envVarSuffix))
-		}
-
-		// Apply the viper config value to the flag when the flag is not set and viper has a value
-		if !f.Changed && v.IsSet(f.Name) {
-			val := v.Get(f.Name)
-			cmd.Flags().Set(f.Name, fmt.Sprintf("%v", val))
-		}
-	})
+	util.BindFlags(rootCmd, viper.GetViper(), util.EnvPrefix)
 }

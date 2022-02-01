@@ -69,8 +69,8 @@ type RoutineLookupFactory interface {
 // one RoutineLookupFactory per execution =====================================
 //
 type GlobalLookupFactory interface {
-	// expected to add any necessary commandline flags if being
-	// run as a standalone scanner
+	// TODO: somewhat deceivingly named. This captures the values of flags,
+	// but doesn't actually set them.
 	AddFlags(flags *flag.FlagSet)
 	// global initialization. Gets called once globally
 	// This is called after command line flags have been parsed
