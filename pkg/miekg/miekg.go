@@ -85,9 +85,12 @@ func (s *GlobalLookupFactory) BlacklistInit() error {
 }
 
 func (s *GlobalLookupFactory) SetFlags(f *pflag.FlagSet) {
-	// If error, take the default value that comes out
-	// TODO: Might be a cleaner way here
-	s.BlacklistPath, _ = f.GetString("blacklist-file")
+	// If there's an error, panic is appropriate since we should at least be getting the default here.
+	var err error
+	s.BlacklistPath, err = f.GetString("blacklist-file")
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {

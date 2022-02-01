@@ -32,7 +32,6 @@ the information that exists in a single record.
 Specifically, alookup acts similar to nslookup and will follow CNAME records.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		GC.Module = strings.ToUpper("alookup")
-		//TODO: don't think these params exist.
 		zdns.Run(GC, cmd.Flags(),
 			&Timeout, &IterationTimeout,
 			&Class_string, &Servers_string,

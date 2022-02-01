@@ -30,7 +30,6 @@ var mxlookupCmd = &cobra.Command{
 correspond with an exchange record.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		GC.Module = strings.ToUpper("mxlookup")
-		//TODO: don't think these params exist.
 		zdns.Run(GC, cmd.Flags(),
 			&Timeout, &IterationTimeout,
 			&Class_string, &Servers_string,

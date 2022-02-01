@@ -143,9 +143,12 @@ func (s *GlobalLookupFactory) Help() string {
 }
 
 func (s *GlobalLookupFactory) SetFlags(f *pflag.FlagSet) {
-	// If error, take the default value that comes out
-	// TODO: Might be a cleaner way here
+	// If there's an error, panic is appropriate since we should at least be getting the default here.
+	var err error
 	s.BlacklistPath, _ = f.GetString("blacklist-file")
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {

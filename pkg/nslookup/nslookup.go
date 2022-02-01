@@ -151,10 +151,16 @@ type GlobalLookupFactory struct {
 }
 
 func (s *GlobalLookupFactory) SetFlags(f *pflag.FlagSet) {
-	// If error, take the default value that comes out
-	// TODO: Might be a cleaner way here
-	s.IPv4Lookup, _ = f.GetBool("ipv4-lookup")
-	s.IPv6Lookup, _ = f.GetBool("ipv6-lookup")
+	// If there's an error, panic is appropriate since we should at least be getting the default here.
+	var err error
+	s.IPv4Lookup, err = f.GetBool("ipv4-lookup")
+	if err != nil {
+		panic(err)
+	}
+	s.IPv6Lookup, err = f.GetBool("ipv6-lookup")
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Command-line Help Documentation. This is the descriptive text what is
