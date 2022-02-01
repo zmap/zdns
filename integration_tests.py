@@ -39,6 +39,12 @@ class Tests(unittest.TestCase):
     maxDiff = None
     ZDNS_EXECUTABLE = "./zdns" 
 
+    def run_zdns_check_failure(self, flags, name, expected_err, executable=ZDNS_EXECUTABLE):
+        flags = flags + " --threads=10"
+        c = f"echo '{name}' | {executable} {flags}; exit 0"
+        o = subprocess.check_output(c, shell=True, stderr=subprocess.STDOUT)
+        self.assertEqual(expected_err in o.decode(), True)
+
     def run_zdns(self, flags, name, executable=ZDNS_EXECUTABLE):
         flags = flags + " --threads=10"
         c = f"echo '{name}' | {executable} {flags}"
@@ -625,12 +631,9 @@ class Tests(unittest.TestCase):
 
 
     def test_local_addr_interface_warning(self):
-        c = u"A --local-addr 192.168.1.5 --local-interface en0"
-        name = u"zdns-testing.com"
-        command = c + " --threads=10 ; exit 0"
-        c = u"echo '%s' | %s" % (name, command)
-        o = subprocess.check_output(c, shell=True, stderr=subprocess.STDOUT)
-        self.assertEqual("Both --local-addr and --local-interface specified." in o.decode(), True)
+        c = "A --local-addr 192.168.1.5 --local-interface en0"
+        name = "zdns-testing.com"
+        self.run_zdns_check_failure(c, name, "Both --local-addr and --local-interface specified.")
 
 
 if __name__ == "__main__":
