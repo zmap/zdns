@@ -15,11 +15,13 @@
 package nslookup
 
 import (
+	"errors"
 	"flag"
 	"strings"
 
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns"
+	"github.com/zmap/zdns/modules/common"
 	"github.com/zmap/zdns/modules/miekg"
 )
 
@@ -37,6 +39,11 @@ type Result struct {
 	Servers []NSRecord `json:"servers,omitempty" groups:"short,normal,long,trace"`
 }
 
+type IpAddresses struct {
+	IPv4Addresses []string
+	IPv6Addresses []string
+}
+
 // Per Connection Lookup ======================================================
 //
 type Lookup struct {
@@ -44,23 +51,89 @@ type Lookup struct {
 	miekg.Lookup
 }
 
-func dotName(name string) string {
-	return strings.Join([]string{name, "."}, "")
-}
-
-func (s *Lookup) lookupIPs(name string, dnsType uint16, nameServer string) ([]string, zdns.Trace) {
-	var addresses []string
-	res, trace, status, _ := s.DoMiekgLookup(miekg.Question{Name: name, Type: dnsType}, nameServer)
-	if status == zdns.STATUS_NOERROR {
-		if cast, ok := res.(miekg.Result); ok {
-			for _, innerRes := range cast.Answers {
-				if castInnerRes, ok := innerRes.(miekg.Answer); ok {
-					addresses = append(addresses, castInnerRes.Answer)
+func populateResults(records []interface{}, dnsType uint16, candidateSet map[string][]miekg.Answer, cnameSet map[string][]miekg.Answer, garbage map[string][]miekg.Answer) {
+	for _, a := range records {
+		// filter only valid answers of requested type or CNAME (#163)
+		if ans, ok := a.(miekg.Answer); ok {
+			lowerCaseName := strings.ToLower(strings.TrimSuffix(ans.Name, "."))
+			// Verify that the answer type matches requested type
+			if common.VerifyAddress(ans.Type, ans.Answer) {
+				ansType := dns.StringToType[ans.Type]
+				if dnsType == ansType {
+					candidateSet[lowerCaseName] = append(candidateSet[lowerCaseName], ans)
+				} else if ok && dns.TypeCNAME == ansType {
+					cnameSet[lowerCaseName] = append(cnameSet[lowerCaseName], ans)
+				} else {
+					garbage[lowerCaseName] = append(garbage[lowerCaseName], ans)
 				}
+			} else {
+				garbage[lowerCaseName] = append(garbage[lowerCaseName], ans)
 			}
 		}
 	}
-	return addresses, trace
+}
+
+func (s *Lookup) doLookupProtocol(name, nameServer string, dnsType uint16, candidateSet map[string][]miekg.Answer, cnameSet map[string][]miekg.Answer, origName string, depth int) ([]string, []interface{}, zdns.Status, error) {
+	// avoid infinite loops
+	if name == origName && depth != 0 {
+		return nil, make([]interface{}, 0), zdns.STATUS_ERROR, errors.New("infinite redirection loop")
+	}
+	if depth > 10 {
+		return nil, make([]interface{}, 0), zdns.STATUS_ERROR, errors.New("max recursion depth reached")
+	}
+	// check if the record is already in our cache. if not, perform normal A lookup and
+	// see what comes back. Then iterate over results and if needed, perform further lookups
+	var trace []interface{}
+	garbage := map[string][]miekg.Answer{}
+	if _, ok := candidateSet[name]; !ok {
+		var miekgResult interface{}
+		var status zdns.Status
+		var err error
+		miekgResult, trace, status, err = s.DoMiekgLookup(miekg.Question{Name: name, Type: dnsType}, nameServer)
+		if status != zdns.STATUS_NOERROR || err != nil {
+			return nil, trace, status, err
+		}
+
+		populateResults(miekgResult.(miekg.Result).Answers, dnsType, candidateSet, cnameSet, garbage)
+		populateResults(miekgResult.(miekg.Result).Additional, dnsType, candidateSet, cnameSet, garbage)
+	}
+	// our cache should now have any data that exists about the current name
+	if res, ok := candidateSet[name]; ok && len(res) > 0 {
+		// we have IP addresses to hand back to the user. let's make an easy-to-use array of strings
+		var ips []string
+		for _, answer := range res {
+			ips = append(ips, answer.Answer)
+		}
+		return ips, trace, zdns.STATUS_NOERROR, nil
+	} else if res, ok = cnameSet[name]; ok && len(res) > 0 {
+		// we have a CNAME and need to further recurse to find IPs
+		shortName := strings.ToLower(res[0].Answer[0 : len(res[0].Answer)-1])
+		res, secondTrace, status, err := s.doLookupProtocol(shortName, nameServer, dnsType, candidateSet, cnameSet, origName, depth+1)
+		trace = append(trace, secondTrace...)
+		return res, trace, status, err
+	} else if res, ok = garbage[name]; ok && len(res) > 0 {
+		return nil, trace, zdns.STATUS_ERROR, errors.New("unexpected record type received")
+	} else {
+		// we have no data whatsoever about this name. return an empty recordset to the user
+		var ips []string
+		return ips, trace, zdns.STATUS_NOERROR, nil
+	}
+}
+
+func (s *Lookup) lookupIPs(name string, nameServer string, dnsType uint16) (IpAddresses, zdns.Trace) {
+	var retv IpAddresses
+
+	candidateSet := map[string][]miekg.Answer{}
+	cnameSet := map[string][]miekg.Answer{}
+
+	ips, trace, _, _ := s.doLookupProtocol(name, nameServer, dnsType, candidateSet, cnameSet, name, 0)
+	if dnsType == dns.TypeA {
+		retv.IPv4Addresses = ips
+	} else {
+		retv.IPv6Addresses = ips
+	}
+
+	return retv, trace
 }
 
 func (s *Lookup) DoNSLookup(name string, lookupIPv4, lookupIPv6 bool, nameServer string) (Result, zdns.Trace, zdns.Status, error) {
@@ -70,17 +143,20 @@ func (s *Lookup) DoNSLookup(name string, lookupIPv4, lookupIPv6 bool, nameServer
 		return retv, trace, status, nil
 	}
 	ns := res.(miekg.Result)
-	ipv4s := make(map[string]string)
-	ipv6s := make(map[string]string)
+	ipv4s := make(map[string][]string)
+	ipv6s := make(map[string][]string)
 	for _, ans := range ns.Additional {
 		a, ok := ans.(miekg.Answer)
 		if !ok {
 			continue
 		}
-		if a.Type == "A" {
-			ipv4s[a.Name] = a.Answer
-		} else if a.Type == "AAAA" {
-			ipv6s[a.Name] = a.Answer
+		recName := strings.TrimSuffix(a.Name, ".")
+		if common.VerifyAddress(a.Type, a.Answer) {
+			if a.Type == "A" {
+				ipv4s[recName] = append(ipv4s[recName], a.Answer)
+			} else if a.Type == "AAAA" {
+				ipv6s[recName] = append(ipv6s[recName], a.Answer)
+			}
 		}
 	}
 	for _, ans := range ns.Answers {
@@ -92,40 +168,39 @@ func (s *Lookup) DoNSLookup(name string, lookupIPv4, lookupIPv6 bool, nameServer
 		if a.Type != "NS" {
 			continue
 		}
+
 		var rec NSRecord
 		rec.Type = a.Type
 		rec.Name = strings.TrimSuffix(a.Answer, ".")
 		rec.TTL = a.Ttl
-		if lookupIPv4 || !lookupIPv6 {
-			var secondTrace []interface{}
-			rec.IPv4Addresses, secondTrace = s.lookupIPs(rec.Name, dns.TypeA, nameServer)
-			trace = append(trace, secondTrace...)
-		} else if ip, ok := ipv4s[rec.Name]; ok {
-			rec.IPv4Addresses = []string{ip}
-		} else {
-			rec.IPv4Addresses = []string{}
+
+		if lookupIPv4 {
+			if ips, ok := ipv4s[rec.Name]; ok {
+				rec.IPv4Addresses = ips
+			} else {
+				ipAddresses, nextTrace := s.lookupIPs(rec.Name, nameServer, dns.TypeA)
+				rec.IPv4Addresses = ipAddresses.IPv4Addresses
+				trace = append(trace, nextTrace...)
+			}
 		}
 		if lookupIPv6 {
-			var secondTrace []interface{}
-			rec.IPv6Addresses, secondTrace = s.lookupIPs(rec.Name, dns.TypeAAAA, nameServer)
-			trace = append(trace, secondTrace...)
-		} else if ip, ok := ipv6s[rec.Name]; ok {
-			rec.IPv6Addresses = []string{ip}
-		} else {
-			rec.IPv6Addresses = []string{}
+			if ips, ok := ipv6s[rec.Name]; ok {
+				rec.IPv6Addresses = ips
+			} else {
+				ipAddresses, nextTrace := s.lookupIPs(rec.Name, nameServer, dns.TypeAAAA)
+				rec.IPv6Addresses = ipAddresses.IPv6Addresses
+				trace = append(trace, nextTrace...)
+			}
 		}
 		retv.Servers = append(retv.Servers, rec)
 	}
-	if len(retv.Servers) == 0 {
-		return retv, trace, zdns.STATUS_NO_RECORD, nil
-	}
-
 	return retv, trace, zdns.STATUS_NOERROR, nil
-
 }
 
 func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
-	return s.DoNSLookup(name, s.Factory.Factory.IPv4Lookup, s.Factory.Factory.IPv6Lookup, nameServer)
+	lookupIPv4 := s.Factory.Factory.IPv4Lookup || !s.Factory.Factory.IPv6Lookup
+	lookupIPv6 := s.Factory.Factory.IPv6Lookup
+	return s.DoNSLookup(name, lookupIPv4, lookupIPv6, nameServer)
 }
 
 // Per GoRoutine Factory ======================================================
