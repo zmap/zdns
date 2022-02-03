@@ -15,6 +15,7 @@
 package mxlookup
 
 import (
+	"errors"
 	"flag"
 	"strings"
 	"sync"
@@ -22,6 +23,7 @@ import (
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns"
 	"github.com/zmap/zdns/cachehash"
+	"github.com/zmap/zdns/modules/common"
 	"github.com/zmap/zdns/modules/miekg"
 )
 
@@ -53,8 +55,73 @@ type Lookup struct {
 	miekg.Lookup
 }
 
-func dotName(name string) string {
-	return strings.Join([]string{name, "."}, "")
+func populateResults(records []interface{}, dnsType uint16, candidateSet map[string][]miekg.Answer, cnameSet map[string][]miekg.Answer, garbage map[string][]miekg.Answer) {
+	for _, a := range records {
+		// filter only valid answers of requested type or CNAME (#163)
+		if ans, ok := a.(miekg.Answer); ok {
+			lowerCaseName := strings.ToLower(strings.TrimSuffix(ans.Name, "."))
+			// Verify that the answer type matches requested type
+			if common.VerifyAddress(ans.Type, ans.Answer) {
+				ansType := dns.StringToType[ans.Type]
+				if dnsType == ansType {
+					candidateSet[lowerCaseName] = append(candidateSet[lowerCaseName], ans)
+				} else if ok && dns.TypeCNAME == ansType {
+					cnameSet[lowerCaseName] = append(cnameSet[lowerCaseName], ans)
+				} else {
+					garbage[lowerCaseName] = append(garbage[lowerCaseName], ans)
+				}
+			} else {
+				garbage[lowerCaseName] = append(garbage[lowerCaseName], ans)
+			}
+		}
+	}
+}
+
+func (s *Lookup) doLookupProtocol(name, nameServer string, dnsType uint16, candidateSet map[string][]miekg.Answer, cnameSet map[string][]miekg.Answer, origName string, depth int) ([]string, []interface{}, zdns.Status, error) {
+	// avoid infinite loops
+	if name == origName && depth != 0 {
+		return nil, make([]interface{}, 0), zdns.STATUS_ERROR, errors.New("infinite redirection loop")
+	}
+	if depth > 10 {
+		return nil, make([]interface{}, 0), zdns.STATUS_ERROR, errors.New("max recursion depth reached")
+	}
+	// check if the record is already in our cache. if not, perform normal A lookup and
+	// see what comes back. Then iterate over results and if needed, perform further lookups
+	var trace []interface{}
+	garbage := map[string][]miekg.Answer{}
+	if _, ok := candidateSet[name]; !ok {
+		var miekgResult interface{}
+		var status zdns.Status
+		var err error
+		miekgResult, trace, status, err = s.DoMiekgLookup(miekg.Question{Name: name, Type: dnsType}, nameServer)
+		if status != zdns.STATUS_NOERROR || err != nil {
+			return nil, trace, status, err
+		}
+
+		populateResults(miekgResult.(miekg.Result).Answers, dnsType, candidateSet, cnameSet, garbage)
+		populateResults(miekgResult.(miekg.Result).Additional, dnsType, candidateSet, cnameSet, garbage)
+	}
+	// our cache should now have any data that exists about the current name
+	if res, ok := candidateSet[name]; ok && len(res) > 0 {
+		// we have IP addresses to hand back to the user. let's make an easy-to-use array of strings
+		var ips []string
+		for _, answer := range res {
+			ips = append(ips, answer.Answer)
+		}
+		return ips, trace, zdns.STATUS_NOERROR, nil
+	} else if res, ok = cnameSet[name]; ok && len(res) > 0 {
+		// we have a CNAME and need to further recurse to find IPs
+		shortName := strings.ToLower(res[0].Answer[0 : len(res[0].Answer)-1])
+		res, secondTrace, status, err := s.doLookupProtocol(shortName, nameServer, dnsType, candidateSet, cnameSet, origName, depth+1)
+		trace = append(trace, secondTrace...)
+		return res, trace, status, err
+	} else if res, ok = garbage[name]; ok && len(res) > 0 {
+		return nil, trace, zdns.STATUS_ERROR, errors.New("unexpected record type received")
+	} else {
+		// we have no data whatsoever about this name. return an empty recordset to the user
+		var ips []string
+		return ips, trace, zdns.STATUS_NOERROR, nil
+	}
 }
 
 func (s *Lookup) LookupIPs(name, nameServer string) (CachedAddresses, zdns.Trace) {
@@ -66,52 +133,43 @@ func (s *Lookup) LookupIPs(name, nameServer string) (CachedAddresses, zdns.Trace
 		return res.(CachedAddresses), make([]interface{}, 0)
 	}
 	var retv CachedAddresses
-	trace := make([]interface{}, 0)
-	// ipv4
-	if s.Factory.Factory.IPv4Lookup || !s.Factory.Factory.IPv6Lookup {
-		res, secondTrace, status, _ := s.DoMiekgLookup(miekg.Question{Name: name, Type: dns.TypeA}, nameServer)
-		trace = append(trace, secondTrace...)
-		if status == zdns.STATUS_NOERROR {
-			cast, _ := res.(miekg.Result)
-			for _, innerRes := range cast.Answers {
-				castInnerRes, ok := innerRes.(miekg.Answer)
-				if !ok {
-					continue
-				}
-				retv.IPv4Addresses = append(retv.IPv4Addresses, castInnerRes.Answer)
-			}
-		}
+
+	candidateSet := map[string][]miekg.Answer{}
+	cnameSet := map[string][]miekg.Answer{}
+	lookupIpv4 := s.Factory.Factory.IPv4Lookup || !s.Factory.Factory.IPv6Lookup
+	lookupIpv6 := s.Factory.Factory.IPv6Lookup
+	var ipv4 []string
+	var ipv6 []string
+	var ipv4Trace []interface{}
+	var ipv6Trace []interface{}
+	if lookupIpv4 {
+		ipv4, ipv4Trace, _, _ = s.doLookupProtocol(name, nameServer, dns.TypeA, candidateSet, cnameSet, name, 0)
+		retv.IPv4Addresses = ipv4
 	}
-	// ipv6
-	if s.Factory.Factory.IPv6Lookup {
-		res, secondTrace, status, _ := s.DoMiekgLookup(miekg.Question{Name: name, Type: dns.TypeAAAA}, nameServer)
-		trace = append(trace, secondTrace...)
-		if status == zdns.STATUS_NOERROR {
-			cast, _ := res.(miekg.Result)
-			for _, innerRes := range cast.Answers {
-				castInnerRes, ok := innerRes.(miekg.Answer)
-				if !ok {
-					continue
-				}
-				retv.IPv6Addresses = append(retv.IPv6Addresses, castInnerRes.Answer)
-			}
-		}
+	candidateSet = map[string][]miekg.Answer{}
+	cnameSet = map[string][]miekg.Answer{}
+	if lookupIpv6 {
+		ipv6, ipv6Trace, _, _ = s.doLookupProtocol(name, nameServer, dns.TypeAAAA, candidateSet, cnameSet, name, 0)
+		retv.IPv6Addresses = ipv6
 	}
+
+	combinedTrace := append(ipv4Trace, ipv6Trace...)
+
 	s.Factory.Factory.CHmu.Lock()
 	s.Factory.Factory.CacheHash.Add(name, retv)
 	s.Factory.Factory.CHmu.Unlock()
-	return retv, trace
+	return retv, combinedTrace
 }
 
 func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	retv := Result{Servers: []MXRecord{}}
 	res, trace, status, err := s.DoMiekgLookup(miekg.Question{Name: name, Type: dns.TypeMX}, nameServer)
-	if status != zdns.STATUS_NOERROR {
-		return retv, trace, status, err
+	if status != zdns.STATUS_NOERROR || err != nil {
+		return nil, trace, status, err
 	}
 	r, ok := res.(miekg.Result)
 	if !ok {
-		panic("could not cast correctly")
+		return nil, trace, status, err
 	}
 	for _, ans := range r.Answers {
 		if mxAns, ok := ans.(miekg.PrefAnswer); ok {
