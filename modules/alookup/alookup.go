@@ -46,8 +46,11 @@ func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdn
 
 // Verify that A record is indeed IPv4 and AAAA is IPv6
 func verifyAddress(ansType string, ip string) bool {
-	isIpv4 := net.ParseIP(ip).To4() != nil
-	isIpv6 := net.ParseIP(ip).To16() != nil && strings.Contains(ip, ":")
+	var isIpv4, isIpv6 bool
+	if net.ParseIP(ip) != nil {
+		isIpv6 = strings.Contains(ip, ":")
+		isIpv4 = !isIpv6
+	}
 	if ansType == "A" {
 		return isIpv4
 	} else if ansType == "AAAA" {

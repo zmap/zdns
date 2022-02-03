@@ -36,7 +36,7 @@ func (s *Lookup) DoMiekgLookup(question miekg.Question, nameServer string) (inte
 	}
 }
 
-func InitTest() (*zdns.GlobalConf, *GlobalLookupFactory, *RoutineLookupFactory, zdns.Lookup) {
+func InitTest(t *testing.T) (*zdns.GlobalConf, *GlobalLookupFactory, *RoutineLookupFactory, zdns.Lookup) {
 	mockResults = make(map[string]miekg.Result)
 	gc := new(zdns.GlobalConf)
 	gc.NameServers = []string{"127.0.0.1"}
@@ -50,13 +50,13 @@ func InitTest() (*zdns.GlobalConf, *GlobalLookupFactory, *RoutineLookupFactory, 
 
 	l, err := rlf.MakeLookup()
 	if l == nil || err != nil {
-		panic("Failed to initialize lookup")
+		t.Error("Failed to initialize lookup")
 	}
 	return gc, glf, rlf, l
 }
 
 func TestOneA(t *testing.T) {
-	_, glf, _, l := InitTest()
+	_, glf, _, l := InitTest(t)
 	glf.IPv4Lookup = true
 	mockResults["example.com"] = miekg.Result{
 		Answers: []interface{}{miekg.Answer{
@@ -76,7 +76,7 @@ func TestOneA(t *testing.T) {
 }
 
 func TestTwoA(t *testing.T) {
-	_, glf, _, l := InitTest()
+	_, glf, _, l := InitTest(t)
 	glf.IPv4Lookup = true
 	mockResults["example.com"] = miekg.Result{
 		Answers: []interface{}{miekg.Answer{
@@ -103,7 +103,7 @@ func TestTwoA(t *testing.T) {
 }
 
 func TestQuadAWithoutFlag(t *testing.T) {
-	_, glf, _, l := InitTest()
+	_, glf, _, l := InitTest(t)
 	glf.IPv4Lookup = true
 	mockResults["example.com"] = miekg.Result{
 		Answers: []interface{}{miekg.Answer{
@@ -131,7 +131,7 @@ func TestQuadAWithoutFlag(t *testing.T) {
 }
 
 func TestOnlyQuadA(t *testing.T) {
-	_, glf, _, l := InitTest()
+	_, glf, _, l := InitTest(t)
 	glf.IPv6Lookup = true
 	mockResults["example.com"] = miekg.Result{
 		Answers: []interface{}{miekg.Answer{
@@ -158,7 +158,7 @@ func TestOnlyQuadA(t *testing.T) {
 }
 
 func TestAandQuadA(t *testing.T) {
-	_, glf, _, l := InitTest()
+	_, glf, _, l := InitTest(t)
 	glf.IPv4Lookup = true
 	glf.IPv6Lookup = true
 	mockResults["example.com"] = miekg.Result{
@@ -186,7 +186,7 @@ func TestAandQuadA(t *testing.T) {
 }
 
 func TestTwoQuadA(t *testing.T) {
-	_, glf, _, l := InitTest()
+	_, glf, _, l := InitTest(t)
 	glf.IPv4Lookup = true
 	glf.IPv6Lookup = true
 	mockResults["example.com"] = miekg.Result{
@@ -215,7 +215,7 @@ func TestTwoQuadA(t *testing.T) {
 }
 
 func TestCname(t *testing.T) {
-	_, glf, _, l := InitTest()
+	_, glf, _, l := InitTest(t)
 	glf.IPv4Lookup = true
 	mockResults["cname.example.com"] = miekg.Result{
 		Answers: []interface{}{miekg.Answer{
@@ -249,7 +249,7 @@ func TestCname(t *testing.T) {
 }
 
 func TestQuadAWithCname(t *testing.T) {
-	_, glf, _, l := InitTest()
+	_, glf, _, l := InitTest(t)
 	glf.IPv4Lookup = true
 	glf.IPv6Lookup = true
 	mockResults["cname.example.com"] = miekg.Result{
@@ -278,7 +278,7 @@ func TestQuadAWithCname(t *testing.T) {
 }
 
 func TestUnexpectedMxOnly(t *testing.T) {
-	_, glf, _, l := InitTest()
+	_, glf, _, l := InitTest(t)
 	glf.IPv4Lookup = true
 	mockResults["example.com"] = miekg.Result{
 		Answers: []interface{}{miekg.Answer{
@@ -304,7 +304,7 @@ func TestUnexpectedMxOnly(t *testing.T) {
 }
 
 func TestMxAndAdditionals(t *testing.T) {
-	_, glf, _, l := InitTest()
+	_, glf, _, l := InitTest(t)
 	glf.IPv4Lookup = true
 	glf.IPv6Lookup = true
 	mockResults["example.com"] = miekg.Result{
@@ -339,7 +339,7 @@ func TestMxAndAdditionals(t *testing.T) {
 }
 
 func TestNoResults(t *testing.T) {
-	_, glf, _, l := InitTest()
+	_, glf, _, l := InitTest(t)
 	glf.IPv4Lookup = true
 	mockResults["example.com"] = miekg.Result{
 		Answers:     nil,
@@ -358,7 +358,7 @@ func TestNoResults(t *testing.T) {
 }
 
 func TestMismatchIpType(t *testing.T) {
-	_, glf, _, l := InitTest()
+	_, glf, _, l := InitTest(t)
 	glf.IPv4Lookup = true
 	glf.IPv6Lookup = true
 	mockResults["example.com"] = miekg.Result{
@@ -384,7 +384,7 @@ func TestMismatchIpType(t *testing.T) {
 }
 
 func TestCnameLoops(t *testing.T) {
-	_, glf, _, l := InitTest()
+	_, glf, _, l := InitTest(t)
 	glf.IPv4Lookup = true
 	mockResults["cname.example.com"] = miekg.Result{
 		Answers: []interface{}{miekg.Answer{
@@ -422,7 +422,7 @@ func TestCnameLoops(t *testing.T) {
 }
 
 func TestEmptyNonTerminal(t *testing.T) {
-	_, glf, _, l := InitTest()
+	_, glf, _, l := InitTest(t)
 	glf.IPv4Lookup = true
 	mockResults["leaf.intermediate.example.com"] = miekg.Result{
 		Answers: []interface{}{miekg.Answer{
@@ -458,11 +458,11 @@ func TestEmptyNonTerminal(t *testing.T) {
 }
 
 func TestNXDomain(t *testing.T) {
-	_, glf, _, l := InitTest()
+	_, glf, _, l := InitTest(t)
 	glf.IPv4Lookup = true
 	res, _, status, _ := l.DoLookup("nonexistent.example.com", "")
 	if status != zdns.STATUS_NXDOMAIN {
-		t.Errorf("Expected STATUS_NOERROR status, got %v", status)
+		t.Errorf("Expected STATUS_NXDOMAIN status, got %v", status)
 	} else if res != nil {
 		t.Errorf("Expected no results, got %v", res)
 	}
@@ -470,7 +470,7 @@ func TestNXDomain(t *testing.T) {
 
 func TestServFail(t *testing.T) {
 	errCode = zdns.STATUS_SERVFAIL
-	_, glf, _, l := InitTest()
+	_, glf, _, l := InitTest(t)
 	glf.IPv4Lookup = true
 	mockResults["example.com"] = miekg.Result{
 		Answers:     nil,
