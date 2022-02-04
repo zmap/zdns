@@ -18,18 +18,26 @@ for the IPs of MX servers for the domains in the Alexa Top Million:
 Install
 =======
 
-ZDNS can be installed by checking out the repository and running `go build`.
+ZDNS can be installed in two ways. First, by `go install`:
 
-	git clone https://github.com/zmap/zdns.git
-	cd zdns/zdns
-	go build
+```bash
+go install github.com/zmap/zdns
+```
 
-You _cannot_ just run `go get` because we use a forked version of miekg's DNS
-library that has additional performance fixes.
+The second is by checking out the repository and running `go build`.
 
+```bash
+git clone https://github.com/zmap/zdns.git
+cd zdns/zdns
+go build
+```
 
 Usage
 =====
+
+ZDNS was originally built as a CLI tool only. Work has been done to convert this into a library with a CLI that calls this library. Currently, the library has been separated out and a new, separate CLI has been added. Work is ongoing to clean up the interface between the CLI (or any other client program of the ZDNS library) and the ZDNS library itself.
+
+The ZDNS library lives in `github.com/zmap/zdns/pkg/zdns`. A function there, `zdns.Run()`, is used to start the ZDNS tool and do the requested lookups. Currently, this tool is intended to accept a `zdns.GlobalConf` object, `plfag` flags, and other information, but this interface is undergoing revisions to be more generally usable and continue to decouple the CLI from the library.
 
 ZDNS provides several types of modules:
 
