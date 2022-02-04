@@ -39,6 +39,8 @@ ZDNS was originally built as a CLI tool only. Work has been done to convert this
 
 The ZDNS library lives in `github.com/zmap/zdns/pkg/zdns`. A function there, `zdns.Run()`, is used to start the ZDNS tool and do the requested lookups. Currently, this tool is intended to accept a `zdns.GlobalConf` object, `plfag` flags, and other information, but this interface is undergoing revisions to be more generally usable and continue to decouple the CLI from the library.
 
+The CLI for this library lives in `github.com/zmap/zdns` under the main package. Its functionality is described below.
+
 ZDNS provides several types of modules:
 
 - *Raw DNS modules* provide the raw DNS reponse from the server similar to dig, but in JSON. There is a module for (nearly) every type of DNS record
