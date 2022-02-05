@@ -12,17 +12,17 @@
  * permissions and limitations under the License.
  */
 
-package dmarc
+package spf
 
 import (
 	"github.com/zmap/dns"
-	"github.com/zmap/zdns"
-	"github.com/zmap/zdns/modules/miekg"
+	"github.com/zmap/zdns/pkg/miekg"
+	"github.com/zmap/zdns/pkg/zdns"
 )
 
 // result to be returned by scan of host
 type Result struct {
-	Dmarc string `json:"dmarc,omitempty" groups:"short,normal,long,trace"`
+	Spf string `json:"spf,omitempty" groups:"short,normal,long,trace"`
 }
 
 // Per Connection Lookup ======================================================
@@ -32,13 +32,13 @@ type Lookup struct {
 	miekg.Lookup
 }
 
-func (s *Lookup) DoLookup(name string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	var res Result
 	innerRes, trace, status, err := s.DoTxtLookup(name, nameServer)
 	if status != zdns.STATUS_NOERROR {
-		return res, nil, status, err
+		return res, trace, status, err
 	}
-	res.Dmarc = innerRes
+	res.Spf = innerRes
 	return res, trace, zdns.STATUS_NOERROR, nil
 }
 
@@ -53,7 +53,7 @@ func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 	a := Lookup{Factory: s}
 	nameServer := s.Factory.RandomNameServer()
 	a.Initialize(nameServer, dns.TypeTXT, dns.ClassINET, &s.RoutineLookupFactory)
-	a.Prefix = "v=DMARC"
+	a.Prefix = "v=spf"
 	return &a, nil
 }
 
@@ -66,9 +66,9 @@ type GlobalLookupFactory struct {
 func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
 	r := new(RoutineLookupFactory)
 	r.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
-	r.Initialize(s.GlobalConf)
 	r.Factory = s
 	r.ThreadID = threadID
+	r.Initialize(s.GlobalConf)
 	return r, nil
 }
 
@@ -76,5 +76,5 @@ func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLook
 //
 func init() {
 	s := new(GlobalLookupFactory)
-	zdns.RegisterLookup("DMARC", s)
+	zdns.RegisterLookup("SPF", s)
 }

@@ -15,18 +15,18 @@
 package axfr
 
 import (
-	"flag"
 	"net"
 	"strings"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 
 	"github.com/zmap/dns"
 	"github.com/zmap/go-iptree/blacklist"
-	"github.com/zmap/zdns"
-	"github.com/zmap/zdns/modules/miekg"
-	"github.com/zmap/zdns/modules/nslookup"
+	"github.com/zmap/zdns/pkg/miekg"
+	"github.com/zmap/zdns/pkg/nslookup"
+	"github.com/zmap/zdns/pkg/zdns"
 )
 
 // Per Connection Lookup ======================================================
@@ -142,8 +142,13 @@ func (s *GlobalLookupFactory) Help() string {
 	return ""
 }
 
-func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
-	f.StringVar(&s.BlacklistPath, "blacklist-file", "", "blacklist file for servers to exclude from AXFR lookups")
+func (s *GlobalLookupFactory) SetFlags(f *pflag.FlagSet) {
+	// If there's an error, panic is appropriate since we should at least be getting the default here.
+	var err error
+	s.BlacklistPath, _ = f.GetString("blacklist-file")
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/zmap/dns"
-	"github.com/zmap/zdns"
+	"github.com/zmap/zdns/pkg/zdns"
 )
 
 func dotName(name string) string {
