@@ -21,14 +21,14 @@ Install
 ZDNS can be installed in two ways. First, by `go install`:
 
 ```bash
-go install github.com/zmap/zdns
+go install github.com/zmap/zdns@latest
 ```
 
 The second is by checking out the repository and running `go build`.
 
 ```bash
 git clone https://github.com/zmap/zdns.git
-cd zdns/zdns
+cd zdns
 go build
 ```
 
