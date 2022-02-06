@@ -331,9 +331,9 @@ func (s *Lookup) retryingLookup(q Question, nameServer string, recursive bool) (
 	} else {
 		origTimeout = s.Factory.TCPClient.Timeout
 	}
-	for i := 0; i < s.Factory.Retries+1; i++ {
+	for i := 0; i <= s.Factory.Retries; i++ {
 		result, status, err := s.doLookup(q, nameServer, recursive)
-		if (status != zdns.STATUS_TIMEOUT && status != zdns.STATUS_TEMPORARY) || i+1 == s.Factory.Retries {
+		if (status != zdns.STATUS_TIMEOUT && status != zdns.STATUS_TEMPORARY) || i == s.Factory.Retries {
 			if s.Factory.Client != nil {
 				s.Factory.Client.Timeout = origTimeout
 			}
