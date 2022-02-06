@@ -28,7 +28,7 @@ The second is by checking out the repository and running `go build`.
 
 ```bash
 git clone https://github.com/zmap/zdns.git
-cd zdns/zdns
+cd zdns
 go build
 ```
 
