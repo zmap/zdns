@@ -22,7 +22,6 @@ import (
 	"sync"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
 )
 
 /* Each lookup module registers a single GlobalLookupFactory, which is
@@ -69,9 +68,9 @@ type RoutineLookupFactory interface {
 // one RoutineLookupFactory per execution =====================================
 //
 type GlobalLookupFactory interface {
-	// Capture the values of cobra/viper flags and add them to the
-	// global factory as appropriate.
-	SetFlags(flags *pflag.FlagSet)
+	// Get the module-specific flags from the run as appropriate
+	// TODO: probably best to let each module define its own flags.
+	SetFlags(ModuleFlags)
 	// global initialization. Gets called once globally
 	// This is called after command line flags have been parsed
 	Initialize(conf *GlobalConf) error
@@ -113,7 +112,7 @@ func (f *BaseGlobalLookupFactory) Finalize() error {
 	return nil
 }
 
-func (s *BaseGlobalLookupFactory) SetFlags(f *pflag.FlagSet) {
+func (s *BaseGlobalLookupFactory) SetFlags(f ModuleFlags) {
 }
 
 func (s *BaseGlobalLookupFactory) Help() string {

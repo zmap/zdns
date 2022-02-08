@@ -37,9 +37,49 @@ Usage
 
 ZDNS was originally built as a CLI tool only. Work has been done to convert this into a library with a CLI that calls this library. Currently, the library has been separated out and a new, separate CLI has been added. Work is ongoing to clean up the interface between the CLI (or any other client program of the ZDNS library) and the ZDNS library itself.
 
-The ZDNS library lives in `github.com/zmap/zdns/pkg/zdns`. A function there, `zdns.Run()`, is used to start the ZDNS tool and do the requested lookups. Currently, this tool is intended to accept a `zdns.GlobalConf` object, `plfag` flags, and other information, but this interface is undergoing revisions to be more generally usable and continue to decouple the CLI from the library.
+See below for a discussion on usage of the Library and CLI. General usage of the library and the CLI (which is a convenience wrapper for the library) is also below.
 
-The CLI for this library lives in `github.com/zmap/zdns` under the main package. Its functionality is described below.
+Library Usage
+---------------
+
+The ZDNS library now lives in `github.com/zmap/zdns/pkg/zdns`. A function there, `zdns.Run()`, is used to start the ZDNS tool and do the requested lookups. The library is configured using a `zdns.ZdnsRun` struct. This struct contains all of the information needed to run the requested ZDNS lookups. The `zdns.ZdnsRun` object contains three major groups of options:
+
+- `zdns.GlobalConf`: The Global Configuration struct holds the information that each of the Goroutines that are doing the lookup will need to perform the lookups. This includes the majority of the flags, such as timeout information, nameservers, and which module to use for the specific lookups.
+- `zdns.ModuleFlags`: The Module Flags struct holds the information needed by any of the lookup modules (currently `alookup` and `mxlookup`).
+- Miscellaneous fields: The `zdns.Run` struct also holds configuration options that are only used for setting up the initial run, such as configuration files, local interfaces and local addresses, among others.
+
+To use the ZDNS library, a `zdns.Run` struct must be created and passed to the `zdns.Run()` method, and then the program will read inputs from STDIN. Below is a brief example:
+
+```go
+import "github.com/zmap/zdns/pkg/zdns"
+
+var run zdns.ZdnsRun
+
+// Configure this run to use the alookup module.
+run.GlobalConf.Module = "alookup"
+
+// Specify module-specific flags. 
+// Here, we run only an Ipv4 Lookup
+run.ModuleFlags.Ipv4Lookup = true
+
+// Set options for all goroutines
+run.GlobalConf.Retries = 10
+/* 
+Configure more options as needed.
+*/
+
+// Run the lookup
+zdns.Run(run)
+
+```
+
+CLI Usage
+---------------
+
+For existing users, ZDNS CLI remains largely unchanged in terms of functionality. 
+
+General Features
+========
 
 ZDNS provides several types of modules:
 

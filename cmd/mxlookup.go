@@ -29,21 +29,17 @@ var mxlookupCmd = &cobra.Command{
 	Long: `mxlookup will additionally do an A lookup for the IP addresses that
 correspond with an exchange record.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		GC.Module = strings.ToUpper("mxlookup")
-		zdns.Run(GC, cmd.Flags(),
-			&Timeout, &IterationTimeout,
-			&Class_string, &Servers_string,
-			&Config_file, &Localaddr_string,
-			&Localif_string, &NanoSeconds)
+		Run.GlobalConf.Module = strings.ToUpper("mxlookup")
+		zdns.Run(Run)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(mxlookupCmd)
 
-	mxlookupCmd.PersistentFlags().Bool("ipv4-lookup", false, "perform A lookups for each MX server")
-	mxlookupCmd.PersistentFlags().Bool("ipv6-lookup", false, "perform AAAA record lookups for each MX server")
-	mxlookupCmd.PersistentFlags().Int("mx-cache-size", 1000, "number of records to store in MX -> A/AAAA cache")
+	mxlookupCmd.PersistentFlags().BoolVar(&Run.ModuleFlags.Ipv4Lookup, "ipv4-lookup", false, "Perform an IPv4 Lookup in modules")
+	mxlookupCmd.PersistentFlags().BoolVar(&Run.ModuleFlags.Ipv6Lookup, "ipv6-lookup", false, "Perform an IPv6 Lookup in modules")
+	mxlookupCmd.PersistentFlags().IntVar(&Run.ModuleFlags.MxCacheSize, "mx-cache-size", 1000, "number of records to store in MX -> A/AAAA cache")
 
 	util.BindFlags(mxlookupCmd, viper.GetViper(), util.EnvPrefix)
 }

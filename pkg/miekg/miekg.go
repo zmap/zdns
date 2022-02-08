@@ -8,7 +8,6 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
 
 	"github.com/zmap/dns"
 	"github.com/zmap/go-iptree/blacklist"
@@ -84,13 +83,8 @@ func (s *GlobalLookupFactory) BlacklistInit() error {
 	return nil
 }
 
-func (s *GlobalLookupFactory) SetFlags(f *pflag.FlagSet) {
-	// If there's an error, panic is appropriate since we should at least be getting the default here.
-	var err error
-	s.BlacklistPath, err = f.GetString("blacklist-file")
-	if err != nil {
-		panic(err)
-	}
+func (s *GlobalLookupFactory) SetFlags(f zdns.ModuleFlags) {
+	s.BlacklistPath = f.BlacklistFile
 }
 
 func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {

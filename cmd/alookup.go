@@ -31,20 +31,16 @@ the information that exists in a single record.
 
 Specifically, alookup acts similar to nslookup and will follow CNAME records.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		GC.Module = strings.ToUpper("alookup")
-		zdns.Run(GC, cmd.Flags(),
-			&Timeout, &IterationTimeout,
-			&Class_string, &Servers_string,
-			&Config_file, &Localaddr_string,
-			&Localif_string, &NanoSeconds)
+		Run.GlobalConf.Module = strings.ToUpper("alookup")
+		zdns.Run(Run)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(alookupCmd)
 
-	alookupCmd.PersistentFlags().Bool("ipv4-lookup", false, "perform A lookups for each MX server")
-	alookupCmd.PersistentFlags().Bool("ipv6-lookup", false, "perform AAAA record lookups for each MX server")
+	alookupCmd.PersistentFlags().BoolVar(&Run.ModuleFlags.Ipv4Lookup, "ipv4-lookup", false, "Perform an IPv4 Lookup in modules")
+	alookupCmd.PersistentFlags().BoolVar(&Run.ModuleFlags.Ipv6Lookup, "ipv6-lookup", false, "Perform an IPv6 Lookup in modules")
 
 	util.BindFlags(alookupCmd, viper.GetViper(), util.EnvPrefix)
 }

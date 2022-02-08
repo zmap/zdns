@@ -19,6 +19,26 @@ import (
 	"time"
 )
 
+type ZdnsRun struct {
+	GlobalConf       GlobalConf
+	Servers          string
+	LocalAddr        string
+	LocalIF          string
+	ConfigFile       string
+	Timeout          int
+	IterationTimeout int
+	Class            string
+	NanoSeconds      bool
+	ModuleFlags      ModuleFlags
+}
+
+type ModuleFlags struct {
+	Ipv4Lookup    bool
+	Ipv6Lookup    bool
+	BlacklistFile string
+	MxCacheSize   int
+}
+
 type GlobalConf struct {
 	Threads               int
 	Timeout               time.Duration
