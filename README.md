@@ -51,32 +51,45 @@ The ZDNS library now lives in `github.com/zmap/zdns/pkg/zdns`. A function there,
 To use the ZDNS library, a `zdns.Run` struct must be created and passed to the `zdns.Run()` method, and then the program will read inputs from STDIN. Below is a brief example:
 
 ```go
+package main
+
 import "github.com/zmap/zdns/pkg/zdns"
 
-var run zdns.ZdnsRun
+func main() {
+    var run zdns.ZdnsRun
 
-// Configure this run to use the alookup module.
-run.GlobalConf.Module = "alookup"
+    // Configure this run to use the alookup module.
+    run.GlobalConf.Module = "ALOOKUP"
 
-// Specify module-specific flags. 
-// Here, we run only an Ipv4 Lookup
-run.ModuleFlags.Ipv4Lookup = true
+    // Specify module-specific flags.
+    // Here, we run only an Ipv4 Lookup
+    run.ModuleFlags.Ipv4Lookup = true
 
-// Set options for all goroutines
-run.GlobalConf.Retries = 10
-/* 
-Configure more options as needed.
-*/
+    // Set options for all goroutines
+    run.GlobalConf.Retries = 1
+    run.GlobalConf.Verbosity = 3
+    run.GlobalConf.ResultVerbosity = "short"
+    run.GlobalConf.InputFilePath = "-"
+    run.GlobalConf.OutputFilePath = "-"
+    run.GlobalConf.Threads = 1000
 
-// Run the lookup
-zdns.Run(run)
+    // Set generic options
+    run.Class = "INET"
 
+    // Run the lookup
+    zdns.Run(run)
+}
 ```
+The above file, when compiled and run, will wait for newline-separated inputs on STDIN to perform ALOOKUPs. 
 
 CLI Usage
 ---------------
 
-For existing users, ZDNS CLI remains largely unchanged in terms of functionality. 
+For existing users, ZDNS CLI remains largely unchanged in terms of functionality. The CLI provides a convenient interface to the ZDNS Libary. For more information, run:
+
+```bash
+zdns -h
+```
 
 General Features
 ========
