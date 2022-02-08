@@ -49,6 +49,11 @@ func Run(run ZdnsRun) {
 		log.SetOutput(f)
 	}
 
+	if gc.Verbosity == 0 {
+		log.Warn("Verbosity level unspecified or set to 0, defaulting to 3")
+		gc.Verbosity = 3
+	}
+
 	// Translate the assigned verbosity level to a logrus log level.
 	switch gc.Verbosity {
 	case 1: // Fatal
@@ -62,7 +67,7 @@ func Run(run ZdnsRun) {
 	case 5: // Debugging
 		log.SetLevel(log.DebugLevel)
 	default:
-		log.Fatal("Unknown verbosity level specified. Must be between 1 (lowest)--5 (highest)")
+		log.Warn("Unknown verbosity level specified. Must be between 1 (lowest)--5 (highest)")
 	}
 
 	// complete post facto global initialization based on command line arguments
@@ -193,6 +198,12 @@ func Run(run ZdnsRun) {
 	}
 	// Output Groups are defined by a base + any additional fields that the user wants
 	groups := strings.Split(gc.IncludeInOutput, ",")
+
+	if gc.ResultVerbosity == "" {
+		log.Warn("Result verbosity level unspecified, defaulting to short")
+		gc.ResultVerbosity = "short"
+	}
+
 	if gc.ResultVerbosity != "short" && gc.ResultVerbosity != "normal" && gc.ResultVerbosity != "long" && gc.ResultVerbosity != "trace" {
 		log.Fatal("Invalid result verbosity. Options: short, normal, long, trace")
 	}
@@ -203,6 +214,15 @@ func Run(run ZdnsRun) {
 	// Seeding for RandomNameServer()
 	rand.Seed(time.Now().UnixNano())
 
+	if gc.InputFilePath == "" {
+		log.Warn("No InputFilePath specified, defaulting to STDIN (\"-\")")
+		gc.InputFilePath = "-"
+	}
+	if gc.OutputFilePath == "" {
+		log.Warn("No OutputFilePath specified, defaulting to STDOUT (\"-\")")
+		gc.OutputFilePath = "-"
+	}
+
 	// some modules require multiple passes over a file (this is really just the case for zone files)
 	if !factory.AllowStdIn() && gc.InputFilePath == "-" {
 		log.Fatal("Specified module does not allow reading from stdin")
@@ -211,6 +231,11 @@ func Run(run ZdnsRun) {
 	// setup i/o
 	gc.InputHandler = iohandlers.NewFileInputHandler(gc.InputFilePath)
 	gc.OutputHandler = iohandlers.NewFileOutputHandler(gc.OutputFilePath)
+
+	if gc.Threads == 0 {
+		log.Warn("Number of Threads (goroutines) set to zero (or left unset), defaulting to 1000")
+		gc.Threads = 1000
+	}
 
 	// allow the factory to initialize itself
 	if err := factory.Initialize(&gc); err != nil {

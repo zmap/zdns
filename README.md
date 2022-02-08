@@ -58,29 +58,17 @@ import "github.com/zmap/zdns/pkg/zdns"
 func main() {
     var run zdns.ZdnsRun
 
-    // Configure this run to use the alookup module.
-    run.GlobalConf.Module = "ALOOKUP"
+	// Configure this run to use the alookup module.
+	run.GlobalConf.Module = "ALOOKUP"
 
-    // Specify module-specific flags.
-    // Here, we run only an Ipv4 Lookup
-    run.ModuleFlags.Ipv4Lookup = true
+	// Set options for all goroutines
+	run.Class = "INET"
 
-    // Set options for all goroutines
-    run.GlobalConf.Retries = 1
-    run.GlobalConf.Verbosity = 3
-    run.GlobalConf.ResultVerbosity = "short"
-    run.GlobalConf.InputFilePath = "-"
-    run.GlobalConf.OutputFilePath = "-"
-    run.GlobalConf.Threads = 1000
-
-    // Set generic options
-    run.Class = "INET"
-
-    // Run the lookup
-    zdns.Run(run)
+	// Run the lookup
+	zdns.Run(run)
 }
 ```
-The above file, when compiled and run, will wait for newline-separated inputs on STDIN to perform ALOOKUPs. 
+The above file, when compiled and run, will wait for newline-separated inputs on STDIN to perform ALOOKUPs. ZDNS will emit warnings for certain fields that are left unset, but will fill in "sane" defaults in this case. If the defaults are unsuitable for the use case, then they can all be configured using the options in the `zdns.GlobalConf`, `zdns.ModuleFlags` or generic fields. 
 
 CLI Usage
 ---------------
