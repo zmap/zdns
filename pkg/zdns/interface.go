@@ -176,14 +176,11 @@ func ValidlookupsString() string {
 	return strings.Join(valid, ", ")
 }
 
-func Validlookups() []string {
-	valid := make([]string, len(lookups))
-	i := 0
+func Validlookups() map[string]bool {
+	valid := make(map[string]bool, len(lookups))
 	for k := range lookups {
-		valid[i] = k
-		i++
+		valid[k] = true
 	}
-	sort.Strings(valid)
 	return valid
 }
 

@@ -36,8 +36,16 @@ https://github.com/zmap/dns (and in turn https://github.com/miekg/dns) for const
 and parsing raw DNS packets. 
 
 ZDNS also includes its own recursive resolution and a cache to further optimize performance.`,
-	ValidArgs: zdns.Validlookups(),
-	Args:      cobra.ExactValidArgs(1),
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) < 1 {
+			return fmt.Errorf("at least one lookup module must be specified. valid modules: %s", zdns.ValidlookupsString())
+		} else if len(args) == 1 && zdns.Validlookups()[args[0]] {
+			return nil
+		} else if len(args) == 2 && zdns.Validlookups()[args[0]] {
+			return nil
+		}
+		return fmt.Errorf("invalid lookup module %s specified. valid modules: %s", args[0], zdns.ValidlookupsString())
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		Run.GlobalConf.Module = strings.ToUpper(args[0])
 		zdns.Run(Run)
