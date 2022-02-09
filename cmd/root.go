@@ -39,9 +39,9 @@ ZDNS also includes its own recursive resolution and a cache to further optimize 
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) < 1 {
 			return fmt.Errorf("at least one lookup module must be specified. valid modules: %s", zdns.ValidlookupsString())
-		} else if len(args) == 1 && zdns.Validlookups()[args[0]] {
+		} else if len(args) == 1 && zdns.Validlookups()[strings.ToUpper(args[0])] {
 			return nil
-		} else if len(args) == 2 && zdns.Validlookups()[args[0]] {
+		} else if len(args) == 2 && zdns.Validlookups()[strings.ToUpper(args[0])] {
 			return nil
 		}
 		return fmt.Errorf("invalid lookup module %s specified. valid modules: %s", args[0], zdns.ValidlookupsString())
