@@ -39,22 +39,21 @@ ZDNS also includes its own recursive resolution and a cache to further optimize 
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) < 1 {
 			// Needs at least one arg
-			return fmt.Errorf("at least one lookup module must be specified. valid modules: %s", zdns.ValidlookupsString())
+			return fmt.Errorf("usage: zdns module [dig-like dns name]. valid modules: %s", zdns.ValidlookupsString())
 		} else if len(args) == 1 && zdns.Validlookups()[strings.ToUpper(args[0])] {
 			// In the case we have only one argument, it should be specifying the lookup module
 			return nil
-		} else if len(args) == 2 && zdns.Validlookups()[strings.ToUpper(args[0])] {
-			// In the case we have two args, the first should be the module and the second should be a dns name.
+		} else if zdns.Validlookups()[strings.ToUpper(args[0])] {
+			// Accept arbitrary number of args, assuming the first one is a valid module
 			// TODO (spencer): consider adding a DNS name verification regex here.
 			return nil
 		}
-		// Return an error otherwise
 		return fmt.Errorf("usage: zdns module [dig-like dns name]. valid modules: %s", zdns.ValidlookupsString())
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		Run.GlobalConf.Module = strings.ToUpper(args[0])
-		if len(args) == 2 {
-			Run.GlobalConf.PassedName = args[1]
+		if len(args) >= 2 {
+			Run.GlobalConf.PassedNames = args[1:]
 		}
 		zdns.Run(Run)
 	},

@@ -58,7 +58,7 @@ type GlobalConf struct {
 	GoMaxProcs           int
 	Verbosity            int
 	TimeFormat           string
-	PassedName           string
+	PassedNames          []string
 	NameServersSpecified bool
 	NameServers          []string
 	TCPOnly              bool
