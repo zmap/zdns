@@ -44,12 +44,23 @@ class Tests(unittest.TestCase):
         c = f"echo '{name}' | {executable} {flags}; exit 0"
         o = subprocess.check_output(c, shell=True, stderr=subprocess.STDOUT)
         self.assertEqual(expected_err in o.decode(), True)
-
     def run_zdns(self, flags, name, executable=ZDNS_EXECUTABLE):
         flags = flags + " --threads=10"
         c = f"echo '{name}' | {executable} {flags}"
         o = subprocess.check_output(c, shell=True)
         return c, json.loads(o.rstrip())
+    
+    def run_zdns_dig(self, flags, name, executable=ZDNS_EXECUTABLE):
+        flags = flags + " --threads=10"
+        c = f"{executable} {flags} {name}"
+        o = subprocess.check_output(c, shell=True)
+        return c, json.loads(o.rstrip())
+
+    def run_zdns_dig_check_failure(self, flags, name, expected_err, executable=ZDNS_EXECUTABLE):
+        flags = flags + " --threads=10"
+        c = f"{executable} {flags} {name}; exit 0"
+        o = subprocess.check_output(c, shell=True, stderr=subprocess.STDOUT)
+        self.assertEqual(expected_err in o.decode(), True)
 
     def run_zdns_multiline(self, flags, names, executable=ZDNS_EXECUTABLE):
         d = tempfile.mkdtemp
@@ -628,6 +639,18 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertEqual(res["data"]["resolver"], "8.8.8.8:53")
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+
+    def test_dig_input_single(self):
+        c = "A"
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns_dig(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+
+    def test_dig_input_override_input_file(self):
+        c = "--input-file ./foo A"
+        name = "zdns-testing.com"
+        self.run_zdns_dig_check_failure(c, name, "Using ZDNS in dig-like mode with arguments as inputs, ZdnsRun.GlobalConf.InputFilePath setting ignored")
 
 
     def test_local_addr_interface_warning(self):
