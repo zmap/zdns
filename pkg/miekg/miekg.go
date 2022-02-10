@@ -687,29 +687,13 @@ func (s *Lookup) DoMiekgLookup(q Question, nameServer string) (interface{}, zdns
 	}
 }
 
-// Verify that A record is indeed IPv4 and AAAA is IPv6
-func verifyAddress(ansType string, ip string) bool {
-	isIpv4 := false
-	isIpv6 := false
-	if net.ParseIP(ip) != nil {
-		isIpv6 = strings.Contains(ip, ":")
-		isIpv4 = !isIpv6
-	}
-	if ansType == "A" {
-		return isIpv4
-	} else if ansType == "AAAA" {
-		return isIpv6
-	}
-	return !isIpv4 && !isIpv6
-}
-
 func populateResults(records []interface{}, dnsType uint16, candidateSet map[string][]Answer, cnameSet map[string][]Answer, garbage map[string][]Answer) {
 	for _, a := range records {
 		// filter only valid answers of requested type or CNAME (#163)
 		if ans, ok := a.(Answer); ok {
 			lowerCaseName := strings.ToLower(ans.Name)
 			// Verify that the answer type matches requested type
-			if verifyAddress(ans.Type, ans.Answer) {
+			if VerifyAddress(ans.Type, ans.Answer) {
 				ansType := dns.StringToType[ans.Type]
 				if dnsType == ansType {
 					candidateSet[lowerCaseName] = append(candidateSet[lowerCaseName], ans)
