@@ -234,7 +234,8 @@ func Run(run ZdnsRun) {
 		if gc.InputFilePath != "-" && gc.InputFilePath != "" {
 			log.Warn("Using ZDNS in dig-like mode with arguments as inputs, ZdnsRun.GlobalConf.InputFilePath setting ignored")
 		}
-		gc.InputHandler = iohandlers.NewArgsInputHandler(gc.PassedNames)
+		// Pass input to a stream reader as a newline-delimited string of args
+		gc.InputHandler = iohandlers.NewStreamInputHandler(strings.NewReader(strings.Join(gc.PassedNames, "\n")))
 	} else {
 		gc.InputHandler = iohandlers.NewFileInputHandler(gc.InputFilePath)
 	}
