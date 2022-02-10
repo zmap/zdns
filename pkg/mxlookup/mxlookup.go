@@ -68,10 +68,11 @@ func (s *Lookup) LookupIPs(l LookupClient, name, nameServer string, lookupIpv4 b
 	if found {
 		return res.(CachedAddresses), make([]interface{}, 0)
 	}
-	res, trace, _, _ := s.DoTargetedLookup(l, name, nameServer, lookupIpv4, lookupIpv6)
-	retv := CachedAddresses{
-		IPv4Addresses: res.(miekg.IpResult).IPv4Addresses,
-		IPv6Addresses: res.(miekg.IpResult).IPv6Addresses,
+	retv := CachedAddresses{}
+	res, trace, status, _ := s.DoTargetedLookup(l, name, nameServer, lookupIpv4, lookupIpv6)
+	if status == zdns.STATUS_NOERROR && res != nil {
+		retv.IPv4Addresses = res.(miekg.IpResult).IPv4Addresses
+		retv.IPv6Addresses = res.(miekg.IpResult).IPv6Addresses
 	}
 
 	s.Factory.Factory.CHmu.Lock()

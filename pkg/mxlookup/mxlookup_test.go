@@ -61,6 +61,7 @@ type minimalServerRecords struct {
 
 func InitTest(t *testing.T) (*zdns.GlobalConf, *GlobalLookupFactory, *RoutineLookupFactory, zdns.Lookup) {
 	mxResults = make(map[string]miekg.Result)
+	mockResults = make(map[string]miekg.IpResult)
 	gc := new(zdns.GlobalConf)
 	gc.NameServers = []string{"127.0.0.1"}
 
@@ -203,6 +204,38 @@ func TestMxAandQuadA(t *testing.T) {
 		recType:       "MX",
 		IPv4Addresses: []string{"192.0.2.1"},
 		IPv6Addresses: []string{"2001:db8::1"},
+	}
+	res, _, _, _ := l.DoLookup("example.com", "")
+	verifyResult(t, res.(Result).Servers, expectedServersMap)
+}
+
+func TestEmptyMx(t *testing.T) {
+	_, glf, _, l := InitTest(t)
+	glf.IPv4Lookup = true
+	glf.IPv6Lookup = true
+
+	mxResults["example.com"] = miekg.Result{
+		Answers: []interface{}{miekg.PrefAnswer{
+			Answer: miekg.Answer{
+				Ttl:    3600,
+				Type:   "MX",
+				Class:  "IN",
+				Name:   "example.com.",
+				Answer: "mail.example.com.",
+			},
+			Preference: 1,
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       miekg.DNSFlags{},
+	}
+
+	expectedServersMap := make(map[string]minimalServerRecords)
+	expectedServersMap["mail.example.com"] = minimalServerRecords{
+		recType:       "MX",
+		IPv4Addresses: nil,
+		IPv6Addresses: nil,
 	}
 	res, _, _, _ := l.DoLookup("example.com", "")
 	verifyResult(t, res.(Result).Servers, expectedServersMap)
