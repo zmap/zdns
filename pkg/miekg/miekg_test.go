@@ -48,6 +48,168 @@ func InitTest(t *testing.T) (*zdns.GlobalConf, Lookup, MockLookupClient) {
 	return gc, a, mc
 }
 
+func TestOneA(t *testing.T) {
+	gc, a, mc := InitTest(t)
+	mockResults["example.com"] = Result{
+		Answers: []interface{}{Answer{
+			Ttl:    3600,
+			Type:   "A",
+			Class:  "IN",
+			Name:   "example.com",
+			Answer: "192.0.2.1",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       DNSFlags{},
+	}
+	res, _, _, _ := a.DoTargetedLookup(mc, "example.com", gc.NameServers[0], true, false)
+	verifyResult(t, res.(IpResult), []string{"192.0.2.1"}, nil)
+}
+
+func TestTwoA(t *testing.T) {
+	gc, a, mc := InitTest(t)
+	mockResults["example.com"] = Result{
+		Answers: []interface{}{Answer{
+			Ttl:    3600,
+			Type:   "A",
+			Class:  "IN",
+			Name:   "example.com",
+			Answer: "192.0.2.1",
+		},
+			Answer{
+				Ttl:    3600,
+				Type:   "A",
+				Class:  "IN",
+				Name:   "example.com",
+				Answer: "192.0.2.2",
+			}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       DNSFlags{},
+	}
+	res, _, _, _ := a.DoTargetedLookup(mc, "example.com", gc.NameServers[0], true, false)
+	verifyResult(t, res.(IpResult), []string{"192.0.2.1", "192.0.2.2"}, nil)
+}
+
+func TestQuadAWithoutFlag(t *testing.T) {
+	gc, a, mc := InitTest(t)
+	mockResults["example.com"] = Result{
+		Answers: []interface{}{Answer{
+			Ttl:    3600,
+			Type:   "A",
+			Class:  "IN",
+			Name:   "example.com",
+			Answer: "192.0.2.1",
+		},
+			Answer{
+				Ttl:    3600,
+				Type:   "AAAA",
+				Class:  "IN",
+				Name:   "example.com",
+				Answer: "2001:db8::1",
+			}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       DNSFlags{},
+	}
+
+	res, _, _, _ := a.DoTargetedLookup(mc, "example.com", gc.NameServers[0], true, false)
+	verifyResult(t, res.(IpResult), []string{"192.0.2.1"}, nil)
+}
+
+func TestOnlyQuadA(t *testing.T) {
+	gc, a, mc := InitTest(t)
+	mockResults["example.com"] = Result{
+		Answers: []interface{}{Answer{
+			Ttl:    3600,
+			Type:   "AAAA",
+			Class:  "IN",
+			Name:   "example.com",
+			Answer: "2001:db8::1",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       DNSFlags{},
+	}
+
+	res, _, _, _ := a.DoTargetedLookup(mc, "example.com", gc.NameServers[0], false, true)
+	verifyResult(t, res.(IpResult), nil, []string{"2001:db8::1"})
+}
+
+func TestAandQuadA(t *testing.T) {
+	gc, a, mc := InitTest(t)
+	mockResults["example.com"] = Result{
+		Answers: []interface{}{Answer{
+			Ttl:    3600,
+			Type:   "A",
+			Class:  "IN",
+			Name:   "example.com",
+			Answer: "192.0.2.1",
+		},
+			Answer{
+				Ttl:    3600,
+				Type:   "AAAA",
+				Class:  "IN",
+				Name:   "example.com",
+				Answer: "2001:db8::1",
+			}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       DNSFlags{},
+	}
+	res, _, _, _ := a.DoTargetedLookup(mc, "example.com", gc.NameServers[0], true, true)
+	verifyResult(t, res.(IpResult), []string{"192.0.2.1"}, []string{"2001:db8::1"})
+}
+
+func TestTwoQuadA(t *testing.T) {
+	gc, a, mc := InitTest(t)
+	mockResults["example.com"] = Result{
+		Answers: []interface{}{Answer{
+			Ttl:    3600,
+			Type:   "AAAA",
+			Class:  "IN",
+			Name:   "example.com",
+			Answer: "2001:db8::1",
+		},
+			Answer{
+				Ttl:    3600,
+				Type:   "AAAA",
+				Class:  "IN",
+				Name:   "example.com",
+				Answer: "2001:db8::2",
+			}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       DNSFlags{},
+	}
+	res, _, _, _ := a.DoTargetedLookup(mc, "example.com", gc.NameServers[0], false, true)
+	verifyResult(t, res.(IpResult), nil, []string{"2001:db8::1", "2001:db8::2"})
+}
+
+func TestNoResults(t *testing.T) {
+	gc, a, mc := InitTest(t)
+
+	mockResults["example.com"] = Result{
+		Answers:     nil,
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       DNSFlags{},
+	}
+	res, _, status, _ := a.DoTargetedLookup(mc, "example.com", gc.NameServers[0], true, true)
+	if status != zdns.STATUS_NOERROR {
+		t.Errorf("Expected NOERROR status, got %v", status)
+	} else if res != nil {
+		t.Errorf("Expected no results, got %v", res)
+	}
+}
+
 func TestCname(t *testing.T) {
 	gc, a, mc := InitTest(t)
 
@@ -77,8 +239,8 @@ func TestCname(t *testing.T) {
 		Protocol:    "",
 		Flags:       DNSFlags{},
 	}
-	res, _, _, _ := a.DoProtocolLookup(mc, "cname.example.com", gc.NameServers[0], dns.TypeA, make(map[string][]Answer), make(map[string][]Answer), "cname.example.com", 0)
-	verifyResult(t, res, []string{"192.0.2.1"})
+	res, _, _, _ := a.DoTargetedLookup(mc, "cname.example.com", gc.NameServers[0], true, false)
+	verifyResult(t, res.(IpResult), []string{"192.0.2.1"}, nil)
 }
 
 func TestQuadAWithCname(t *testing.T) {
@@ -104,9 +266,8 @@ func TestQuadAWithCname(t *testing.T) {
 		Protocol:    "",
 		Flags:       DNSFlags{},
 	}
-
-	res, _, _, _ := a.DoProtocolLookup(mc, "cname.example.com", gc.NameServers[0], dns.TypeAAAA, make(map[string][]Answer), make(map[string][]Answer), "cname.example.com", 0)
-	verifyResult(t, res, []string{"2001:db8::3"})
+	res, _, _, _ := a.DoTargetedLookup(mc, "cname.example.com", gc.NameServers[0], false, true)
+	verifyResult(t, res.(IpResult), nil, []string{"2001:db8::3"})
 }
 
 func TestUnexpectedMxOnly(t *testing.T) {
@@ -125,7 +286,7 @@ func TestUnexpectedMxOnly(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 
-	res, _, status, _ := a.DoProtocolLookup(mc, "example.com", gc.NameServers[0], dns.TypeAAAA, make(map[string][]Answer), make(map[string][]Answer), "cname.example.com", 0)
+	res, _, status, _ := a.DoIpsLookup(mc, "example.com", gc.NameServers[0], dns.TypeAAAA, make(map[string][]Answer), make(map[string][]Answer), "cname.example.com", 0)
 
 	if status != zdns.STATUS_ERROR {
 		t.Errorf("Expected ERROR status, got %v", status)
@@ -163,11 +324,8 @@ func TestMxAndAdditionals(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 
-	res, _, _, _ := a.DoProtocolLookup(mc, "example.com", gc.NameServers[0], dns.TypeA, make(map[string][]Answer), make(map[string][]Answer), "example.com", 0)
-	verifyResult(t, res, []string{"192.0.2.3"})
-
-	res, _, _, _ = a.DoProtocolLookup(mc, "example.com", gc.NameServers[0], dns.TypeAAAA, make(map[string][]Answer), make(map[string][]Answer), "example.com", 0)
-	verifyResult(t, res, []string{"2001:db8::4"})
+	res, _, _, _ := a.DoTargetedLookup(mc, "example.com", gc.NameServers[0], true, true)
+	verifyResult(t, res.(IpResult), []string{"192.0.2.3"}, []string{"2001:db8::4"})
 }
 
 func TestMismatchIpType(t *testing.T) {
@@ -186,7 +344,7 @@ func TestMismatchIpType(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 
-	res, _, status, _ := a.DoProtocolLookup(mc, "example.com", gc.NameServers[0], dns.TypeA, make(map[string][]Answer), make(map[string][]Answer), "cname.example.com", 0)
+	res, _, status, _ := a.DoTargetedLookup(mc, "example.com", gc.NameServers[0], true, true)
 
 	if status != zdns.STATUS_ERROR {
 		t.Errorf("Expected ERROR status, got %v", status)
@@ -197,26 +355,26 @@ func TestMismatchIpType(t *testing.T) {
 
 func TestCnameLoops(t *testing.T) {
 	gc, a, mc := InitTest(t)
-	mockResults["cname.example.com"] = Result{
+	mockResults["cname1.example.com"] = Result{
 		Answers: []interface{}{Answer{
 			Ttl:    3600,
 			Type:   "CNAME",
 			Class:  "IN",
-			Name:   "cname.example.com",
-			Answer: "example.com.",
+			Name:   "cname1.example.com",
+			Answer: "cname2.example.com.",
 		}},
 		Additional:  nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
 	}
-	mockResults["example.com"] = Result{
+	mockResults["cname2.example.com"] = Result{
 		Answers: []interface{}{Answer{
 			Ttl:    3600,
 			Type:   "CNAME",
 			Class:  "IN",
-			Name:   "example.com",
-			Answer: "cname.example.com.",
+			Name:   "cname2.example.com",
+			Answer: "cname1.example.com.",
 		}},
 		Additional:  nil,
 		Authorities: nil,
@@ -224,7 +382,7 @@ func TestCnameLoops(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 
-	res, _, status, _ := a.DoProtocolLookup(mc, "example.com", gc.NameServers[0], dns.TypeA, make(map[string][]Answer), make(map[string][]Answer), "cname.example.com", 0)
+	res, _, status, _ := a.DoTargetedLookup(mc, "cname1.example.com", gc.NameServers[0], true, true)
 
 	if status != zdns.STATUS_ERROR {
 		t.Errorf("Expected ERROR status, got %v", status)
@@ -252,7 +410,7 @@ func TestExtendedRecursion(t *testing.T) {
 		}
 	}
 
-	res, _, status, _ := a.DoProtocolLookup(mc, "cname1.example.com", gc.NameServers[0], dns.TypeA, make(map[string][]Answer), make(map[string][]Answer), "cname.example.com", 0)
+	res, _, status, _ := a.DoTargetedLookup(mc, "cname1.example.com", gc.NameServers[0], true, true)
 
 	if status != zdns.STATUS_ERROR {
 		t.Errorf("Expected ERROR status, got %v", status)
@@ -284,11 +442,11 @@ func TestEmptyNonTerminal(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 	// Verify leaf returns correctly
-	res, _, _, _ := a.DoProtocolLookup(mc, "leaf.intermediate.example.com", gc.NameServers[0], dns.TypeA, make(map[string][]Answer), make(map[string][]Answer), "leaf.intermediate.example.com", 0)
-	verifyResult(t, res, []string{"192.0.2.3"})
+	res, _, _, _ := a.DoTargetedLookup(mc, "leaf.intermediate.example.com", gc.NameServers[0], true, false)
+	verifyResult(t, res.(IpResult), []string{"192.0.2.3"}, nil)
 
 	// Verify empty non-terminal returns no answer
-	res, _, status, _ = a.DoProtocolLookup(mc, "intermediate.example.com", gc.NameServers[0], dns.TypeA, make(map[string][]Answer), make(map[string][]Answer), "intermediate.example.com", 0)
+	res, _, status, _ = a.DoTargetedLookup(mc, "intermediate.example.com", gc.NameServers[0], true, true)
 	if status != zdns.STATUS_NOERROR {
 		t.Errorf("Expected STATUS_NOERROR status, got %v", status)
 	} else if res != nil {
@@ -298,8 +456,7 @@ func TestEmptyNonTerminal(t *testing.T) {
 
 func TestNXDomain(t *testing.T) {
 	gc, a, mc := InitTest(t)
-	name := "nonexistent.example.com"
-	res, _, status, _ := a.DoProtocolLookup(mc, name, gc.NameServers[0], dns.TypeA, make(map[string][]Answer), make(map[string][]Answer), name, 0)
+	res, _, status, _ := a.DoTargetedLookup(mc, "nonexistent.example.com", gc.NameServers[0], true, true)
 	if status != zdns.STATUS_NXDOMAIN {
 		t.Errorf("Expected STATUS_NXDOMAIN status, got %v", status)
 	} else if res != nil {
@@ -312,7 +469,7 @@ func TestServFail(t *testing.T) {
 	gc, a, mc := InitTest(t)
 	mockResults["example.com"] = Result{}
 	name := "example.com"
-	res, _, final_status, _ := a.DoProtocolLookup(mc, name, gc.NameServers[0], dns.TypeA, make(map[string][]Answer), make(map[string][]Answer), name, 0)
+	res, _, final_status, _ := a.DoTargetedLookup(mc, name, gc.NameServers[0], true, true)
 
 	if final_status != status {
 		t.Errorf("Expected %v status, got %v", status, final_status)
@@ -587,8 +744,11 @@ func TestLookup_DoTxtLookup_5(t *testing.T) {
 	assert.Equal(t, "google-site-verification=A2WZWCNQHrGV_TWwKh7KHY90UY0SHZo_rnyMJoDaG0s", resultString)
 }
 
-func verifyResult(t *testing.T, resIps []string, expectedIps []string) {
-	if !reflect.DeepEqual(expectedIps, resIps) {
-		t.Errorf("Expected %v, Received %v IP address(es)", expectedIps, resIps)
+func verifyResult(t *testing.T, res IpResult, ipv4 []string, ipv6 []string) {
+	if !reflect.DeepEqual(ipv4, res.IPv4Addresses) {
+		t.Errorf("Expected %v, Received %v IPv4 address(es)", ipv4, res.IPv4Addresses)
+	}
+	if !reflect.DeepEqual(ipv6, res.IPv6Addresses) {
+		t.Errorf("Expected %v, Received %v IPv6 address(es)", ipv6, res.IPv6Addresses)
 	}
 }

@@ -95,3 +95,8 @@ func checkGlue(server string, depth int, result Result) (Result, zdns.Status) {
 func makeVerbosePrefix(depth int, threadID int) string {
 	return fmt.Sprintf("THREADID %06d,DEPTH %02d", threadID, depth) + ":" + strings.Repeat("  ", 2*depth)
 }
+
+// Check whether the status is safe
+func SafeStatus(status zdns.Status) bool {
+	return status == zdns.STATUS_NOERROR
+}

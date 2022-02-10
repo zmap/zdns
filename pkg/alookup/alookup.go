@@ -21,23 +21,11 @@ import (
 	"github.com/zmap/zdns/pkg/zdns"
 )
 
-type Result struct {
-	IPv4Addresses []string `json:"ipv4_addresses,omitempty" groups:"short,normal,long,trace"`
-	IPv6Addresses []string `json:"ipv6_addresses,omitempty" groups:"short,normal,long,trace"`
-}
-
 // Per Connection Lookup ======================================================
 //
 type Lookup struct {
 	Factory *RoutineLookupFactory
 	miekg.Lookup
-}
-
-func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
-	if nameServer == "" {
-		nameServer = s.Factory.Factory.RandomNameServer()
-	}
-	return s.DoTargetedLookup(name, nameServer)
 }
 
 // This LookupClient is created to call the actual implementation of DoMiekgLookup
@@ -47,46 +35,14 @@ func (lc LookupClient) ProtocolLookup(s *miekg.Lookup, q miekg.Question, nameSer
 	return s.DoMiekgLookup(q, nameServer)
 }
 
-func (s *Lookup) DoTargetedLookup(name, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
-	res := Result{}
-	candidateSet := map[string][]miekg.Answer{}
-	cnameSet := map[string][]miekg.Answer{}
+func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+	if nameServer == "" {
+		nameServer = s.Factory.Factory.RandomNameServer()
+	}
+	l := LookupClient{}
 	lookupIpv4 := s.Factory.Factory.IPv4Lookup || !s.Factory.Factory.IPv6Lookup
 	lookupIpv6 := s.Factory.Factory.IPv6Lookup
-	var ipv4 []string
-	var ipv6 []string
-	var ipv4Trace []interface{}
-	var ipv6Trace []interface{}
-	var ipv4status zdns.Status
-	var ipv6status zdns.Status
-	l := LookupClient{}
-	if lookupIpv4 {
-		ipv4, ipv4Trace, ipv4status, _ = s.DoProtocolLookup(l, name, nameServer, dns.TypeA, candidateSet, cnameSet, name, 0)
-		res.IPv4Addresses = make([]string, len(ipv4))
-		copy(res.IPv4Addresses, ipv4)
-	}
-	candidateSet = map[string][]miekg.Answer{}
-	cnameSet = map[string][]miekg.Answer{}
-	if lookupIpv6 {
-		ipv6, ipv6Trace, ipv6status, _ = s.DoProtocolLookup(l, name, nameServer, dns.TypeAAAA, candidateSet, cnameSet, name, 0)
-		res.IPv6Addresses = make([]string, len(ipv6))
-		copy(res.IPv6Addresses, ipv6)
-	}
-
-	combinedTrace := append(ipv4Trace, ipv6Trace...)
-
-	// In case we get no IPs and a non-NOERROR status from either
-	// IPv4 or IPv6 lookup, we return that status.
-	if len(res.IPv4Addresses) == 0 && len(res.IPv6Addresses) == 0 {
-		if lookupIpv4 && !miekg.SafeStatus(ipv4status) {
-			return nil, combinedTrace, ipv4status, nil
-		} else if lookupIpv6 && !miekg.SafeStatus(ipv6status) {
-			return nil, combinedTrace, ipv6status, nil
-		} else {
-			return nil, combinedTrace, zdns.STATUS_NOERROR, nil
-		}
-	}
-	return res, combinedTrace, zdns.STATUS_NOERROR, nil
+	return s.DoTargetedLookup(l, name, nameServer, lookupIpv4, lookupIpv6)
 }
 
 // Per GoRoutine Factory ======================================================

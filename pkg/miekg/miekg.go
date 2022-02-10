@@ -1,6 +1,3 @@
-//go:build !mock
-// +build !mock
-
 package miekg
 
 import (
@@ -47,6 +44,11 @@ type Result struct {
 	Flags       DNSFlags      `json:"flags" groups:"flags,long,trace"`
 }
 
+type IpResult struct {
+	IPv4Addresses []string `json:"ipv4_addresses,omitempty" groups:"short,normal,long,trace"`
+	IPv6Addresses []string `json:"ipv6_addresses,omitempty" groups:"short,normal,long,trace"`
+}
+
 type TraceStep struct {
 	Result     Result   `json:"results" groups:"trace"`
 	DnsType    uint16   `json:"type" groups:"trace"`
@@ -81,11 +83,6 @@ type GlobalLookupFactory struct {
 // Lookup client interface for helping in mocking
 type LookupClient interface {
 	ProtocolLookup(s *Lookup, q Question, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)
-}
-
-// Check whether the status is safe
-func SafeStatus(status zdns.Status) bool {
-	return status == zdns.STATUS_NOERROR
 }
 
 func (s *GlobalLookupFactory) BlacklistInit() error {
@@ -728,7 +725,8 @@ func populateResults(records []interface{}, dnsType uint16, candidateSet map[str
 	}
 }
 
-func (s *Lookup) DoProtocolLookup(lc LookupClient, name string, nameServer string, dnsType uint16, candidateSet map[string][]Answer, cnameSet map[string][]Answer, origName string, depth int) ([]string, []interface{}, zdns.Status, error) {
+// Function to recursively search for IP addresses
+func (s *Lookup) DoIpsLookup(lc LookupClient, name string, nameServer string, dnsType uint16, candidateSet map[string][]Answer, cnameSet map[string][]Answer, origName string, depth int) ([]string, []interface{}, zdns.Status, error) {
 	// avoid infinite loops
 	if name == origName && depth != 0 {
 		return nil, make([]interface{}, 0), zdns.STATUS_ERROR, errors.New("infinite redirection loop")
@@ -744,7 +742,6 @@ func (s *Lookup) DoProtocolLookup(lc LookupClient, name string, nameServer strin
 		var miekgResult interface{}
 		var status zdns.Status
 		var err error
-		// miekgResult, trace, status, err = s.DoMiekgLookup(Question{Name: name, Type: dnsType}, nameServer)
 		miekgResult, trace, status, err = lc.ProtocolLookup(s, Question{Name: name, Type: dnsType}, nameServer)
 		if status != zdns.STATUS_NOERROR || err != nil {
 			return nil, trace, status, err
@@ -763,9 +760,8 @@ func (s *Lookup) DoProtocolLookup(lc LookupClient, name string, nameServer strin
 		return ips, trace, zdns.STATUS_NOERROR, nil
 	} else if res, ok = cnameSet[name]; ok && len(res) > 0 {
 		// we have a CNAME and need to further recurse to find IPs
-		// shortName := strings.ToLower(res[0].Answer[0 : len(res[0].Answer)-1])
 		shortName := strings.ToLower(strings.TrimSuffix(res[0].Answer, "."))
-		res, secondTrace, status, err := s.DoProtocolLookup(lc, shortName, nameServer, dnsType, candidateSet, cnameSet, origName, depth+1)
+		res, secondTrace, status, err := s.DoIpsLookup(lc, shortName, nameServer, dnsType, candidateSet, cnameSet, origName, depth+1)
 		trace = append(trace, secondTrace...)
 		return res, trace, status, err
 	} else if res, ok = garbage[name]; ok && len(res) > 0 {
@@ -775,6 +771,46 @@ func (s *Lookup) DoProtocolLookup(lc LookupClient, name string, nameServer strin
 		var ips []string
 		return ips, trace, zdns.STATUS_NOERROR, nil
 	}
+}
+
+func (s *Lookup) DoTargetedLookup(l LookupClient, name, nameServer string, lookupIpv4 bool, lookupIpv6 bool) (interface{}, []interface{}, zdns.Status, error) {
+	res := IpResult{}
+	candidateSet := map[string][]Answer{}
+	cnameSet := map[string][]Answer{}
+	var ipv4 []string
+	var ipv6 []string
+	var ipv4Trace []interface{}
+	var ipv6Trace []interface{}
+	var ipv4status zdns.Status
+	var ipv6status zdns.Status
+
+	if lookupIpv4 {
+		ipv4, ipv4Trace, ipv4status, _ = s.DoIpsLookup(l, name, nameServer, dns.TypeA, candidateSet, cnameSet, name, 0)
+		res.IPv4Addresses = make([]string, len(ipv4))
+		copy(res.IPv4Addresses, ipv4)
+	}
+	candidateSet = map[string][]Answer{}
+	cnameSet = map[string][]Answer{}
+	if lookupIpv6 {
+		ipv6, ipv6Trace, ipv6status, _ = s.DoIpsLookup(l, name, nameServer, dns.TypeAAAA, candidateSet, cnameSet, name, 0)
+		res.IPv6Addresses = make([]string, len(ipv6))
+		copy(res.IPv6Addresses, ipv6)
+	}
+
+	combinedTrace := append(ipv4Trace, ipv6Trace...)
+
+	// In case we get no IPs and a non-NOERROR status from either
+	// IPv4 or IPv6 lookup, we return that status.
+	if len(res.IPv4Addresses) == 0 && len(res.IPv6Addresses) == 0 {
+		if lookupIpv4 && !SafeStatus(ipv4status) {
+			return nil, combinedTrace, ipv4status, nil
+		} else if lookupIpv6 && !SafeStatus(ipv6status) {
+			return nil, combinedTrace, ipv6status, nil
+		} else {
+			return nil, combinedTrace, zdns.STATUS_NOERROR, nil
+		}
+	}
+	return res, combinedTrace, zdns.STATUS_NOERROR, nil
 }
 
 // allow miekg to be used as a ZDNS module
