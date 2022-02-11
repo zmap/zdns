@@ -50,11 +50,11 @@ class Tests(unittest.TestCase):
         o = subprocess.check_output(c, shell=True)
         return c, json.loads(o.rstrip())
     
-    def run_zdns_dig(self, flags, name, executable=ZDNS_EXECUTABLE):
+    def run_zdns_dig(self, flags, names, executable=ZDNS_EXECUTABLE):
         flags = flags + " --threads=10"
-        c = f"{executable} {flags} {name}"
+        c = f"{executable} {flags} {' '.join(names)}"
         o = subprocess.check_output(c, shell=True)
-        return c, json.loads(o.rstrip())
+        return c, [json.loads(l.rstrip()) for l in o.split(b'\n')[:-1]]
 
     def run_zdns_dig_check_failure(self, flags, name, expected_err, executable=ZDNS_EXECUTABLE):
         flags = flags + " --threads=10"
@@ -355,6 +355,14 @@ class Tests(unittest.TestCase):
     def assertSuccess(self, res, cmd):
         self.assertEqual(res["status"], "NOERROR", cmd)
 
+    def assertSuccessMultipleAnswers(self, results, cmd):
+        for res in results:
+            self.assertEqual(res["status"], "NOERROR", cmd)
+        
+    def assertEqualMultipleAnswers(self, results, correct, cmd, key="answer"):
+        for res in results:
+            self.assertEqualAnswers(res, correct, cmd, key)
+
     def assertEqualAnswers(self, res, correct, cmd, key="answer"):
         self.assertIn("answers", res["data"])
         for answer in res["data"]["answers"]:
@@ -642,16 +650,22 @@ class Tests(unittest.TestCase):
 
     def test_dig_input_single(self):
         c = "A"
-        name = "zdns-testing.com"
-        cmd, res = self.run_zdns_dig(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+        names = ["zdns-testing.com"]
+        cmd, res = self.run_zdns_dig(c, names)
+        self.assertSuccessMultipleAnswers(res, cmd)
+        self.assertEqualMultipleAnswers(res, self.ROOT_A_ANSWERS, cmd)
+
+    def test_dig_input_multi(self):
+        c = "A"
+        names = ["zdns-testing.com", "zdns-testing.com", "zdns-testing.com"]
+        cmd, res = self.run_zdns_dig(c, names)
+        self.assertSuccessMultipleAnswers(res, cmd)
+        self.assertEqualMultipleAnswers(res, self.ROOT_A_ANSWERS, cmd)
 
     def test_dig_input_override_input_file(self):
         c = "--input-file ./foo A"
         name = "zdns-testing.com"
         self.run_zdns_dig_check_failure(c, name, "Using ZDNS in dig-like mode with arguments as inputs, ZdnsRun.GlobalConf.InputFilePath setting ignored")
-
 
     def test_local_addr_interface_warning(self):
         c = "A --local-addr 192.168.1.5 --local-interface en0"
