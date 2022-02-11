@@ -43,7 +43,7 @@ Library Usage
 The ZDNS library now lives in `github.com/zmap/zdns/pkg/zdns`. A function there, `zdns.Run()`, is used to start the ZDNS tool and do the requested lookups. The library is configured using a `zdns.ZdnsRun` struct. This struct contains all of the information needed to run the requested lookups. The `zdns.ZdnsRun` object contains three major groups of options:
 
 - `zdns.GlobalConf`: The Global Configuration struct holds the information that each of the Goroutines that are doing the lookup will need to perform the lookups. This includes the majority of the flags, such as timeout information, nameservers, and which module to use for the specific lookups.
-- `zdns.ModuleFlags`: The Module Flags struct holds the information needed by any of the lookup modules (currently `alookup` and `mxlookup`).
+- `zdns.ModuleFlags`: The Module Flags struct holds the information needed by any of the lookup modules.
 - Miscellaneous fields: The `zdns.ZdnsRun` struct also holds configuration options that are only used for setting up the initial run, such as configuration files, local interfaces and local addresses, among others.
 
 To use the ZDNS library, a `zdns.ZdnsRun` struct must be created and passed to the `zdns.Run()` method, and then the program will read inputs from STDIN. Below is a brief example:
@@ -72,7 +72,7 @@ func main() {
 ```
 The above file, when compiled and run, will wait for newline-separated inputs on STDIN to perform ALOOKUPs. ZDNS will emit warnings for certain fields that are left unset, but will fill in "sane" defaults in this case. If the defaults are unsuitable for the use case, then they can all be configured using the options in the `zdns.GlobalConf`, `zdns.ModuleFlags` or generic fields. 
 
-Note that the package `github.com/zmap/zdns/pkg/alookup` was imported for its side effects. Namely, we need the alookup module to register itself before ZDNS attempts to run. For a list of all packages and what they include, see the Modules section below. This allows the end user to only import packages that are needed. All module packages live in `github.com/zmap/zdns/pkg`. See the source code for more information.
+Note that the package `github.com/zmap/zdns/pkg/alookup` was imported for its side effects. Namely, we need the alookup module to register itself before ZDNS attempts to run. For a list of all packages and what they include, see the Modules section below. This allows the end user to only import packages that are needed. All module packages live in `github.com/zmap/zdns/pkg`. See the modules section below for more information.
 
 CLI Usage
 ---------------
