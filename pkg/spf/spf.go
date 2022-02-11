@@ -16,8 +16,8 @@ package spf
 
 import (
 	"github.com/zmap/dns"
-	"github.com/zmap/zdns"
-	"github.com/zmap/zdns/modules/miekg"
+	"github.com/zmap/zdns/pkg/miekg"
+	"github.com/zmap/zdns/pkg/zdns"
 	"regexp"
 )
 
@@ -31,8 +31,8 @@ type Result struct {
 // Per Connection Lookup ======================================================
 //
 type Lookup struct {
-	miekg.Lookup
 	Factory *RoutineLookupFactory
+	miekg.Lookup
 }
 
 func (s *Lookup) DoLookup(name string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {

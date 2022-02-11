@@ -15,12 +15,12 @@
 package nslookup
 
 import (
-	"flag"
 	"strings"
 
+	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
-	"github.com/zmap/zdns"
-	"github.com/zmap/zdns/modules/miekg"
+	"github.com/zmap/zdns/pkg/miekg"
+	"github.com/zmap/zdns/pkg/zdns"
 )
 
 // result to be returned by scan of host
@@ -150,9 +150,17 @@ type GlobalLookupFactory struct {
 	IPv6Lookup bool
 }
 
-func (s *GlobalLookupFactory) AddFlags(f *flag.FlagSet) {
-	f.BoolVar(&s.IPv4Lookup, "ipv4-lookup", false, "perform A lookups for each name server")
-	f.BoolVar(&s.IPv6Lookup, "ipv6-lookup", false, "perform AAAA record lookups for each name server")
+func (s *GlobalLookupFactory) SetFlags(f *pflag.FlagSet) {
+	// If there's an error, panic is appropriate since we should at least be getting the default here.
+	var err error
+	s.IPv4Lookup, err = f.GetBool("ipv4-lookup")
+	if err != nil {
+		panic(err)
+	}
+	s.IPv6Lookup, err = f.GetBool("ipv6-lookup")
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Command-line Help Documentation. This is the descriptive text what is

@@ -15,7 +15,6 @@
 package zdns
 
 import (
-	"flag"
 	"math/rand"
 	"net"
 	"sort"
@@ -23,6 +22,7 @@ import (
 	"sync"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 )
 
 /* Each lookup module registers a single GlobalLookupFactory, which is
@@ -69,9 +69,9 @@ type RoutineLookupFactory interface {
 // one RoutineLookupFactory per execution =====================================
 //
 type GlobalLookupFactory interface {
-	// expected to add any necessary commandline flags if being
-	// run as a standalone scanner
-	AddFlags(flags *flag.FlagSet)
+	// Capture the values of cobra/viper flags and add them to the
+	// global factory as appropriate.
+	SetFlags(flags *pflag.FlagSet)
 	// global initialization. Gets called once globally
 	// This is called after command line flags have been parsed
 	Initialize(conf *GlobalConf) error
@@ -113,7 +113,7 @@ func (f *BaseGlobalLookupFactory) Finalize() error {
 	return nil
 }
 
-func (s *BaseGlobalLookupFactory) AddFlags(f *flag.FlagSet) {
+func (s *BaseGlobalLookupFactory) SetFlags(f *pflag.FlagSet) {
 }
 
 func (s *BaseGlobalLookupFactory) Help() string {
@@ -175,6 +175,17 @@ func ValidlookupsString() string {
 	}
 	sort.Strings(valid)
 	return strings.Join(valid, ", ")
+}
+
+func Validlookups() []string {
+	valid := make([]string, len(lookups))
+	i := 0
+	for k := range lookups {
+		valid[i] = k
+		i++
+	}
+	sort.Strings(valid)
+	return valid
 }
 
 func GetLookup(name string) GlobalLookupFactory {
