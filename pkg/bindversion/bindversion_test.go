@@ -71,5 +71,5 @@ func TestBindVersionLookup_NotValid_1(t *testing.T) {
 	assert.Equal(t, queries[0].NameServer, "1.2.3.4")
 
 	assert.Equal(t, zdns.STATUS_NO_RECORD, status)
-	assert.Equal(t, res.(Result).BindVersion, "Nominum Vantio 5.4.1.0")
+	assert.Equal(t, res.(Result).BindVersion, "")
 }
