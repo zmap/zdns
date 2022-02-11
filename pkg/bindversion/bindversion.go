@@ -60,19 +60,20 @@ type GlobalLookupFactory struct {
 	miekg.GlobalLookupFactory
 }
 
-func (f *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
-	f.GlobalLookupFactory.Initialize(c)
+func (glf *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
+	glf.GlobalLookupFactory.Initialize(c)
 	c.Class = dns.ClassCHAOS
 	return nil
 }
 
-func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
-	r := new(RoutineLookupFactory)
-	r.Initialize(s.GlobalConf)
-	r.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
-	r.Factory = s
-	r.ThreadID = threadID
-	return r, nil
+func (glf *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
+	rlf := new(RoutineLookupFactory)
+	rlf.RoutineLookupFactory.Factory = &glf.GlobalLookupFactory
+	rlf.Factory = glf
+	rlf.ThreadID = threadID
+	rlf.Initialize(glf.GlobalConf)
+
+	return rlf, nil
 }
 
 // Global Registration ========================================================
