@@ -3,6 +3,7 @@ package miekg
 import (
 	"errors"
 	"net"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -136,6 +137,7 @@ type RoutineLookupFactory struct {
 	LocalAddr           net.IP
 	Conn                *dns.Conn
 	ThreadID            int
+	PrefixRegexp        *regexp.Regexp
 }
 
 func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
@@ -201,7 +203,6 @@ type Lookup struct {
 	Factory       *RoutineLookupFactory
 	DNSType       uint16
 	DNSClass      uint16
-	Prefix        string
 	NameServer    string
 	IterativeStop time.Time
 
@@ -220,6 +221,32 @@ func (s *Lookup) Initialize(nameServer string, dnsType uint16, dnsClass uint16, 
 
 func (s *Lookup) doLookup(q Question, nameServer string, recursive bool) (Result, zdns.Status, error) {
 	return DoLookupWorker(s.Factory.Client, s.Factory.TCPClient, s.Conn, q, nameServer, recursive)
+}
+
+// CheckTxtRecords common function for all modules based on search in TXT record
+func (s *Lookup) CheckTxtRecords(res interface{}, status zdns.Status, err error) (string, zdns.Status, error) {
+	if status != zdns.STATUS_NOERROR {
+		return "", status, err
+	}
+	cast, _ := res.(Result)
+	resString, err := s.FindTxtRecord(cast)
+	if err != nil {
+		status = zdns.STATUS_NO_RECORD
+	} else {
+		status = zdns.STATUS_NOERROR
+	}
+	return resString, status, err
+}
+
+func (s *Lookup) FindTxtRecord(res Result) (string, error) {
+
+	for _, a := range res.Answers {
+		ans, _ := a.(Answer)
+		if s.Factory.PrefixRegexp == nil || s.Factory.PrefixRegexp.MatchString(ans.Answer) {
+			return ans.Answer, nil
+		}
+	}
+	return "", errors.New("no such TXT record found")
 }
 
 // Expose the inner logic so other tools can use it
@@ -648,22 +675,6 @@ func (s *Lookup) DoMiekgLookup(q Question, nameServer string) (interface{}, zdns
 	} else {
 		return s.tracedRetryingLookup(q, nameServer, true)
 	}
-}
-
-func (s *Lookup) DoTxtLookup(name string, nameServer string) (string, zdns.Trace, zdns.Status, error) {
-	res, trace, status, err := s.DoMiekgLookup(Question{Name: name, Type: s.DNSType, Class: s.DNSClass}, nameServer)
-	if status != zdns.STATUS_NOERROR {
-		return "", trace, status, err
-	}
-	if parsedResult, ok := res.(Result); ok {
-		for _, a := range parsedResult.Answers {
-			ans, _ := a.(Answer)
-			if strings.HasPrefix(ans.Answer, s.Prefix) {
-				return ans.Answer, trace, zdns.STATUS_NOERROR, err
-			}
-		}
-	}
-	return "", trace, zdns.STATUS_NO_RECORD, nil
 }
 
 // allow miekg to be used as a ZDNS module
