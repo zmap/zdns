@@ -34,7 +34,7 @@ type Lookup struct {
 }
 
 func (s *Lookup) DoLookup(_, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
-	innerRes, trace, status, err := s.DoLookup("VERSION.BIND", nameServer)
+	innerRes, trace, status, err := s.DoMiekgLookup(miekg.Question{Name: "VERSION.BIND", Type: s.DNSType, Class: s.DNSClass}, nameServer)
 	resString, resStatus, err := s.CheckTxtRecords(innerRes, status, err)
 	res := Result{BindVersion: resString}
 	return res, trace, resStatus, err
