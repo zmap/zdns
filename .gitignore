@@ -1,4 +1,5 @@
 zdns
+!zdns/
 .*
 *.iml
 *.code-workspace

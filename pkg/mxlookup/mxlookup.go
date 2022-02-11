@@ -18,7 +18,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/cachehash"
 	"github.com/zmap/zdns/pkg/miekg"
@@ -152,21 +151,10 @@ type GlobalLookupFactory struct {
 	CHmu        sync.Mutex
 }
 
-func (s *GlobalLookupFactory) SetFlags(f *pflag.FlagSet) {
-	// If there's an error, panic is appropriate since we should at least be getting the default here.
-	var err error
-	s.IPv4Lookup, err = f.GetBool("ipv4-lookup")
-	if err != nil {
-		panic(err)
-	}
-	s.IPv6Lookup, err = f.GetBool("ipv6-lookup")
-	if err != nil {
-		panic(err)
-	}
-	s.MXCacheSize, err = f.GetInt("mx-cache-size")
-	if err != nil {
-		panic(err)
-	}
+func (s *GlobalLookupFactory) SetFlags(f zdns.ModuleFlags) {
+	s.IPv4Lookup = f.Ipv4Lookup
+	s.IPv6Lookup = f.Ipv6Lookup
+	s.MXCacheSize = f.MxCacheSize
 }
 
 func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {

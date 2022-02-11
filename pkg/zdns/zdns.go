@@ -24,17 +24,14 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/internal/util"
 	"github.com/zmap/zdns/iohandlers"
 )
 
-func Run(gc GlobalConf, flags *pflag.FlagSet,
-	timeout *int, iterationTimeout *int,
-	class_string *string, servers_string *string,
-	config_file *string, localaddr_string *string,
-	localif_string *string, nanoSeconds *bool) {
+func Run(run ZdnsRun) {
+
+	gc := run.GlobalConf
 
 	factory := GetLookup(gc.Module)
 
@@ -42,7 +39,7 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 		log.Fatal("Invalid lookup module specified. Valid modules: ", ValidlookupsString())
 	}
 
-	factory.SetFlags(flags)
+	factory.SetFlags(run.ModuleFlags)
 
 	if gc.LogFilePath != "" {
 		f, err := os.OpenFile(gc.LogFilePath, os.O_WRONLY|os.O_CREATE, 0666)
@@ -50,6 +47,11 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 			log.Fatalf("Unable to open log file (%s): %s", gc.LogFilePath, err.Error())
 		}
 		log.SetOutput(f)
+	}
+
+	if gc.Verbosity == 0 {
+		log.Warn("Verbosity level unspecified or set to 0, defaulting to 3")
+		gc.Verbosity = 3
 	}
 
 	// Translate the assigned verbosity level to a logrus log level.
@@ -65,15 +67,15 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 	case 5: // Debugging
 		log.SetLevel(log.DebugLevel)
 	default:
-		log.Fatal("Unknown verbosity level specified. Must be between 1 (lowest)--5 (highest)")
+		log.Warn("Unknown verbosity level specified. Must be between 1 (lowest)--5 (highest)")
 	}
 
 	// complete post facto global initialization based on command line arguments
-	gc.Timeout = time.Duration(time.Second * time.Duration(*timeout))
-	gc.IterationTimeout = time.Duration(time.Second * time.Duration(*iterationTimeout))
+	gc.Timeout = time.Duration(time.Second * time.Duration(run.Timeout))
+	gc.IterationTimeout = time.Duration(time.Second * time.Duration(run.IterationTimeout))
 
 	// class initialization
-	switch strings.ToUpper(*class_string) {
+	switch strings.ToUpper(run.Class) {
 	case "INET", "IN":
 		gc.Class = dns.ClassINET
 	case "CSNET", "CS":
@@ -91,13 +93,13 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 
 	}
 
-	if *servers_string == "" {
+	if run.Servers == "" {
 		// if we're doing recursive resolution, figure out default OS name servers
 		// otherwise, use the set of 13 root name servers
 		if gc.IterativeResolution {
 			gc.NameServers = RootServers[:]
 		} else {
-			ns, err := GetDNSServers(*config_file)
+			ns, err := GetDNSServers(run.ConfigFile)
 			if err != nil {
 				ns = util.GetDefaultResolvers()
 				log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(ns, ", "))
@@ -111,8 +113,8 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 			log.Fatal("name servers cannot be specified on command line in --name-server-mode")
 		}
 		var ns []string
-		if (*servers_string)[0] == '@' {
-			filepath := (*servers_string)[1:]
+		if (run.Servers)[0] == '@' {
+			filepath := (run.Servers)[1:]
 			f, err := ioutil.ReadFile(filepath)
 			if err != nil {
 				log.Fatalf("Unable to read file (%s): %s", filepath, err.Error())
@@ -122,7 +124,7 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 			}
 			ns = strings.Split(strings.Trim(string(f), "\n"), "\n")
 		} else {
-			ns = strings.Split(*servers_string, ",")
+			ns = strings.Split(run.Servers, ",")
 		}
 		for i, s := range ns {
 			ns[i] = util.AddDefaultPortToDNSServerName(s)
@@ -131,8 +133,8 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 		gc.NameServersSpecified = true
 	}
 
-	if *localaddr_string != "" {
-		for _, la := range strings.Split(*localaddr_string, ",") {
+	if run.LocalAddr != "" {
+		for _, la := range strings.Split(run.LocalAddr, ",") {
 			ip := net.ParseIP(la)
 			if ip != nil {
 				gc.LocalAddrs = append(gc.LocalAddrs, ip)
@@ -140,15 +142,15 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 				log.Fatal("Invalid argument for --local-addr (", la, "). Must be a comma-separated list of valid IP addresses.")
 			}
 		}
-		log.Info("using local address: ", localaddr_string)
+		log.Info("using local address: ", run.LocalAddr)
 		gc.LocalAddrSpecified = true
 	}
 
-	if *localif_string != "" {
+	if run.LocalIF != "" {
 		if gc.LocalAddrSpecified {
 			log.Fatal("Both --local-addr and --local-interface specified.")
 		} else {
-			li, err := net.InterfaceByName(*localif_string)
+			li, err := net.InterfaceByName(run.LocalIF)
 			if err != nil {
 				log.Fatal("Invalid local interface specified: ", err)
 			}
@@ -160,7 +162,7 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 				gc.LocalAddrs = append(gc.LocalAddrs, la.(*net.IPNet).IP)
 				gc.LocalAddrSpecified = true
 			}
-			log.Info("using local interface: ", localif_string)
+			log.Info("using local interface: ", run.LocalIF)
 		}
 	}
 	if !gc.LocalAddrSpecified {
@@ -171,7 +173,7 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 			gc.LocalAddrs = append(gc.LocalAddrs, conn.LocalAddr().(*net.UDPAddr).IP)
 		}
 	}
-	if *nanoSeconds {
+	if run.NanoSeconds {
 		gc.TimeFormat = time.RFC3339Nano
 	} else {
 		gc.TimeFormat = time.RFC3339
@@ -196,6 +198,12 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 	}
 	// Output Groups are defined by a base + any additional fields that the user wants
 	groups := strings.Split(gc.IncludeInOutput, ",")
+
+	if gc.ResultVerbosity == "" {
+		log.Warn("Result verbosity level unspecified, defaulting to short")
+		gc.ResultVerbosity = "short"
+	}
+
 	if gc.ResultVerbosity != "short" && gc.ResultVerbosity != "normal" && gc.ResultVerbosity != "long" && gc.ResultVerbosity != "trace" {
 		log.Fatal("Invalid result verbosity. Options: short, normal, long, trace")
 	}
@@ -206,6 +214,15 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 	// Seeding for RandomNameServer()
 	rand.Seed(time.Now().UnixNano())
 
+	if gc.InputFilePath == "" {
+		log.Warn("No InputFilePath specified, defaulting to STDIN (\"-\")")
+		gc.InputFilePath = "-"
+	}
+	if gc.OutputFilePath == "" {
+		log.Warn("No OutputFilePath specified, defaulting to STDOUT (\"-\")")
+		gc.OutputFilePath = "-"
+	}
+
 	// some modules require multiple passes over a file (this is really just the case for zone files)
 	if !factory.AllowStdIn() && gc.InputFilePath == "-" {
 		log.Fatal("Specified module does not allow reading from stdin")
@@ -214,6 +231,11 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 	// setup i/o
 	gc.InputHandler = iohandlers.NewFileInputHandler(gc.InputFilePath)
 	gc.OutputHandler = iohandlers.NewFileOutputHandler(gc.OutputFilePath)
+
+	if gc.Threads == 0 {
+		log.Warn("Number of Threads (goroutines) set to zero (or left unset), defaulting to 1000")
+		gc.Threads = 1000
+	}
 
 	// allow the factory to initialize itself
 	if err := factory.Initialize(&gc); err != nil {
