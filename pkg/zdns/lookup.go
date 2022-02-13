@@ -196,8 +196,6 @@ func DoLookups(g GlobalLookupFactory, c *GlobalConf) error {
 	go outHandler.WriteResults(outChan, &routineWG)
 	routineWG.Add(2)
 
-	// In the case we're passed "dig-like" dns names for
-
 	// create pool of worker goroutines
 	var lookupWG sync.WaitGroup
 	lookupWG.Add(c.Threads)
