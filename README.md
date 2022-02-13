@@ -77,7 +77,7 @@ Note that the package `github.com/zmap/zdns/pkg/alookup` was imported for its si
 CLI Usage
 ---------------
 
-For existing users, ZDNS CLI remains largely unchanged in terms of functionality. The CLI provides a convenient interface to the ZDNS Libary. ZDNS is typically run (and at scale, should be run) by passing input to the tool via a file or via standard input. Below are examples of each usage, requesting an A record lookup:
+For existing users, ZDNS CLI remains largely unchanged in terms of functionality. The CLI provides a convenient interface to the ZDNS Libary. ZDNS is typically run by passing input to the tool via a file or via standard input. Below are examples of each usage, requesting an A record lookup:
 
 ```bash
 
