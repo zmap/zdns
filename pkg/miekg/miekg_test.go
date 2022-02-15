@@ -48,6 +48,7 @@ func InitTest(t *testing.T) (*zdns.GlobalConf, Lookup, MockLookupClient) {
 	return gc, a, mc
 }
 
+// Test specifying neither ipv4 not ipv6 flag looks up ipv4 by default
 func TestOneA(t *testing.T) {
 	gc, a, mc := InitTest(t)
 	mockResults["example.com"] = Result{
@@ -67,6 +68,7 @@ func TestOneA(t *testing.T) {
 	verifyResult(t, res.(IpResult), []string{"192.0.2.1"}, nil)
 }
 
+// Test two ipv4 addresses
 func TestTwoA(t *testing.T) {
 	gc, a, mc := InitTest(t)
 	mockResults["example.com"] = Result{
@@ -93,6 +95,7 @@ func TestTwoA(t *testing.T) {
 	verifyResult(t, res.(IpResult), []string{"192.0.2.1", "192.0.2.2"}, nil)
 }
 
+// Test ipv6 results not returned when lookupIpv6 is false
 func TestQuadAWithoutFlag(t *testing.T) {
 	gc, a, mc := InitTest(t)
 	mockResults["example.com"] = Result{
@@ -120,6 +123,7 @@ func TestQuadAWithoutFlag(t *testing.T) {
 	verifyResult(t, res.(IpResult), []string{"192.0.2.1"}, nil)
 }
 
+// Test ipv6 results
 func TestOnlyQuadA(t *testing.T) {
 	gc, a, mc := InitTest(t)
 	mockResults["example.com"] = Result{
@@ -140,6 +144,7 @@ func TestOnlyQuadA(t *testing.T) {
 	verifyResult(t, res.(IpResult), nil, []string{"2001:db8::1"})
 }
 
+// Test both ipv4 and ipv6 results are returned
 func TestAandQuadA(t *testing.T) {
 	gc, a, mc := InitTest(t)
 	mockResults["example.com"] = Result{
@@ -166,6 +171,7 @@ func TestAandQuadA(t *testing.T) {
 	verifyResult(t, res.(IpResult), []string{"192.0.2.1"}, []string{"2001:db8::1"})
 }
 
+// Test two ipv6 addresses are returned
 func TestTwoQuadA(t *testing.T) {
 	gc, a, mc := InitTest(t)
 	mockResults["example.com"] = Result{
@@ -192,6 +198,8 @@ func TestTwoQuadA(t *testing.T) {
 	verifyResult(t, res.(IpResult), nil, []string{"2001:db8::1", "2001:db8::2"})
 }
 
+// Test that when miekg lookup returns no IPv4 or IPv6 addresses (empty record),
+// we get empty result
 func TestNoResults(t *testing.T) {
 	gc, a, mc := InitTest(t)
 
@@ -202,14 +210,11 @@ func TestNoResults(t *testing.T) {
 		Protocol:    "",
 		Flags:       DNSFlags{},
 	}
-	res, _, status, _ := a.DoTargetedLookup(mc, "example.com", gc.NameServers[0], true, true)
-	if status != zdns.STATUS_NOERROR {
-		t.Errorf("Expected NOERROR status, got %v", status)
-	} else if res != nil {
-		t.Errorf("Expected no results, got %v", res)
-	}
+	res, _, _, _ := a.DoTargetedLookup(mc, "example.com", gc.NameServers[0], true, true)
+	verifyResult(t, res.(IpResult), nil, nil)
 }
 
+// Test CName lookup returns ipv4 address
 func TestCname(t *testing.T) {
 	gc, a, mc := InitTest(t)
 
@@ -243,6 +248,7 @@ func TestCname(t *testing.T) {
 	verifyResult(t, res.(IpResult), []string{"192.0.2.1"}, nil)
 }
 
+// Test CName with lookupIpv6 as true returns ipv6 addresses
 func TestQuadAWithCname(t *testing.T) {
 	gc, a, mc := InitTest(t)
 
@@ -270,6 +276,7 @@ func TestQuadAWithCname(t *testing.T) {
 	verifyResult(t, res.(IpResult), nil, []string{"2001:db8::3"})
 }
 
+// Test that MX record with no A or AAAA records gives error
 func TestUnexpectedMxOnly(t *testing.T) {
 	gc, a, mc := InitTest(t)
 	mockResults["example.com"] = Result{
@@ -286,7 +293,7 @@ func TestUnexpectedMxOnly(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 
-	res, _, status, _ := a.DoIpsLookup(mc, "example.com", gc.NameServers[0], dns.TypeAAAA, make(map[string][]Answer), make(map[string][]Answer), "cname.example.com", 0)
+	res, _, status, _ := a.DoTargetedLookup(mc, "example.com", gc.NameServers[0], true, true)
 
 	if status != zdns.STATUS_ERROR {
 		t.Errorf("Expected ERROR status, got %v", status)
@@ -295,6 +302,7 @@ func TestUnexpectedMxOnly(t *testing.T) {
 	}
 }
 
+// Test A and AAAA records in additionals
 func TestMxAndAdditionals(t *testing.T) {
 	gc, a, mc := InitTest(t)
 	mockResults["example.com"] = Result{
@@ -328,6 +336,7 @@ func TestMxAndAdditionals(t *testing.T) {
 	verifyResult(t, res.(IpResult), []string{"192.0.2.3"}, []string{"2001:db8::4"})
 }
 
+// Test A record with IPv6 address gives error
 func TestMismatchIpType(t *testing.T) {
 	gc, a, mc := InitTest(t)
 	mockResults["example.com"] = Result{
@@ -353,6 +362,7 @@ func TestMismatchIpType(t *testing.T) {
 	}
 }
 
+// Test cname loops terminate with error
 func TestCnameLoops(t *testing.T) {
 	gc, a, mc := InitTest(t)
 	mockResults["cname1.example.com"] = Result{
@@ -391,6 +401,7 @@ func TestCnameLoops(t *testing.T) {
 	}
 }
 
+// Test recursion in cname lookup with length > 10 terminate with error
 func TestExtendedRecursion(t *testing.T) {
 	gc, a, mc := InitTest(t)
 	// Create a CNAME chain of length > 10
@@ -419,6 +430,7 @@ func TestExtendedRecursion(t *testing.T) {
 	}
 }
 
+// Test empty non-terminal returns no error
 func TestEmptyNonTerminal(t *testing.T) {
 	gc, a, mc := InitTest(t)
 	mockResults["leaf.intermediate.example.com"] = Result{
@@ -447,13 +459,10 @@ func TestEmptyNonTerminal(t *testing.T) {
 
 	// Verify empty non-terminal returns no answer
 	res, _, status, _ = a.DoTargetedLookup(mc, "intermediate.example.com", gc.NameServers[0], true, true)
-	if status != zdns.STATUS_NOERROR {
-		t.Errorf("Expected STATUS_NOERROR status, got %v", status)
-	} else if res != nil {
-		t.Errorf("Expected no results, got %v", res)
-	}
+	verifyResult(t, res.(IpResult), nil, nil)
 }
 
+// Test Non-existent domain in the zone returns NXDOMAIN
 func TestNXDomain(t *testing.T) {
 	gc, a, mc := InitTest(t)
 	res, _, status, _ := a.DoTargetedLookup(mc, "nonexistent.example.com", gc.NameServers[0], true, true)
@@ -464,6 +473,7 @@ func TestNXDomain(t *testing.T) {
 	}
 }
 
+// Test server failure returns SERVFAIL
 func TestServFail(t *testing.T) {
 	status = zdns.STATUS_SERVFAIL
 	gc, a, mc := InitTest(t)

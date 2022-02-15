@@ -770,15 +770,19 @@ func (s *Lookup) DoTargetedLookup(l LookupClient, name, nameServer string, looku
 
 	if lookupIpv4 {
 		ipv4, ipv4Trace, ipv4status, _ = s.DoIpsLookup(l, name, nameServer, dns.TypeA, candidateSet, cnameSet, name, 0)
-		res.IPv4Addresses = make([]string, len(ipv4))
-		copy(res.IPv4Addresses, ipv4)
+		if len(ipv4) > 0 {
+			res.IPv4Addresses = make([]string, len(ipv4))
+			copy(res.IPv4Addresses, ipv4)
+		}
 	}
 	candidateSet = map[string][]Answer{}
 	cnameSet = map[string][]Answer{}
 	if lookupIpv6 {
 		ipv6, ipv6Trace, ipv6status, _ = s.DoIpsLookup(l, name, nameServer, dns.TypeAAAA, candidateSet, cnameSet, name, 0)
-		res.IPv6Addresses = make([]string, len(ipv6))
-		copy(res.IPv6Addresses, ipv6)
+		if len(ipv6) > 0 {
+			res.IPv6Addresses = make([]string, len(ipv6))
+			copy(res.IPv6Addresses, ipv6)
+		}
 	}
 
 	combinedTrace := append(ipv4Trace, ipv6Trace...)
@@ -791,7 +795,7 @@ func (s *Lookup) DoTargetedLookup(l LookupClient, name, nameServer string, looku
 		} else if lookupIpv6 && !SafeStatus(ipv6status) {
 			return nil, combinedTrace, ipv6status, nil
 		} else {
-			return nil, combinedTrace, zdns.STATUS_NOERROR, nil
+			return res, combinedTrace, zdns.STATUS_NOERROR, nil
 		}
 	}
 	return res, combinedTrace, zdns.STATUS_NOERROR, nil
