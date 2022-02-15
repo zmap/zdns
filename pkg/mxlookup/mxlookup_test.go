@@ -39,6 +39,9 @@ var mockResults = make(map[string]miekg.IpResult)
 var protocolStatus = zdns.STATUS_NOERROR
 
 func (s *Lookup) DoTargetedLookup(l LookupClient, name, nameServer string, lookupIpv4 bool, lookupIpv6 bool) (interface{}, []interface{}, zdns.Status, error) {
+	if !miekg.SafeStatus(protocolStatus) {
+		return nil, nil, protocolStatus, nil
+	}
 	retv := miekg.IpResult{}
 	if res, ok := mockResults[name]; ok {
 		if lookupIpv4 {
@@ -49,7 +52,7 @@ func (s *Lookup) DoTargetedLookup(l LookupClient, name, nameServer string, looku
 		}
 		return retv, nil, protocolStatus, nil
 	} else {
-		return nil, nil, zdns.STATUS_NXDOMAIN, nil
+		return retv, nil, zdns.STATUS_NXDOMAIN, nil
 	}
 }
 
@@ -62,6 +65,9 @@ type minimalServerRecords struct {
 func InitTest(t *testing.T) (*zdns.GlobalConf, *GlobalLookupFactory, *RoutineLookupFactory, zdns.Lookup) {
 	mxResults = make(map[string]miekg.Result)
 	mockResults = make(map[string]miekg.IpResult)
+	miekgStatus = zdns.STATUS_NOERROR
+	protocolStatus = zdns.STATUS_NOERROR
+
 	gc := new(zdns.GlobalConf)
 	gc.NameServers = []string{"127.0.0.1"}
 
@@ -230,6 +236,58 @@ func TestEmptyMx(t *testing.T) {
 		Protocol:    "",
 		Flags:       miekg.DNSFlags{},
 	}
+
+	expectedServersMap := make(map[string]minimalServerRecords)
+	expectedServersMap["mail.example.com"] = minimalServerRecords{
+		recType:       "MX",
+		IPv4Addresses: nil,
+		IPv6Addresses: nil,
+	}
+	res, _, _, _ := l.DoLookup("example.com", "")
+	verifyResult(t, res.(Result).Servers, expectedServersMap)
+}
+
+func TestNXDomain(t *testing.T) {
+	_, _, _, l := InitTest(t)
+	res, _, status, _ := l.DoLookup("nonexistent.example.com", "")
+	if status != zdns.STATUS_NXDOMAIN {
+		t.Errorf("Expected STATUS_NXDOMAIN status, got %v", status)
+	} else if res != nil {
+		t.Errorf("Expected no results, got %v", res)
+	}
+}
+
+func TestServFail(t *testing.T) {
+	_, _, _, l := InitTest(t)
+	miekgStatus = zdns.STATUS_SERVFAIL
+	mxResults["example.com"] = miekg.Result{}
+	res, _, status, _ := l.DoLookup("example.com", "")
+	if status != miekgStatus {
+		t.Errorf("Expected %v status, got %v", status, miekgStatus)
+	} else if res != nil {
+		t.Errorf("Expected no results, got %v", res)
+	}
+}
+
+func TestErrorInTargetedLookup(t *testing.T) {
+	_, _, _, l := InitTest(t)
+	mxResults["example.com"] = miekg.Result{
+		Answers: []interface{}{miekg.PrefAnswer{
+			Answer: miekg.Answer{
+				Ttl:    3600,
+				Type:   "MX",
+				Class:  "IN",
+				Name:   "example.com.",
+				Answer: "mail.example.com.",
+			},
+			Preference: 1,
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       miekg.DNSFlags{},
+	}
+	protocolStatus = zdns.STATUS_ERROR
 
 	expectedServersMap := make(map[string]minimalServerRecords)
 	expectedServersMap["mail.example.com"] = minimalServerRecords{
