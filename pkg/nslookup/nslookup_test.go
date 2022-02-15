@@ -10,13 +10,12 @@ import (
 )
 
 var nsRecords = make(map[string]miekg.Result)
-
-var errCode = zdns.STATUS_NOERROR
+var miekgStatus = zdns.STATUS_NOERROR
 
 // Mock the actual Miekg lookup.
 func (s *Lookup) DoMiekgLookup(question miekg.Question, nameServer string) (interface{}, []interface{}, zdns.Status, error) {
 	if res, ok := nsRecords[question.Name]; ok {
-		return res, nil, errCode, nil
+		return res, nil, miekgStatus, nil
 	} else {
 		return nil, nil, zdns.STATUS_NXDOMAIN, nil
 	}
@@ -26,6 +25,9 @@ var mockResults = make(map[string]miekg.IpResult)
 var protocolStatus = zdns.STATUS_NOERROR
 
 func (s *Lookup) DoTargetedLookup(l LookupClient, name, nameServer string, lookupIpv4 bool, lookupIpv6 bool) (interface{}, []interface{}, zdns.Status, error) {
+	if !miekg.SafeStatus(protocolStatus) {
+		return nil, nil, protocolStatus, nil
+	}
 	retv := miekg.IpResult{}
 	if res, ok := mockResults[name]; ok {
 		if lookupIpv4 {
@@ -47,6 +49,10 @@ type minimalServerRecords struct {
 
 func InitTest(t *testing.T) (*zdns.GlobalConf, *GlobalLookupFactory, *RoutineLookupFactory, zdns.Lookup) {
 	nsRecords = make(map[string]miekg.Result)
+	mockResults = make(map[string]miekg.IpResult)
+	miekgStatus = zdns.STATUS_NOERROR
+	protocolStatus = zdns.STATUS_NOERROR
+
 	gc := new(zdns.GlobalConf)
 	gc.NameServers = []string{"127.0.0.1"}
 
@@ -334,6 +340,47 @@ func TestNXDomain(t *testing.T) {
 	if status != zdns.STATUS_NXDOMAIN {
 		t.Errorf("Expected STATUS_NXDOMAIN status, got %v", status)
 	}
+}
+
+func TestServFail(t *testing.T) {
+	_, _, _, l := InitTest(t)
+	miekgStatus = zdns.STATUS_SERVFAIL
+	nsRecords["example.com"] = miekg.Result{}
+	res, _, status, _ := l.DoLookup("example.com", "")
+	serversLength := len(res.(Result).Servers)
+	if status != miekgStatus {
+		t.Errorf("Expected %v status, got %v", status, miekgStatus)
+	} else if serversLength != 0 {
+		t.Errorf("Expected no servers in result, got %v", res)
+	}
+}
+
+func TestErrorInTargetedLookup(t *testing.T) {
+	_, _, _, l := InitTest(t)
+	nsRecords["example.com"] = miekg.Result{
+		Answers: []interface{}{
+			miekg.Answer{
+				Ttl:    3600,
+				Type:   "NS",
+				Class:  "IN",
+				Name:   "example.com.",
+				Answer: "ns1.example.com.",
+			},
+		},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       miekg.DNSFlags{},
+	}
+	protocolStatus = zdns.STATUS_ERROR
+
+	expectedServersMap := make(map[string]minimalServerRecords)
+	expectedServersMap["ns1.example.com"] = minimalServerRecords{
+		IPv4Addresses: nil,
+		IPv6Addresses: nil,
+	}
+	res, _, _, _ := l.DoLookup("example.com", "")
+	verifyResult(t, res.(Result).Servers, expectedServersMap)
 }
 
 func verifyResult(t *testing.T, servers []NSRecord, expectedServersMap map[string]minimalServerRecords) {

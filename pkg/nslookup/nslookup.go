@@ -61,7 +61,7 @@ func (s *Lookup) DoNSLookup(name string, lookupIpv4 bool, lookupIpv6 bool, nameS
 	var retv Result
 	res, trace, status, err := s.DoMiekgLookup(miekg.Question{Name: name, Type: dns.TypeNS}, nameServer)
 	if status != zdns.STATUS_NOERROR || err != nil {
-		return retv, trace, status, nil
+		return retv, trace, status, err
 	}
 	ns := res.(miekg.Result)
 	ipv4s := make(map[string][]string)
