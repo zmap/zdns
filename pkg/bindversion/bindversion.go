@@ -34,14 +34,10 @@ type Lookup struct {
 }
 
 func (s *Lookup) DoLookup(_, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
-	var res Result
-	res.Resolver = nameServer
-	innerRes, trace, status, err := s.DoTxtLookup("VERSION.BIND", nameServer)
-	if status != zdns.STATUS_NOERROR {
-		return res, trace, status, err
-	}
-	res.BindVersion = innerRes
-	return res, trace, zdns.STATUS_NOERROR, nil
+	innerRes, trace, status, err := s.DoMiekgLookup(miekg.Question{Name: "VERSION.BIND", Type: s.DNSType, Class: s.DNSClass}, nameServer)
+	resString, resStatus, err := s.CheckTxtRecords(innerRes, status, err)
+	res := Result{BindVersion: resString}
+	return res, trace, resStatus, err
 }
 
 // Per GoRoutine Factory ======================================================
@@ -64,19 +60,20 @@ type GlobalLookupFactory struct {
 	miekg.GlobalLookupFactory
 }
 
-func (f *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
-	f.GlobalLookupFactory.Initialize(c)
+func (glf *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
+	glf.GlobalLookupFactory.Initialize(c)
 	c.Class = dns.ClassCHAOS
 	return nil
 }
 
-func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
-	r := new(RoutineLookupFactory)
-	r.Initialize(s.GlobalConf)
-	r.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
-	r.Factory = s
-	r.ThreadID = threadID
-	return r, nil
+func (glf *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
+	rlf := new(RoutineLookupFactory)
+	rlf.RoutineLookupFactory.Factory = &glf.GlobalLookupFactory
+	rlf.Factory = glf
+	rlf.ThreadID = threadID
+	rlf.Initialize(glf.GlobalConf)
+
+	return rlf, nil
 }
 
 // Global Registration ========================================================

@@ -52,11 +52,14 @@ type Lookup struct {
 	miekg.Lookup
 }
 
-func dotName(name string) string {
-	return strings.Join([]string{name, "."}, "")
+// This LookupClient is created to call the actual implementation of DoMiekgLookup
+type LookupClient struct{}
+
+func (lc LookupClient) ProtocolLookup(s *miekg.Lookup, q miekg.Question, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+	return s.DoMiekgLookup(q, nameServer)
 }
 
-func (s *Lookup) LookupIPs(name, nameServer string) (CachedAddresses, zdns.Trace) {
+func (s *Lookup) LookupIPs(l LookupClient, name, nameServer string, lookupIpv4 bool, lookupIpv6 bool) (CachedAddresses, zdns.Trace) {
 	s.Factory.Factory.CHmu.Lock()
 	// XXX this should be changed to a miekglookup
 	res, found := s.Factory.Factory.CacheHash.Get(name)
@@ -64,38 +67,13 @@ func (s *Lookup) LookupIPs(name, nameServer string) (CachedAddresses, zdns.Trace
 	if found {
 		return res.(CachedAddresses), make([]interface{}, 0)
 	}
-	var retv CachedAddresses
-	trace := make([]interface{}, 0)
-	// ipv4
-	if s.Factory.Factory.IPv4Lookup || !s.Factory.Factory.IPv6Lookup {
-		res, secondTrace, status, _ := s.DoMiekgLookup(miekg.Question{Name: name, Type: dns.TypeA}, nameServer)
-		trace = append(trace, secondTrace...)
-		if status == zdns.STATUS_NOERROR {
-			cast, _ := res.(miekg.Result)
-			for _, innerRes := range cast.Answers {
-				castInnerRes, ok := innerRes.(miekg.Answer)
-				if !ok {
-					continue
-				}
-				retv.IPv4Addresses = append(retv.IPv4Addresses, castInnerRes.Answer)
-			}
-		}
+	retv := CachedAddresses{}
+	res, trace, status, _ := s.DoTargetedLookup(l, name, nameServer, lookupIpv4, lookupIpv6)
+	if status == zdns.STATUS_NOERROR && res != nil {
+		retv.IPv4Addresses = res.(miekg.IpResult).IPv4Addresses
+		retv.IPv6Addresses = res.(miekg.IpResult).IPv6Addresses
 	}
-	// ipv6
-	if s.Factory.Factory.IPv6Lookup {
-		res, secondTrace, status, _ := s.DoMiekgLookup(miekg.Question{Name: name, Type: dns.TypeAAAA}, nameServer)
-		trace = append(trace, secondTrace...)
-		if status == zdns.STATUS_NOERROR {
-			cast, _ := res.(miekg.Result)
-			for _, innerRes := range cast.Answers {
-				castInnerRes, ok := innerRes.(miekg.Answer)
-				if !ok {
-					continue
-				}
-				retv.IPv6Addresses = append(retv.IPv6Addresses, castInnerRes.Answer)
-			}
-		}
-	}
+
 	s.Factory.Factory.CHmu.Lock()
 	s.Factory.Factory.CacheHash.Add(name, retv)
 	s.Factory.Factory.CHmu.Unlock()
@@ -105,18 +83,21 @@ func (s *Lookup) LookupIPs(name, nameServer string) (CachedAddresses, zdns.Trace
 func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	retv := Result{Servers: []MXRecord{}}
 	res, trace, status, err := s.DoMiekgLookup(miekg.Question{Name: name, Type: dns.TypeMX}, nameServer)
-	if status != zdns.STATUS_NOERROR {
-		return retv, trace, status, err
+	if status != zdns.STATUS_NOERROR || err != nil {
+		return nil, trace, status, err
 	}
 	r, ok := res.(miekg.Result)
 	if !ok {
-		panic("could not cast correctly")
+		return nil, trace, status, err
 	}
+	lookupIpv4 := s.Factory.Factory.IPv4Lookup || !s.Factory.Factory.IPv6Lookup
+	lookupIpv6 := s.Factory.Factory.IPv6Lookup
+	l := LookupClient{}
 	for _, ans := range r.Answers {
 		if mxAns, ok := ans.(miekg.PrefAnswer); ok {
 			name = strings.TrimSuffix(mxAns.Answer.Answer, ".")
 			rec := MXRecord{TTL: mxAns.Ttl, Type: mxAns.Type, Class: mxAns.Class, Name: name, Preference: mxAns.Preference}
-			ips, secondTrace := s.LookupIPs(name, nameServer)
+			ips, secondTrace := s.LookupIPs(l, name, nameServer, lookupIpv4, lookupIpv6)
 			rec.IPv4Addresses = ips.IPv4Addresses
 			rec.IPv6Addresses = ips.IPv6Addresses
 			retv.Servers = append(retv.Servers, rec)

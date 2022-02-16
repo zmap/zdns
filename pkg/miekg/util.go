@@ -3,6 +3,7 @@ package miekg
 import (
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/zmap/dns"
@@ -94,4 +95,25 @@ func checkGlue(server string, depth int, result Result) (Result, zdns.Status) {
 
 func makeVerbosePrefix(depth int, threadID int) string {
 	return fmt.Sprintf("THREADID %06d,DEPTH %02d", threadID, depth) + ":" + strings.Repeat("  ", 2*depth)
+}
+
+// Check whether the status is safe
+func SafeStatus(status zdns.Status) bool {
+	return status == zdns.STATUS_NOERROR
+}
+
+// Verify that A record is indeed IPv4 and AAAA is IPv6
+func VerifyAddress(ansType string, ip string) bool {
+	isIpv4 := false
+	isIpv6 := false
+	if net.ParseIP(ip) != nil {
+		isIpv6 = strings.Contains(ip, ":")
+		isIpv4 = !isIpv6
+	}
+	if ansType == "A" {
+		return isIpv4
+	} else if ansType == "AAAA" {
+		return isIpv6
+	}
+	return !isIpv4 && !isIpv6
 }
