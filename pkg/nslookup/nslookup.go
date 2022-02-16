@@ -37,6 +37,11 @@ type Result struct {
 	Servers []NSRecord `json:"servers,omitempty" groups:"short,normal,long,trace"`
 }
 
+type IpAddresses struct {
+	IPv4Addresses []string
+	IPv6Addresses []string
+}
+
 // Per Connection Lookup ======================================================
 //
 type Lookup struct {
@@ -44,43 +49,35 @@ type Lookup struct {
 	miekg.Lookup
 }
 
-func dotName(name string) string {
-	return strings.Join([]string{name, "."}, "")
+// This LookupClient is created to call the actual implementation of DoMiekgLookup
+type LookupClient struct{}
+
+func (lc LookupClient) ProtocolLookup(s *miekg.Lookup, q miekg.Question, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+	return s.DoMiekgLookup(q, nameServer)
 }
 
-func (s *Lookup) lookupIPs(name string, dnsType uint16, nameServer string) ([]string, zdns.Trace) {
-	var addresses []string
-	res, trace, status, _ := s.DoMiekgLookup(miekg.Question{Name: name, Type: dnsType}, nameServer)
-	if status == zdns.STATUS_NOERROR {
-		if cast, ok := res.(miekg.Result); ok {
-			for _, innerRes := range cast.Answers {
-				if castInnerRes, ok := innerRes.(miekg.Answer); ok {
-					addresses = append(addresses, castInnerRes.Answer)
-				}
-			}
-		}
-	}
-	return addresses, trace
-}
-
-func (s *Lookup) DoNSLookup(name string, lookupIPv4, lookupIPv6 bool, nameServer string) (Result, zdns.Trace, zdns.Status, error) {
+func (s *Lookup) DoNSLookup(name string, lookupIpv4 bool, lookupIpv6 bool, nameServer string) (Result, zdns.Trace, zdns.Status, error) {
+	l := LookupClient{}
 	var retv Result
 	res, trace, status, err := s.DoMiekgLookup(miekg.Question{Name: name, Type: dns.TypeNS}, nameServer)
 	if status != zdns.STATUS_NOERROR || err != nil {
-		return retv, trace, status, nil
+		return retv, trace, status, err
 	}
 	ns := res.(miekg.Result)
-	ipv4s := make(map[string]string)
-	ipv6s := make(map[string]string)
+	ipv4s := make(map[string][]string)
+	ipv6s := make(map[string][]string)
 	for _, ans := range ns.Additional {
 		a, ok := ans.(miekg.Answer)
 		if !ok {
 			continue
 		}
-		if a.Type == "A" {
-			ipv4s[a.Name] = a.Answer
-		} else if a.Type == "AAAA" {
-			ipv6s[a.Name] = a.Answer
+		recName := strings.TrimSuffix(a.Name, ".")
+		if miekg.VerifyAddress(a.Type, a.Answer) {
+			if a.Type == "A" {
+				ipv4s[recName] = append(ipv4s[recName], a.Answer)
+			} else if a.Type == "AAAA" {
+				ipv6s[recName] = append(ipv6s[recName], a.Answer)
+			}
 		}
 	}
 	for _, ans := range ns.Answers {
@@ -92,40 +89,51 @@ func (s *Lookup) DoNSLookup(name string, lookupIPv4, lookupIPv6 bool, nameServer
 		if a.Type != "NS" {
 			continue
 		}
+
 		var rec NSRecord
 		rec.Type = a.Type
 		rec.Name = strings.TrimSuffix(a.Answer, ".")
 		rec.TTL = a.Ttl
-		if lookupIPv4 || !lookupIPv6 {
-			var secondTrace []interface{}
-			rec.IPv4Addresses, secondTrace = s.lookupIPs(rec.Name, dns.TypeA, nameServer)
-			trace = append(trace, secondTrace...)
-		} else if ip, ok := ipv4s[rec.Name]; ok {
-			rec.IPv4Addresses = []string{ip}
-		} else {
-			rec.IPv4Addresses = []string{}
+
+		var findIpv4 = false
+		var findIpv6 = false
+
+		if lookupIpv4 {
+			if ips, ok := ipv4s[rec.Name]; ok {
+				rec.IPv4Addresses = ips
+			} else {
+				findIpv4 = true
+			}
 		}
-		if lookupIPv6 {
-			var secondTrace []interface{}
-			rec.IPv6Addresses, secondTrace = s.lookupIPs(rec.Name, dns.TypeAAAA, nameServer)
-			trace = append(trace, secondTrace...)
-		} else if ip, ok := ipv6s[rec.Name]; ok {
-			rec.IPv6Addresses = []string{ip}
-		} else {
-			rec.IPv6Addresses = []string{}
+		if lookupIpv6 {
+			if ips, ok := ipv6s[rec.Name]; ok {
+				rec.IPv6Addresses = ips
+			} else {
+				findIpv6 = true
+			}
 		}
+		if findIpv4 || findIpv6 {
+			res, nextTrace, _, _ := s.DoTargetedLookup(l, rec.Name, nameServer, findIpv4, findIpv6)
+			if res != nil {
+				if findIpv4 {
+					rec.IPv4Addresses = res.(miekg.IpResult).IPv4Addresses
+				}
+				if findIpv6 {
+					rec.IPv6Addresses = res.(miekg.IpResult).IPv6Addresses
+				}
+			}
+			trace = append(trace, nextTrace...)
+		}
+
 		retv.Servers = append(retv.Servers, rec)
 	}
-	if len(retv.Servers) == 0 {
-		return retv, trace, zdns.STATUS_NO_RECORD, nil
-	}
-
 	return retv, trace, zdns.STATUS_NOERROR, nil
-
 }
 
 func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
-	return s.DoNSLookup(name, s.Factory.Factory.IPv4Lookup, s.Factory.Factory.IPv6Lookup, nameServer)
+	lookupIpv4 := s.Factory.Factory.IPv4Lookup || !s.Factory.Factory.IPv6Lookup
+	lookupIpv6 := s.Factory.Factory.IPv6Lookup
+	return s.DoNSLookup(name, lookupIpv4, lookupIpv6, nameServer)
 }
 
 // Per GoRoutine Factory ======================================================
