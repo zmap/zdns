@@ -18,7 +18,10 @@ import (
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/pkg/miekg"
 	"github.com/zmap/zdns/pkg/zdns"
+	"regexp"
 )
+
+const spfPrefixRegexp = "(?i)^v=spf1"
 
 // result to be returned by scan of host
 type Result struct {
@@ -32,14 +35,11 @@ type Lookup struct {
 	miekg.Lookup
 }
 
-func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
-	var res Result
-	innerRes, trace, status, err := s.DoTxtLookup(name, nameServer)
-	if status != zdns.STATUS_NOERROR {
-		return res, trace, status, err
-	}
-	res.Spf = innerRes
-	return res, trace, zdns.STATUS_NOERROR, nil
+func (s *Lookup) DoLookup(name string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+	innerRes, trace, status, err := s.DoMiekgLookup(miekg.Question{Name: name, Type: s.DNSType, Class: s.DNSClass}, nameServer)
+	resString, resStatus, err := s.CheckTxtRecords(innerRes, status, err)
+	res := Result{Spf: resString}
+	return res, trace, resStatus, err
 }
 
 // Per GoRoutine Factory ======================================================
@@ -49,12 +49,15 @@ type RoutineLookupFactory struct {
 	Factory *GlobalLookupFactory
 }
 
-func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
-	a := Lookup{Factory: s}
-	nameServer := s.Factory.RandomNameServer()
-	a.Initialize(nameServer, dns.TypeTXT, dns.ClassINET, &s.RoutineLookupFactory)
-	a.Prefix = "v=spf"
-	return &a, nil
+func (rlf *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
+	lookup := Lookup{Factory: rlf}
+	nameServer := rlf.Factory.RandomNameServer()
+	lookup.Initialize(nameServer, dns.TypeTXT, dns.ClassINET, &rlf.RoutineLookupFactory)
+	return &lookup, nil
+}
+
+func (rlf *RoutineLookupFactory) InitPrefixRegexp() {
+	rlf.PrefixRegexp = regexp.MustCompile(spfPrefixRegexp)
 }
 
 // Global Factory =============================================================
@@ -64,12 +67,13 @@ type GlobalLookupFactory struct {
 }
 
 func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLookupFactory, error) {
-	r := new(RoutineLookupFactory)
-	r.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
-	r.Factory = s
-	r.ThreadID = threadID
-	r.Initialize(s.GlobalConf)
-	return r, nil
+	rlf := new(RoutineLookupFactory)
+	rlf.RoutineLookupFactory.Factory = &s.GlobalLookupFactory
+	rlf.Factory = s
+	rlf.InitPrefixRegexp()
+	rlf.ThreadID = threadID
+	rlf.Initialize(s.GlobalConf)
+	return rlf, nil
 }
 
 // Global Registration ========================================================
