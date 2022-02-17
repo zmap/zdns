@@ -173,6 +173,62 @@ class Tests(unittest.TestCase):
     A_LOOKUP_IPV6_WWW_ZDNS_TESTING = copy.deepcopy(A_LOOKUP_WWW_ZDNS_TESTING)
     del A_LOOKUP_IPV6_WWW_ZDNS_TESTING["data"]["ipv4_addresses"]
 
+    NS_LOOKUP_WWW_ZDNS_TESTING = {
+        "name": "www.zdns-testing.com",
+        "status": "NOERROR",
+        "data": {
+            "servers": [
+                {
+                    "ipv4_addresses": [
+                        "216.239.34.108"
+                    ],
+                    "ipv6_addresses": [
+                        "2001:4860:4802:34::6c"
+                    ],
+                    "name": "ns-cloud-c2.googledomains.com",
+                    "type": "NS"
+                },
+                {
+                    "ipv4_addresses": [
+                        "216.239.32.108"
+                    ],
+                    "ipv6_addresses": [
+                        "2001:4860:4802:32::6c"
+                    ],
+                    "name": "ns-cloud-c1.googledomains.com",
+                    "type": "NS"
+                },
+                {
+                    "ipv4_addresses": [
+                        "216.239.38.108"
+                    ],
+                    "ipv6_addresses": [
+                        "2001:4860:4802:38::6c"
+                    ],
+                    "name": "ns-cloud-c4.googledomains.com",
+                    "type": "NS"
+                },
+                {
+                    "ipv4_addresses": [
+                        "216.239.36.108"
+                    ],
+                    "ipv6_addresses": [
+                        "2001:4860:4802:36::6c"
+                    ],
+                    "name": "ns-cloud-c3.googledomains.com",
+                    "type": "NS"
+                }
+            ]
+        }
+    }
+
+    NS_LOOKUP_IPV4_WWW_ZDNS_TESTING = copy.deepcopy(NS_LOOKUP_WWW_ZDNS_TESTING)
+    for server in NS_LOOKUP_IPV4_WWW_ZDNS_TESTING["data"]["servers"]:
+        del server["ipv6_addresses"]
+    NS_LOOKUP_IPV6_WWW_ZDNS_TESTING = copy.deepcopy(NS_LOOKUP_WWW_ZDNS_TESTING)
+    for server in NS_LOOKUP_IPV6_WWW_ZDNS_TESTING["data"]["servers"]:
+        del server["ipv4_addresses"]
+
     PTR_LOOKUP_GOOGLE_PUB = [
       {
         "type":"PTR",
@@ -387,6 +443,13 @@ class Tests(unittest.TestCase):
         else:
             self.assertNotIn("ipv6_addresses", res["data"])
 
+    def assertEqualNSLookup(self, res, correct):
+        self.assertEqual(res["name"], correct["name"])
+        self.assertEqual(res["status"], correct["status"])
+        for server in res["data"]["servers"]:
+            del server["ttl"]
+        self.assertEqual(recursiveSort(res["data"]["servers"]), recursiveSort(correct["data"]["servers"]))
+
     def test_a(self):
         c = "A"
         name = "zdns-testing.com"
@@ -539,6 +602,41 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualALookup(res, self.A_LOOKUP_IPV4_WWW_ZDNS_TESTING)
+
+    def test_ns_lookup(self):
+        c = "nslookup --ipv4-lookup --ipv6-lookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualNSLookup(res, self.NS_LOOKUP_WWW_ZDNS_TESTING)  
+
+    def test_ns_lookup_iterative(self):
+        c = "nslookup --ipv4-lookup --ipv6-lookup --iterative"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualALookup(res, self.NS_LOOKUP_WWW_ZDNS_TESTING)
+
+    def test_ns_lookup_default(self):
+        c = "nslookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualNSLookup(res, self.NS_LOOKUP_IPV4_WWW_ZDNS_TESTING)  
+
+    def test_ns_lookup_ipv4(self):
+        c = "nslookup --ipv4-lookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualNSLookup(res, self.NS_LOOKUP_IPV4_WWW_ZDNS_TESTING)    
+
+    def test_ns_lookup_ipv6(self):
+        c = "nslookup --ipv6-lookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualNSLookup(res, self.NS_LOOKUP_IPV6_WWW_ZDNS_TESTING)    
 
     def test_ptr(self):
         c = "PTR"
