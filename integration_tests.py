@@ -638,6 +638,34 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd)
         self.assertEqualNSLookup(res, self.NS_LOOKUP_IPV6_WWW_ZDNS_TESTING)    
 
+    def test_spf_lookup(self):
+        c = "spf"
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqual(res["data"], self.SPF_ANSWER["data"])
+
+    def test_spf_lookup_iterative(self):
+        c = "spf --iterative"
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqual(res["data"], self.SPF_ANSWER["data"])
+
+    def test_dmarc_lookup(self):
+        c = "dmarc"
+        name = "_dmarc.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqual(res["data"], self.DMARC_ANSWER["data"])
+
+    def test_dmarc_lookup_iterative(self):
+        c = "dmarc --iterative"
+        name = "_dmarc.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqual(res["data"], self.DMARC_ANSWER["data"])
+
     def test_ptr(self):
         c = "PTR"
         name = "8.8.8.8"
@@ -659,8 +687,22 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd)
         self.assertEqual(res["data"], self.SPF_ANSWER["data"])
 
+    def test_spf_iterative(self):
+        c = "SPF --iterative"
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqual(res["data"], self.SPF_ANSWER["data"])
+
     def test_dmarc(self):
         c = "DMARC"
+        name = "_dmarc.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqual(res["data"], self.DMARC_ANSWER["data"])
+
+    def test_dmarc_iterative(self):
+        c = "DMARC --iterative"
         name = "_dmarc.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
