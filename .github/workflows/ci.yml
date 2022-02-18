@@ -1,6 +1,19 @@
 name: CI
 on: [ push, pull_request ]
 jobs:
+  check-license:
+    runs-on: ubuntu-latest
+    steps:
+      # TODO (spencer): possibly fail if this condition is not met.
+      - name: Check for ZDNS License Header
+        run: |
+          export NO_HEADERS_FOUND=$(grep -RiL --include="*.go" "ZDNS Copyright .* Regents of the University of Michigan" ./)
+          if test -n "$NO_HEADERS_FOUND"; then
+            echo 'FOUND .go FILES WITHOUT HEADERS.'
+            echo "$NO_HEADERS_FOUND"
+          else
+            echo 'not found'
+          fi
   build-and-test:
     runs-on: ubuntu-latest
     steps:
