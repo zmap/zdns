@@ -13,6 +13,7 @@ jobs:
           if test -n "$NO_HEADERS_FOUND"; then
             echo 'FOUND .go FILES WITHOUT HEADERS.'
             echo "$NO_HEADERS_FOUND"
+            exit 1
           else
             echo 'All .go files in repo have an appropriate header'
           fi
