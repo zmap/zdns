@@ -6,7 +6,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      # TODO (spencer): possibly fail if this condition is not met.
       - name: Check for ZDNS License Header
         run: |
           export NO_HEADERS_FOUND=$(grep -RiL --include="*.go" "ZDNS Copyright .* Regents of the University of Michigan" ./)
