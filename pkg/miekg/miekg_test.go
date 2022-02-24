@@ -631,7 +631,48 @@ func TestParseAnswer(t *testing.T) {
 		t.Errorf("Unxpected replacement. Expected %v, got %v", ".", answer.Replacement)
 	}
 
-	// TODO: test remaining RR types
+	// MX record
+	rr = &dns.MX{
+		Hdr: dns.RR_Header{
+			Name:     "example.com",
+			Rrtype:   dns.TypeMX,
+			Class:    dns.ClassINET,
+			Ttl:      7200,
+			Rdlength: 16,
+		},
+		Preference: 1,
+		Mx:         "mail.example.com.",
+	}
+	res = ParseAnswer(rr)
+	verifyAnswer(t, res.(PrefAnswer).Answer, rr, "mail.example.com.")
+
+	// NS record
+	rr = &dns.NS{
+		Hdr: dns.RR_Header{
+			Name:     "example.com",
+			Rrtype:   dns.TypeMX,
+			Class:    dns.ClassINET,
+			Ttl:      3600,
+			Rdlength: 4,
+		},
+		Ns: "ns1.example.com.",
+	}
+	res = ParseAnswer(rr)
+	verifyAnswer(t, res, rr, "ns1.example.com.")
+
+	// SPF
+	rr = &dns.SPF{
+		Hdr: dns.RR_Header{
+			Name:     "example.com",
+			Rrtype:   dns.TypeSPF,
+			Class:    dns.ClassINET,
+			Ttl:      3600,
+			Rdlength: 4,
+		},
+		Txt: []string{"v=spf1 mx include:_spf.google.com -all"},
+	}
+	res = ParseAnswer(rr)
+	verifyAnswer(t, res, rr, "example.com\t3600\tIN\tSPF\t\"v=spf1 mx include:_spf.google.com -all\"")
 }
 
 func verifyAnswer(t *testing.T, answer interface{}, original dns.RR, expectedAnswer string) {
