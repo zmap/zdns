@@ -6,6 +6,7 @@ import json
 import unittest
 import tempfile
 
+
 def recursiveSort(obj):
 
     def listSort(l):
@@ -450,6 +451,41 @@ class Tests(unittest.TestCase):
             del server["ttl"]
         self.assertEqual(recursiveSort(res["data"]["servers"]), recursiveSort(correct["data"]["servers"]))
 
+    def check_json_in_list(self, json_obj, list):
+        for obj in list:
+            if json_obj == obj:
+                return True
+        return False
+    
+    def assertEqualAxfrLookup(self, records, correct_records):
+        for record in list(records):
+            try:
+                del record["ttl"]
+            except:
+                pass
+            try:
+                del record["min_ttl"]
+            except: 
+                pass
+            try:
+                del record["expire"]
+            except:
+                pass
+            try:
+                del record["refresh"]
+            except:
+                pass
+            try:
+                del record["retry"]
+            except:
+                pass
+            # Delete records without the "name" field
+            if not "name" in record:
+                records.remove(record)
+        for expected_record in correct_records:
+            self.assertEqual(self.check_json_in_list(expected_record, records), True)
+                
+
     def test_a(self):
         c = "A"
         name = "zdns-testing.com"
@@ -707,6 +743,20 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqual(res["data"], self.DMARC_ANSWER["data"])
+
+    def test_axfr(self):
+        # In this test, we just check for few specific records
+        # in the AXFR fetch for zonetransfer.me because the
+        # records can change over time and we want to minimise
+        # having to update resources/axfr.json
+        c = "axfr"
+        name = "zonetransfer.me"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        f = open("resources/axfr.json")
+        axfr_answer = json.load(f)
+        self.assertEqualAxfrLookup(res["data"]["servers"][0]["records"], axfr_answer["data"]["servers"][0]["records"])
+        f.close()
 
     def test_soa(self):
         c = "SOA"

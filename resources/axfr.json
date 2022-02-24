@@ -1,0 +1,113 @@
+{
+    "data": {
+        "servers": [
+            {
+                "records": [
+                    {
+                        "class": "IN",
+                        "mbox": "robin.digi.ninja",
+                        "name": "zonetransfer.me",
+                        "ns": "nsztm1.digi.ninja",
+                        "serial": 2019100801,
+                        "type": "SOA"
+                    },
+                    {
+                        "class": "IN",
+                        "cpu": "Casio fx-700G",
+                        "name": "zonetransfer.me",
+                        "os": "Windows XP",
+                        "type": "HINFO"
+                    },
+                    {
+                        "answer": "google-site-verification=tyP28J7JAUHA9fw2sHXMgcCC0I6XBmmoVi04VlMewxA",
+                        "class": "IN",
+                        "name": "zonetransfer.me",
+                        "type": "TXT"
+                    },
+                    {
+                        "answer": "ASPMX.L.GOOGLE.COM.",
+                        "class": "IN",
+                        "name": "zonetransfer.me",
+                        "preference": 0,
+                        "type": "MX"
+                    },
+                    {
+                        "answer": "nsztm1.digi.ninja.",
+                        "class": "IN",
+                        "name": "zonetransfer.me",
+                        "type": "NS"
+                    },
+                    {
+                        "answer": "nsztm2.digi.ninja.",
+                        "class": "IN",
+                        "name": "zonetransfer.me",
+                        "type": "NS"
+                    },
+                    {
+                        "class": "IN",
+                        "name": "_sip._tcp.zonetransfer.me",
+                        "port": 5060,
+                        "priority": 0,
+                        "target": "www.zonetransfer.me.",
+                        "type": "SRV",
+                        "weight": 0
+                    },
+                    {
+                        "answer": "www.zonetransfer.me.",
+                        "class": "IN",
+                        "name": "14.105.196.5.IN-ADDR.ARPA.zonetransfer.me",
+                        "type": "PTR"
+                    },
+                    {
+                        "class": "IN",
+                        "hostname": "asfdbbox.zonetransfer.me.",
+                        "name": "asfdbauthdns.zonetransfer.me",
+                        "subtype": 1,
+                        "type": "AFSDB"
+                    },
+                    {
+                        "answer": "127.0.0.1",
+                        "class": "IN",
+                        "name": "asfdbbox.zonetransfer.me",
+                        "type": "A"
+                    },
+                    {
+                        "answer": "dead:beaf::",
+                        "class": "IN",
+                        "name": "deadbeef.zonetransfer.me",
+                        "type": "AAAA"
+                    },
+                    {
+                        "altitude": 10000000,
+                        "class": "IN",
+                        "horizontal_pre": 22,
+                        "latitude": 2339540206,
+                        "longitude": 2141570122,
+                        "name": "dr.zonetransfer.me",
+                        "size": 18,
+                        "type": "LOC",
+                        "version": 0,
+                        "vertical_pre": 19
+                    },
+                    {
+                        "class": "IN",
+                        "flags": "P",
+                        "name": "email.zonetransfer.me",
+                        "order": 1,
+                        "preference": 1,
+                        "regexp": "",
+                        "replacement": "email.zonetransfer.me.zonetransfer.me.",
+                        "service": "E2U+email",
+                        "type": "NAPTR"
+                    },
+                    {
+                        "answer": "www.sydneyoperahouse.com.",
+                        "class": "IN",
+                        "name": "staging.zonetransfer.me",
+                        "type": "CNAME"
+                    }
+                ]
+            }
+        ]
+    }
+}
