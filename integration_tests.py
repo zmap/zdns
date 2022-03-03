@@ -229,6 +229,120 @@ class Tests(unittest.TestCase):
     for server in NS_LOOKUP_IPV6_WWW_ZDNS_TESTING["data"]["servers"]:
         del server["ipv4_addresses"]
 
+    NSA_LOOKUP_WWW_ZDNS_TESTING = {
+        "name": "www.zdns-testing.com",
+        "status": "NOERROR",
+        "data": {
+            "ip_records": [
+                {
+                    "ipv4_addresses": [
+                        "2.3.4.5",
+                        "3.4.5.6",
+                        "1.2.3.4"
+                    ],
+                    "ipv6_addresses": [
+                        "fd5a:3bce:8713::1",
+                        "fde6:9bb3:dbd6::2",
+                        "fdb3:ac76:a577::3"
+                    ],
+                    "name_server": {
+                        "ip": "216.239.38.108",
+                        "name": "ns-cloud-c4.googledomains.com"
+                    },
+                    "status": "NOERROR"
+                },
+                {
+                    "name_server": {
+                        "ip": "2001:4860:4802:38::6c",
+                        "name": "ns-cloud-c4.googledomains.com"
+                    },
+                    "status": "ERROR"
+                },
+                {
+                    "ipv4_addresses": [
+                        "3.4.5.6",
+                        "1.2.3.4",
+                        "2.3.4.5"
+                    ],
+                    "ipv6_addresses": [
+                        "fd5a:3bce:8713::1",
+                        "fde6:9bb3:dbd6::2",
+                        "fdb3:ac76:a577::3"
+                    ],
+                    "name_server": {
+                        "ip": "216.239.36.108",
+                        "name": "ns-cloud-c3.googledomains.com"
+                    },
+                    "status": "NOERROR"
+                },
+                {
+                    "name_server": {
+                        "ip": "2001:4860:4802:36::6c",
+                        "name": "ns-cloud-c3.googledomains.com"
+                    },
+                    "status": "ERROR"
+                },
+                {
+                    "ipv4_addresses": [
+                        "2.3.4.5",
+                        "3.4.5.6",
+                        "1.2.3.4"
+                    ],
+                    "ipv6_addresses": [
+                        "fdb3:ac76:a577::3",
+                        "fd5a:3bce:8713::1",
+                        "fde6:9bb3:dbd6::2"
+                    ],
+                    "name_server": {
+                        "ip": "216.239.32.108",
+                        "name": "ns-cloud-c1.googledomains.com"
+                    },
+                    "status": "NOERROR"
+                },
+                {
+                    "name_server": {
+                        "ip": "2001:4860:4802:32::6c",
+                        "name": "ns-cloud-c1.googledomains.com"
+                    },
+                    "status": "ERROR"
+                },
+                {
+                    "ipv4_addresses": [
+                        "3.4.5.6",
+                        "2.3.4.5",
+                        "1.2.3.4"
+                    ],
+                    "ipv6_addresses": [
+                        "fdb3:ac76:a577::3",
+                        "fd5a:3bce:8713::1",
+                        "fde6:9bb3:dbd6::2"
+                    ],
+                    "name_server": {
+                        "ip": "216.239.34.108",
+                        "name": "ns-cloud-c2.googledomains.com"
+                    },
+                    "status": "NOERROR"
+                },
+                {
+                    "name_server": {
+                        "ip": "2001:4860:4802:34::6c",
+                        "name": "ns-cloud-c2.googledomains.com"
+                    },
+                    "status": "ERROR"
+                }
+            ]
+        },
+    }
+
+    NSA_LOOKUP_IPV4_WWW_ZDNS_TESTING = copy.deepcopy(NSA_LOOKUP_WWW_ZDNS_TESTING)
+    for record in NSA_LOOKUP_IPV4_WWW_ZDNS_TESTING["data"]["ip_records"]:
+        if "ipv6_addresses" in record:
+            del record["ipv6_addresses"]
+    NSA_LOOKUP_IPV6_WWW_ZDNS_TESTING = copy.deepcopy(NSA_LOOKUP_WWW_ZDNS_TESTING)
+    for record in NSA_LOOKUP_IPV6_WWW_ZDNS_TESTING["data"]["ip_records"]:
+        if "ipv4_addresses" in record:
+            del record["ipv4_addresses"]
+
     PTR_LOOKUP_GOOGLE_PUB = [
       {
         "type":"PTR",
@@ -450,6 +564,26 @@ class Tests(unittest.TestCase):
             del server["ttl"]
         self.assertEqual(recursiveSort(res["data"]["servers"]), recursiveSort(correct["data"]["servers"]))
 
+    def sort_ips(self, records):
+        for record in records:
+            if "ipv4_addresses" in record:
+                record["ipv4_addresses"] = sorted(record["ipv4_addresses"])
+            if "ipv6_addresses" in record:
+                record["ipv6_addresses"] = sorted(record["ipv6_addresses"])
+        return records
+
+    def assertEqualNSALookup(self, res, correct):
+        self.assertEqual(res["name"], correct["name"])
+        self.assertEqual(res["status"], correct["status"])
+        self.assertEqual(len(res["data"]["ip_records"]), len(correct["data"]["ip_records"]))
+
+        # Sort the IPs before checking
+        res_records = self.sort_ips(res["data"]["ip_records"])
+        correct_records = self.sort_ips(correct["data"]["ip_records"])
+
+        for record in res_records:
+            self.assertIn(record, correct_records)
+
     def test_a(self):
         c = "A"
         name = "zdns-testing.com"
@@ -637,6 +771,33 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualNSLookup(res, self.NS_LOOKUP_IPV6_WWW_ZDNS_TESTING)    
+
+    def test_nsa_lookup_default(self):
+        c = "nsalookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualNSALookup(res, self.NSA_LOOKUP_IPV4_WWW_ZDNS_TESTING)    
+
+    def test_nsa_lookup_iterative_failure(self):
+        c = "nsalookup --iterative"
+        name = "www.zdns-testing.com"
+        prompt = "NSA module does not support iterative resolution"
+        self.run_zdns_check_failure(c, name, prompt)
+
+    def test_nsa_lookup_ipv4_ipv6(self):
+        c = "nsalookup --ipv4-lookup --ipv6-lookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualNSALookup(res, self.NSA_LOOKUP_WWW_ZDNS_TESTING)    
+
+    def test_nsa_lookup_ipv6(self):
+        c = "nsalookup --ipv6-lookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualNSALookup(res, self.NSA_LOOKUP_IPV6_WWW_ZDNS_TESTING)    
 
     def test_spf_lookup(self):
         c = "spf"
