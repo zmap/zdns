@@ -21,6 +21,7 @@ import (
 	_ "github.com/zmap/zdns/pkg/dmarc"
 	_ "github.com/zmap/zdns/pkg/miekg"
 	_ "github.com/zmap/zdns/pkg/mxlookup"
+	_ "github.com/zmap/zdns/pkg/nsalookup"
 	_ "github.com/zmap/zdns/pkg/nslookup"
 	_ "github.com/zmap/zdns/pkg/spf"
 )
