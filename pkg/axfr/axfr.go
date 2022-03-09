@@ -34,11 +34,12 @@ import (
 type Lookup struct {
 	Factory *RoutineLookupFactory
 	nslookup.Lookup
+	dns.Transfer
 }
 
 type AXFRServerResult struct {
-	Server  string        `json:"server" groups:"short,normal,long,trace"`
-	Status  string        `json:"status" groups:"short,normal,long,trace"`
+	Server  string `json:"server" groups:"short,normal,long,trace"`
+	Status  zdns.Status
 	Error   string        `json:"error,omitempty" groups:"short,normal,long,trace"`
 	Records []interface{} `json:"records,omitempty" groups:"short,normal,long,trace"`
 }
@@ -51,6 +52,10 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
+type TransferClient struct {
+	dns.Transfer
+}
+
 func (s *Lookup) DoAXFR(name, server string) AXFRServerResult {
 	var retv AXFRServerResult
 	retv.Server = server
@@ -59,12 +64,12 @@ func (s *Lookup) DoAXFR(name, server string) AXFRServerResult {
 		s.Factory.Factory.BlMu.Lock()
 		if blacklisted, err := s.Factory.Factory.Blacklist.IsBlacklisted(server); err != nil {
 			s.Factory.Factory.BlMu.Unlock()
-			retv.Status = "ERROR"
+			retv.Status = zdns.STATUS_ERROR
 			retv.Error = "blacklist-error"
 			return retv
 		} else if blacklisted {
 			s.Factory.Factory.BlMu.Unlock()
-			retv.Status = "ERROR"
+			retv.Status = zdns.STATUS_ERROR
 			retv.Error = "blacklisted"
 			return retv
 		}
@@ -72,19 +77,18 @@ func (s *Lookup) DoAXFR(name, server string) AXFRServerResult {
 	}
 	m := new(dns.Msg)
 	m.SetAxfr(dotName(name))
-	tr := new(dns.Transfer)
-	if a, err := tr.In(m, net.JoinHostPort(server, "53")); err != nil {
-		retv.Status = "ERROR"
+	if a, err := s.In(m, net.JoinHostPort(server, "53")); err != nil {
+		retv.Status = zdns.STATUS_ERROR
 		retv.Error = err.Error()
 		return retv
 	} else {
 		for ex := range a {
 			if ex.Error != nil {
-				retv.Status = "ERROR"
+				retv.Status = zdns.STATUS_ERROR
 				retv.Error = ex.Error.Error()
 				return retv
 			} else {
-				retv.Status = "NOERROR"
+				retv.Status = zdns.STATUS_NOERROR
 				for _, rr := range ex.RR {
 					ans := miekg.ParseAnswer(rr)
 					retv.Records = append(retv.Records, ans)
@@ -168,7 +172,7 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 			return err
 		}
 	}
-	if c.IterativeResolution == true {
+	if c.IterativeResolution {
 		log.Fatal("AXFR module does not support iterative resolution")
 	}
 	return nil
