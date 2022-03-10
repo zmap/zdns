@@ -531,6 +531,9 @@ func TestParseAnswer(t *testing.T) {
 		AAAA: net.ParseIP("2001:db8::1"),
 	}
 
+	res = ParseAnswer(rr)
+	verifyAnswer(t, res, rr, "2001:db8::1")
+
 	// loopback AAAA record
 	rr = &dns.AAAA{
 		Hdr: dns.RR_Header{
@@ -542,6 +545,9 @@ func TestParseAnswer(t *testing.T) {
 		},
 		AAAA: net.ParseIP("::1"),
 	}
+
+	res = ParseAnswer(rr)
+	verifyAnswer(t, res, rr, "::1")
 
 	// unspecified AAAA record
 	rr = &dns.AAAA{
@@ -588,6 +594,51 @@ func TestParseAnswer(t *testing.T) {
 	res = ParseAnswer(rr)
 	verifyAnswer(t, res, rr, "::192.0.2.1")
 
+	// IPv4 in AAAA record gets prepended by ::ffff:
+	rr = &dns.AAAA{
+		Hdr: dns.RR_Header{
+			Name:     "ipv6.example.com",
+			Rrtype:   dns.TypeAAAA,
+			Class:    dns.ClassINET,
+			Ttl:      7200,
+			Rdlength: 16,
+		},
+		AAAA: net.ParseIP("192.0.2.1"),
+	}
+
+	res = ParseAnswer(rr)
+	verifyAnswer(t, res, rr, "::ffff:192.0.2.1")
+
+	// Incorrect cname record in expected A record
+	rr = &dns.A{
+		Hdr: dns.RR_Header{
+			Name:     "example.com",
+			Rrtype:   dns.TypeCNAME,
+			Class:    dns.ClassINET,
+			Ttl:      7200,
+			Rdlength: 16,
+		},
+		A: net.ParseIP("cname.example.com."),
+	}
+
+	res = ParseAnswer(rr)
+	verifyAnswer(t, res, rr, "<nil>")
+
+	// Incorrect cname record in expected AAAA record
+	rr = &dns.AAAA{
+		Hdr: dns.RR_Header{
+			Name:     "example.com",
+			Rrtype:   dns.TypeCNAME,
+			Class:    dns.ClassINET,
+			Ttl:      7200,
+			Rdlength: 16,
+		},
+		AAAA: net.ParseIP("cname.example.com."),
+	}
+
+	res = ParseAnswer(rr)
+	verifyAnswer(t, res, rr, "<nil>")
+
 	// NAPTR record für aa e.164 phone number (+1-234-555-6789)
 	rr = &dns.NAPTR{
 		Hdr: dns.RR_Header{
@@ -631,10 +682,51 @@ func TestParseAnswer(t *testing.T) {
 		t.Errorf("Unxpected replacement. Expected %v, got %v", ".", answer.Replacement)
 	}
 
-	// TODO: test remaining RR types
+	// MX record
+	rr = &dns.MX{
+		Hdr: dns.RR_Header{
+			Name:     "example.com",
+			Rrtype:   dns.TypeMX,
+			Class:    dns.ClassINET,
+			Ttl:      7200,
+			Rdlength: 16,
+		},
+		Preference: 1,
+		Mx:         "mail.example.com.",
+	}
+	res = ParseAnswer(rr)
+	verifyAnswer(t, res.(PrefAnswer).Answer, rr, "mail.example.com.")
+
+	// NS record
+	rr = &dns.NS{
+		Hdr: dns.RR_Header{
+			Name:     "example.com",
+			Rrtype:   dns.TypeMX,
+			Class:    dns.ClassINET,
+			Ttl:      3600,
+			Rdlength: 4,
+		},
+		Ns: "ns1.example.com.",
+	}
+	res = ParseAnswer(rr)
+	verifyAnswer(t, res, rr, "ns1.example.com.")
+
+	// SPF
+	rr = &dns.SPF{
+		Hdr: dns.RR_Header{
+			Name:     "example.com",
+			Rrtype:   dns.TypeSPF,
+			Class:    dns.ClassINET,
+			Ttl:      3600,
+			Rdlength: 4,
+		},
+		Txt: []string{"v=spf1 mx include:_spf.google.com -all"},
+	}
+	res = ParseAnswer(rr)
+	verifyAnswer(t, res, rr, "example.com\t3600\tIN\tSPF\t\"v=spf1 mx include:_spf.google.com -all\"")
 }
 
-func verifyAnswer(t *testing.T, answer interface{}, original dns.RR, expectedAnswer string) {
+func verifyAnswer(t *testing.T, answer interface{}, original dns.RR, expectedAnswer interface{}) {
 	ans, ok := answer.(Answer)
 	if !ok {
 		t.Error("Failed to parse record")
