@@ -321,7 +321,7 @@ func TestFailureInTransfer(t *testing.T) {
 	// The overall status should be no error
 	assert.Equal(t, status, zdns.STATUS_NOERROR)
 	// The status for the axfr records for ns1 should be error
-	assert.Equal(t, res.(AXFRResult).Servers[0].Status, string(zdns.STATUS_ERROR))
+	assert.Equal(t, res.(AXFRResult).Servers[0].Status, zdns.STATUS_ERROR)
 	// No records should be present for ns1
 	assert.Equal(t, len(res.(AXFRResult).Servers[0].Records), 0)
 }
@@ -354,7 +354,7 @@ func TestErrorInEnvelope(t *testing.T) {
 	// The overall status should be no error
 	assert.Equal(t, status, zdns.STATUS_NOERROR)
 	// The status for the axfr records for ns1 should be error
-	assert.Equal(t, res.(AXFRResult).Servers[0].Status, string(zdns.STATUS_ERROR))
+	assert.Equal(t, res.(AXFRResult).Servers[0].Status, zdns.STATUS_ERROR)
 	// No records should be present for ns1
 	assert.Equal(t, len(res.(AXFRResult).Servers[0].Records), 0)
 }
