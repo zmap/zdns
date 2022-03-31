@@ -25,7 +25,6 @@ import (
 	"github.com/zmap/dns"
 	"github.com/zmap/go-iptree/blacklist"
 	"github.com/zmap/zdns/pkg/miekg"
-	"github.com/zmap/zdns/pkg/nslookup"
 	"github.com/zmap/zdns/pkg/zdns"
 )
 
@@ -33,8 +32,15 @@ import (
 //
 type Lookup struct {
 	Factory *RoutineLookupFactory
-	nslookup.Lookup
+	miekg.Lookup
 	dns.Transfer
+}
+
+// This LookupClient is created to call the actual implementation of DoMiekgLookup
+type LookupClient struct{}
+
+func (lc LookupClient) ProtocolLookup(s *miekg.Lookup, q miekg.Question, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+	return s.DoMiekgLookup(q, nameServer)
 }
 
 type AXFRServerResult struct {
@@ -101,8 +107,9 @@ func (s *Lookup) DoAXFR(name, server string) AXFRServerResult {
 
 func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	var retv AXFRResult
+	l := LookupClient{}
 	if nameServer == "" {
-		parsedNS, trace, status, err := s.DoNSLookup(name, true, false, nameServer)
+		parsedNS, trace, status, err := s.DoNSLookup(l, name, true, false, nameServer)
 		if status != zdns.STATUS_NOERROR {
 			return nil, trace, status, err
 		}

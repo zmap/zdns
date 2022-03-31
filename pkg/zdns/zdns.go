@@ -91,6 +91,12 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 
 	}
 
+	if gc.LookupAllNameServers {
+		if *servers_string != "" {
+			log.Fatal("Name servers cannot be specified in --all-nameservers mode.")
+		}
+	}
+
 	if *servers_string == "" {
 		// if we're doing recursive resolution, figure out default OS name servers
 		// otherwise, use the set of 13 root name servers

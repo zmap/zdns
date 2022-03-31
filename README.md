@@ -211,6 +211,11 @@ supports mixing and matching both modes by piping in a comma-delimited list of
 use the servers specified by the OS or `--name-servers` flag as would normally
 happen.
 
+Querying all Nameservers
+----------------
+There is a feature available to perform a certain DNS query against all nameservers. For example, you might want to get the A records from all nameservers of a certain domain. To do so, you can do:
+
+```echo "google.com" | ./zdns A --all-nameservers```
 
 Running ZDNS
 ------------

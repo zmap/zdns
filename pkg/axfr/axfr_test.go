@@ -73,7 +73,7 @@ var nsRecords = make(map[string]nslookup.Result)
 var nsStatus = zdns.STATUS_NOERROR
 
 // Mock the actual NS lookup.
-func (s *Lookup) DoNSLookup(name string, lookupIpv4 bool, lookupIpv6 bool, nameServer string) (nslookup.Result, zdns.Trace, zdns.Status, error) {
+func (s *Lookup) DoNSLookup(l LookupClient, name string, lookupIpv4 bool, lookupIpv6 bool, nameServer string) (nslookup.Result, zdns.Trace, zdns.Status, error) {
 	if res, ok := nsRecords[name]; ok {
 		return res, nil, nsStatus, nil
 	} else {

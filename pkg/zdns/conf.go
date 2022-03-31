@@ -28,6 +28,7 @@ type GlobalConf struct {
 	MetadataFormat        bool
 	NameServerInputFormat bool
 	IterativeResolution   bool
+	LookupAllNameServers  bool
 
 	ResultVerbosity string
 	IncludeInOutput string
