@@ -58,6 +58,28 @@ type Result struct {
 	Flags       DNSFlags      `json:"flags" groups:"flags,long,trace"`
 }
 
+type ExtendedResult struct {
+	Res        Result      `json:"result,omitempty" groups:"short,normal,long,trace"`
+	Status     zdns.Status `json:"status" groups:"short,normal,long,trace"`
+	Nameserver string      `json:"nameserver" groups:"short,normal,long,trace"`
+}
+
+type CombinedResult struct {
+	Results []ExtendedResult `json:"results" groups:"short,normal,long,trace"`
+}
+
+type NSRecord struct {
+	Name          string   `json:"name" groups:"short,normal,long,trace"`
+	Type          string   `json:"type" groups:"short,normal,long,trace"`
+	IPv4Addresses []string `json:"ipv4_addresses,omitempty" groups:"short,normal,long,trace"`
+	IPv6Addresses []string `json:"ipv6_addresses,omitempty" groups:"short,normal,long,trace"`
+	TTL           uint32   `json:"ttl" groups:"normal,long,trace"`
+}
+
+type NSResult struct {
+	Servers []NSRecord `json:"servers,omitempty" groups:"short,normal,long,trace"`
+}
+
 type IpResult struct {
 	IPv4Addresses []string `json:"ipv4_addresses,omitempty" groups:"short,normal,long,trace"`
 	IPv6Addresses []string `json:"ipv6_addresses,omitempty" groups:"short,normal,long,trace"`
@@ -97,6 +119,12 @@ type GlobalLookupFactory struct {
 // Lookup client interface for helping in mocking
 type LookupClient interface {
 	ProtocolLookup(s *Lookup, q Question, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)
+}
+
+type MiekgLookupClient struct{}
+
+func (lc MiekgLookupClient) ProtocolLookup(s *Lookup, q Question, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+	return s.DoMiekgLookup(q, nameServer)
 }
 
 func (s *GlobalLookupFactory) BlacklistInit() error {
@@ -147,21 +175,22 @@ func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLook
 }
 
 type RoutineLookupFactory struct {
-	Factory             *GlobalLookupFactory
-	Client              *dns.Client
-	TCPClient           *dns.Client
-	Retries             int
-	MaxDepth            int
-	Timeout             time.Duration
-	IterativeTimeout    time.Duration
-	IterativeResolution bool
-	Trace               bool
-	DNSType             uint16
-	DNSClass            uint16
-	LocalAddr           net.IP
-	Conn                *dns.Conn
-	ThreadID            int
-	PrefixRegexp        *regexp.Regexp
+	Factory              *GlobalLookupFactory
+	Client               *dns.Client
+	TCPClient            *dns.Client
+	Retries              int
+	MaxDepth             int
+	Timeout              time.Duration
+	IterativeTimeout     time.Duration
+	IterativeResolution  bool
+	LookupAllNameServers bool
+	Trace                bool
+	DNSType              uint16
+	DNSClass             uint16
+	LocalAddr            net.IP
+	Conn                 *dns.Conn
+	ThreadID             int
+	PrefixRegexp         *regexp.Regexp
 }
 
 func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
@@ -206,6 +235,7 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 	s.Retries = c.Retries
 	s.MaxDepth = c.MaxDepth
 	s.IterativeResolution = c.IterativeResolution
+	s.LookupAllNameServers = c.LookupAllNameServers
 	if c.ResultVerbosity == "trace" {
 		s.Trace = true
 	} else {
@@ -709,7 +739,7 @@ func populateResults(records []interface{}, dnsType uint16, candidateSet map[str
 	for _, a := range records {
 		// filter only valid answers of requested type or CNAME (#163)
 		if ans, ok := a.(Answer); ok {
-			lowerCaseName := strings.ToLower(ans.Name)
+			lowerCaseName := strings.ToLower(strings.TrimSuffix(ans.Name, "."))
 			// Verify that the answer type matches requested type
 			if VerifyAddress(ans.Type, ans.Answer) {
 				ansType := dns.StringToType[ans.Type]
@@ -819,7 +849,126 @@ func (s *Lookup) DoTargetedLookup(l LookupClient, name, nameServer string, looku
 	return res, combinedTrace, zdns.STATUS_NOERROR, nil
 }
 
+func (s *Lookup) DoNSLookup(l LookupClient, name string, lookupIpv4 bool, lookupIpv6 bool, nameServer string) (NSResult, zdns.Trace, zdns.Status, error) {
+	var retv NSResult
+	res, trace, status, err := l.ProtocolLookup(s, Question{Name: name, Type: dns.TypeNS}, nameServer)
+	if status != zdns.STATUS_NOERROR || err != nil {
+		return retv, trace, status, err
+	}
+	ns := res.(Result)
+	ipv4s := make(map[string][]string)
+	ipv6s := make(map[string][]string)
+	for _, ans := range ns.Additional {
+		a, ok := ans.(Answer)
+		if !ok {
+			continue
+		}
+		recName := strings.TrimSuffix(a.Name, ".")
+		if VerifyAddress(a.Type, a.Answer) {
+			if a.Type == "A" {
+				ipv4s[recName] = append(ipv4s[recName], a.Answer)
+			} else if a.Type == "AAAA" {
+				ipv6s[recName] = append(ipv6s[recName], a.Answer)
+			}
+		}
+	}
+	for _, ans := range ns.Answers {
+		a, ok := ans.(Answer)
+		if !ok {
+			continue
+		}
+
+		if a.Type != "NS" {
+			continue
+		}
+
+		var rec NSRecord
+		rec.Type = a.Type
+		rec.Name = strings.TrimSuffix(a.Answer, ".")
+		rec.TTL = a.Ttl
+
+		var findIpv4 = false
+		var findIpv6 = false
+
+		if lookupIpv4 {
+			if ips, ok := ipv4s[rec.Name]; ok {
+				rec.IPv4Addresses = ips
+			} else {
+				findIpv4 = true
+			}
+		}
+		if lookupIpv6 {
+			if ips, ok := ipv6s[rec.Name]; ok {
+				rec.IPv6Addresses = ips
+			} else {
+				findIpv6 = true
+			}
+		}
+		if findIpv4 || findIpv6 {
+			res, nextTrace, _, _ := s.DoTargetedLookup(l, rec.Name, nameServer, findIpv4, findIpv6)
+			if res != nil {
+				if findIpv4 {
+					rec.IPv4Addresses = res.(IpResult).IPv4Addresses
+				}
+				if findIpv6 {
+					rec.IPv6Addresses = res.(IpResult).IPv6Addresses
+				}
+			}
+			trace = append(trace, nextTrace...)
+		}
+
+		retv.Servers = append(retv.Servers, rec)
+	}
+	return retv, trace, zdns.STATUS_NOERROR, nil
+}
+
+func (s *Lookup) DoLookupAllNameservers(l LookupClient, name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+	var retv CombinedResult
+	var curServer string
+
+	// Lookup both ipv4 and ipv6 addresses of nameservers.
+	nsResults, nsTrace, nsStatus, nsError := s.DoNSLookup(l, name, true, true, nameServer)
+
+	// Terminate early if nameserver lookup also failed
+	if nsStatus != zdns.STATUS_NOERROR {
+		return nil, nsTrace, nsStatus, nsError
+	}
+
+	// fullTrace holds the complete trace including all lookups
+	var fullTrace zdns.Trace = nsTrace
+	var tmpRes Result
+
+	for _, nserver := range nsResults.Servers {
+		// Use all the ipv4 and ipv6 addresses of each nameserver
+		nameserver := nserver.Name
+		ips := append(nserver.IPv4Addresses, nserver.IPv6Addresses...)
+		for _, ip := range ips {
+			curServer = net.JoinHostPort(ip, "53")
+			res, trace, status, _ := l.ProtocolLookup(s, Question{Name: name, Type: s.DNSType, Class: s.DNSClass}, curServer)
+
+			fullTrace = append(fullTrace, trace...)
+			tmpRes = Result{}
+			if res != nil {
+				tmpRes = res.(Result)
+			}
+			extendedResult := ExtendedResult{
+				Res:        tmpRes,
+				Status:     status,
+				Nameserver: nameserver,
+			}
+			retv.Results = append(retv.Results, extendedResult)
+		}
+	}
+	return retv, fullTrace, zdns.STATUS_NOERROR, nil
+}
+
 // allow miekg to be used as a ZDNS module
 func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
-	return s.DoMiekgLookup(Question{Name: name, Type: s.DNSType, Class: s.DNSClass}, nameServer)
+	log.Info(s.Factory.LookupAllNameServers)
+	if s.Factory.LookupAllNameServers {
+		l := MiekgLookupClient{}
+		return s.DoLookupAllNameservers(l, name, nameServer)
+	} else {
+		return s.DoMiekgLookup(Question{Name: name, Type: s.DNSType, Class: s.DNSClass}, nameServer)
+	}
 }
