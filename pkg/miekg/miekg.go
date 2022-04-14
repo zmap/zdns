@@ -964,7 +964,6 @@ func (s *Lookup) DoLookupAllNameservers(l LookupClient, name, nameServer string)
 
 // allow miekg to be used as a ZDNS module
 func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
-	log.Info(s.Factory.LookupAllNameServers)
 	if s.Factory.LookupAllNameServers {
 		l := MiekgLookupClient{}
 		return s.DoLookupAllNameservers(l, name, nameServer)
