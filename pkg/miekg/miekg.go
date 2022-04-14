@@ -94,7 +94,7 @@ type TraceStep struct {
 	Depth      int      `json:"depth" groups:"trace"`
 	Layer      string   `json:"layer" groups:"trace"`
 	Cached     IsCached `json:"cached" groups:"trace"`
-	Try        uint16   `json:"try" groups:"trace"`
+	Try        int       `json:"try" groups:"trace"`
 }
 
 func (s *GlobalLookupFactory) VerboseGlobalLog(depth int, threadID int, args ...interface{}) {
@@ -409,7 +409,7 @@ func (s *Lookup) tracedRetryingLookup(q Question, nameServer string, recursive b
 	return res, trace, status, err
 }
 
-func (s *Lookup) retryingLookup(q Question, nameServer string, recursive bool) (Result, zdns.Status, uint16, error) {
+func (s *Lookup) retryingLookup(q Question, nameServer string, recursive bool) (Result, zdns.Status, int, error) {
 	s.VerboseLog(1, "****WIRE LOOKUP*** ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
 
 	var origTimeout time.Duration
@@ -427,7 +427,7 @@ func (s *Lookup) retryingLookup(q Question, nameServer string, recursive bool) (
 			if s.Factory.TCPClient != nil {
 				s.Factory.TCPClient.Timeout = origTimeout
 			}
-			return result, status, (uint16) (i + 1), err
+			return result, status, (i + 1), err
 		}
 		if s.Factory.Client != nil {
 			s.Factory.Client.Timeout = 2 * s.Factory.Client.Timeout
@@ -439,7 +439,7 @@ func (s *Lookup) retryingLookup(q Question, nameServer string, recursive bool) (
 	panic("loop must return")
 }
 
-func (s *Lookup) cachedRetryingLookup(q Question, nameServer, layer string, depth int) (Result, IsCached, zdns.Status, uint16, error) {
+func (s *Lookup) cachedRetryingLookup(q Question, nameServer, layer string, depth int) (Result, IsCached, zdns.Status, int, error) {
 	var isCached IsCached
 	isCached = false
 	s.VerboseLog(depth+1, "Cached retrying lookup. Name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
