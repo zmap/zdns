@@ -94,7 +94,7 @@ type TraceStep struct {
 	Depth      int      `json:"depth" groups:"trace"`
 	Layer      string   `json:"layer" groups:"trace"`
 	Cached     IsCached `json:"cached" groups:"trace"`
-	Try        int       `json:"try" groups:"trace"`
+	Try        int      `json:"try" groups:"trace"`
 }
 
 func (s *GlobalLookupFactory) VerboseGlobalLog(depth int, threadID int, args ...interface{}) {
