@@ -94,6 +94,7 @@ type TraceStep struct {
 	Depth      int      `json:"depth" groups:"trace"`
 	Layer      string   `json:"layer" groups:"trace"`
 	Cached     IsCached `json:"cached" groups:"trace"`
+	Try        int      `json:"try" groups:"trace"`
 }
 
 func (s *GlobalLookupFactory) VerboseGlobalLog(depth int, threadID int, args ...interface{}) {
@@ -387,7 +388,7 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question
 
 func (s *Lookup) tracedRetryingLookup(q Question, nameServer string, recursive bool) (Result, zdns.Trace, zdns.Status, error) {
 
-	res, status, err := s.retryingLookup(q, nameServer, recursive)
+	res, status, try, err := s.retryingLookup(q, nameServer, recursive)
 
 	trace := make([]interface{}, 0)
 
@@ -401,13 +402,14 @@ func (s *Lookup) tracedRetryingLookup(q Question, nameServer string, recursive b
 		t.Layer = q.Name
 		t.Depth = 1
 		t.Cached = false
+		t.Try = try
 		trace = append(trace, t)
 	}
 
 	return res, trace, status, err
 }
 
-func (s *Lookup) retryingLookup(q Question, nameServer string, recursive bool) (Result, zdns.Status, error) {
+func (s *Lookup) retryingLookup(q Question, nameServer string, recursive bool) (Result, zdns.Status, int, error) {
 	s.VerboseLog(1, "****WIRE LOOKUP*** ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
 
 	var origTimeout time.Duration
@@ -425,7 +427,7 @@ func (s *Lookup) retryingLookup(q Question, nameServer string, recursive bool) (
 			if s.Factory.TCPClient != nil {
 				s.Factory.TCPClient.Timeout = origTimeout
 			}
-			return result, status, err
+			return result, status, (i + 1), err
 		}
 		if s.Factory.Client != nil {
 			s.Factory.Client.Timeout = 2 * s.Factory.Client.Timeout
@@ -437,20 +439,20 @@ func (s *Lookup) retryingLookup(q Question, nameServer string, recursive bool) (
 	panic("loop must return")
 }
 
-func (s *Lookup) cachedRetryingLookup(q Question, nameServer, layer string, depth int) (Result, IsCached, zdns.Status, error) {
+func (s *Lookup) cachedRetryingLookup(q Question, nameServer, layer string, depth int) (Result, IsCached, zdns.Status, int, error) {
 	var isCached IsCached
 	isCached = false
 	s.VerboseLog(depth+1, "Cached retrying lookup. Name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
 	if s.IterativeStop.Before(time.Now()) {
 		s.VerboseLog(depth+2, "ITERATIVE_TIMEOUT ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
 		var r Result
-		return r, isCached, zdns.STATUS_ITER_TIMEOUT, nil
+		return r, isCached, zdns.STATUS_ITER_TIMEOUT, 0, nil
 	}
 	// First, we check the answer
 	cachedResult, ok := s.Factory.Factory.IterativeCache.GetCachedResult(q, false, depth+1, s.Factory.ThreadID)
 	if ok {
 		isCached = true
-		return cachedResult, isCached, zdns.STATUS_NOERROR, nil
+		return cachedResult, isCached, zdns.STATUS_NOERROR, 0, nil
 	}
 
 	nameServerIP, _, err := net.SplitHostPort(nameServer)
@@ -461,12 +463,12 @@ func (s *Lookup) cachedRetryingLookup(q Question, nameServer, layer string, dept
 			s.Factory.Factory.BlMu.Unlock()
 			s.VerboseLog(depth+2, "Blacklist error!", err)
 			var r Result
-			return r, isCached, zdns.STATUS_ERROR, err
+			return r, isCached, zdns.STATUS_ERROR, 0, err
 		} else if blacklisted {
 			s.Factory.Factory.BlMu.Unlock()
 			s.VerboseLog(depth+2, "Hit blacklisted nameserver ", q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 			var r Result
-			return r, isCached, zdns.STATUS_BLACKLIST, nil
+			return r, isCached, zdns.STATUS_BLACKLIST, 0, nil
 		}
 		s.Factory.Factory.BlMu.Unlock()
 	}
@@ -478,13 +480,13 @@ func (s *Lookup) cachedRetryingLookup(q Question, nameServer, layer string, dept
 	if err != nil {
 		s.VerboseLog(depth+2, err)
 		var r Result
-		return r, isCached, zdns.STATUS_AUTHFAIL, err
+		return r, isCached, zdns.STATUS_AUTHFAIL, 0, err
 	}
 	if name != layer && authName != layer {
 		if authName == "" {
 			s.VerboseLog(depth+2, "Can't parse name to authority properly. name: ", name, ", layer: ", layer)
 			var r Result
-			return r, isCached, zdns.STATUS_AUTHFAIL, nil
+			return r, isCached, zdns.STATUS_AUTHFAIL, 0, nil
 		}
 		s.VerboseLog(depth+2, "Cache auth check for ", authName)
 		var qAuth Question
@@ -494,16 +496,16 @@ func (s *Lookup) cachedRetryingLookup(q Question, nameServer, layer string, dept
 		cachedResult, ok = s.Factory.Factory.IterativeCache.GetCachedResult(qAuth, true, depth+2, s.Factory.ThreadID)
 		if ok {
 			isCached = true
-			return cachedResult, isCached, zdns.STATUS_NOERROR, nil
+			return cachedResult, isCached, zdns.STATUS_NOERROR, 0, nil
 		}
 	}
 
 	// Alright, we're not sure what to do, go to the wire.
 	s.VerboseLog(depth+2, "Wire lookup for name: ", q.Name, " (", q.Type, ") at nameserver: ", nameServer)
-	result, status, err := s.retryingLookup(q, nameServer, false)
+	result, status, try, err := s.retryingLookup(q, nameServer, false)
 
 	s.Factory.Factory.IterativeCache.CacheUpdate(layer, result, depth+2, s.Factory.ThreadID)
-	return result, isCached, status, err
+	return result, isCached, status, try, err
 }
 
 func (s *Lookup) extractAuthority(authority interface{}, layer string, depth int, result Result, trace []interface{}) (string, zdns.Status, string, []interface{}) {
@@ -662,7 +664,7 @@ func (s *Lookup) iterativeLookup(q Question, nameServer string,
 		s.VerboseLog((depth + 1), "-> Max recursion depth reached")
 		return r, trace, zdns.STATUS_ERROR, errors.New("Max recursion depth reached")
 	}
-	result, isCached, status, err := s.cachedRetryingLookup(q, nameServer, layer, depth)
+	result, isCached, status, try, err := s.cachedRetryingLookup(q, nameServer, layer, depth)
 	if s.Factory.Trace && status == zdns.STATUS_NOERROR {
 		var t TraceStep
 		t.Result = result
@@ -673,6 +675,7 @@ func (s *Lookup) iterativeLookup(q Question, nameServer string,
 		t.Layer = layer
 		t.Depth = depth
 		t.Cached = isCached
+		t.Try = try
 		trace = append(trace, t)
 
 	}
