@@ -225,9 +225,9 @@ than 10,000 go routines, it is typically fastest to use one of the common
 recursive resolvers like Cloudflare or Google. Cloudflare is nearly always
 faster than Google. This is particularly true if you're looking up popular
 names because they're cached and can be answered in a single round trip.
-Otherwise, performing iteration internally is much faster, because you can run
-with tens of thousands of concurrent threads without DOS'ing and/or rate
-limiting your recursive resolver.
+When using tens of thousands of concurrent threads, consider performing 
+iteration internally in order to avoid  DOS'ing and/or rate limiting your
+recursive resolver.
 
 To perform local recursion, run zdns with the `--iterative` flag. When this
 flag is used, ZDNS will round-robin between the published root servers (e.g.,
