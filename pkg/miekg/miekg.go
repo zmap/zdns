@@ -945,7 +945,8 @@ func (s *Lookup) DoLookupAllNameservers(l LookupClient, name, nameServer string)
 	for _, nserver := range nsResults.Servers {
 		// Use all the ipv4 and ipv6 addresses of each nameserver
 		nameserver := nserver.Name
-		ips := append(nserver.IPv4Addresses, nserver.IPv6Addresses...)
+		// TODO(#304): Figure out how to lookup via IPv6 addresses as well
+		ips := nserver.IPv4Addresses
 		for _, ip := range ips {
 			curServer = net.JoinHostPort(ip, "53")
 			res, trace, status, _ := l.ProtocolLookup(s, Question{Name: name, Type: s.DNSType, Class: s.DNSClass}, curServer)
