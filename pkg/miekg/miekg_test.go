@@ -940,7 +940,9 @@ func TestErrorInTargetedLookup(t *testing.T) {
 	assert.Equal(t, status, protocolStatus[domain_ns_1])
 }
 
-// Test One NS with one IP with only ipv4-lookup
+// Test One NS with one IP with only ipv4-lookup. Note that
+// currently we do lookup only via IPv4 NS addresses and hence
+// IPv6 NS addresses are ignored.
 func TestAllNsLookupOneNs(t *testing.T) {
 	gc, a, mc := InitTest(t)
 
@@ -1001,35 +1003,11 @@ func TestAllNsLookupOneNs(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 
-	ns3 := net.JoinHostPort(ipv6_1, "53")
-	domain_ns_3 := domain_ns{domain: domain1, ns: ns3}
-	ipv4_3 := "192.0.2.2"
-	mockResults[domain_ns_3] = Result{
-		Answers: []interface{}{
-			Answer{
-				Ttl:    3600,
-				Type:   "A",
-				Class:  "IN",
-				Name:   "example.com.",
-				Answer: ipv4_3,
-			},
-		},
-		Additional:  nil,
-		Authorities: nil,
-		Protocol:    "",
-		Flags:       DNSFlags{},
-	}
-
 	expectedRes := []ExtendedResult{
 		{
 			Nameserver: ns_domain1,
 			Status:     zdns.STATUS_NOERROR,
 			Res:        mockResults[domain_ns_2],
-		},
-		{
-			Nameserver: ns_domain1,
-			Status:     zdns.STATUS_NOERROR,
-			Res:        mockResults[domain_ns_3],
 		},
 	}
 
