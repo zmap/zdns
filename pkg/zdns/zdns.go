@@ -21,6 +21,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -185,9 +186,32 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 	if gc.GoMaxProcs < 0 {
 		log.Fatal("Invalid argument for --go-processes. Must be >1.")
 	}
+
+	var max_open_files uint64
+
 	if gc.GoMaxProcs != 0 {
 		runtime.GOMAXPROCS(gc.GoMaxProcs)
+		max_open_files = uint64(gc.GoMaxProcs * gc.Threads)
+	} else {
+		max_open_files = uint64(runtime.NumCPU() * gc.Threads)
 	}
+
+	var rLimit syscall.Rlimit
+	err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	if err != nil {
+		log.Fatal("Failed to fetch ulimit ", err)
+	}
+
+	if max_open_files > rLimit.Cur {
+		log.Warn("Current nofile limit (", rLimit.Cur, ") lower than maximum connection count (", max_open_files, "), try to update.")
+		rLimit.Cur = max_open_files
+		err = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+		if err != nil {
+			log.Fatal("Error setting nofile limit to ", rLimit.Cur, ": ", err)
+		}
+		log.Info("Update nofile to ", rLimit.Cur)
+	}
+
 	if gc.UDPOnly && gc.TCPOnly {
 		log.Fatal("TCP Only and UDP Only are conflicting")
 	}
