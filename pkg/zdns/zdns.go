@@ -185,9 +185,14 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 	if gc.GoMaxProcs < 0 {
 		log.Fatal("Invalid argument for --go-processes. Must be >1.")
 	}
+
 	if gc.GoMaxProcs != 0 {
 		runtime.GOMAXPROCS(gc.GoMaxProcs)
+		ulimit_check(uint64(gc.GoMaxProcs * gc.Threads))
+	} else {
+		ulimit_check(uint64(runtime.NumCPU() * gc.Threads))
 	}
+
 	if gc.UDPOnly && gc.TCPOnly {
 		log.Fatal("TCP Only and UDP Only are conflicting")
 	}
