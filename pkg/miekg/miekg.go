@@ -214,14 +214,14 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 			LocalAddr: &net.UDPAddr{IP: s.LocalAddr},
 		}
 		if c.RecycleSockets {
-		    // create PacketConn for use throughout thread's life
-		    conn, err := net.ListenUDP("udp", &net.UDPAddr{s.LocalAddr, 0, ""})
-		    if err != nil {
-		        log.Fatal("unable to create socket", err)
-		    }
-		    s.Conn = new(dns.Conn)
-		    s.Conn.Conn = conn
-	    }
+			// create PacketConn for use throughout thread's life
+			conn, err := net.ListenUDP("udp", &net.UDPAddr{s.LocalAddr, 0, ""})
+			if err != nil {
+				log.Fatal("unable to create socket", err)
+			}
+			s.Conn = new(dns.Conn)
+			s.Conn.Conn = conn
+		}
 	}
 	if !c.UDPOnly {
 		s.TCPClient = new(dns.Client)
@@ -320,10 +320,10 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question
 	if udp != nil {
 		res.Protocol = "udp"
 		if conn != nil {
-		    dst, _ := net.ResolveUDPAddr("udp", nameServer)
-		    r, _, err = udp.ExchangeWithConnTo(m, conn, dst)
+			dst, _ := net.ResolveUDPAddr("udp", nameServer)
+			r, _, err = udp.ExchangeWithConnTo(m, conn, dst)
 		} else {
-		    r, _, err = udp.Exchange(m, nameServer)
+			r, _, err = udp.Exchange(m, nameServer)
 		}
 		// if record comes back truncated, but we have a TCP connection, try again with that
 		if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
