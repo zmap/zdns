@@ -348,9 +348,6 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question
 		return res, zdns.STATUS_ERROR, err
 	}
 
-	if err != nil || r == nil {
-		return res, zdns.STATUS_ERROR, err
-	}
 	if r.Rcode != dns.RcodeSuccess {
 		return res, TranslateMiekgErrorCode(r.Rcode), nil
 	}
