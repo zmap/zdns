@@ -72,6 +72,10 @@ func init() {
 	dhcid.SetDNSType(dns.TypeDHCID)
 	zdns.RegisterLookup("DHCID", dhcid)
 
+	dname := new(GlobalLookupFactory)
+	dname.SetDNSType(dns.TypeDNAME)
+	zdns.RegisterLookup("DNAME", dname)
+
 	dnskey := new(GlobalLookupFactory)
 	dnskey.SetDNSType(dns.TypeDNSKEY)
 	zdns.RegisterLookup("DNSKEY", dnskey)
