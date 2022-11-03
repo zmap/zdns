@@ -171,7 +171,13 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 	}
 	if !gc.LocalAddrSpecified {
 		// Find local address for use in unbound UDP sockets
-		if conn, err := net.Dial("udp", "8.8.8.8:53"); err != nil {
+		conn, err := net.Dial("udp", "8.8.8.8:53")
+
+		if err != nil {
+			conn, err = net.Dial("udp", "[2001:4860:4860::8888]:53");
+		}
+
+		if err != nil {
 			log.Fatal("Unable to find default IP address: ", err)
 		} else {
 			gc.LocalAddrs = append(gc.LocalAddrs, conn.LocalAddr().(*net.UDPAddr).IP)
