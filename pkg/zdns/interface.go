@@ -131,15 +131,26 @@ func (f *BaseGlobalLookupFactory) RandomNameServer() string {
 	return f.GlobalConf.NameServers[rand.Intn(l)]
 }
 
-func (f *BaseGlobalLookupFactory) RandomLocalAddr() net.IP {
+func (f *BaseGlobalLookupFactory) RandomLocalV4Addr() net.IP {
 	if f.GlobalConf == nil {
 		log.Fatal("no global conf initialized")
 	}
-	l := len(f.GlobalConf.LocalAddrs)
+	l := len(f.GlobalConf.LocalV4Addrs)
 	if l == 0 {
-		log.Fatal("No local addresses specified")
+		return nil
 	}
-	return f.GlobalConf.LocalAddrs[rand.Intn(l)]
+	return f.GlobalConf.LocalV4Addrs[rand.Intn(l)]
+}
+
+func (f *BaseGlobalLookupFactory) RandomLocalV6Addr() net.IP {
+	if f.GlobalConf == nil {
+		log.Fatal("no global conf initialized")
+	}
+	l := len(f.GlobalConf.LocalV6Addrs)
+	if l == 0 {
+		return nil
+	}
+	return f.GlobalConf.LocalV6Addrs[rand.Intn(l)]
 }
 
 func (s *BaseGlobalLookupFactory) AllowStdIn() bool {

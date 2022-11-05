@@ -177,8 +177,10 @@ func (s *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLook
 
 type RoutineLookupFactory struct {
 	Factory              *GlobalLookupFactory
-	Client               *dns.Client
-	TCPClient            *dns.Client
+	ClientV4             *dns.Client
+	ClientV6             *dns.Client
+	TCPClientV4          *dns.Client
+	TCPClientV6          *dns.Client
 	Retries              int
 	MaxDepth             int
 	Timeout              time.Duration
@@ -188,8 +190,10 @@ type RoutineLookupFactory struct {
 	Trace                bool
 	DNSType              uint16
 	DNSClass             uint16
-	LocalAddr            net.IP
-	Conn                 *dns.Conn
+	LocalV4Addr          net.IP
+	LocalV6Addr          net.IP
+	ConnV4               *dns.Conn
+	ConnV6               *dns.Conn
 	ThreadID             int
 	PrefixRegexp         *regexp.Regexp
 }
@@ -204,32 +208,71 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 	if s.Factory == nil {
 		panic("null factory")
 	}
-	s.LocalAddr = s.Factory.RandomLocalAddr()
+	s.LocalV4Addr = s.Factory.RandomLocalV4Addr()
+	s.LocalV6Addr = s.Factory.RandomLocalV6Addr()
+
+	if s.LocalV4Addr == nil && s.LocalV6Addr == nil {
+		// We should not be able to get here; config should have handled this
+		log.Fatal("No local addresses specified")
+	}
 
 	if !c.TCPOnly {
-		s.Client = new(dns.Client)
-		s.Client.Timeout = s.Timeout
-		s.Client.Dialer = &net.Dialer{
-			Timeout:   s.Timeout,
-			LocalAddr: &net.UDPAddr{IP: s.LocalAddr},
-		}
-		if c.RecycleSockets {
-			// create PacketConn for use throughout thread's life
-			conn, err := net.ListenUDP("udp", &net.UDPAddr{s.LocalAddr, 0, ""})
-			if err != nil {
-				log.Fatal("unable to create socket", err)
+		if s.LocalV4Addr != nil {
+			s.ClientV4 = new(dns.Client)
+			s.ClientV4.Timeout = s.Timeout
+			s.ClientV4.Dialer = &net.Dialer{
+				Timeout:   s.Timeout,
+				LocalAddr: &net.UDPAddr{IP: s.LocalV4Addr},
 			}
-			s.Conn = new(dns.Conn)
-			s.Conn.Conn = conn
+			if c.RecycleSockets {
+				// create PacketConn for use throughout thread's life
+				conn, err := net.ListenUDP("udp", &net.UDPAddr{s.LocalV4Addr, 0, ""})
+				if err != nil {
+					log.Fatal("unable to create socket", err)
+				}
+				s.ConnV4 = new(dns.Conn)
+				s.ConnV4.Conn = conn
+			}
 		}
+
+		if s.LocalV6Addr != nil {
+			s.ClientV6 = new(dns.Client)
+			s.ClientV6.Timeout = s.Timeout
+			s.ClientV6.Dialer = &net.Dialer{
+				Timeout:   s.Timeout,
+				LocalAddr: &net.UDPAddr{IP: s.LocalV6Addr},
+			}
+			if c.RecycleSockets {
+				// create PacketConn for use throughout thread's life
+				conn, err := net.ListenUDP("udp", &net.UDPAddr{s.LocalV6Addr, 0, ""})
+				if err != nil {
+					log.Fatal("unable to create socket", err)
+				}
+				s.ConnV6 = new(dns.Conn)
+				s.ConnV6.Conn = conn
+			}
+
+		}
+
 	}
 	if !c.UDPOnly {
-		s.TCPClient = new(dns.Client)
-		s.TCPClient.Net = "tcp"
-		s.TCPClient.Timeout = s.Timeout
-		s.TCPClient.Dialer = &net.Dialer{
-			Timeout:   s.Timeout,
-			LocalAddr: &net.TCPAddr{IP: s.LocalAddr},
+		if s.LocalV4Addr != nil {
+			s.TCPClientV4 = new(dns.Client)
+			s.TCPClientV4.Net = "tcp"
+			s.TCPClientV4.Timeout = s.Timeout
+			s.TCPClientV4.Dialer = &net.Dialer{
+				Timeout:   s.Timeout,
+				LocalAddr: &net.TCPAddr{IP: s.LocalV4Addr},
+			}
+		}
+		if s.LocalV6Addr != nil {
+			s.TCPClientV6 = new(dns.Client)
+			s.TCPClientV6.Net = "tcp"
+			s.TCPClientV6.Timeout = s.Timeout
+			s.TCPClientV6.Dialer = &net.Dialer{
+				Timeout:   s.Timeout,
+				LocalAddr: &net.TCPAddr{IP: s.LocalV6Addr},
+			}
 		}
 	}
 	s.IterativeTimeout = c.Timeout
@@ -262,7 +305,8 @@ type Lookup struct {
 	NameServer    string
 	IterativeStop time.Time
 
-	Conn *dns.Conn
+	ConnV4 *dns.Conn
+	ConnV6 *dns.Conn
 }
 
 func (s *Lookup) Initialize(nameServer string, dnsType uint16, dnsClass uint16, factory *RoutineLookupFactory) error {
@@ -270,13 +314,14 @@ func (s *Lookup) Initialize(nameServer string, dnsType uint16, dnsClass uint16, 
 	s.NameServer = nameServer
 	s.DNSType = dnsType
 	s.DNSClass = dnsClass
-	s.Conn = factory.Conn
+	s.ConnV4 = factory.ConnV4
+	s.ConnV6 = factory.ConnV6
 
 	return nil
 }
 
 func (s *Lookup) doLookup(q Question, nameServer string, recursive bool) (Result, zdns.Status, error) {
-	return DoLookupWorker(s.Factory.Client, s.Factory.TCPClient, s.Conn, q, nameServer, recursive)
+	return DoLookupWorker(s.Factory.ClientV4, s.Factory.ClientV6, s.Factory.TCPClientV4, s.Factory.TCPClientV6, s.ConnV4, s.ConnV6, q, nameServer, recursive)
 }
 
 // CheckTxtRecords common function for all modules based on search in TXT record
@@ -306,7 +351,7 @@ func (s *Lookup) FindTxtRecord(res Result) (string, error) {
 }
 
 // Expose the inner logic so other tools can use it
-func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question, nameServer string, recursive bool) (Result, zdns.Status, error) {
+func DoLookupWorker(udpV4 *dns.Client, udpV6 *dns.Client, tcpV4 *dns.Client, tcpV6 *dns.Client, connV4 *dns.Conn, connV6 *dns.Conn, q Question, nameServer string, recursive bool) (Result, zdns.Status, error) {
 	res := Result{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 	res.Resolver = nameServer
 
@@ -317,24 +362,47 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question
 
 	var r *dns.Msg
 	var err error
-	if udp != nil {
+
+	if udpV4 != nil || udpV6 != nil  {
+
 		res.Protocol = "udp"
+		var conn *dns.Conn
+		var udp *dns.Client
+
+		dst, _ := net.ResolveUDPAddr("udp", nameServer)
+		if dst.IP.To4() != nil {
+			conn = connV4
+			udp = udpV4
+		} else {
+			conn = connV6
+			udp = udpV6
+		}
+
 		if conn != nil {
-			dst, _ := net.ResolveUDPAddr("udp", nameServer)
 			r, _, err = udp.ExchangeWithConnTo(m, conn, dst)
 		} else {
 			r, _, err = udp.Exchange(m, nameServer)
 		}
+
 		// if record comes back truncated, but we have a TCP connection, try again with that
 		if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
-			if tcp != nil {
-				return DoLookupWorker(nil, tcp, conn, q, nameServer, recursive)
+			if tcpV4 != nil || tcpV6 != nil {
+				return DoLookupWorker(nil, nil, tcpV4, tcpV6, connV4, connV6, q, nameServer, recursive)
 			} else {
 				return res, zdns.STATUS_TRUNCATED, err
 			}
 		}
 	} else {
 		res.Protocol = "tcp"
+		var tcp *dns.Client
+
+		dst, _ := net.ResolveTCPAddr("tcp", nameServer)
+		if dst.IP.To4() != nil {
+			tcp = tcpV4
+		} else {
+			tcp = tcpV6
+		}
+
 		r, _, err = tcp.Exchange(m, nameServer)
 	}
 	if err != nil || r == nil {
@@ -413,27 +481,42 @@ func (s *Lookup) retryingLookup(q Question, nameServer string, recursive bool) (
 	s.VerboseLog(1, "****WIRE LOOKUP*** ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
 
 	var origTimeout time.Duration
-	if s.Factory.Client != nil {
-		origTimeout = s.Factory.Client.Timeout
+	var UDPClient *dns.Client
+	var TCPClient *dns.Client
+
+	// Figure out if we're talking to a v4 or v6 server
+	// This can be udp or tcp, doesnt matter, we just want to parse the nameserver and port.
+	dst, _ := net.ResolveUDPAddr("udp", nameServer)
+
+	if dst.IP.To4() != nil {
+		UDPClient = s.Factory.ClientV4
+		TCPClient = s.Factory.TCPClientV4
 	} else {
-		origTimeout = s.Factory.TCPClient.Timeout
+		UDPClient = s.Factory.ClientV6
+		TCPClient = s.Factory.TCPClientV6
+	}
+
+	if UDPClient != nil {
+		origTimeout = UDPClient.Timeout
+	} else {
+		origTimeout = TCPClient.Timeout
 	}
 	for i := 0; i <= s.Factory.Retries; i++ {
 		result, status, err := s.doLookup(q, nameServer, recursive)
 		if (status != zdns.STATUS_TIMEOUT && status != zdns.STATUS_TEMPORARY) || i == s.Factory.Retries {
-			if s.Factory.Client != nil {
-				s.Factory.Client.Timeout = origTimeout
+			if UDPClient != nil {
+				UDPClient.Timeout = origTimeout
 			}
-			if s.Factory.TCPClient != nil {
-				s.Factory.TCPClient.Timeout = origTimeout
+			if TCPClient != nil {
+				TCPClient.Timeout = origTimeout
 			}
 			return result, status, (i + 1), err
 		}
-		if s.Factory.Client != nil {
-			s.Factory.Client.Timeout = 2 * s.Factory.Client.Timeout
+		if UDPClient != nil {
+			UDPClient.Timeout = 2 * UDPClient.Timeout
 		}
-		if s.Factory.TCPClient != nil {
-			s.Factory.TCPClient.Timeout = 2 * s.Factory.TCPClient.Timeout
+		if TCPClient != nil {
+			TCPClient.Timeout = 2 * TCPClient.Timeout
 		}
 	}
 	panic("loop must return")

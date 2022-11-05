@@ -46,7 +46,8 @@ type GlobalConf struct {
 	UDPOnly              bool
 	RecycleSockets       bool
 	LocalAddrSpecified   bool
-	LocalAddrs           []net.IP
+	LocalV4Addrs         []net.IP
+	LocalV6Addrs         []net.IP
 
 	InputHandler  InputHandler
 	OutputHandler OutputHandler

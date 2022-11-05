@@ -135,13 +135,18 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 		}
 		gc.NameServers = ns
 		gc.NameServersSpecified = true
+		log.Info("Name servers specified. will use: ", strings.Join(gc.NameServers, ", "))
 	}
 
 	if *localaddr_string != "" {
 		for _, la := range strings.Split(*localaddr_string, ",") {
 			ip := net.ParseIP(la)
 			if ip != nil {
-				gc.LocalAddrs = append(gc.LocalAddrs, ip)
+				if ip.To4() != nil {
+					gc.LocalV4Addrs = append(gc.LocalV4Addrs, ip)
+				} else {
+					gc.LocalV6Addrs = append(gc.LocalV6Addrs, ip)
+				}
 			} else {
 				log.Fatal("Invalid argument for --local-addr (", la, "). Must be a comma-separated list of valid IP addresses.")
 			}
@@ -163,26 +168,42 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 				log.Fatal("Unable to detect addresses of local interface: ", err)
 			}
 			for _, la := range addrs {
-				gc.LocalAddrs = append(gc.LocalAddrs, la.(*net.IPNet).IP)
+				ip := la.(*net.IPNet).IP
+				if ip.To4() != nil {
+					gc.LocalV4Addrs = append(gc.LocalV4Addrs, ip)
+				} else {
+					if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+						log.Info("Discarding detected link-local addr from possible local addrs: ", ip)
+						continue
+					}
+					gc.LocalV6Addrs = append(gc.LocalV6Addrs, ip)
+				}
 				gc.LocalAddrSpecified = true
 			}
 			log.Info("using local interface: ", localif_string)
 		}
 	}
 	if !gc.LocalAddrSpecified {
-		// Find local address for use in unbound UDP sockets
-		conn, err := net.Dial("udp", "8.8.8.8:53")
-
-		if err != nil {
-			conn, err = net.Dial("udp", "[2001:4860:4860::8888]:53");
+		// Find local IPv4 address for use in unbound UDP sockets
+		connV4, errV4 := net.Dial("udp", "8.8.8.8:53"); 
+		if errV4 == nil {
+			gc.LocalV4Addrs = append(gc.LocalV4Addrs, connV4.LocalAddr().(*net.UDPAddr).IP)
 		}
 
-		if err != nil {
-			log.Fatal("Unable to find default IP address: ", err)
-		} else {
-			gc.LocalAddrs = append(gc.LocalAddrs, conn.LocalAddr().(*net.UDPAddr).IP)
+		// Find local IPv6 address for use in unbound UDP sockets
+		connV6, errV6 := net.Dial("udp", "[2001:4860:4860::8888]:53")
+		if errV6 == nil {
+			gc.LocalV6Addrs = append(gc.LocalV6Addrs, connV6.LocalAddr().(*net.UDPAddr).IP)
+		}
+
+		if errV4 != nil && errV6 != nil {
+			log.Fatal("Unable to find default IP address: ", errV4, errV6)
 		}
 	}
+
+	log.Info("Using local v4 Addresses: ", gc.LocalV4Addrs)
+	log.Info("Using local v6 Addresses: ", gc.LocalV6Addrs)
+
 	if *nanoSeconds {
 		gc.TimeFormat = time.RFC3339Nano
 	} else {
