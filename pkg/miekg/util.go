@@ -131,3 +131,16 @@ func VerifyAddress(ansType string, ip string) bool {
 	}
 	return !isIpv4 && !isIpv6
 }
+
+func Unique(a []string) []string {
+	seen := make(map[string]bool)
+	j := 0
+	for _, v := range a {
+		if !seen[v] {
+			seen[v] = true
+			a[j] = v
+			j++
+		}
+	}
+	return a[:j]
+}
