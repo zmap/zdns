@@ -594,6 +594,100 @@ func TestNXDomain(t *testing.T) {
 	}
 }
 
+// Test both ipv4 and ipv6 results are deduplicated before returning
+func TestAandQuadADedup(t *testing.T) {
+	gc, a, mc := InitTest(t)
+
+	domain1 := "cname1.example.com"
+	domain2 := "cname2.example.com"
+	domain3 := "example.com"
+	ns1 := net.JoinHostPort(gc.NameServers[0], "53")
+	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
+	domain_ns_2 := domain_ns{domain: domain2, ns: ns1}
+	domain_ns_3 := domain_ns{domain: domain3, ns: ns1}
+
+	mockResults[domain_ns_1] = Result{
+		Answers: []interface{}{Answer{
+			Ttl:    3600,
+			Type:   "CNAME",
+			Class:  "IN",
+			Name:   domain1,
+			Answer: domain2 + ".",
+		}, Answer{
+			Ttl:    3600,
+			Type:   "CNAME",
+			Class:  "IN",
+			Name:   domain2,
+			Answer: domain3 + ".",
+		}, Answer{
+			Ttl:    3600,
+			Type:   "A",
+			Class:  "IN",
+			Name:   domain3,
+			Answer: "192.0.2.1",
+		}, Answer{
+			Ttl:    3600,
+			Type:   "AAAA",
+			Class:  "IN",
+			Name:   domain3,
+			Answer: "2001:db8::3",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       DNSFlags{},
+	}
+
+	mockResults[domain_ns_2] = Result{
+		Answers: []interface{}{Answer{
+			Ttl:    3600,
+			Type:   "CNAME",
+			Class:  "IN",
+			Name:   domain2,
+			Answer: domain3 + ".",
+		}, Answer{
+			Ttl:    3600,
+			Type:   "A",
+			Class:  "IN",
+			Name:   domain3,
+			Answer: "192.0.2.1",
+		}, Answer{
+			Ttl:    3600,
+			Type:   "AAAA",
+			Class:  "IN",
+			Name:   domain3,
+			Answer: "2001:db8::3",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       DNSFlags{},
+	}
+
+	mockResults[domain_ns_3] = Result{
+		Answers: []interface{}{Answer{
+			Ttl:    3600,
+			Type:   "A",
+			Class:  "IN",
+			Name:   domain3,
+			Answer: "192.0.2.1",
+		}, Answer{
+			Ttl:    3600,
+			Type:   "AAAA",
+			Class:  "IN",
+			Name:   domain3,
+			Answer: "2001:db8::3",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       DNSFlags{},
+	}
+
+	res, _, _, _ := a.DoTargetedLookup(mc, domain1, ns1, true, true)
+	verifyResult(t, res.(IpResult), []string{"192.0.2.1"}, []string{"2001:db8::3"})
+}
+
 // Test server failure returns SERVFAIL
 func TestServFail(t *testing.T) {
 	gc, a, mc := InitTest(t)
