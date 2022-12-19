@@ -282,7 +282,7 @@ class Tests(unittest.TestCase):
         }
       }
     }
-
+    
     TCP_LARGE_TXT_ANSWERS = [
       {
         "type": "TXT",
@@ -439,6 +439,12 @@ class Tests(unittest.TestCase):
         "certificate": "0c72ac70b745ac19998811b131d662c9ac69dbdbe7cb23e5b514b56664c5d3d6"
       }
     ]
+
+    EDNS0_MAPPINGS = {
+        "171.67.68.0/24": "2.3.4.5",
+        "131.159.92.0/24": "3.4.5.6",
+        "129.127.149.0/24": "1.2.3.4"
+    }
 
     def assertSuccess(self, res, cmd):
         self.assertEqual(res["status"], "NOERROR", cmd)
@@ -869,6 +875,14 @@ class Tests(unittest.TestCase):
         name = "zdns-testing.com"
         self.run_zdns_check_failure(c, name, "Both --local-addr and --local-interface specified.")
 
-
+    def test_edns0_client_subnet(self):
+        name = "ecs-geo.zdns-testing.com"
+        for subnet, ip_addr in self.EDNS0_MAPPINGS.items():
+            c = f"A --client-subnet {subnet}"
+            cmd, res = self.run_zdns(c, name)
+            self.assertSuccess(res, cmd)
+            correct = [{"type":"A", "class":"IN", "answer": ip_addr, "name":"ecs-geo.zdns-testing.com"}]
+            self.assertEqualAnswers(res, correct, cmd)
+ 
 if __name__ == "__main__":
     unittest.main()
