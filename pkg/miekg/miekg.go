@@ -353,9 +353,6 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question
 		return res, zdns.STATUS_ERROR, err
 	}
 
-	if err != nil || r == nil {
-		return res, zdns.STATUS_ERROR, err
-	}
 	if r.Rcode != dns.RcodeSuccess {
 		return res, TranslateMiekgErrorCode(r.Rcode), nil
 	}
@@ -827,6 +824,7 @@ func (s *Lookup) DoTargetedLookup(l LookupClient, name, nameServer string, looku
 	if lookupIpv4 {
 		ipv4, ipv4Trace, ipv4status, _ = s.DoIpsLookup(l, name, nameServer, dns.TypeA, candidateSet, cnameSet, name, 0)
 		if len(ipv4) > 0 {
+			ipv4 = Unique(ipv4)
 			res.IPv4Addresses = make([]string, len(ipv4))
 			copy(res.IPv4Addresses, ipv4)
 		}
@@ -836,6 +834,7 @@ func (s *Lookup) DoTargetedLookup(l LookupClient, name, nameServer string, looku
 	if lookupIpv6 {
 		ipv6, ipv6Trace, ipv6status, _ = s.DoIpsLookup(l, name, nameServer, dns.TypeAAAA, candidateSet, cnameSet, name, 0)
 		if len(ipv6) > 0 {
+			ipv6 = Unique(ipv6)
 			res.IPv6Addresses = make([]string, len(ipv6))
 			copy(res.IPv6Addresses, ipv6)
 		}
