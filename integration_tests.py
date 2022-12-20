@@ -869,7 +869,6 @@ class Tests(unittest.TestCase):
         self.assertEqual(res["data"]["resolver"], "8.8.8.8:53")
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
 
-
     def test_local_addr_interface_warning(self):
         c = "A --local-addr 192.168.1.5 --local-interface en0"
         name = "zdns-testing.com"
@@ -878,7 +877,8 @@ class Tests(unittest.TestCase):
     def test_edns0_client_subnet(self):
         name = "ecs-geo.zdns-testing.com"
         for subnet, ip_addr in self.EDNS0_MAPPINGS.items():
-            c = f"A --client-subnet {subnet}"
+            # Hardcoding a name server that supports ECS; Github's default recursive does not.
+            c = f"A --client-subnet {subnet} --name-servers=8.8.8.8:53"
             cmd, res = self.run_zdns(c, name)
             self.assertSuccess(res, cmd)
             correct = [{"type":"A", "class":"IN", "answer": ip_addr, "name":"ecs-geo.zdns-testing.com"}]
