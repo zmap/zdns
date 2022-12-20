@@ -27,16 +27,17 @@ import (
 var cfgFile string
 var GC zdns.GlobalConf
 
-//TODO: these options may need to be set as flags or in GC, to standardize.
+// TODO: these options may need to be set as flags or in GC, to standardize.
 var (
-	Servers_string   string
-	Localaddr_string string
-	Localif_string   string
-	Config_file      string
-	Timeout          int
-	IterationTimeout int
-	Class_string     string
-	NanoSeconds      bool
+	Servers_string      string
+	Localaddr_string    string
+	Localif_string      string
+	Config_file         string
+	Timeout             int
+	IterationTimeout    int
+	Class_string        string
+	NanoSeconds         bool
+	ClientSubnet_string string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -56,7 +57,7 @@ ZDNS also includes its own recursive resolution and a cache to further optimize 
 			&Timeout, &IterationTimeout,
 			&Class_string, &Servers_string,
 			&Config_file, &Localaddr_string,
-			&Localif_string, &NanoSeconds)
+			&Localif_string, &NanoSeconds, &ClientSubnet_string)
 	},
 }
 
@@ -113,6 +114,7 @@ func init() {
 	rootCmd.PersistentFlags().IntVar(&IterationTimeout, "iteration-timeout", 4, "timeout for resolving a single iteration in an iterative query")
 	rootCmd.PersistentFlags().StringVar(&Class_string, "class", "INET", "DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY. Default: INET.")
 	rootCmd.PersistentFlags().BoolVar(&NanoSeconds, "nanoseconds", false, "Use nanosecond resolution timestamps")
+	rootCmd.PersistentFlags().StringVar(&ClientSubnet_string, "client-subnet", "", "Client subnet in CIDR format for EDNS0.")
 
 	rootCmd.PersistentFlags().Bool("ipv4-lookup", false, "Perform an IPv4 Lookup in modules")
 	rootCmd.PersistentFlags().Bool("ipv6-lookup", false, "Perform an IPv6 Lookup in modules")

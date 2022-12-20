@@ -36,7 +36,7 @@ Specifically, alookup acts similar to nslookup and will follow CNAME records.`,
 			&Timeout, &IterationTimeout,
 			&Class_string, &Servers_string,
 			&Config_file, &Localaddr_string,
-			&Localif_string, &NanoSeconds)
+			&Localif_string, &NanoSeconds, &ClientSubnet_string)
 	},
 }
 

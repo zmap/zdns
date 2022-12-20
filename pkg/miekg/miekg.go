@@ -276,7 +276,7 @@ func (s *Lookup) Initialize(nameServer string, dnsType uint16, dnsClass uint16, 
 }
 
 func (s *Lookup) doLookup(q Question, nameServer string, recursive bool) (Result, zdns.Status, error) {
-	return DoLookupWorker(s.Factory.Client, s.Factory.TCPClient, s.Conn, q, nameServer, recursive)
+	return DoLookupWorker(s.Factory.Client, s.Factory.TCPClient, s.Conn, q, nameServer, recursive, s.Factory.Factory.GlobalConf.ClientSubnet)
 }
 
 // CheckTxtRecords common function for all modules based on search in TXT record
@@ -306,7 +306,7 @@ func (s *Lookup) FindTxtRecord(res Result) (string, error) {
 }
 
 // Expose the inner logic so other tools can use it
-func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question, nameServer string, recursive bool) (Result, zdns.Status, error) {
+func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question, nameServer string, recursive bool, edns0subnet *dns.EDNS0_SUBNET) (Result, zdns.Status, error) {
 	res := Result{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 	res.Resolver = nameServer
 
@@ -314,6 +314,11 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question
 	m.SetQuestion(dotName(q.Name), q.Type)
 	m.Question[0].Qclass = q.Class
 	m.RecursionDesired = recursive
+	if edns0subnet != nil {
+		m.SetEdns0(4096, false)
+		opt := m.Extra[0].(*dns.OPT)
+		opt.Option = append(opt.Option, edns0subnet)
+	}
 
 	var r *dns.Msg
 	var err error
@@ -328,7 +333,7 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question
 		// if record comes back truncated, but we have a TCP connection, try again with that
 		if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
 			if tcp != nil {
-				return DoLookupWorker(nil, tcp, conn, q, nameServer, recursive)
+				return DoLookupWorker(nil, tcp, conn, q, nameServer, recursive, edns0subnet)
 			} else {
 				return res, zdns.STATUS_TRUNCATED, err
 			}

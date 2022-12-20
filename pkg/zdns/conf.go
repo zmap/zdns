@@ -17,6 +17,8 @@ package zdns
 import (
 	"net"
 	"time"
+
+	"github.com/zmap/dns"
 )
 
 type GlobalConf struct {
@@ -47,6 +49,7 @@ type GlobalConf struct {
 	RecycleSockets       bool
 	LocalAddrSpecified   bool
 	LocalAddrs           []net.IP
+	ClientSubnet         *dns.EDNS0_SUBNET
 
 	InputHandler  InputHandler
 	OutputHandler OutputHandler

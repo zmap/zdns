@@ -34,7 +34,7 @@ correspond with an exchange record.`,
 			&Timeout, &IterationTimeout,
 			&Class_string, &Servers_string,
 			&Config_file, &Localaddr_string,
-			&Localif_string, &NanoSeconds)
+			&Localif_string, &NanoSeconds, &ClientSubnet_string)
 	},
 }
 
