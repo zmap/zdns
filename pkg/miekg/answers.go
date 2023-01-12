@@ -391,7 +391,11 @@ func sprintTxtOctet(s string) string {
 func makeBitString(bm []uint16) string {
 	retv := ""
 	for _, v := range bm {
-		retv += dns.Type(v).String()
+		if retv == "" {
+			retv += dns.Type(v).String()
+		} else {
+			retv += " " + dns.Type(v).String()
+		}
 	}
 	return retv
 }
