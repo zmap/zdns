@@ -134,6 +134,8 @@ type NSEC3Answer struct {
 	Flags         uint8  `json:"flags" groups:"short,normal,long,trace"`
 	Iterations    uint16 `json:"iterations" groups:"short,normal,long,trace"`
 	Salt          string `json:"salt" groups:"short,normal,long,trace"`
+	NextDomain    string `json:"next_domain" groups:"short,normal,long,trace"`
+	TypeBitMap    string `json:"type_bit_map" groups:"short,normal,long,trace"`
 }
 
 type NSEC3ParamAnswer struct {
@@ -389,7 +391,11 @@ func sprintTxtOctet(s string) string {
 func makeBitString(bm []uint16) string {
 	retv := ""
 	for _, v := range bm {
-		retv += strconv.Itoa(int(v))
+		if retv == "" {
+			retv += dns.Type(v).String()
+		} else {
+			retv += " " + dns.Type(v).String()
+		}
 	}
 	return retv
 }
@@ -645,6 +651,8 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Flags:         cAns.Flags,
 			Iterations:    cAns.Iterations,
 			Salt:          cAns.Salt,
+			NextDomain:    cAns.NextDomain,
+			TypeBitMap:    makeBitString(cAns.TypeBitMap),
 		}
 	case *dns.NSEC3PARAM:
 		return NSEC3Answer{

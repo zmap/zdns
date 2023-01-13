@@ -1689,6 +1689,73 @@ func TestParseAnswer(t *testing.T) {
 	}
 	res = ParseAnswer(rr)
 	verifyAnswer(t, res, rr, "example.com\t3600\tIN\tSPF\t\"v=spf1 mx include:_spf.google.com -all\"")
+
+	// NSEC record
+	rr = &dns.NSEC{
+		Hdr: dns.RR_Header{
+			Name:     "example.com",
+			Rrtype:   dns.TypeNSEC,
+			Class:    dns.ClassINET,
+			Ttl:      3600,
+			Rdlength: 0,
+		},
+		NextDomain: "www.example.com.",
+		TypeBitMap: []uint16{dns.TypeRRSIG, dns.TypeNSEC, dns.TypeDNSKEY},
+	}
+	res = ParseAnswer(rr)
+	nsecAnswer, ok := res.(NSECAnswer)
+	if !ok {
+		t.Error("Failed to parse NSEC record")
+		return
+	}
+	verifyAnswer(t, nsecAnswer.Answer, rr, "")
+	if nsecAnswer.NextDomain != "www.example.com" {
+		t.Errorf("Unexpected NSEC NextDomain. Expected %v, got %v", "www.example.com", nsecAnswer.NextDomain)
+	}
+	if nsecAnswer.TypeBitMap != "RRSIG NSEC DNSKEY" {
+		t.Errorf("Unexpected NSEC TypeBitMap. Expected %v, got %v", "RRSIG NSEC DNSKEY", nsecAnswer.TypeBitMap)
+	}
+
+	// NSEC3 record
+	rr = &dns.NSEC3{
+		Hdr: dns.RR_Header{
+			Name:     "onib9mgub9h0rml3cdf5bgrj59dkjhvk.example.com", // example.com
+			Rrtype:   dns.TypeNSEC3,
+			Class:    dns.ClassINET,
+			Ttl:      3600,
+			Rdlength: 0,
+		},
+		Hash: 1,
+		Flags: 0,
+		Iterations: 0,
+		Salt: "",
+		NextDomain: "MIFDNDT3NFF3OD53O7TLA1HRFF95JKUK", // www.example.com
+		TypeBitMap: []uint16{dns.TypeA, dns.TypeRRSIG},
+	}
+	res = ParseAnswer(rr)
+	nsec3Answer, ok := res.(NSEC3Answer)
+	if !ok {
+		t.Error("Failed to parse NSEC3 record")
+	}
+	verifyAnswer(t, nsec3Answer.Answer, rr, "")
+	if nsec3Answer.HashAlgorithm != 1 {
+		t.Errorf("Unexpected NSEC3 HashAlgorithm. Expected %v, got %v", 1, nsec3Answer.HashAlgorithm)
+	}
+	if nsec3Answer.Flags != 0 {
+		t.Errorf("Unexpected NSEC3 Flags. Expected %v, got %v", 0, nsec3Answer.Flags)
+	}
+	if nsec3Answer.Iterations != 0 {
+		t.Errorf("Unexpected NSEC3 Iterations. Expected %v, got %v", 0, nsec3Answer.Iterations)
+	}
+	if nsec3Answer.Salt != "" {
+		t.Errorf("Unexpected NSEC3 Salt. Expected %v, got %v", "", nsec3Answer.Salt)
+	}
+	if nsec3Answer.NextDomain != "MIFDNDT3NFF3OD53O7TLA1HRFF95JKUK" {
+		t.Errorf("Unexpected NSEC3 NextDomain. Expected %v, got %v", "MIFDNDT3NFF3OD53O7TLA1HRFF95JKUK", nsec3Answer.NextDomain)
+	}
+	if nsec3Answer.TypeBitMap != "A RRSIG" {
+		t.Errorf("Unexpected NSEC3 TypeBitMap. Expected %v, got %v", "A RRSIG", nsec3Answer.TypeBitMap)
+	}
 }
 
 func verifyAnswer(t *testing.T, answer interface{}, original dns.RR, expectedAnswer interface{}) {
