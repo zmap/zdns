@@ -796,6 +796,10 @@ func ParseAnswer(ans dns.RR) interface{} {
 		return makeSVCBAnswer(&cAns.SVCB)
 	case *dns.SVCB:
 		return makeSVCBAnswer(cAns)
+	case *dns.OPT:
+		// ignore OPT pseudo-RR in response for now
+		// TODO parse if needed
+		return nil
 	default:
 		return struct {
 			Type     string `json:"type"`
