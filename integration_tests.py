@@ -440,7 +440,7 @@ class Tests(unittest.TestCase):
       }
     ]
 
-    EDNS0_MAPPINGS = {
+    ECS_MAPPINGS = {
         "171.67.68.0/24": "2.3.4.5",
         "131.159.92.0/24": "3.4.5.6",
         "129.127.149.0/24": "1.2.3.4"
@@ -876,7 +876,7 @@ class Tests(unittest.TestCase):
 
     def test_edns0_client_subnet(self):
         name = "ecs-geo.zdns-testing.com"
-        for subnet, ip_addr in self.EDNS0_MAPPINGS.items():
+        for subnet, ip_addr in self.ECS_MAPPINGS.items():
             # Hardcoding a name server that supports ECS; Github's default recursive does not.
             c = f"A --client-subnet {subnet} --name-servers=8.8.8.8:53"
             cmd, res = self.run_zdns(c, name)
