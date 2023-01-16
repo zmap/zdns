@@ -501,6 +501,12 @@ class Tests(unittest.TestCase):
             del server["ttl"]
         self.assertEqual(recursiveSort(res["data"]["servers"]), recursiveSort(correct["data"]["servers"]))
 
+    def assertEqualTypes(self, res, list):
+        res_types = set()
+        for rr in res["data"]["answers"]:
+            res_types.add(rr["type"])
+        self.assertEqual(sorted(res_types), sorted(list))
+
     def check_json_in_list(self, json_obj, list):
         for obj in list:
             if json_obj == obj:
@@ -883,6 +889,14 @@ class Tests(unittest.TestCase):
             self.assertSuccess(res, cmd)
             correct = [{"type":"A", "class":"IN", "answer": ip_addr, "name":"ecs-geo.zdns-testing.com"}]
             self.assertEqualAnswers(res, correct, cmd)
+
+    def test_dnssec_response(self):
+        # checks if dnssec records are returned
+        c = f"SOA --dnssec --name-servers=8.8.8.8:53"
+        name = "."
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualTypes(res, ["SOA", "RRSIG"])
  
 if __name__ == "__main__":
     unittest.main()
