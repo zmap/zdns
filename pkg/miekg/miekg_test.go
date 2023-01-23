@@ -1756,6 +1756,30 @@ func TestParseAnswer(t *testing.T) {
 	if nsec3Answer.TypeBitMap != "A RRSIG" {
 		t.Errorf("Unexpected NSEC3 TypeBitMap. Expected %v, got %v", "A RRSIG", nsec3Answer.TypeBitMap)
 	}
+
+	// OPT record
+	rr = &dns.OPT{
+		Hdr: dns.RR_Header{
+			Name:     ".",
+			Rrtype:   dns.TypeOPT,
+			Class:    1232,
+		},
+	}
+	res = ParseAnswer(rr)
+	ednsAnswer, ok := res.(EDNSAnswer)
+	if !ok {
+		t.Error("Failed to parse OPT record")
+		return
+	}
+	if ednsAnswer.Version != 0 {
+		t.Errorf("Unexpected EDNS Version. Expected %v, got %v", 0, ednsAnswer.Version)
+	}
+	if ednsAnswer.UDPSize != 1232 {
+		t.Errorf("Unexpected EDNS UDP Size. Expected %v, got %v", 0, ednsAnswer.UDPSize)
+	}
+	if ednsAnswer.Flags != "" {
+		t.Errorf("Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
+	}
 }
 
 func verifyAnswer(t *testing.T, answer interface{}, original dns.RR, expectedAnswer interface{}) {
