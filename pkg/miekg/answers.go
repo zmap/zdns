@@ -76,7 +76,7 @@ type EDNSAnswer struct {
 	Type    string `json:"type" groups:"short,normal,long,trace"`
 	Version uint8  `json:"version" groups:"short,normal,long,trace"`
 	Flags   string `json:"flags" groups:"short,normal,long,trace"`
-	UDPSize uint16 `json:"udp_size" groups:"short,normal,long,trace"`
+	UDPSize uint16 `json:"udpsize" groups:"short,normal,long,trace"`
 }
 
 type GPOSAnswer struct {
