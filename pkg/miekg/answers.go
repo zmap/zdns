@@ -71,6 +71,14 @@ type DSAnswer struct {
 	DigestType uint8  `json:"digest_type" groups:"short,normal,long,trace"`
 	Digest     string `json:"digest" groups:"short,normal,long,trace"`
 }
+
+type EDNSAnswer struct {
+	Type    string `json:"type" groups:"short,normal,long,trace"`
+	Version uint8  `json:"version" groups:"short,normal,long,trace"`
+	Flags   string `json:"flags" groups:"short,normal,long,trace"`
+	UDPSize uint16 `json:"udpsize" groups:"short,normal,long,trace"`
+}
+
 type GPOSAnswer struct {
 	Answer
 	Longitude string `json:"preference" groups:"short,normal,long,trace"`
@@ -452,6 +460,23 @@ func makeSVCBAnswer(cAns *dns.SVCB) SVCBAnswer {
 	}
 }
 
+func makeEDNSAnswer(cAns *dns.OPT) EDNSAnswer {
+	opttype := "EDNS"
+	flags := ""
+	if cAns.Do() {
+		flags = "do"
+	}
+	return EDNSAnswer{
+		Type:       opttype + strconv.Itoa(int(cAns.Version())),
+		Version:    cAns.Version(),
+		// RCODE omitted for now as no EDNS0 extension is supported in
+		// lookups for which an RCODE is defined.
+		//Rcode:      dns.RcodeToString[cAns.ExtendedRcode()],
+		Flags:      flags,
+		UDPSize:    cAns.UDPSize(),
+	}
+}
+
 func ParseAnswer(ans dns.RR) interface{} {
 	switch cAns := ans.(type) {
 	// Prioritize common types in expected order
@@ -796,6 +821,8 @@ func ParseAnswer(ans dns.RR) interface{} {
 		return makeSVCBAnswer(&cAns.SVCB)
 	case *dns.SVCB:
 		return makeSVCBAnswer(cAns)
+	case *dns.OPT:
+		return makeEDNSAnswer(cAns)
 	default:
 		return struct {
 			Type     string `json:"type"`
