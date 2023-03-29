@@ -449,6 +449,9 @@ class Tests(unittest.TestCase):
     def assertSuccess(self, res, cmd):
         self.assertEqual(res["status"], "NOERROR", cmd)
 
+    def assertServFail(self, res, cmd):
+        self.assertEqual(res["status"], "SERVFAIL", cmd)
+
     def assertEqualAnswers(self, res, correct, cmd, key="answer"):
         self.assertIn("answers", res["data"])
         for answer in res["data"]["answers"]:
@@ -897,6 +900,18 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualTypes(res, ["SOA", "RRSIG"])
+
+    def test_cd_bit_not_set(self):
+        c = "A --name-servers=8.8.8.8:53"
+        name = "dnssec-failed.org"
+        cmd, res = self.run_zdns(c, name)
+        self.assertServFail(res, cmd)
+
+    def test_cd_bit_set(self):
+        c = "A --name-servers=8.8.8.8:53 --checking-disabled"
+        name = "dnssec-failed.org"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
  
 if __name__ == "__main__":
     unittest.main()
