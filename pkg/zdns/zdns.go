@@ -203,6 +203,10 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 			log.Fatal("Unable to find default IP address: ", err)
 		} else {
 			gc.LocalAddrs = append(gc.LocalAddrs, conn.LocalAddr().(*net.UDPAddr).IP)
+			err := conn.Close()
+			if err != nil {
+				log.Warn("Unable to close test connection to Google Public DNS: ", err)
+			}
 		}
 	}
 	if *nanoSeconds {
