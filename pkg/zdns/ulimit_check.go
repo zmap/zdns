@@ -22,18 +22,18 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func ulimit_check(max_open_files uint64) {
+func ulimitCheck(maxOpenFiles uint64) {
 	var rLimit syscall.Rlimit
 	err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
 	if err != nil {
 		log.Fatal("Failed to fetch ulimit ", err)
 	}
 
-	if max_open_files > rLimit.Cur {
-		log.Warn("Current nofile limit (", rLimit.Cur, ") lower than maximum connection count (", max_open_files, "), try to update.")
+	if maxOpenFiles > rLimit.Cur {
+		log.Warn("Current nofile limit (", rLimit.Cur, ") lower than maximum connection count (", maxOpenFiles, "), trying to update.")
 
-		rLimit.Max = max_open_files
-		rLimit.Cur = max_open_files
+		rLimit.Max = maxOpenFiles
+		rLimit.Cur = maxOpenFiles
 		err = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
 		if err != nil {
 			log.Fatal("Error setting nofile limit to ", rLimit.Cur, ": ", err)

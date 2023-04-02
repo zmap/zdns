@@ -203,6 +203,10 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 			log.Fatal("Unable to find default IP address: ", err)
 		} else {
 			gc.LocalAddrs = append(gc.LocalAddrs, conn.LocalAddr().(*net.UDPAddr).IP)
+			err := conn.Close()
+			if err != nil {
+				log.Warn("Unable to close test connection to Google Public DNS: ", err)
+			}
 		}
 	}
 	if *nanoSeconds {
@@ -216,10 +220,12 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 
 	if gc.GoMaxProcs != 0 {
 		runtime.GOMAXPROCS(gc.GoMaxProcs)
-		ulimit_check(uint64(gc.GoMaxProcs * gc.Threads))
-	} else {
-		ulimit_check(uint64(runtime.NumCPU() * gc.Threads))
 	}
+
+	// the margin for limit of open files covers different build platforms (linux/darwin), metadata files, or
+	// input and output files etc.
+	// check ulimit if value is high enough and if not, try to fix it
+	ulimitCheck(uint64(gc.Threads + 100))
 
 	if gc.UDPOnly && gc.TCPOnly {
 		log.Fatal("TCP Only and UDP Only are conflicting")

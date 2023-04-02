@@ -16,6 +16,6 @@
  */
 package zdns
 
-func ulimit_check(max_open_files uint64) {
+func ulimitCheck(maxOpenFiles uint64) {
 	// fallback for ulimit check on unsupported platform
 }
