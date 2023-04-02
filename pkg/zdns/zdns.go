@@ -223,7 +223,7 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 	}
 
 	// check ulimit value is high enough and if not, try to fix it
-	ulimit_check(uint64(gc.Threads))
+	ulimitCheck(uint64(gc.Threads))
 
 	if gc.UDPOnly && gc.TCPOnly {
 		log.Fatal("TCP Only and UDP Only are conflicting")
