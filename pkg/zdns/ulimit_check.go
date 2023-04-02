@@ -30,7 +30,7 @@ func ulimit_check(max_open_files uint64) {
 	}
 
 	if max_open_files > rLimit.Cur {
-		log.Warn("Current nofile limit (", rLimit.Cur, ") lower than maximum connection count (", max_open_files, "), try to update.")
+		log.Warn("Current nofile limit (", rLimit.Cur, ") lower than maximum connection count (", max_open_files, "), trying to update.")
 
 		rLimit.Max = max_open_files
 		rLimit.Cur = max_open_files
