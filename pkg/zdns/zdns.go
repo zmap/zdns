@@ -222,8 +222,10 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 		runtime.GOMAXPROCS(gc.GoMaxProcs)
 	}
 
-	// check ulimit value is high enough and if not, try to fix it
-	ulimitCheck(uint64(gc.Threads))
+	// the margin for limit of open files covers different build platforms (linux/darwin), metadata files, or
+	// input and output files etc.
+	// check ulimit if value is high enough and if not, try to fix it
+	ulimitCheck(uint64(gc.Threads + 100))
 
 	if gc.UDPOnly && gc.TCPOnly {
 		log.Fatal("TCP Only and UDP Only are conflicting")
