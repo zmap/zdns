@@ -15,6 +15,7 @@
 package zdns
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"os"
 	"strconv"
@@ -68,7 +69,11 @@ func parseMetadataInputLine(line string) (string, string) {
 }
 
 func parseNormalInputLine(line string) (string, string) {
-	s := strings.SplitN(line, ",", 2)
+	r := csv.NewReader(strings.NewReader(line))
+	s, err := r.Read()
+	if err != nil || len(s) == 0 {
+		return line, ""
+	}
 	if len(s) == 1 {
 		return s[0], ""
 	} else {
