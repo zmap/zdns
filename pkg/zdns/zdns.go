@@ -35,7 +35,8 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 	timeout *int, iterationTimeout *int,
 	class_string *string, servers_string *string,
 	config_file *string, localaddr_string *string,
-	localif_string *string, nanoSeconds *bool, clientsubnet_string *string) {
+	localif_string *string, nanoSeconds *bool,
+	clientsubnet_string *string, nsid *bool) {
 
 	factory := GetLookup(gc.Module)
 
@@ -136,6 +137,10 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 		}
 		gc.NameServers = ns
 		gc.NameServersSpecified = true
+	}
+
+	if *nsid {
+		gc.NSID = new(dns.EDNS0_NSID)
 	}
 
 	if *clientsubnet_string != "" {

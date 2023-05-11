@@ -50,6 +50,7 @@ type GlobalConf struct {
 	LocalAddrSpecified   bool
 	LocalAddrs           []net.IP
 	ClientSubnet         *dns.EDNS0_SUBNET
+	NSID                 *dns.EDNS0_NSID
 	Dnssec               bool
 	CheckingDisabled     bool
 

@@ -193,6 +193,7 @@ type RoutineLookupFactory struct {
 	ThreadID             int
 	PrefixRegexp         *regexp.Regexp
 	Dnssec               bool
+	EdnsOptions          []dns.EDNS0
 }
 
 func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
@@ -246,6 +247,13 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 
 	s.DNSClass = c.Class
 	s.Dnssec = c.Dnssec
+
+	if c.ClientSubnet != nil {
+		s.EdnsOptions = append(s.EdnsOptions, c.ClientSubnet)
+	}
+	if c.NSID != nil {
+		s.EdnsOptions = append(s.EdnsOptions, c.NSID)
+	}
 }
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
@@ -263,6 +271,7 @@ type Lookup struct {
 	DNSClass      uint16
 	NameServer    string
 	IterativeStop time.Time
+	EdnsOptions   []dns.EDNS0
 
 	Conn *dns.Conn
 }
@@ -278,7 +287,7 @@ func (s *Lookup) Initialize(nameServer string, dnsType uint16, dnsClass uint16, 
 }
 
 func (s *Lookup) doLookup(q Question, nameServer string, recursive bool) (Result, zdns.Status, error) {
-	return DoLookupWorker(s.Factory.Client, s.Factory.TCPClient, s.Conn, q, nameServer, recursive, s.Factory.Factory.GlobalConf.ClientSubnet, s.Factory.Dnssec, s.Factory.Factory.GlobalConf.CheckingDisabled)
+	return DoLookupWorker(s.Factory.Client, s.Factory.TCPClient, s.Conn, q, nameServer, recursive, s.Factory.EdnsOptions, s.Factory.Dnssec, s.Factory.Factory.GlobalConf.CheckingDisabled)
 }
 
 // CheckTxtRecords common function for all modules based on search in TXT record
@@ -308,7 +317,7 @@ func (s *Lookup) FindTxtRecord(res Result) (string, error) {
 }
 
 // Expose the inner logic so other tools can use it
-func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question, nameServer string, recursive bool, edns0subnet *dns.EDNS0_SUBNET, dnssec bool, checkingDisabled bool) (Result, zdns.Status, error) {
+func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question, nameServer string, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (Result, zdns.Status, error) {
 	res := Result{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 	res.Resolver = nameServer
 
@@ -319,9 +328,9 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question
 	m.CheckingDisabled = checkingDisabled
 
 	m.SetEdns0(1232, dnssec)
-	if edns0subnet != nil {
-		opt := m.Extra[0].(*dns.OPT)
-		opt.Option = append(opt.Option, edns0subnet)
+	ednsOpt := m.IsEdns0()
+	if ednsOpt != nil {
+		ednsOpt.Option = append(ednsOpt.Option, ednsOptions...)
 	}
 
 	var r *dns.Msg
@@ -337,7 +346,7 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question
 		// if record comes back truncated, but we have a TCP connection, try again with that
 		if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
 			if tcp != nil {
-				return DoLookupWorker(nil, tcp, conn, q, nameServer, recursive, edns0subnet, dnssec, checkingDisabled)
+				return DoLookupWorker(nil, tcp, conn, q, nameServer, recursive, ednsOptions, dnssec, checkingDisabled)
 			} else {
 				return res, zdns.STATUS_TRUNCATED, err
 			}
@@ -358,6 +367,12 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question
 	}
 
 	if r.Rcode != dns.RcodeSuccess {
+		for _, ans := range r.Extra {
+			inner := ParseAnswer(ans)
+			if inner != nil {
+				res.Additional = append(res.Additional, inner)
+			}
+		}
 		return res, TranslateMiekgErrorCode(r.Rcode), nil
 	}
 
