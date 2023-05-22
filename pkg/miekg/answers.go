@@ -71,6 +71,14 @@ type DSAnswer struct {
 	DigestType uint8  `json:"digest_type" groups:"short,normal,long,trace"`
 	Digest     string `json:"digest" groups:"short,normal,long,trace"`
 }
+
+type EDNSAnswer struct {
+	Type    string `json:"type" groups:"short,normal,long,trace"`
+	Version uint8  `json:"version" groups:"short,normal,long,trace"`
+	Flags   string `json:"flags" groups:"short,normal,long,trace"`
+	UDPSize uint16 `json:"udpsize" groups:"short,normal,long,trace"`
+}
+
 type GPOSAnswer struct {
 	Answer
 	Longitude string `json:"preference" groups:"short,normal,long,trace"`
@@ -134,6 +142,8 @@ type NSEC3Answer struct {
 	Flags         uint8  `json:"flags" groups:"short,normal,long,trace"`
 	Iterations    uint16 `json:"iterations" groups:"short,normal,long,trace"`
 	Salt          string `json:"salt" groups:"short,normal,long,trace"`
+	NextDomain    string `json:"next_domain" groups:"short,normal,long,trace"`
+	TypeBitMap    string `json:"type_bit_map" groups:"short,normal,long,trace"`
 }
 
 type NSEC3ParamAnswer struct {
@@ -389,7 +399,11 @@ func sprintTxtOctet(s string) string {
 func makeBitString(bm []uint16) string {
 	retv := ""
 	for _, v := range bm {
-		retv += strconv.Itoa(int(v))
+		if retv == "" {
+			retv += dns.Type(v).String()
+		} else {
+			retv += " " + dns.Type(v).String()
+		}
 	}
 	return retv
 }
@@ -443,6 +457,23 @@ func makeSVCBAnswer(cAns *dns.SVCB) SVCBAnswer {
 		Priority:  cAns.Priority,
 		Target:    cAns.Target,
 		SVCParams: params,
+	}
+}
+
+func makeEDNSAnswer(cAns *dns.OPT) EDNSAnswer {
+	opttype := "EDNS"
+	flags := ""
+	if cAns.Do() {
+		flags = "do"
+	}
+	return EDNSAnswer{
+		Type:       opttype + strconv.Itoa(int(cAns.Version())),
+		Version:    cAns.Version(),
+		// RCODE omitted for now as no EDNS0 extension is supported in
+		// lookups for which an RCODE is defined.
+		//Rcode:      dns.RcodeToString[cAns.ExtendedRcode()],
+		Flags:      flags,
+		UDPSize:    cAns.UDPSize(),
 	}
 }
 
@@ -645,6 +676,8 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Flags:         cAns.Flags,
 			Iterations:    cAns.Iterations,
 			Salt:          cAns.Salt,
+			NextDomain:    cAns.NextDomain,
+			TypeBitMap:    makeBitString(cAns.TypeBitMap),
 		}
 	case *dns.NSEC3PARAM:
 		return NSEC3Answer{
@@ -788,6 +821,8 @@ func ParseAnswer(ans dns.RR) interface{} {
 		return makeSVCBAnswer(&cAns.SVCB)
 	case *dns.SVCB:
 		return makeSVCBAnswer(cAns)
+	case *dns.OPT:
+		return makeEDNSAnswer(cAns)
 	default:
 		return struct {
 			Type     string `json:"type"`

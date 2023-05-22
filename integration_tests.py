@@ -282,7 +282,7 @@ class Tests(unittest.TestCase):
         }
       }
     }
-
+    
     TCP_LARGE_TXT_ANSWERS = [
       {
         "type": "TXT",
@@ -325,7 +325,49 @@ class Tests(unittest.TestCase):
         "class": "IN",
         "name": "large-text.zdns-testing.com",
         "answer": "We present the scanner architecture, experimentally characterize its performance and accuracy, "
-      }
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo."
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt."
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur."
+      },
+      {
+        "type": "TXT",
+        "class": "IN",
+        "name": "large-text.zdns-testing.com",
+        "answer": "Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem."
+      },
     ]
 
     WWW_CNAME_ANSWERS = [
@@ -398,8 +440,17 @@ class Tests(unittest.TestCase):
       }
     ]
 
+    ECS_MAPPINGS = {
+        "171.67.68.0/24": "2.3.4.5",
+        "131.159.92.0/24": "3.4.5.6",
+        "129.127.149.0/24": "1.2.3.4"
+    }
+
     def assertSuccess(self, res, cmd):
         self.assertEqual(res["status"], "NOERROR", cmd)
+
+    def assertServFail(self, res, cmd):
+        self.assertEqual(res["status"], "SERVFAIL", cmd)
 
     def assertEqualAnswers(self, res, correct, cmd, key="answer"):
         self.assertIn("answers", res["data"])
@@ -417,7 +468,9 @@ class Tests(unittest.TestCase):
                         obj[k] = v.lower()
                     else:
                         _lowercase(v)
-        self.assertEqual(_lowercase(a), _lowercase(b), helptext)
+        _lowercase(a)
+        _lowercase(b)
+        self.assertEqual(a, b, helptext)
 
     def assertEqualNXDOMAIN(self, res, correct):
         self.assertEqual(res["name"], correct["name"])
@@ -450,6 +503,12 @@ class Tests(unittest.TestCase):
         for server in res["data"]["servers"]:
             del server["ttl"]
         self.assertEqual(recursiveSort(res["data"]["servers"]), recursiveSort(correct["data"]["servers"]))
+
+    def assertEqualTypes(self, res, list):
+        res_types = set()
+        for rr in res["data"]["answers"]:
+            res_types.add(rr["type"])
+        self.assertEqual(sorted(res_types), sorted(list))
 
     def check_json_in_list(self, json_obj, list):
         for obj in list:
@@ -819,12 +878,40 @@ class Tests(unittest.TestCase):
         self.assertEqual(res["data"]["resolver"], "8.8.8.8:53")
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
 
-
     def test_local_addr_interface_warning(self):
         c = "A --local-addr 192.168.1.5 --local-interface en0"
         name = "zdns-testing.com"
         self.run_zdns_check_failure(c, name, "Both --local-addr and --local-interface specified.")
 
+    def test_edns0_client_subnet(self):
+        name = "ecs-geo.zdns-testing.com"
+        for subnet, ip_addr in self.ECS_MAPPINGS.items():
+            # Hardcoding a name server that supports ECS; Github's default recursive does not.
+            c = f"A --client-subnet {subnet} --name-servers=8.8.8.8:53"
+            cmd, res = self.run_zdns(c, name)
+            self.assertSuccess(res, cmd)
+            correct = [{"type":"A", "class":"IN", "answer": ip_addr, "name":"ecs-geo.zdns-testing.com"}]
+            self.assertEqualAnswers(res, correct, cmd)
 
+    def test_dnssec_response(self):
+        # checks if dnssec records are returned
+        c = f"SOA --dnssec --name-servers=8.8.8.8:53"
+        name = "."
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualTypes(res, ["SOA", "RRSIG"])
+
+    def test_cd_bit_not_set(self):
+        c = "A --name-servers=8.8.8.8:53"
+        name = "dnssec-failed.org"
+        cmd, res = self.run_zdns(c, name)
+        self.assertServFail(res, cmd)
+
+    def test_cd_bit_set(self):
+        c = "A --name-servers=8.8.8.8:53 --checking-disabled"
+        name = "dnssec-failed.org"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+ 
 if __name__ == "__main__":
     unittest.main()

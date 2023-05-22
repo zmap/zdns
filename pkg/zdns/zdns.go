@@ -20,6 +20,7 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,7 +35,7 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 	timeout *int, iterationTimeout *int,
 	class_string *string, servers_string *string,
 	config_file *string, localaddr_string *string,
-	localif_string *string, nanoSeconds *bool) {
+	localif_string *string, nanoSeconds *bool, clientsubnet_string *string) {
 
 	factory := GetLookup(gc.Module)
 
@@ -137,6 +138,33 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 		gc.NameServersSpecified = true
 	}
 
+	if *clientsubnet_string != "" {
+		parts := strings.Split(*clientsubnet_string, "/")
+		if len(parts) != 2 {
+			log.Fatalf("Client subnet should be in CIDR format: %s", *clientsubnet_string)
+		}
+		ip := net.ParseIP(parts[0])
+		if ip == nil {
+			log.Fatalf("Client subnet invalid: %s", *clientsubnet_string)
+		}
+		netmask, err := strconv.Atoi(parts[1])
+		if err != nil {
+			log.Fatalf("Client subnet netmask invalid: %s", *clientsubnet_string)
+		}
+		if netmask > 24 || netmask < 8 {
+			log.Fatalf("Client subnet netmask must be in 8..24: %s", *clientsubnet_string)
+		}
+		gc.ClientSubnet = new(dns.EDNS0_SUBNET)
+		gc.ClientSubnet.Code = dns.EDNS0SUBNET
+		if ip.To4() == nil {
+			gc.ClientSubnet.Family = 2
+		} else {
+			gc.ClientSubnet.Family = 1
+		}
+		gc.ClientSubnet.SourceNetmask = uint8(netmask)
+		gc.ClientSubnet.Address = ip
+	}
+
 	if *localaddr_string != "" {
 		for _, la := range strings.Split(*localaddr_string, ",") {
 			ip := net.ParseIP(la)
@@ -175,6 +203,10 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 			log.Fatal("Unable to find default IP address: ", err)
 		} else {
 			gc.LocalAddrs = append(gc.LocalAddrs, conn.LocalAddr().(*net.UDPAddr).IP)
+			err := conn.Close()
+			if err != nil {
+				log.Warn("Unable to close test connection to Google Public DNS: ", err)
+			}
 		}
 	}
 	if *nanoSeconds {
@@ -185,9 +217,16 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 	if gc.GoMaxProcs < 0 {
 		log.Fatal("Invalid argument for --go-processes. Must be >1.")
 	}
+
 	if gc.GoMaxProcs != 0 {
 		runtime.GOMAXPROCS(gc.GoMaxProcs)
 	}
+
+	// the margin for limit of open files covers different build platforms (linux/darwin), metadata files, or
+	// input and output files etc.
+	// check ulimit if value is high enough and if not, try to fix it
+	ulimitCheck(uint64(gc.Threads + 100))
+
 	if gc.UDPOnly && gc.TCPOnly {
 		log.Fatal("TCP Only and UDP Only are conflicting")
 	}

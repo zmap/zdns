@@ -192,6 +192,7 @@ type RoutineLookupFactory struct {
 	Conn                 *dns.Conn
 	ThreadID             int
 	PrefixRegexp         *regexp.Regexp
+	Dnssec               bool
 }
 
 func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
@@ -244,6 +245,7 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 	}
 
 	s.DNSClass = c.Class
+	s.Dnssec = c.Dnssec
 }
 
 func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
@@ -276,7 +278,7 @@ func (s *Lookup) Initialize(nameServer string, dnsType uint16, dnsClass uint16, 
 }
 
 func (s *Lookup) doLookup(q Question, nameServer string, recursive bool) (Result, zdns.Status, error) {
-	return DoLookupWorker(s.Factory.Client, s.Factory.TCPClient, s.Conn, q, nameServer, recursive)
+	return DoLookupWorker(s.Factory.Client, s.Factory.TCPClient, s.Conn, q, nameServer, recursive, s.Factory.Factory.GlobalConf.ClientSubnet, s.Factory.Dnssec, s.Factory.Factory.GlobalConf.CheckingDisabled)
 }
 
 // CheckTxtRecords common function for all modules based on search in TXT record
@@ -306,7 +308,7 @@ func (s *Lookup) FindTxtRecord(res Result) (string, error) {
 }
 
 // Expose the inner logic so other tools can use it
-func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question, nameServer string, recursive bool) (Result, zdns.Status, error) {
+func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question, nameServer string, recursive bool, edns0subnet *dns.EDNS0_SUBNET, dnssec bool, checkingDisabled bool) (Result, zdns.Status, error) {
 	res := Result{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 	res.Resolver = nameServer
 
@@ -314,6 +316,13 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question
 	m.SetQuestion(dotName(q.Name), q.Type)
 	m.Question[0].Qclass = q.Class
 	m.RecursionDesired = recursive
+	m.CheckingDisabled = checkingDisabled
+
+	m.SetEdns0(1232, dnssec)
+	if edns0subnet != nil {
+		opt := m.Extra[0].(*dns.OPT)
+		opt.Option = append(opt.Option, edns0subnet)
+	}
 
 	var r *dns.Msg
 	var err error
@@ -328,7 +337,7 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question
 		// if record comes back truncated, but we have a TCP connection, try again with that
 		if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
 			if tcp != nil {
-				return DoLookupWorker(nil, tcp, conn, q, nameServer, recursive)
+				return DoLookupWorker(nil, tcp, conn, q, nameServer, recursive, edns0subnet, dnssec, checkingDisabled)
 			} else {
 				return res, zdns.STATUS_TRUNCATED, err
 			}
@@ -348,9 +357,6 @@ func DoLookupWorker(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question
 		return res, zdns.STATUS_ERROR, err
 	}
 
-	if err != nil || r == nil {
-		return res, zdns.STATUS_ERROR, err
-	}
 	if r.Rcode != dns.RcodeSuccess {
 		return res, TranslateMiekgErrorCode(r.Rcode), nil
 	}
@@ -823,6 +829,7 @@ func (s *Lookup) DoTargetedLookup(l LookupClient, name, nameServer string, looku
 	if lookupIpv4 {
 		ipv4, ipv4Trace, ipv4status, _ = s.DoIpsLookup(l, name, nameServer, dns.TypeA, candidateSet, cnameSet, name, 0)
 		if len(ipv4) > 0 {
+			ipv4 = Unique(ipv4)
 			res.IPv4Addresses = make([]string, len(ipv4))
 			copy(res.IPv4Addresses, ipv4)
 		}
@@ -832,6 +839,7 @@ func (s *Lookup) DoTargetedLookup(l LookupClient, name, nameServer string, looku
 	if lookupIpv6 {
 		ipv6, ipv6Trace, ipv6status, _ = s.DoIpsLookup(l, name, nameServer, dns.TypeAAAA, candidateSet, cnameSet, name, 0)
 		if len(ipv6) > 0 {
+			ipv6 = Unique(ipv6)
 			res.IPv6Addresses = make([]string, len(ipv6))
 			copy(res.IPv6Addresses, ipv6)
 		}
