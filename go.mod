@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/hashicorp/go-version v1.6.0
 	github.com/liip/sheriff v0.11.1
-	github.com/sirupsen/logrus v1.9.0
+	github.com/sirupsen/logrus v1.9.2
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.15.0
