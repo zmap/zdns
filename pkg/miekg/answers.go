@@ -532,7 +532,7 @@ func makeEDNSAnswer(cAns *dns.OPT) EDNSAnswer {
 			optRes.Padding = &Edns0Padding{Padding: o.(*dns.EDNS0_PADDING).String()}
 		case *dns.EDNS0_EDE: //OPT 15
 			optRes.EDE = append(optRes.EDE, &Edns0Ede{
-				ErrorCode:     o.(*dns.EDNS0_EDE).InfoCode,
+				InfoCode:      o.(*dns.EDNS0_EDE).InfoCode,
 				ErrorCodeText: dns.ExtendedErrorCodeToString[o.(*dns.EDNS0_EDE).InfoCode],
 				ExtraText:     o.(*dns.EDNS0_EDE).ExtraText,
 			})

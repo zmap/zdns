@@ -89,7 +89,7 @@ type Edns0Padding struct {
 
 // Edns0Ede OPT15
 type Edns0Ede struct {
-	ErrorCode     uint16 `json:"info_code" groups:"short,normal,long,trace"`
+	InfoCode      uint16 `json:"info_code" groups:"short,normal,long,trace"`
 	ErrorCodeText string `json:"error_text" groups:"short,normal,long,trace"`
 	ExtraText     string `json:"extra_text" groups:"short,normal,long,trace"`
 }
