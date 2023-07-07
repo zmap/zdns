@@ -531,11 +531,11 @@ func makeEDNSAnswer(cAns *dns.OPT) EDNSAnswer {
 		case *dns.EDNS0_PADDING: //OPT 12
 			optRes.Padding = &Edns0Padding{Padding: o.(*dns.EDNS0_PADDING).String()}
 		case *dns.EDNS0_EDE: //OPT 15
-			optRes.EDE = &Edns0Ede{
+			optRes.EDE = append(optRes.EDE, &Edns0Ede{
 				ErrorCode:     o.(*dns.EDNS0_EDE).InfoCode,
 				ErrorCodeText: dns.ExtendedErrorCodeToString[o.(*dns.EDNS0_EDE).InfoCode],
 				ExtraText:     o.(*dns.EDNS0_EDE).ExtraText,
-			}
+			})
 		}
 	}
 	return optRes

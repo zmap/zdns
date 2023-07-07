@@ -110,5 +110,5 @@ type EDNSAnswer struct {
 	Cookie       *Edns0Cookie       `json:"cookie,omitempty" groups:"short,normal,long,trace"`        //not implemented
 	TcpKeepalive *Edns0TCPKeepalive `json:"tcp_keepalive,omitempty" groups:"short,normal,long,trace"` //not implemented
 	Padding      *Edns0Padding      `json:"padding,omitempty" groups:"short,normal,long,trace"`       //not implemented
-	EDE          *Edns0Ede          `json:"ede,omitempty" groups:"short,normal,long,trace"`
+	EDE          []*Edns0Ede        `json:"ede,omitempty" groups:"short,normal,long,trace"`
 }
