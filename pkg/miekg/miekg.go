@@ -815,6 +815,7 @@ func (s *Lookup) DoIpsLookup(lc LookupClient, name string, nameServer string, dn
 }
 
 func (s *Lookup) DoTargetedLookup(l LookupClient, name, nameServer string, lookupIpv4 bool, lookupIpv6 bool) (interface{}, []interface{}, zdns.Status, error) {
+	name = strings.ToLower(name)
 	res := IpResult{}
 	candidateSet := map[string][]Answer{}
 	cnameSet := map[string][]Answer{}
