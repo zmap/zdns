@@ -14,6 +14,7 @@
 package miekg
 
 import (
+	"encoding/hex"
 	"net"
 	"reflect"
 	"regexp"
@@ -1725,10 +1726,10 @@ func TestParseAnswer(t *testing.T) {
 			Ttl:      3600,
 			Rdlength: 0,
 		},
-		Hash: 1,
-		Flags: 0,
+		Hash:       1,
+		Flags:      0,
 		Iterations: 0,
-		Salt: "",
+		Salt:       "",
 		NextDomain: "MIFDNDT3NFF3OD53O7TLA1HRFF95JKUK", // www.example.com
 		TypeBitMap: []uint16{dns.TypeA, dns.TypeRRSIG},
 	}
@@ -1760,9 +1761,9 @@ func TestParseAnswer(t *testing.T) {
 	// OPT record
 	rr = &dns.OPT{
 		Hdr: dns.RR_Header{
-			Name:     ".",
-			Rrtype:   dns.TypeOPT,
-			Class:    1232,
+			Name:   ".",
+			Rrtype: dns.TypeOPT,
+			Class:  1232,
 		},
 	}
 	res = ParseAnswer(rr)
@@ -1780,6 +1781,110 @@ func TestParseAnswer(t *testing.T) {
 	if ednsAnswer.Flags != "" {
 		t.Errorf("Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
 	}
+}
+
+func TestParseEdnsAnswerNsid1(t *testing.T) {
+	rr := &dns.OPT{
+		Hdr:    dns.RR_Header{Name: ".", Rrtype: dns.TypeOPT, Class: 1232},
+		Option: []dns.EDNS0{&dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: hex.EncodeToString([]byte("test_nsid"))}},
+	}
+	res := ParseAnswer(rr)
+	ednsAnswer, ok := res.(EDNSAnswer)
+	assert.Equal(t, ok, true, "Failed to parse OPT record")
+	assert.Equal(t, ednsAnswer.Version, uint8(0), "Unexpected EDNS Version. Expected %v, got %v", 0, ednsAnswer.Version)
+	assert.Equal(t, ednsAnswer.UDPSize, uint16(1232), "Unexpected EDNS UDP Size. Expected %v, got %v", 0, ednsAnswer.UDPSize)
+	assert.Equal(t, ednsAnswer.Flags, "", "Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
+	assert.Equal(t, ednsAnswer.NSID.Nsid, "test_nsid", "Unexpected NSID string. Expected %v, got %v", "test_nsid", ednsAnswer.NSID.Nsid)
+}
+
+func TestParseEdnsAnswerNsid2(t *testing.T) {
+	rr := &dns.OPT{
+		Hdr:    dns.RR_Header{Name: ".", Rrtype: dns.TypeOPT, Class: 1232},
+		Option: []dns.EDNS0{&dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: "not_a_hex_string"}},
+	}
+	res := ParseAnswer(rr)
+	ednsAnswer, ok := res.(EDNSAnswer)
+	assert.Equal(t, ok, true, "Failed to parse OPT record")
+	assert.Equal(t, ednsAnswer.Version, uint8(0), "Unexpected EDNS Version. Expected %v, got %v", 0, ednsAnswer.Version)
+	assert.Equal(t, ednsAnswer.UDPSize, uint16(1232), "Unexpected EDNS UDP Size. Expected %v, got %v", 0, ednsAnswer.UDPSize)
+	assert.Equal(t, ednsAnswer.Flags, "", "Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
+	assert.Equal(t, ednsAnswer.NSID, (*Edns0NSID)(nil), "Unexpected NSID string. Expected %v, got %v", nil, ednsAnswer.NSID)
+}
+
+func TestParseEdnsAnswerNoEdns(t *testing.T) {
+	rr := &dns.OPT{
+		Hdr:    dns.RR_Header{Name: ".", Rrtype: dns.TypeOPT, Class: 1232},
+		Option: []dns.EDNS0{},
+	}
+	res := ParseAnswer(rr)
+	ednsAnswer, ok := res.(EDNSAnswer)
+	assert.Equal(t, ok, true, "Failed to parse OPT record")
+	assert.Equal(t, ednsAnswer.Version, uint8(0), "Unexpected EDNS Version. Expected %v, got %v", 0, ednsAnswer.Version)
+	assert.Equal(t, ednsAnswer.UDPSize, uint16(1232), "Unexpected EDNS UDP Size. Expected %v, got %v", 0, ednsAnswer.UDPSize)
+	assert.Equal(t, ednsAnswer.Flags, "", "Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
+	assert.Equal(t, ednsAnswer.NSID, (*Edns0NSID)(nil), "Unexpected NSID string. Expected %v, got %v", nil, ednsAnswer.NSID)
+	assert.Equal(t, len(ednsAnswer.EDE), 0, "Expected no EDE error code, got %v", len(ednsAnswer.EDE))
+
+}
+
+func TestParseEdnsAnswerEDE1(t *testing.T) {
+	rr := &dns.OPT{
+		Hdr:    dns.RR_Header{Name: ".", Rrtype: dns.TypeOPT, Class: 1232},
+		Option: []dns.EDNS0{&dns.EDNS0_EDE{InfoCode: 65535, ExtraText: "testing"}},
+	}
+	res := ParseAnswer(rr)
+	ednsAnswer, ok := res.(EDNSAnswer)
+	assert.Equal(t, ok, true, "Failed to parse OPT record")
+	assert.Equal(t, ednsAnswer.Version, uint8(0), "Unexpected EDNS Version. Expected %v, got %v", 0, ednsAnswer.Version)
+	assert.Equal(t, ednsAnswer.UDPSize, uint16(1232), "Unexpected EDNS UDP Size. Expected %v, got %v", 0, ednsAnswer.UDPSize)
+	assert.Equal(t, ednsAnswer.Flags, "", "Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
+	assert.Equal(t, len(ednsAnswer.EDE), 1, "Expected only one EDE error code, got %v", len(ednsAnswer.EDE))
+	assert.Equal(t, ednsAnswer.EDE[0].InfoCode, uint16(65535), "Unexpected EDE info code. Expected %v, got %v", 65535, ednsAnswer.EDE[0].InfoCode)
+	assert.Equal(t, ednsAnswer.EDE[0].ExtraText, "testing", "Unexpected EDE extra text. Expected %v, got %v", "testing", ednsAnswer.EDE[0].ExtraText)
+}
+
+func TestParseEdnsAnswerEDE2(t *testing.T) {
+	rr := &dns.OPT{
+		Hdr: dns.RR_Header{Name: ".", Rrtype: dns.TypeOPT, Class: 1232},
+		Option: []dns.EDNS0{
+			&dns.EDNS0_EDE{InfoCode: 65535, ExtraText: "testing1"},
+			&dns.EDNS0_EDE{InfoCode: 65534, ExtraText: "testing2"}},
+	}
+	res := ParseAnswer(rr)
+	ednsAnswer, ok := res.(EDNSAnswer)
+	assert.Equal(t, ok, true, "Failed to parse OPT record")
+	assert.Equal(t, ednsAnswer.Version, uint8(0), "Unexpected EDNS Version. Expected %v, got %v", 0, ednsAnswer.Version)
+	assert.Equal(t, ednsAnswer.UDPSize, uint16(1232), "Unexpected EDNS UDP Size. Expected %v, got %v", 0, ednsAnswer.UDPSize)
+	assert.Equal(t, ednsAnswer.Flags, "", "Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
+	assert.Equal(t, len(ednsAnswer.EDE), 2, "Expected only one EDE error code, got %v", len(ednsAnswer.EDE))
+	assert.Equal(t, ednsAnswer.EDE[0].InfoCode, uint16(65535), "Unexpected EDE info code. Expected %v, got %v", 65535, ednsAnswer.EDE[0].InfoCode)
+	assert.Equal(t, ednsAnswer.EDE[0].ExtraText, "testing1", "Unexpected EDE extra text. Expected %v, got %v", "testing1", ednsAnswer.EDE[1].ExtraText)
+	assert.Equal(t, ednsAnswer.EDE[1].InfoCode, uint16(65534), "Unexpected EDE info code. Expected %v, got %v", 655354, ednsAnswer.EDE[0].InfoCode)
+	assert.Equal(t, ednsAnswer.EDE[01].ExtraText, "testing2", "Unexpected EDE extra text. Expected %v, got %v", "testing2", ednsAnswer.EDE[1].ExtraText)
+}
+
+func TestParseEdnsAnswerClientSubnet1(t *testing.T) {
+	rr := &dns.OPT{
+		Hdr: dns.RR_Header{Name: ".", Rrtype: dns.TypeOPT, Class: 1232},
+		Option: []dns.EDNS0{
+			&dns.EDNS0_SUBNET{
+				Code:          dns.EDNS0SUBNET,
+				Family:        uint16(1),
+				SourceNetmask: uint8(24),
+				SourceScope:   uint8(20),
+				Address:       net.ParseIP("1.2.3.4"),
+			},
+		}}
+	res := ParseAnswer(rr)
+	ednsAnswer, ok := res.(EDNSAnswer)
+	assert.Equal(t, ok, true, "Failed to parse OPT record")
+	assert.Equal(t, ednsAnswer.Version, uint8(0), "Unexpected EDNS Version. Expected %v, got %v", 0, ednsAnswer.Version)
+	assert.Equal(t, ednsAnswer.UDPSize, uint16(1232), "Unexpected EDNS UDP Size. Expected %v, got %v", 0, ednsAnswer.UDPSize)
+	assert.Equal(t, ednsAnswer.Flags, "", "Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
+	assert.Equal(t, ednsAnswer.ClientSubnet.SourceScope, uint8(20), "Unexpected source scope. Expected %v, got %v", 20, ednsAnswer.ClientSubnet.SourceScope)
+	assert.Equal(t, ednsAnswer.ClientSubnet.SourceNetmask, uint8(24), "Unexpected source netmask. Expected %v, got %v", 24, ednsAnswer.ClientSubnet.SourceNetmask)
+	assert.Equal(t, ednsAnswer.ClientSubnet.Family, uint16(1), "Unexpected family. Expected %v, got %v", 1, ednsAnswer.ClientSubnet.Family)
+	assert.Equal(t, ednsAnswer.ClientSubnet.Address, "1.2.3.4", "Unexpected address. Expected %v, got %v", "1.2.3.4", ednsAnswer.ClientSubnet.Address)
 }
 
 func verifyAnswer(t *testing.T, answer interface{}, original dns.RR, expectedAnswer interface{}) {

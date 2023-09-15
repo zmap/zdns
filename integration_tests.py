@@ -5,6 +5,7 @@ import subprocess
 import json
 import unittest
 import tempfile
+from ipaddress import ip_address
 
 
 def recursiveSort(obj):
@@ -282,7 +283,7 @@ class Tests(unittest.TestCase):
         }
       }
     }
-    
+
     TCP_LARGE_TXT_ANSWERS = [
       {
         "type": "TXT",
@@ -890,8 +891,47 @@ class Tests(unittest.TestCase):
             c = f"A --client-subnet {subnet} --name-servers=8.8.8.8:53"
             cmd, res = self.run_zdns(c, name)
             self.assertSuccess(res, cmd)
+            address, netmask = tuple(subnet.split("/"))
+            family = 1 if ip_address(address).version == 4 else 2
+            self.assertEqual(address, res["data"]['additionals'][0]['csubnet']['address'])
+            self.assertEqual(int(netmask), res["data"]['additionals'][0]['csubnet']["source_netmask"])
+            self.assertEqual(family, res["data"]['additionals'][0]['csubnet']['family'])
+            self.assertTrue("source_scope" in res["data"]['additionals'][0]['csubnet'])
             correct = [{"type":"A", "class":"IN", "answer": ip_addr, "name":"ecs-geo.zdns-testing.com"}]
             self.assertEqualAnswers(res, correct, cmd)
+
+    def test_edns0_nsid(self):
+        name = "google.com"
+        # using Google Public DNS for testing as its NSID always follows format 'gpdns-<airport code>'
+        c = f"A --nsid --name-servers=8.8.8.8:53"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertTrue("nsid" in res["data"]['additionals'][0])
+        self.assertTrue(res["data"]['additionals'][0]['nsid']['nsid'].startswith("gpdns-"))
+
+    def test_edns0_ede_1(self):
+        name = "dnssec.fail"
+        # using Cloudflare Public DNS (1.1.1.1) that implements EDE
+        c = f"A --name-servers=1.1.1.1:53"
+        cmd, res = self.run_zdns(c, name)
+        self.assertServFail(res, cmd)
+        self.assertTrue("ede" in res["data"]['additionals'][0])
+        ede_obj = res["data"]['additionals'][0]["ede"][0]
+        self.assertEqual("DNSKEY Missing", ede_obj["error_text"])
+        self.assertEqual("no SEP matching the DS found for dnssec.fail.", ede_obj["extra_text"])
+        self.assertEqual(9, ede_obj["info_code"])
+
+    def test_edns0_ede_2_cd(self):
+        name = "dnssec.fail"
+        # using Cloudflare Public DNS (1.1.1.1) that implements EDE, checking disabled resulting in NOERROR
+        c = f"A --name-servers=1.1.1.1:53 --checking-disabled"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertTrue("ede" in res["data"]['additionals'][0])
+        ede_obj = res["data"]['additionals'][0]["ede"][0]
+        self.assertEqual("DNSKEY Missing", ede_obj["error_text"])
+        self.assertEqual("no SEP matching the DS found for dnssec.fail.", ede_obj["extra_text"])
+        self.assertEqual(9, ede_obj["info_code"])
 
     def test_dnssec_response(self):
         # checks if dnssec records are returned
@@ -899,6 +939,7 @@ class Tests(unittest.TestCase):
         name = "."
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
+        self.assertEqual('do', res["data"]['additionals'][0]['flags'])
         self.assertEqualTypes(res, ["SOA", "RRSIG"])
 
     def test_cd_bit_not_set(self):

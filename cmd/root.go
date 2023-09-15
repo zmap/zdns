@@ -38,6 +38,7 @@ var (
 	Class_string        string
 	NanoSeconds         bool
 	ClientSubnet_string string
+	NSID                bool
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -57,7 +58,7 @@ ZDNS also includes its own recursive resolution and a cache to further optimize 
 			&Timeout, &IterationTimeout,
 			&Class_string, &Servers_string,
 			&Config_file, &Localaddr_string,
-			&Localif_string, &NanoSeconds, &ClientSubnet_string)
+			&Localif_string, &NanoSeconds, &ClientSubnet_string, &NSID)
 	},
 }
 
@@ -117,6 +118,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&NanoSeconds, "nanoseconds", false, "Use nanosecond resolution timestamps")
 	rootCmd.PersistentFlags().StringVar(&ClientSubnet_string, "client-subnet", "", "Client subnet in CIDR format for EDNS0.")
 	rootCmd.PersistentFlags().BoolVar(&GC.Dnssec, "dnssec", false, "Requests DNSSEC records by setting the DNSSEC OK (DO) bit")
+	rootCmd.PersistentFlags().BoolVar(&NSID, "nsid", false, "Request NSID.")
 
 	rootCmd.PersistentFlags().Bool("ipv4-lookup", false, "Perform an IPv4 Lookup in modules")
 	rootCmd.PersistentFlags().Bool("ipv6-lookup", false, "Perform an IPv6 Lookup in modules")

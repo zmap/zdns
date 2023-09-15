@@ -15,6 +15,7 @@
 package miekg
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net"
 	"strconv"
@@ -70,13 +71,6 @@ type DSAnswer struct {
 	Algorithm  uint8  `json:"algorithm" groups:"short,normal,long,trace"`
 	DigestType uint8  `json:"digest_type" groups:"short,normal,long,trace"`
 	Digest     string `json:"digest" groups:"short,normal,long,trace"`
-}
-
-type EDNSAnswer struct {
-	Type    string `json:"type" groups:"short,normal,long,trace"`
-	Version uint8  `json:"version" groups:"short,normal,long,trace"`
-	Flags   string `json:"flags" groups:"short,normal,long,trace"`
-	UDPSize uint16 `json:"udpsize" groups:"short,normal,long,trace"`
 }
 
 type GPOSAnswer struct {
@@ -466,15 +460,85 @@ func makeEDNSAnswer(cAns *dns.OPT) EDNSAnswer {
 	if cAns.Do() {
 		flags = "do"
 	}
-	return EDNSAnswer{
-		Type:       opttype + strconv.Itoa(int(cAns.Version())),
-		Version:    cAns.Version(),
+	optRes := EDNSAnswer{
+		Type:    opttype + strconv.Itoa(int(cAns.Version())),
+		Version: cAns.Version(),
 		// RCODE omitted for now as no EDNS0 extension is supported in
 		// lookups for which an RCODE is defined.
 		//Rcode:      dns.RcodeToString[cAns.ExtendedRcode()],
-		Flags:      flags,
-		UDPSize:    cAns.UDPSize(),
+		Flags:   flags,
+		UDPSize: cAns.UDPSize(),
 	}
+
+	for _, o := range cAns.Option {
+		switch o.(type) {
+		case *dns.EDNS0_LLQ: //OPT 1
+			optRes.LLQ = &Edns0LLQ{
+				Code:      o.(*dns.EDNS0_LLQ).Code,
+				Version:   o.(*dns.EDNS0_LLQ).Version,
+				Opcode:    o.(*dns.EDNS0_LLQ).Opcode,
+				Error:     o.(*dns.EDNS0_LLQ).Error,
+				Id:        o.(*dns.EDNS0_LLQ).Id,
+				LeaseLife: o.(*dns.EDNS0_LLQ).LeaseLife,
+			}
+		case *dns.EDNS0_UL: // OPT 2
+			optRes.UL = &Edns0UL{
+				Code:     o.(*dns.EDNS0_UL).Code,
+				Lease:    o.(*dns.EDNS0_UL).Lease,
+				KeyLease: o.(*dns.EDNS0_UL).KeyLease,
+			}
+		case *dns.EDNS0_NSID: //OPT 3
+			hexDecoded, err := hex.DecodeString(o.(*dns.EDNS0_NSID).Nsid)
+			if err != nil {
+				continue
+			}
+			optRes.NSID = &Edns0NSID{Nsid: string(hexDecoded)}
+		case *dns.EDNS0_DAU: //OPT 5
+			optRes.DAU = &Edns0DAU{
+				Code:    o.(*dns.EDNS0_DAU).Code,
+				AlgCode: o.(*dns.EDNS0_DAU).String(),
+			}
+		case *dns.EDNS0_DHU: //OPT 6
+			optRes.DHU = &Edns0DHU{
+				Code:    o.(*dns.EDNS0_DHU).Code,
+				AlgCode: o.(*dns.EDNS0_DHU).String(),
+			}
+		case *dns.EDNS0_N3U: //OPT 7
+			optRes.N3U = &Edns0N3U{
+				Code:    o.(*dns.EDNS0_N3U).Code,
+				AlgCode: o.(*dns.EDNS0_N3U).String(),
+			}
+		case *dns.EDNS0_SUBNET: //OPT 8
+			optRes.ClientSubnet = &Edns0ClientSubnet{
+				SourceScope:   o.(*dns.EDNS0_SUBNET).SourceScope,
+				Family:        o.(*dns.EDNS0_SUBNET).Family,
+				Address:       o.(*dns.EDNS0_SUBNET).Address.String(),
+				SourceNetmask: o.(*dns.EDNS0_SUBNET).SourceNetmask,
+			}
+		case *dns.EDNS0_EXPIRE: //OPT 9
+			optRes.Expire = &Edns0Expire{
+				Code:   o.(*dns.EDNS0_EXPIRE).Code,
+				Expire: o.(*dns.EDNS0_EXPIRE).Expire,
+			}
+		case *dns.EDNS0_COOKIE: //OPT 11
+			optRes.Cookie = &Edns0Cookie{Cookie: o.(*dns.EDNS0_COOKIE).Cookie}
+		case *dns.EDNS0_TCP_KEEPALIVE: //OPT 11
+			optRes.TcpKeepalive = &Edns0TCPKeepalive{
+				Code:    o.(*dns.EDNS0_TCP_KEEPALIVE).Code,
+				Timeout: o.(*dns.EDNS0_TCP_KEEPALIVE).Timeout,
+				Length:  o.(*dns.EDNS0_TCP_KEEPALIVE).Length, // deprecated, always equal to 0, keeping it here for a better readability
+			}
+		case *dns.EDNS0_PADDING: //OPT 12
+			optRes.Padding = &Edns0Padding{Padding: o.(*dns.EDNS0_PADDING).String()}
+		case *dns.EDNS0_EDE: //OPT 15
+			optRes.EDE = append(optRes.EDE, &Edns0Ede{
+				InfoCode:      o.(*dns.EDNS0_EDE).InfoCode,
+				ErrorCodeText: dns.ExtendedErrorCodeToString[o.(*dns.EDNS0_EDE).InfoCode],
+				ExtraText:     o.(*dns.EDNS0_EDE).ExtraText,
+			})
+		}
+	}
+	return optRes
 }
 
 func ParseAnswer(ans dns.RR) interface{} {
