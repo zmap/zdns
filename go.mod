@@ -11,7 +11,7 @@ require (
 	github.com/spf13/viper v1.16.0
 	github.com/zmap/dns v1.1.45-zdns-0
 	github.com/zmap/go-iptree v0.0.0-20210731043055-d4e632617837
-	gotest.tools/v3 v3.5.0
+	gotest.tools/v3 v3.5.1
 )
 
 require (
