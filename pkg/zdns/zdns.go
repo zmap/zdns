@@ -119,7 +119,7 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 		var ns []string
 		if (*servers_string)[0] == '@' {
 			filepath := (*servers_string)[1:]
-			f, err := ioutil.ReadFile(filepath)
+			f, err := os.ReadFile(filepath)
 			if err != nil {
 				log.Fatalf("Unable to read file (%s): %s", filepath, err.Error())
 			}
