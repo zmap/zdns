@@ -15,8 +15,6 @@
 package zdns
 
 import (
-	"io/ioutil"
-	"math/rand"
 	"net"
 	"os"
 	"runtime"
@@ -71,8 +69,8 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 	}
 
 	// complete post facto global initialization based on command line arguments
-	gc.Timeout = time.Duration(time.Second * time.Duration(*timeout))
-	gc.IterationTimeout = time.Duration(time.Second * time.Duration(*iterationTimeout))
+	gc.Timeout = time.Second * time.Duration(*timeout)
+	gc.IterationTimeout = time.Second * time.Duration(*iterationTimeout)
 
 	// class initialization
 	switch strings.ToUpper(*class_string) {
