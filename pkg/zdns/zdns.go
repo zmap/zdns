@@ -251,9 +251,6 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 	gc.OutputGroups = append(gc.OutputGroups, gc.ResultVerbosity)
 	gc.OutputGroups = append(gc.OutputGroups, groups...)
 
-	// Seeding for RandomNameServer()
-	rand.Seed(time.Now().UnixNano())
-
 	// some modules require multiple passes over a file (this is really just the case for zone files)
 	if !factory.AllowStdIn() && gc.InputFilePath == "-" {
 		log.Fatal("Specified module does not allow reading from stdin")
