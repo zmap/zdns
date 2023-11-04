@@ -747,7 +747,7 @@ func (s *Lookup) DoMiekgLookup(q Question, nameServer string) (interface{}, zdns
 	}
 	if s.Factory.IterativeResolution {
 		s.VerboseLog(0, "MIEKG-IN: iterative lookup for ", q.Name, " (", q.Type, ")")
-		s.IterativeStop = time.Now().Add(time.Duration(s.Factory.IterativeTimeout))
+		s.IterativeStop = time.Now().Add(s.Factory.IterativeTimeout)
 		result, trace, status, err := s.iterativeLookup(q, nameServer, 1, ".", make([]interface{}, 0))
 		s.VerboseLog(0, "MIEKG-OUT: iterative lookup for ", q.Name, " (", q.Type, "): status: ", status, " , err: ", err)
 		if s.Factory.Trace {

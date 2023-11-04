@@ -15,8 +15,6 @@
 package zdns
 
 import (
-	"io/ioutil"
-	"math/rand"
 	"net"
 	"os"
 	"runtime"
@@ -71,8 +69,8 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 	}
 
 	// complete post facto global initialization based on command line arguments
-	gc.Timeout = time.Duration(time.Second * time.Duration(*timeout))
-	gc.IterationTimeout = time.Duration(time.Second * time.Duration(*iterationTimeout))
+	gc.Timeout = time.Second * time.Duration(*timeout)
+	gc.IterationTimeout = time.Second * time.Duration(*iterationTimeout)
 
 	// class initialization
 	switch strings.ToUpper(*class_string) {
@@ -121,7 +119,7 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 		var ns []string
 		if (*servers_string)[0] == '@' {
 			filepath := (*servers_string)[1:]
-			f, err := ioutil.ReadFile(filepath)
+			f, err := os.ReadFile(filepath)
 			if err != nil {
 				log.Fatalf("Unable to read file (%s): %s", filepath, err.Error())
 			}
@@ -252,9 +250,6 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 
 	gc.OutputGroups = append(gc.OutputGroups, gc.ResultVerbosity)
 	gc.OutputGroups = append(gc.OutputGroups, groups...)
-
-	// Seeding for RandomNameServer()
-	rand.Seed(time.Now().UnixNano())
 
 	// some modules require multiple passes over a file (this is really just the case for zone files)
 	if !factory.AllowStdIn() && gc.InputFilePath == "-" {
