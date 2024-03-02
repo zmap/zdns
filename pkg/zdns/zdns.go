@@ -131,7 +131,11 @@ func Run(gc GlobalConf, flags *pflag.FlagSet,
 			ns = strings.Split(*servers_string, ",")
 		}
 		for i, s := range ns {
-			ns[i] = util.AddDefaultPortToDNSServerName(s)
+			nsWithPort, err := util.AddDefaultPortToDNSServerName(s)
+			if err != nil {
+				log.Fatal("Unable to parse nameserver: ", err)
+			}
+			ns[i] = nsWithPort
 		}
 		gc.NameServers = ns
 		gc.NameServersSpecified = true
