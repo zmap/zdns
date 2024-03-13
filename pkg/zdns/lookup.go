@@ -77,7 +77,11 @@ func parseNormalInputLine(line string) (string, string) {
 	if len(s) == 1 {
 		return s[0], ""
 	} else {
-		return s[0], util.AddDefaultPortToDNSServerName(s[1])
+		ns, err := util.AddDefaultPortToDNSServerName(s[1])
+		if err != nil {
+			log.Fatal("Unable to parse nameserver: ", err)
+		}
+		return s[0], ns
 	}
 }
 
@@ -124,7 +128,10 @@ func doLookup(g GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, o
 			rawName, entryMetadata = parseMetadataInputLine(line)
 			res.Metadata = entryMetadata
 		} else if gc.NameServerMode {
-			nameServer = util.AddDefaultPortToDNSServerName(line)
+			nameServer, err = util.AddDefaultPortToDNSServerName(line)
+			if err != nil {
+				log.Fatal("Unable to parse nameserver: ", err)
+			}
 		} else {
 			rawName, nameServer = parseNormalInputLine(line)
 		}
