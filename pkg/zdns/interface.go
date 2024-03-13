@@ -43,7 +43,7 @@ import (
  * pieces of functionality and should be inherited in most situations.
  */
 
-// one Lookuper interface IP/name/connection ==========================================
+// one Lookuper interface per IP/name/connection ==========================================
 //
 
 type Trace []interface{}
