@@ -70,7 +70,7 @@ func InitTest(t *testing.T) (*zdns.GlobalConf, Lookup, MockLookupClient) {
 	rlf.Factory = glf
 	rlf.Client = new(dns.Client)
 
-	l, err := rlf.MakeLookup()
+	l, err := rlf.MakeLookuper()
 	if l == nil || err != nil {
 		t.Error("Failed to initialize lookup")
 	}

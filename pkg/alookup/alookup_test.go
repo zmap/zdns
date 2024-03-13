@@ -42,7 +42,7 @@ func (s *Lookup) DoTargetedLookup(l LookupClient, name, nameServer string, looku
 	}
 }
 
-func InitTest(t *testing.T) (*GlobalLookupFactory, zdns.Lookup) {
+func InitTest(t *testing.T) (*GlobalLookupFactory, zdns.Lookuper) {
 	mockResults = make(map[string]miekg.IpResult)
 	gc := new(zdns.GlobalConf)
 	gc.NameServers = []string{"127.0.0.1"}
@@ -54,7 +54,7 @@ func InitTest(t *testing.T) (*GlobalLookupFactory, zdns.Lookup) {
 	rlf.Factory = glf
 	rlf.Client = new(dns.Client)
 
-	l, err := rlf.MakeLookup()
+	l, err := rlf.MakeLookuper()
 	if l == nil || err != nil {
 		t.Error("Failed to initialize lookup")
 	}

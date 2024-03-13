@@ -106,7 +106,7 @@ func doLookup(g GlobalLookupFactory, gc *GlobalConf, input <-chan interface{}, o
 		var trace []interface{}
 		var status Status
 		var err error
-		l, err := f.MakeLookup()
+		l, err := f.MakeLookuper()
 		if err != nil {
 			log.Fatal("Unable to build lookup instance", err)
 		}

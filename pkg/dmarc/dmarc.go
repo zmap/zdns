@@ -29,7 +29,6 @@ type Result struct {
 }
 
 // Per Connection Lookup ======================================================
-//
 type Lookup struct {
 	Factory *RoutineLookupFactory
 	miekg.Lookup
@@ -43,13 +42,12 @@ func (s *Lookup) DoLookup(name string, nameServer string) (interface{}, zdns.Tra
 }
 
 // Per GoRoutine Factory ======================================================
-//
 type RoutineLookupFactory struct {
 	miekg.RoutineLookupFactory
 	Factory *GlobalLookupFactory
 }
 
-func (rlf *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
+func (rlf *RoutineLookupFactory) MakeLookuper() (zdns.Lookuper, error) {
 	lookup := Lookup{Factory: rlf}
 	nameServer := rlf.Factory.RandomNameServer()
 	lookup.Initialize(nameServer, dns.TypeTXT, dns.ClassINET, &rlf.RoutineLookupFactory)
@@ -61,7 +59,6 @@ func (rlf *RoutineLookupFactory) InitPrefixRegexp() {
 }
 
 // Global Factory =============================================================
-//
 type GlobalLookupFactory struct {
 	miekg.GlobalLookupFactory
 }
@@ -77,7 +74,6 @@ func (glf *GlobalLookupFactory) MakeRoutineFactory(threadID int) (zdns.RoutineLo
 }
 
 // Global Registration ========================================================
-//
 func init() {
 	s := new(GlobalLookupFactory)
 	zdns.RegisterLookup("DMARC", s)

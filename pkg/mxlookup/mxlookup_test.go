@@ -62,7 +62,7 @@ type minimalServerRecords struct {
 	IPv6Addresses []string
 }
 
-func InitTest(t *testing.T) (*zdns.GlobalConf, *GlobalLookupFactory, *RoutineLookupFactory, zdns.Lookup) {
+func InitTest(t *testing.T) (*zdns.GlobalConf, *GlobalLookupFactory, *RoutineLookupFactory, zdns.Lookuper) {
 	mxResults = make(map[string]miekg.Result)
 	mockResults = make(map[string]miekg.IpResult)
 	miekgStatus = zdns.STATUS_NOERROR
@@ -80,7 +80,7 @@ func InitTest(t *testing.T) (*zdns.GlobalConf, *GlobalLookupFactory, *RoutineLoo
 	rlf.Factory = glf
 	rlf.Client = new(dns.Client)
 
-	l, err := rlf.MakeLookup()
+	l, err := rlf.MakeLookuper()
 	if l == nil || err != nil {
 		t.Error("Failed to initialize lookup")
 	}

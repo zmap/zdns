@@ -40,7 +40,7 @@ func (s *Lookup) DoMiekgLookup(question miekg.Question, nameServer string) (miek
 	}
 }
 
-func InitTest() (*zdns.GlobalConf, *GlobalLookupFactory, *RoutineLookupFactory, zdns.Lookup) {
+func InitTest() (*zdns.GlobalConf, *GlobalLookupFactory, *RoutineLookupFactory, zdns.Lookuper) {
 	mockResults = make(map[string]miekg.Result)
 	gc := new(zdns.GlobalConf)
 	gc.NameServers = []string{"127.0.0.1"}
@@ -51,7 +51,7 @@ func InitTest() (*zdns.GlobalConf, *GlobalLookupFactory, *RoutineLookupFactory, 
 	rlf := new(RoutineLookupFactory)
 	rlf.Factory = glf
 
-	l, err := rlf.MakeLookup()
+	l, err := rlf.MakeLookuper()
 	if l == nil || err != nil {
 		panic("Failed to initialize lookup")
 	}

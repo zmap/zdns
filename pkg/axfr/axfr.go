@@ -29,7 +29,6 @@ import (
 )
 
 // Per Connection Lookup ======================================================
-//
 type Lookup struct {
 	Factory *RoutineLookupFactory
 	miekg.Lookup
@@ -125,13 +124,12 @@ func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdn
 }
 
 // Per GoRoutine Factory ======================================================
-//
 type RoutineLookupFactory struct {
 	miekg.RoutineLookupFactory
 	Factory *GlobalLookupFactory
 }
 
-func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
+func (s *RoutineLookupFactory) MakeLookuper() (zdns.Lookuper, error) {
 	a := Lookup{Factory: s}
 	nameServer := s.Factory.RandomNameServer()
 	a.Initialize(nameServer, dns.TypeA, dns.ClassINET, &s.RoutineLookupFactory)
@@ -139,7 +137,6 @@ func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
 }
 
 // Global Factory =============================================================
-//
 type GlobalLookupFactory struct {
 	miekg.GlobalLookupFactory
 	BlacklistPath string
@@ -186,7 +183,6 @@ func (s *GlobalLookupFactory) Initialize(c *zdns.GlobalConf) error {
 }
 
 // Global Registration ========================================================
-//
 func init() {
 	s := new(GlobalLookupFactory)
 	zdns.RegisterLookup("AXFR", s)

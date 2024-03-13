@@ -117,17 +117,6 @@ type GlobalLookupFactory struct {
 	BlMu           sync.Mutex
 }
 
-// Lookup client interface for helping in mocking
-type LookupClient interface {
-	ProtocolLookup(s *Lookup, q Question, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)
-}
-
-type MiekgLookupClient struct{}
-
-func (lc MiekgLookupClient) ProtocolLookup(s *Lookup, q Question, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
-	return s.DoMiekgLookup(q, nameServer)
-}
-
 func (s *GlobalLookupFactory) BlacklistInit() error {
 	if s.BlacklistPath != "" {
 		s.Blacklist = blacklist.New()
@@ -256,7 +245,7 @@ func (s *RoutineLookupFactory) Initialize(c *zdns.GlobalConf) {
 	}
 }
 
-func (s *RoutineLookupFactory) MakeLookup() (zdns.Lookup, error) {
+func (s *RoutineLookupFactory) MakeLookuper() (zdns.Lookuper, error) {
 	a := Lookup{Factory: s}
 	nameServer := s.Factory.RandomNameServer()
 	a.Initialize(nameServer, s.DNSType, s.DNSClass, s)
@@ -987,6 +976,17 @@ func (s *Lookup) DoLookupAllNameservers(l LookupClient, name, nameServer string)
 		}
 	}
 	return retv, fullTrace, zdns.STATUS_NOERROR, nil
+}
+
+// Lookup client interface for helping in mocking
+type LookupClient interface {
+	ProtocolLookup(s *Lookup, q Question, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)
+}
+
+type MiekgLookupClient struct{}
+
+func (lc MiekgLookupClient) ProtocolLookup(s *Lookup, q Question, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+	return s.DoMiekgLookup(q, nameServer)
 }
 
 // allow miekg to be used as a ZDNS module

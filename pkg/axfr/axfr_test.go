@@ -81,7 +81,7 @@ func (s *Lookup) DoNSLookup(l LookupClient, name string, lookupIpv4 bool, lookup
 	}
 }
 
-func InitTest() zdns.Lookup {
+func InitTest() zdns.Lookuper {
 	axfrRecords = make(map[string][]dns.RR)
 	transferError = ""
 	envelopeError = ""
@@ -98,7 +98,7 @@ func InitTest() zdns.Lookup {
 	rlf := new(RoutineLookupFactory)
 	rlf.Factory = glf
 
-	l, err := rlf.MakeLookup()
+	l, err := rlf.MakeLookuper()
 	if l == nil || err != nil {
 		panic("Failed to initialize lookup")
 	}

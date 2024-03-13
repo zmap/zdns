@@ -31,7 +31,7 @@ import (
  * For each thread in the worker pool, the framework calls
  * MakePerRoutineFactory(), which should return a second factory, which should
  * perform any "per-thread" initialization. Within each "thread", the framework
- * will then call MakeLookup() for each connection it will make, on which it
+ * will then call MakeLookuper() for each connection it will make, on which it
  * will call DoLookup().  While two layers of factories is a bit... obnoxious,
  * this allows each module to maintain global, per-thread, and per-connection
  * state.
@@ -43,12 +43,12 @@ import (
  * pieces of functionality and should be inherited in most situations.
  */
 
-// one Lookup per IP/name/connection ==========================================
+// one Lookuper interface IP/name/connection ==========================================
 //
 
 type Trace []interface{}
 
-type Lookup interface {
+type Lookuper interface {
 	DoLookup(name, nameServer string) (interface{}, Trace, Status, error)
 }
 
@@ -61,13 +61,11 @@ func (base *BaseLookup) DoLookup(name string, class uint16) (interface{}, Status
 }
 
 // one RoutineLookupFactory per goroutine =====================================
-//
 type RoutineLookupFactory interface {
-	MakeLookup() (Lookup, error)
+	MakeLookuper() (Lookuper, error)
 }
 
 // one RoutineLookupFactory per execution =====================================
-//
 type GlobalLookupFactory interface {
 	// Capture the values of cobra/viper flags and add them to the
 	// global factory as appropriate.
