@@ -1,0 +1,61 @@
+/*
+ * ZDNS Copyright 2024 Regents of the University of Michigan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy
+ * of the License at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
+package refactored_zdns
+
+type DNSFlags struct {
+	Response           bool `json:"response" groups:"flags,long,trace"`
+	Opcode             int  `json:"opcode" groups:"flags,long,trace"`
+	Authoritative      bool `json:"authoritative" groups:"flags,long,trace"`
+	Truncated          bool `json:"truncated" groups:"flags,long,trace"`
+	RecursionDesired   bool `json:"recursion_desired" groups:"flags,long,trace"`
+	RecursionAvailable bool `json:"recursion_available" groups:"flags,long,trace"`
+	Authenticated      bool `json:"authenticated" groups:"flags,long,trace"`
+	CheckingDisabled   bool `json:"checking_disabled" groups:"flags,long,trace"`
+	ErrorCode          int  `json:"error_code" groups:"flags,long,trace"`
+}
+
+type Question struct {
+	Type  uint16
+	Class uint16
+	Name  string
+}
+
+// result to be returned by scan of host
+type Result struct {
+	Answers     []interface{} `json:"answers,omitempty" groups:"short,normal,long,trace"`
+	Additional  []interface{} `json:"additionals,omitempty" groups:"short,normal,long,trace"`
+	Authorities []interface{} `json:"authorities,omitempty" groups:"short,normal,long,trace"`
+	Protocol    string        `json:"protocol" groups:"protocol,normal,long,trace"`
+	Resolver    string        `json:"resolver" groups:"resolver,normal,long,trace"`
+	Flags       DNSFlags      `json:"flags" groups:"flags,long,trace"`
+}
+
+type ExtendedResult struct {
+	Res        Result `json:"result,omitempty" groups:"short,normal,long,trace"`
+	Status     Status `json:"status" groups:"short,normal,long,trace"`
+	Nameserver string `json:"nameserver" groups:"short,normal,long,trace"`
+}
+
+type TraceStep struct {
+	Result     Result   `json:"results" groups:"trace"`
+	DnsType    uint16   `json:"type" groups:"trace"`
+	DnsClass   uint16   `json:"class" groups:"trace"`
+	Name       string   `json:"name" groups:"trace"`
+	NameServer string   `json:"name_server" groups:"trace"`
+	Depth      int      `json:"depth" groups:"trace"`
+	Layer      string   `json:"layer" groups:"trace"`
+	Cached     IsCached `json:"cached" groups:"trace"`
+	Try        int      `json:"try" groups:"trace"`
+}
