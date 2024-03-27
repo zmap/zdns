@@ -142,7 +142,7 @@ func (r *Resolver) extractAuthority(authority interface{}, layer string, depth i
 		q.Name = server
 		q.Type = dns.TypeA
 		q.Class = dns.ClassINET
-		res, trace, status, _ = r.iterativeLookup(q, r.NameServer, depth+1, ".", trace)
+		res, trace, status, _ = r.iterativeLookup(q, r.RandomNameServer(), depth+1, ".", trace)
 	}
 	if status == STATUS_ITER_TIMEOUT {
 		return "", status, "", trace
@@ -172,7 +172,7 @@ iterativeLookup
 */
 
 func (r *Resolver) iterativeLookup(q Question, nameServer string,
-	depth int, layer string, trace []interface{}) (Result, Trace, Status, error) {
+	depth int, layer string, trace []interface{}) (Result, []interface{}, Status, error) {
 	//
 	if log.GetLevel() == log.DebugLevel {
 		r.VerboseLog((depth), "iterative lookup for ", q.Name, " (", q.Type, ") against ", nameServer, " layer ", layer)
@@ -185,7 +185,7 @@ func (r *Resolver) iterativeLookup(q Question, nameServer string,
 	ctx, cancel := context.WithTimeout(context.Background(), r.iterativeTimeout)
 	defer cancel()
 	result, isCached, status, try, err := r.cachedRetryingLookup(ctx, q, nameServer, layer, depth)
-	if r.Trace && status == STATUS_NOERROR {
+	if r.shouldTrace && status == STATUS_NOERROR {
 		var t TraceStep
 		t.Result = result
 		t.DnsType = q.Type
@@ -297,35 +297,36 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 }
 
 // retryingLookup wraps around wireLookup to perform a DNS lookup with retries
+// Returns the result, status, number of tries, and error
 func (r *Resolver) retryingLookup(q Question, nameServer string, recursive bool) (Result, Status, int, error) {
 	r.VerboseLog(1, "****WIRE LOOKUP*** ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
 
 	var origTimeout time.Duration
-	if r.networkConns.UDPClient != nil {
-		origTimeout = r.networkConns.UDPClient.Timeout
+	if r.udpClient != nil {
+		origTimeout = r.udpClient.Timeout
 	} else {
-		origTimeout = r.networkConns.TCPClient.Timeout
+		origTimeout = r.tcpClient.Timeout
 	}
 	for i := 0; i <= r.retries; i++ {
-		udpClient := r.networkConns.UDPClient
-		tcpClient := r.networkConns.TCPClient
-		conn := r.networkConns.Conn
+		udpClient := r.udpClient
+		tcpClient := r.tcpClient
+		conn := r.conn
 
 		result, status, err := wireLookup(udpClient, tcpClient, conn, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabled)
 		if (status != STATUS_TIMEOUT && status != STATUS_TEMPORARY) || i == r.retries {
-			if r.networkConns.UDPClient != nil {
-				r.networkConns.UDPClient.Timeout = origTimeout
+			if r.udpClient != nil {
+				r.udpClient.Timeout = origTimeout
 			}
-			if r.networkConns.TCPClient != nil {
-				r.networkConns.TCPClient.Timeout = origTimeout
+			if r.tcpClient != nil {
+				r.tcpClient.Timeout = origTimeout
 			}
 			return result, status, (i + 1), err
 		}
-		if r.networkConns.UDPClient != nil {
-			r.networkConns.UDPClient.Timeout = 2 * r.networkConns.UDPClient.Timeout
+		if r.udpClient != nil {
+			r.udpClient.Timeout = 2 * r.udpClient.Timeout
 		}
-		if r.networkConns.TCPClient != nil {
-			r.networkConns.TCPClient.Timeout = 2 * r.networkConns.TCPClient.Timeout
+		if r.tcpClient != nil {
+			r.tcpClient.Timeout = 2 * r.tcpClient.Timeout
 		}
 	}
 	panic("loop must return")
