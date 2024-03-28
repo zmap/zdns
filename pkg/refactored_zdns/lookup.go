@@ -60,103 +60,6 @@ func handleStatus(status *Status, err error) (*Status, error) {
 	}
 }
 
-// TODO Phillip: what exactly does this function do??? Improve docs and comments, make it clear
-func (r *Resolver) DoTargetedLookup(name, nameServer string, lookupIpv4 bool, lookupIpv6 bool) (*IPResult, Trace, Status, error) {
-	name = strings.ToLower(name)
-	res := IPResult{}
-	candidateSet := map[string][]Answer{}
-	cnameSet := map[string][]Answer{}
-	var ipv4 []string
-	var ipv6 []string
-	var ipv4Trace Trace
-	var ipv6Trace Trace
-	var ipv4status Status
-	var ipv6status Status
-
-	if lookupIpv4 {
-		ipv4, ipv4Trace, ipv4status, _ = r.DoIpsLookup(name, nameServer, dns.TypeA, candidateSet, cnameSet, name, 0)
-		if len(ipv4) > 0 {
-			ipv4 = Unique(ipv4)
-			res.IPv4Addresses = make([]string, len(ipv4))
-			copy(res.IPv4Addresses, ipv4)
-		}
-	}
-	candidateSet = map[string][]Answer{}
-	cnameSet = map[string][]Answer{}
-	if lookupIpv6 {
-		ipv6, ipv6Trace, ipv6status, _ = r.DoIpsLookup(name, nameServer, dns.TypeAAAA, candidateSet, cnameSet, name, 0)
-		if len(ipv6) > 0 {
-			ipv6 = Unique(ipv6)
-			res.IPv6Addresses = make([]string, len(ipv6))
-			copy(res.IPv6Addresses, ipv6)
-		}
-	}
-
-	combinedTrace := append(ipv4Trace, ipv6Trace...)
-
-	// In case we get no IPs and a non-NOERROR status from either
-	// IPv4 or IPv6 lookup, we return that status.
-	if len(res.IPv4Addresses) == 0 && len(res.IPv6Addresses) == 0 {
-		if lookupIpv4 && !SafeStatus(ipv4status) {
-			return nil, combinedTrace, ipv4status, nil
-		} else if lookupIpv6 && !SafeStatus(ipv6status) {
-			return nil, combinedTrace, ipv6status, nil
-		} else {
-			return &res, combinedTrace, STATUS_NOERROR, nil
-		}
-	}
-	return &res, combinedTrace, STATUS_NOERROR, nil
-}
-
-// TODO Phillip: what exactly does this function do???
-// Function to recursively search for IP addresses
-func (r *Resolver) DoIpsLookup(name string, nameServer string, dnsType uint16, candidateSet map[string][]Answer, cnameSet map[string][]Answer, origName string, depth int) ([]string, Trace, Status, error) {
-	// avoid infinite loops
-	if name == origName && depth != 0 {
-		return nil, make(Trace, 0), STATUS_ERROR, errors.New("infinite redirection loop")
-	}
-	if depth > 10 {
-		return nil, make(Trace, 0), STATUS_ERROR, errors.New("max recursion depth reached")
-	}
-	// check if the record is already in our cache. if not, perform normal A lookup and
-	// see what comes back. Then iterate over results and if needed, perform further lookups
-	var trace Trace
-	garbage := map[string][]Answer{}
-	if _, ok := candidateSet[name]; !ok {
-		var miekgResult interface{}
-		var status Status
-		var err error
-		miekgResult, trace, status, err = r.doSingleNameServerLookup(Question{Name: name, Type: dnsType}, nameServer)
-		if status != STATUS_NOERROR || err != nil {
-			return nil, trace, status, err
-		}
-
-		populateResults(miekgResult.(Result).Answers, dnsType, candidateSet, cnameSet, garbage)
-		populateResults(miekgResult.(Result).Additional, dnsType, candidateSet, cnameSet, garbage)
-	}
-	// our cache should now have any data that exists about the current name
-	if res, ok := candidateSet[name]; ok && len(res) > 0 {
-		// we have IP addresses to hand back to the user. let's make an easy-to-use array of strings
-		var ips []string
-		for _, answer := range res {
-			ips = append(ips, answer.Answer)
-		}
-		return ips, trace, STATUS_NOERROR, nil
-	} else if res, ok = cnameSet[name]; ok && len(res) > 0 {
-		// we have a CNAME and need to further recurse to find IPs
-		shortName := strings.ToLower(strings.TrimSuffix(res[0].Answer, "."))
-		res, secondTrace, status, err := r.DoIpsLookup(shortName, nameServer, dnsType, candidateSet, cnameSet, origName, depth+1)
-		trace = append(trace, secondTrace...)
-		return res, trace, status, err
-	} else if res, ok = garbage[name]; ok && len(res) > 0 {
-		return nil, trace, STATUS_ERROR, errors.New("unexpected record type received")
-	} else {
-		// we have no data whatsoever about this name. return an empty recordset to the user
-		var ips []string
-		return ips, trace, STATUS_NOERROR, nil
-	}
-}
-
 /*
 // TODO Phillip, yeah we gotta rename this
 doSingleNameServerLookup
@@ -170,7 +73,7 @@ doSingleNameServerLookup
 
 	retryingLookup
 */
-func (r *Resolver) doLookupAllNameservers(q Question, nameServer string) (interface{}, Trace, Status, error) {
+func (r *Resolver) doLookupAllNameservers(q Question, nameServer string) (*CombinedResults, Trace, Status, error) {
 	var retv CombinedResults
 	var curServer string
 
@@ -184,7 +87,7 @@ func (r *Resolver) doLookupAllNameservers(q Question, nameServer string) (interf
 
 	// fullTrace holds the complete trace including all lookups
 	var fullTrace Trace = nsTrace
-	var tmpRes Result
+	var tmpRes SingleQueryResult
 
 	for _, nserver := range nsResults.Servers {
 		// Use all the ipv4 and ipv6 addresses of each nameserver
@@ -195,7 +98,7 @@ func (r *Resolver) doLookupAllNameservers(q Question, nameServer string) (interf
 			res, trace, status, err := r.doSingleNameServerLookup(q, curServer)
 
 			fullTrace = append(fullTrace, trace...)
-			tmpRes = Result{}
+			tmpRes = SingleQueryResult{}
 			if err == nil {
 				tmpRes = res
 			}
@@ -203,23 +106,24 @@ func (r *Resolver) doLookupAllNameservers(q Question, nameServer string) (interf
 				Res:        tmpRes,
 				Status:     status,
 				Nameserver: nameserver,
+				Trace:      trace,
 			}
 			retv.Results = append(retv.Results, extendedResult)
 		}
 	}
-	return retv, fullTrace, STATUS_NOERROR, nil
+	return &retv, fullTrace, STATUS_NOERROR, nil
 }
 
-func (r *Resolver) doSingleNameServerLookup(q Question, nameServer string) (Result, Trace, Status, error) {
+func (r *Resolver) doSingleNameServerLookup(q Question, nameServer string) (SingleQueryResult, Trace, Status, error) {
 	if nameServer == "" {
-		return Result{}, nil, STATUS_ILLEGAL_INPUT, errors.New("no nameserver specified")
+		return SingleQueryResult{}, nil, STATUS_ILLEGAL_INPUT, errors.New("no nameserver specified")
 	}
 
 	if q.Type == dns.TypePTR {
 		var err error
 		q.Name, err = dns.ReverseAddr(q.Name)
 		if err != nil {
-			return Result{}, nil, STATUS_ILLEGAL_INPUT, err
+			return SingleQueryResult{}, nil, STATUS_ILLEGAL_INPUT, err
 		}
 		q.Name = q.Name[:len(q.Name)-1]
 	}
@@ -257,13 +161,13 @@ func (r *Resolver) doSingleNameServerLookup(q Question, nameServer string) (Resu
 }
 
 func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer string,
-	depth int, layer string, trace Trace) (Result, Trace, Status, error) {
+	depth int, layer string, trace Trace) (SingleQueryResult, Trace, Status, error) {
 	//
 	if log.GetLevel() == log.DebugLevel {
 		r.VerboseLog((depth), "iterative lookup for ", q.Name, " (", q.Type, ") against ", nameServer, " layer ", layer)
 	}
 	if depth > r.maxDepth {
-		var result Result
+		var result SingleQueryResult
 		r.VerboseLog((depth + 1), "-> Max recursion depth reached")
 		return result, trace, STATUS_ERROR, errors.New("Max recursion depth reached")
 	}
@@ -309,7 +213,7 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer s
 	}
 }
 
-func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameServer, layer string, depth int) (Result, IsCached, Status, int, error) {
+func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameServer, layer string, depth int) (SingleQueryResult, IsCached, Status, int, error) {
 	var isCached IsCached
 	isCached = false
 	r.VerboseLog(depth+1, "Cached retrying lookup. Name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
@@ -318,7 +222,7 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 	select {
 	case <-ctx.Done():
 		r.VerboseLog(depth+2, "ITERATIVE_TIMEOUT ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
-		var r Result
+		var r SingleQueryResult
 		return r, isCached, STATUS_ITER_TIMEOUT, 0, nil
 	default:
 		// Timeout not reached, continue
@@ -338,11 +242,11 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 		r.blMu.Lock()
 		if blacklisted, err := r.blacklist.IsBlacklisted(nameServerIP); err != nil {
 			r.blMu.Unlock()
-			var r Result
+			var r SingleQueryResult
 			return r, isCached, STATUS_ERROR, 0, err
 		} else if blacklisted {
 			r.blMu.Unlock()
-			var r Result
+			var r SingleQueryResult
 			return r, isCached, STATUS_BLACKLIST, 0, nil
 		}
 		r.blMu.Unlock()
@@ -353,12 +257,12 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 	layer = strings.ToLower(layer)
 	authName, err := nextAuthority(name, layer)
 	if err != nil {
-		var r Result
+		var r SingleQueryResult
 		return r, isCached, STATUS_AUTHFAIL, 0, err
 	}
 	if name != layer && authName != layer {
 		if authName == "" {
-			var r Result
+			var r SingleQueryResult
 			return r, isCached, STATUS_AUTHFAIL, 0, nil
 		}
 		var qAuth Question
@@ -381,7 +285,7 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 
 // retryingLookup wraps around wireLookup to perform a DNS lookup with retries
 // Returns the result, status, number of tries, and error
-func (r *Resolver) retryingLookup(q Question, nameServer string, recursive bool) (Result, Status, int, error) {
+func (r *Resolver) retryingLookup(q Question, nameServer string, recursive bool) (SingleQueryResult, Status, int, error) {
 	r.VerboseLog(1, "****WIRE LOOKUP*** ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
 
 	var origTimeout time.Duration
@@ -414,13 +318,13 @@ func (r *Resolver) retryingLookup(q Question, nameServer string, recursive bool)
 			r.tcpClient.Timeout = 2 * r.tcpClient.Timeout
 		}
 	}
-	return Result{}, "", 0, errors.New("retry loop didn't exit properly")
+	return SingleQueryResult{}, "", 0, errors.New("retry loop didn't exit properly")
 }
 
 // wireLookup performs a DNS lookup on-the-wire with the given parameters
 // Attempts a UDP lookup first, then falls back to TCP if necessary (if the UDP response encounters an error or is truncated)
-func wireLookup(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question, nameServer string, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (Result, Status, error) {
-	res := Result{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
+func wireLookup(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question, nameServer string, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (SingleQueryResult, Status, error) {
+	res := SingleQueryResult{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 	res.Resolver = nameServer
 
 	m := new(dns.Msg)
@@ -508,9 +412,9 @@ func wireLookup(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question, na
 	return res, STATUS_NOERROR, nil
 }
 
-func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth int, result Result, layer string, trace Trace) (Result, Trace, Status, error) {
+func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth int, result SingleQueryResult, layer string, trace Trace) (SingleQueryResult, Trace, Status, error) {
 	if len(result.Authorities) == 0 {
-		var r Result
+		var r SingleQueryResult
 		return r, trace, STATUS_NOAUTH, nil
 	}
 	for i, elem := range result.Authorities {
@@ -519,7 +423,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 		r.VerboseLog((depth + 1), "Output from extract authorities: ", ns)
 		if ns_status == STATUS_ITER_TIMEOUT {
 			r.VerboseLog((depth + 2), "--> Hit iterative timeout: ")
-			var r Result
+			var r SingleQueryResult
 			return r, trace, STATUS_ITER_TIMEOUT, nil
 		}
 		if ns_status != STATUS_NOERROR {
@@ -529,7 +433,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 			if new_status == nil && err == nil {
 				if i+1 == len(result.Authorities) {
 					r.VerboseLog((depth + 2), "--> Auth find Failed. Unknown error. No more authorities to try, terminating: ", ns_status)
-					var r Result
+					var r SingleQueryResult
 					return r, trace, ns_status, err
 				} else {
 					r.VerboseLog((depth + 2), "--> Auth find Failed. Unknown error. Continue: ", ns_status)
@@ -537,7 +441,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 				}
 			} else {
 				// otherwise we hit a status we know
-				var localResult Result
+				var localResult SingleQueryResult
 				if i+1 == len(result.Authorities) {
 					// We don't allow the continue fall through in order to report the last auth falure code, not STATUS_EROR
 					r.VerboseLog((depth + 2), "--> Final auth find non-success. Last auth. Terminating: ", ns_status)
@@ -564,7 +468,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 	panic("should not be able to reach here")
 }
 
-func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, layer string, depth int, result Result, trace Trace) (string, Status, string, Trace) {
+func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, layer string, depth int, result SingleQueryResult, trace Trace) (string, Status, string, Trace) {
 	// Is it an answer
 	ans, ok := authority.(Answer)
 	if !ok {

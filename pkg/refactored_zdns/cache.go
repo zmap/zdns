@@ -85,9 +85,9 @@ func (s *Cache) AddCachedAnswer(answer interface{}, depth int) {
 	s.IterativeCache.Unlock(q)
 }
 
-func (s *Cache) GetCachedResult(q Question, isAuthCheck bool, depth int) (Result, bool) {
+func (s *Cache) GetCachedResult(q Question, isAuthCheck bool, depth int) (SingleQueryResult, bool) {
 	s.VerboseLog(depth+1, "Cache request for: ", q.Name, " (", q.Type, ")")
-	var retv Result
+	var retv SingleQueryResult
 	s.IterativeCache.Lock(q)
 	unres, ok := s.IterativeCache.Get(q)
 	if !ok { // nothing found
@@ -113,7 +113,7 @@ func (s *Cache) GetCachedResult(q Question, isAuthCheck bool, depth int) (Result
 			s.VerboseLog(depth+2, "Expiring cache entry ", k)
 			delete(cachedRes.Answers, k)
 		} else {
-			// this result is valid. append it to the Result we're going to hand to the user
+			// this result is valid. append it to the SingleQueryResult we're going to hand to the user
 			if isAuthCheck {
 				retv.Authorities = append(retv.Authorities, cachedAnswer.Answer)
 			} else {
@@ -125,7 +125,7 @@ func (s *Cache) GetCachedResult(q Question, isAuthCheck bool, depth int) (Result
 	// Don't return an empty response.
 	if len(retv.Answers) == 0 && len(retv.Authorities) == 0 && len(retv.Additional) == 0 {
 		s.VerboseLog(depth+2, "-> no entry found in cache, after expiration")
-		var emptyRetv Result
+		var emptyRetv SingleQueryResult
 		return emptyRetv, false
 	}
 
@@ -146,7 +146,7 @@ func (s *Cache) SafeAddCachedAnswer(a interface{}, layer string, debugType strin
 	s.AddCachedAnswer(a, depth)
 }
 
-func (s *Cache) CacheUpdate(layer string, result Result, depth int) {
+func (s *Cache) CacheUpdate(layer string, result SingleQueryResult, depth int) {
 	for _, a := range result.Additional {
 		s.SafeAddCachedAnswer(a, layer, "additional", depth)
 	}

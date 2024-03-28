@@ -34,8 +34,24 @@ type Question struct {
 
 type Trace []TraceStep
 
-// result to be returned by scan of host
+// TODO Phillip - many of these fields aren't being used, we should consider removing them or populating them
+// Result contains all the metadata from a complete lookup, potentailly after following many CNAMEs/etc.
 type Result struct {
+	AlteredName string      `json:"altered_name,omitempty" groups:"short,normal,long,trace"`
+	Name        string      `json:"name,omitempty" groups:"short,normal,long,trace"`
+	Nameserver  string      `json:"nameserver,omitempty" groups:"normal,long,trace"`
+	Class       string      `json:"class,omitempty" groups:"long,trace"`
+	AlexaRank   int         `json:"alexa_rank,omitempty" groups:"short,normal,long,trace"`
+	Metadata    string      `json:"metadata,omitempty" groups:"short,normal,long,trace"`
+	Status      string      `json:"status,omitempty" groups:"short,normal,long,trace"`
+	Error       string      `json:"error,omitempty" groups:"short,normal,long,trace"`
+	Timestamp   string      `json:"timestamp,omitempty" groups:"short,normal,long,trace"`
+	Data        interface{} `json:"data,omitempty" groups:"short,normal,long,trace"`
+	Trace       Trace       `json:"trace,omitempty" groups:"trace"`
+}
+
+// SingleQueryResult contains the results of a single DNS query
+type SingleQueryResult struct {
 	Answers     []interface{} `json:"answers,omitempty" groups:"short,normal,long,trace"`
 	Additional  []interface{} `json:"additionals,omitempty" groups:"short,normal,long,trace"`
 	Authorities []interface{} `json:"authorities,omitempty" groups:"short,normal,long,trace"`
@@ -45,10 +61,10 @@ type Result struct {
 }
 
 type ExtendedResult struct {
-	Res        Result `json:"result,omitempty" groups:"short,normal,long,trace"`
-	Status     Status `json:"status" groups:"short,normal,long,trace"`
-	Nameserver string `json:"nameserver" groups:"short,normal,long,trace"`
-	Trace      Trace  `json:"trace,omitempty" groups:"trace"`
+	Res        SingleQueryResult `json:"result,omitempty" groups:"short,normal,long,trace"`
+	Status     Status            `json:"status" groups:"short,normal,long,trace"`
+	Nameserver string            `json:"nameserver" groups:"short,normal,long,trace"`
+	Trace      Trace             `json:"trace,omitempty" groups:"trace"`
 }
 
 type CombinedResults struct {
@@ -56,15 +72,15 @@ type CombinedResults struct {
 }
 
 type TraceStep struct {
-	Result     Result   `json:"results" groups:"trace"`
-	DnsType    uint16   `json:"type" groups:"trace"`
-	DnsClass   uint16   `json:"class" groups:"trace"`
-	Name       string   `json:"name" groups:"trace"`
-	NameServer string   `json:"name_server" groups:"trace"`
-	Depth      int      `json:"depth" groups:"trace"`
-	Layer      string   `json:"layer" groups:"trace"`
-	Cached     IsCached `json:"cached" groups:"trace"`
-	Try        int      `json:"try" groups:"trace"`
+	Result     SingleQueryResult `json:"results" groups:"trace"`
+	DnsType    uint16            `json:"type" groups:"trace"`
+	DnsClass   uint16            `json:"class" groups:"trace"`
+	Name       string            `json:"name" groups:"trace"`
+	NameServer string            `json:"name_server" groups:"trace"`
+	Depth      int               `json:"depth" groups:"trace"`
+	Layer      string            `json:"layer" groups:"trace"`
+	Cached     IsCached          `json:"cached" groups:"trace"`
+	Try        int               `json:"try" groups:"trace"`
 }
 
 type IPResult struct {

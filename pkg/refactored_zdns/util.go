@@ -87,14 +87,14 @@ func nextAuthority(name, layer string) (string, error) {
 	return next, nil
 }
 
-func checkGlue(server string, depth int, result Result) (Result, Status) {
+func checkGlue(server string, depth int, result SingleQueryResult) (SingleQueryResult, Status) {
 	for _, additional := range result.Additional {
 		ans, ok := additional.(Answer)
 		if !ok {
 			continue
 		}
 		if ans.Type == "A" && strings.TrimSuffix(ans.Name, ".") == server {
-			var retv Result
+			var retv SingleQueryResult
 			retv.Authorities = make([]interface{}, 0)
 			retv.Answers = make([]interface{}, 0)
 			retv.Additional = make([]interface{}, 0)
@@ -102,7 +102,7 @@ func checkGlue(server string, depth int, result Result) (Result, Status) {
 			return retv, STATUS_NOERROR
 		}
 	}
-	var r Result
+	var r SingleQueryResult
 	return r, STATUS_ERROR
 }
 
@@ -128,6 +128,7 @@ func VerifyAddress(ansType string, ip string) bool {
 	} else if ansType == "AAAA" {
 		return isIpv6
 	}
+	// TODO Phillip - this seems like strange behavior. Maybe assert that ansType is either 'A' or 'AAAA'?
 	return !isIpv4 && !isIpv6
 }
 

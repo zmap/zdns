@@ -1,3 +1,17 @@
+/*
+ * ZDNS Copyright 2024 Regents of the University of Michigan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy
+ * of the License at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
 package refactored_zdns
 
 import (
@@ -38,11 +52,12 @@ type Resolver struct {
 	ipv4Lookup bool
 	ipv6Lookup bool
 
-	isIterative      bool // whether the user desires iterative resolution or recursive
-	iterativeTimeout time.Duration
-	timeout          time.Duration // timeout for the network conns
-	maxDepth         int
-	nameServers      []string
+	isIterative          bool // whether the user desires iterative resolution or recursive
+	iterativeTimeout     time.Duration
+	timeout              time.Duration // timeout for the network conns
+	maxDepth             int
+	nameServers          []string
+	lookupAllNameServers bool
 
 	dnsSecEnabled    bool
 	ednsOptions      []dns.EDNS0
@@ -50,7 +65,7 @@ type Resolver struct {
 }
 
 // NewExternalResolver creates a new Resolver that will perform DNS resolution using an external resolver (ex: 1.1.1.1)
-func NewExternalResolver(cache *Cache) (*Resolver, error) {
+func NewExternalResolver() (*Resolver, error) {
 	r, err := newResolver()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create new resolver: %w", err)
@@ -89,19 +104,28 @@ func NewIterativeResolver(cache *Cache) (*Resolver, error) {
 	return r, nil
 }
 
-func (r *Resolver) Lookup(q *Question) ([]ExtendedResult, error) {
+func (r *Resolver) Lookup(q *Question) (*Result, error) {
+	var res interface{}
+	var fullTrace Trace
+	var status Status
+	var err error
+
 	ns := r.randomNameServer()
-	res, trace, status, err := r.doSingleNameServerLookup(*q, ns)
-	if err != nil {
-		return nil, fmt.Errorf("error resolving name %v: %w", q.Name, err)
+	if r.lookupAllNameServers {
+		res, fullTrace, status, err = r.doLookupAllNameservers(*q, ns)
+		if err != nil {
+			return nil, fmt.Errorf("error resolving name %v for all name servers based on initial server %v: %w", q.Name, ns, err)
+		}
+	} else {
+		res, fullTrace, status, err = r.doSingleNameServerLookup(*q, ns)
+		if err != nil {
+			return nil, fmt.Errorf("error resolving name %v for a single name server %v: %w", q.Name, ns, err)
+		}
 	}
-	return []ExtendedResult{
-		{
-			Res:        res,
-			Status:     status,
-			Nameserver: ns,
-			Trace:      trace,
-		},
+	return &Result{
+		Data:   res,
+		Trace:  fullTrace,
+		Status: string(status),
 	}, nil
 }
 
