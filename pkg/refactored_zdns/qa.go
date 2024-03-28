@@ -32,6 +32,8 @@ type Question struct {
 	Name  string
 }
 
+type Trace []TraceStep
+
 // result to be returned by scan of host
 type Result struct {
 	Answers     []interface{} `json:"answers,omitempty" groups:"short,normal,long,trace"`
@@ -46,6 +48,11 @@ type ExtendedResult struct {
 	Res        Result `json:"result,omitempty" groups:"short,normal,long,trace"`
 	Status     Status `json:"status" groups:"short,normal,long,trace"`
 	Nameserver string `json:"nameserver" groups:"short,normal,long,trace"`
+	Trace      Trace  `json:"trace,omitempty" groups:"trace"`
+}
+
+type CombinedResults struct {
+	Results []ExtendedResult `json:"results" groups:"short,normal,long,trace"`
 }
 
 type TraceStep struct {
@@ -58,4 +65,9 @@ type TraceStep struct {
 	Layer      string   `json:"layer" groups:"trace"`
 	Cached     IsCached `json:"cached" groups:"trace"`
 	Try        int      `json:"try" groups:"trace"`
+}
+
+type IPResult struct {
+	IPv4Addresses []string `json:"ipv4_addresses,omitempty" groups:"short,normal,long,trace"`
+	IPv6Addresses []string `json:"ipv6_addresses,omitempty" groups:"short,normal,long,trace"`
 }

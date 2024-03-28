@@ -35,8 +35,12 @@ type Resolver struct {
 	retries     int
 	shouldTrace bool
 
+	ipv4Lookup bool
+	ipv6Lookup bool
+
 	isIterative      bool // whether the user desires iterative resolution or recursive
 	iterativeTimeout time.Duration
+	timeout          time.Duration // timeout for the network conns
 	maxDepth         int
 	nameServers      []string
 
@@ -45,37 +49,14 @@ type Resolver struct {
 	checkingDisabled bool
 }
 
-/*
- * NewExternalResolver creates a new Resolver that will perform DNS resolution using an external resolver (ex: 1.1.1.1)
- */
+// NewExternalResolver creates a new Resolver that will perform DNS resolution using an external resolver (ex: 1.1.1.1)
 func NewExternalResolver(cache *Cache) (*Resolver, error) {
-	r := &Resolver{
-		blacklist: blacklist.New(),
-		blMu:      sync.Mutex{},
-	}
-	if cache != nil {
-		// use caller's cache
-		r.cache = cache
-	} else {
-		r.cache = new(Cache)
-		r.cache.Init(defaultCacheSize)
-	}
-	// set-up persistent TCP/UDP connections and conn for UDP socket re-use
-	// Step 1: get the local address
-	conn, err := net.Dial("udp", "8.8.8.8:53")
+	r, err := newResolver()
 	if err != nil {
-		return nil, fmt.Errorf("unable to find default IP address to open socket: ", err)
-	}
-	r.localAddr = conn.LocalAddr().(*net.UDPAddr).IP
-	// cleanup socket
-	if err = conn.Close(); err != nil {
-		log.Warn("Unable to close test connection to Google Public DNS: ", err)
+		return nil, fmt.Errorf("unable to create new resolver: %w", err)
 	}
 
-	// Step 2: set up the connections and sockets
-	if err = r.setupConnectionsAndSockets(defaultTimeout, r.localAddr); err != nil {
-		return nil, fmt.Errorf("unable to setup persistent sockets/connections: ", err)
-	}
+	r.isIterative = false
 
 	// configure the default name servers the OS is using
 	ns, err := GetDNSServers(defaultNameServerConfigFile)
@@ -89,21 +70,28 @@ func NewExternalResolver(cache *Cache) (*Resolver, error) {
 	return r, nil
 }
 
+// NewIterativeResolver creates a new Resolver that will perform iterative DNS resolution
 func NewIterativeResolver(cache *Cache) (*Resolver, error) {
-	r := &Resolver{}
-	// otherwise, use the set of 13 root name servers
+	r, err := newResolver()
+	if err != nil {
+		return nil, fmt.Errorf("unable to create new resolver: %w", err)
+	}
+	if cache != nil {
+		// use caller's cache
+		r.cache = cache
+	} else {
+		r.cache = new(Cache)
+		r.cache.Init(defaultCacheSize)
+	}
+	r.isIterative = true
+	// use the set of 13 root name servers
 	r.nameServers = RootServers[:]
 	return r, nil
 }
 
-func (r *Resolver) WithNameServers(nameServers []string) *Resolver {
-	r.nameServers = nameServers
-	return r
-}
-
 func (r *Resolver) Lookup(q *Question) ([]ExtendedResult, error) {
-	ns := r.RandomNameServer()
-	res, status, _, err := r.retryingLookup(*q, ns, true)
+	ns := r.randomNameServer()
+	res, trace, status, err := r.doSingleNameServerLookup(*q, ns)
 	if err != nil {
 		return nil, fmt.Errorf("error resolving name %v: %w", q.Name, err)
 	}
@@ -112,16 +100,48 @@ func (r *Resolver) Lookup(q *Question) ([]ExtendedResult, error) {
 			Res:        res,
 			Status:     status,
 			Nameserver: ns,
+			Trace:      trace,
 		},
 	}, nil
 }
 
-func (r *Resolver) doALookup(q *Question) ([]ExtendedResult, error) {
-	return nil, nil
+func (r *Resolver) WithNameServers(nameServers []string) *Resolver {
+	r.nameServers = nameServers
+	return r
 }
 
 func (r *Resolver) VerboseLog(depth int, args ...interface{}) {
 	log.Debug(makeVerbosePrefix(depth), args)
+}
+
+// newResolver has the common setup for all resolvers
+func newResolver() (*Resolver, error) {
+	r := &Resolver{
+		isIterative: false,
+
+		blacklist: blacklist.New(),
+		blMu:      sync.Mutex{},
+
+		ipv4Lookup: false,
+		ipv6Lookup: false,
+	}
+	// set-up persistent TCP/UDP connections and conn for UDP socket re-use
+	// Step 1: get the local address
+	conn, err := net.Dial("udp", "8.8.8.8:53")
+	if err != nil {
+		return nil, fmt.Errorf("unable to find default IP address to open socket: %w", err)
+	}
+	r.localAddr = conn.LocalAddr().(*net.UDPAddr).IP
+	// cleanup socket
+	if err = conn.Close(); err != nil {
+		log.Warn("Unable to close test connection to Google Public DNS: ", err)
+	}
+
+	// Step 2: set up the connections and sockets
+	if err = r.setupConnectionsAndSockets(defaultTimeout, r.localAddr); err != nil {
+		return nil, fmt.Errorf("unable to setup persistent sockets/connections: %w", err)
+	}
+	return r, nil
 }
 
 func (r *Resolver) setupConnectionsAndSockets(timeout time.Duration, localAddr net.IP) error {
@@ -149,7 +169,7 @@ func (r *Resolver) setupConnectionsAndSockets(timeout time.Duration, localAddr n
 	return nil
 }
 
-func (r *Resolver) RandomNameServer() string {
+func (r *Resolver) randomNameServer() string {
 	if r.nameServers == nil || len(r.nameServers) == 0 {
 		log.Fatal("No name servers specified")
 	}

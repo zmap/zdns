@@ -148,3 +148,26 @@ func Unique(a []string) []string {
 func TranslateDNSErrorCode(err int) Status {
 	return Status(dns.RcodeToString[err])
 }
+
+// TODO Phillip add comment
+func populateResults(records []interface{}, dnsType uint16, candidateSet map[string][]Answer, cnameSet map[string][]Answer, garbage map[string][]Answer) {
+	for _, a := range records {
+		// filter only valid answers of requested type or CNAME (#163)
+		if ans, ok := a.(Answer); ok {
+			lowerCaseName := strings.ToLower(strings.TrimSuffix(ans.Name, "."))
+			// Verify that the answer type matches requested type
+			if VerifyAddress(ans.Type, ans.Answer) {
+				ansType := dns.StringToType[ans.Type]
+				if dnsType == ansType {
+					candidateSet[lowerCaseName] = append(candidateSet[lowerCaseName], ans)
+				} else if ok && dns.TypeCNAME == ansType {
+					cnameSet[lowerCaseName] = append(cnameSet[lowerCaseName], ans)
+				} else {
+					garbage[lowerCaseName] = append(garbage[lowerCaseName], ans)
+				}
+			} else {
+				garbage[lowerCaseName] = append(garbage[lowerCaseName], ans)
+			}
+		}
+	}
+}
