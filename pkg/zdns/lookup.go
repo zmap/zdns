@@ -30,12 +30,12 @@ func GetDNSServers(path string) ([]string, error) {
 
 // Lookup client interface for help in mocking
 type Lookuper interface {
-	ProtocolLookup(r *Resolver, q Question, nameServer string) (SingleQueryResult, Trace, Status, error)
+	DoSingleNameserverLookup(r *Resolver, q Question, nameServer string) (SingleQueryResult, Trace, Status, error)
 }
 
 type LookupClient struct{}
 
-func (lc LookupClient) ProtocolLookup(r *Resolver, q Question, nameServer string) (SingleQueryResult, Trace, Status, error) {
+func (lc LookupClient) DoSingleNameserverLookup(r *Resolver, q Question, nameServer string) (SingleQueryResult, Trace, Status, error) {
 	return r.doSingleNameServerLookup(q, nameServer)
 }
 
@@ -74,7 +74,7 @@ func (r *Resolver) doLookupAllNameservers(q Question, nameServer string) (*Combi
 		ips := append(nserver.IPv4Addresses, nserver.IPv6Addresses...)
 		for _, ip := range ips {
 			curServer = net.JoinHostPort(ip, "53")
-			res, trace, status, err := r.lookupClient.ProtocolLookup(r, q, curServer)
+			res, trace, status, err := r.lookupClient.DoSingleNameserverLookup(r, q, curServer)
 
 			fullTrace = append(fullTrace, trace...)
 			tmpRes = SingleQueryResult{}

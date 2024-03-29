@@ -28,10 +28,13 @@ import (
 )
 
 const (
+	googleDNSResolverAddr       = "8.8.8.8:53"
 	defaultNameServerConfigFile = "/etc/resolv.conf"
 
 	defaultTimeout   = 15 * time.Second
 	defaultCacheSize = 10000
+
+	// TODO Phillip - probably should put all defaults up here from the two constructors and the newResolver function
 )
 
 // TODO Phillip - Probably want to rename this
@@ -101,6 +104,8 @@ func NewIterativeResolver(cache *Cache) (*Resolver, error) {
 		r.cache.Init(defaultCacheSize)
 	}
 	r.isIterative = true
+	r.iterativeTimeout = 4 * time.Second
+	r.maxDepth = 10
 	// use the set of 13 root name servers
 	r.nameServers = RootServers[:]
 	return r, nil
@@ -119,7 +124,7 @@ func (r *Resolver) Lookup(q *Question) (*Result, error) {
 			return nil, fmt.Errorf("error resolving name %v for all name servers based on initial server %v: %w", q.Name, ns, err)
 		}
 	} else {
-		res, fullTrace, status, err = r.lookupClient.ProtocolLookup(r, *q, ns)
+		res, fullTrace, status, err = r.lookupClient.DoSingleNameserverLookup(r, *q, ns)
 		if err != nil {
 			return nil, fmt.Errorf("error resolving name %v for a single name server %v: %w", q.Name, ns, err)
 		}
@@ -133,6 +138,11 @@ func (r *Resolver) Lookup(q *Question) (*Result, error) {
 
 func (r *Resolver) WithNameServers(nameServers []string) *Resolver {
 	r.nameServers = nameServers
+	return r
+}
+
+func (r *Resolver) ShouldTrace(shouldTrace bool) *Resolver {
+	r.shouldTrace = shouldTrace
 	return r
 }
 
@@ -153,13 +163,16 @@ func newResolver() (*Resolver, error) {
 
 		blacklist: blacklist.New(),
 		blMu:      sync.Mutex{},
+		retries:   1,
 
 		ipv4Lookup: false,
 		ipv6Lookup: false,
 	}
+	// TODO - Phillip make this changeable
+	log.SetLevel(log.DebugLevel)
 	// set-up persistent TCP/UDP connections and conn for UDP socket re-use
 	// Step 1: get the local address
-	conn, err := net.Dial("udp", "8.8.8.8:53")
+	conn, err := net.Dial("udp", googleDNSResolverAddr)
 	if err != nil {
 		return nil, fmt.Errorf("unable to find default IP address to open socket: %w", err)
 	}

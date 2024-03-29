@@ -14,10 +14,11 @@
 package zdns
 
 import (
-	"github.com/stretchr/testify/assert"
 	"net"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/zmap/dns"
 )
@@ -39,7 +40,7 @@ var protocolStatus = make(map[domain_ns]Status)
 
 type MockLookupClient struct{}
 
-func (mc MockLookupClient) ProtocolLookup(r *Resolver, q Question, nameServer string) (SingleQueryResult, Trace, Status, error) {
+func (mc MockLookupClient) DoSingleNameserverLookup(r *Resolver, q Question, nameServer string) (SingleQueryResult, Trace, Status, error) {
 	cur_domain_ns := domain_ns{domain: q.Name, ns: nameServer}
 	if res, ok := mockResults[cur_domain_ns]; ok {
 		var status = STATUS_NOERROR
