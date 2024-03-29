@@ -12,7 +12,7 @@
  * permissions and limitations under the License.
  */
 
-package refactored_zdns
+package zdns
 
 import (
 	"errors"
@@ -87,7 +87,7 @@ func (r *Resolver) recursiveIPLookup(name string, nameServer string, dnsType uin
 		var miekgResult interface{}
 		var status Status
 		var err error
-		miekgResult, trace, status, err = r.doSingleNameServerLookup(Question{Name: name, Type: dnsType}, nameServer)
+		miekgResult, trace, status, err = r.lookupClient.ProtocolLookup(r, Question{Name: name, Type: dnsType}, nameServer)
 		if status != STATUS_NOERROR || err != nil {
 			return nil, trace, status, err
 		}

@@ -12,7 +12,7 @@
  * permissions and limitations under the License.
  */
 
-package miekg
+package zdns
 
 import (
 	"encoding/hex"

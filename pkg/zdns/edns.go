@@ -12,7 +12,7 @@
  * permissions and limitations under the License.
  */
 
-package miekg
+package zdns
 
 // Structures covering DNS EDNS0 Option Codes (https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-11)
 

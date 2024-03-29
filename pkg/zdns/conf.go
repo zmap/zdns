@@ -1,5 +1,5 @@
 /*
- * ZDNS Copyright 2016 Regents of the University of Michigan
+ * ZDNS Copyright 2024 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -54,9 +54,6 @@ type GlobalConf struct {
 	Dnssec               bool
 	CheckingDisabled     bool
 
-	InputHandler  InputHandler
-	OutputHandler OutputHandler
-
 	InputFilePath    string
 	OutputFilePath   string
 	LogFilePath      string
@@ -79,20 +76,6 @@ type Metadata struct {
 	Timeout     int            `json:"timeout"`
 	Retries     int            `json:"retries"`
 	Conf        *GlobalConf    `json:"conf"`
-}
-
-type Result struct {
-	AlteredName string        `json:"altered_name,omitempty" groups:"short,normal,long,trace"`
-	Name        string        `json:"name,omitempty" groups:"short,normal,long,trace"`
-	Nameserver  string        `json:"nameserver,omitempty" groups:"normal,long,trace"`
-	Class       string        `json:"class,omitempty" groups:"long,trace"`
-	AlexaRank   int           `json:"alexa_rank,omitempty" groups:"short,normal,long,trace"`
-	Metadata    string        `json:"metadata,omitempty" groups:"short,normal,long,trace"`
-	Status      string        `json:"status,omitempty" groups:"short,normal,long,trace"`
-	Error       string        `json:"error,omitempty" groups:"short,normal,long,trace"`
-	Timestamp   string        `json:"timestamp,omitempty" groups:"short,normal,long,trace"`
-	Data        interface{}   `json:"data,omitempty" groups:"short,normal,long,trace"`
-	Trace       []interface{} `json:"trace,omitempty" groups:"trace"`
 }
 
 type TargetedDomain struct {

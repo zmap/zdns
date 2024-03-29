@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/zmap/dns"
-	"github.com/zmap/zdns/pkg/refactored_zdns"
+	"github.com/zmap/zdns/pkg/zdns"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -12,11 +12,11 @@ import (
 
 func main() {
 	fmt.Println("Hello, World!")
-	r, err := refactored_zdns.NewExternalResolver(nil)
+	r, err := zdns.NewExternalResolver()
 	if err != nil {
 		log.Fatal("Error creating resolver: %w", err)
 	}
-	q := refactored_zdns.Question{
+	q := zdns.Question{
 		Name:  "www.google.com",
 		Type:  dns.TypeA,
 		Class: dns.ClassINET,

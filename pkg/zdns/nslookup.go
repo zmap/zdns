@@ -12,7 +12,7 @@
  * permissions and limitations under the License.
  */
 
-package refactored_zdns
+package zdns
 
 import (
 	"github.com/zmap/dns"

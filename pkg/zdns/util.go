@@ -12,7 +12,7 @@
  * permissions and limitations under the License.
  */
 
-package miekg
+package zdns
 
 import (
 	"errors"
@@ -21,19 +21,18 @@ import (
 	"strings"
 
 	"github.com/zmap/dns"
-	"github.com/zmap/zdns/pkg/zdns"
 )
 
 func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-func TranslateMiekgErrorCode(err int) zdns.Status {
-	return zdns.Status(dns.RcodeToString[err])
+func TranslateMiekgErrorCode(err int) Status {
+	return Status(dns.RcodeToString[err])
 }
 
-func isStatusAnswer(s zdns.Status) bool {
-	if s == zdns.STATUS_NOERROR || s == zdns.STATUS_NXDOMAIN {
+func isStatusAnswer(s Status) bool {
+	if s == STATUS_NOERROR || s == STATUS_NXDOMAIN {
 		return true
 	}
 	return false
@@ -88,32 +87,32 @@ func nextAuthority(name, layer string) (string, error) {
 	return next, nil
 }
 
-func checkGlue(server string, depth int, result Result) (Result, zdns.Status) {
+func checkGlue(server string, depth int, result SingleQueryResult) (SingleQueryResult, Status) {
 	for _, additional := range result.Additional {
 		ans, ok := additional.(Answer)
 		if !ok {
 			continue
 		}
 		if ans.Type == "A" && strings.TrimSuffix(ans.Name, ".") == server {
-			var retv Result
+			var retv SingleQueryResult
 			retv.Authorities = make([]interface{}, 0)
 			retv.Answers = make([]interface{}, 0)
 			retv.Additional = make([]interface{}, 0)
 			retv.Answers = append(retv.Answers, ans)
-			return retv, zdns.STATUS_NOERROR
+			return retv, STATUS_NOERROR
 		}
 	}
-	var r Result
-	return r, zdns.STATUS_ERROR
+	var r SingleQueryResult
+	return r, STATUS_ERROR
 }
 
-func makeVerbosePrefix(depth int, threadID int) string {
-	return fmt.Sprintf("THREADID %06d,DEPTH %02d", threadID, depth) + ":" + strings.Repeat("  ", 2*depth)
+func makeVerbosePrefix(depth int) string {
+	return fmt.Sprintf("DEPTH %02d", depth) + ":" + strings.Repeat("  ", 2*depth)
 }
 
 // Check whether the status is safe
-func SafeStatus(status zdns.Status) bool {
-	return status == zdns.STATUS_NOERROR
+func SafeStatus(status Status) bool {
+	return status == STATUS_NOERROR
 }
 
 // Verify that A record is indeed IPv4 and AAAA is IPv6
@@ -129,6 +128,7 @@ func VerifyAddress(ansType string, ip string) bool {
 	} else if ansType == "AAAA" {
 		return isIpv6
 	}
+	// TODO Phillip - this seems like strange behavior. Maybe assert that ansType is either 'A' or 'AAAA'?
 	return !isIpv4 && !isIpv6
 }
 
@@ -143,4 +143,65 @@ func Unique(a []string) []string {
 		}
 	}
 	return a[:j]
+}
+
+// TranslateDNSErrorCode translates a DNS error code from the DNS library to a Status
+func TranslateDNSErrorCode(err int) Status {
+	return Status(dns.RcodeToString[err])
+}
+
+// TODO Phillip add comment
+func populateResults(records []interface{}, dnsType uint16, candidateSet map[string][]Answer, cnameSet map[string][]Answer, garbage map[string][]Answer) {
+	for _, a := range records {
+		// filter only valid answers of requested type or CNAME (#163)
+		if ans, ok := a.(Answer); ok {
+			lowerCaseName := strings.ToLower(strings.TrimSuffix(ans.Name, "."))
+			// Verify that the answer type matches requested type
+			if VerifyAddress(ans.Type, ans.Answer) {
+				ansType := dns.StringToType[ans.Type]
+				if dnsType == ansType {
+					candidateSet[lowerCaseName] = append(candidateSet[lowerCaseName], ans)
+				} else if ok && dns.TypeCNAME == ansType {
+					cnameSet[lowerCaseName] = append(cnameSet[lowerCaseName], ans)
+				} else {
+					garbage[lowerCaseName] = append(garbage[lowerCaseName], ans)
+				}
+			} else {
+				garbage[lowerCaseName] = append(garbage[lowerCaseName], ans)
+			}
+		}
+	}
+}
+
+// TODO Phillip - add a comment
+func handleStatus(status *Status, err error) (*Status, error) {
+	switch *status {
+	case STATUS_ITER_TIMEOUT:
+		return status, err
+	case STATUS_NXDOMAIN:
+		return status, nil
+	case STATUS_SERVFAIL:
+		return status, nil
+	case STATUS_REFUSED:
+		return status, nil
+	case STATUS_AUTHFAIL:
+		return status, nil
+	case STATUS_NO_RECORD:
+		return status, nil
+	case STATUS_BLACKLIST:
+		return status, nil
+	case STATUS_NO_OUTPUT:
+		return status, nil
+	case STATUS_NO_ANSWER:
+		return status, nil
+	case STATUS_TRUNCATED:
+		return status, nil
+	case STATUS_ILLEGAL_INPUT:
+		return status, nil
+	case STATUS_TEMPORARY:
+		return status, nil
+	default:
+		var s *Status
+		return s, nil
+	}
 }

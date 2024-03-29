@@ -12,7 +12,7 @@
  * permissions and limitations under the License.
  */
 
-package refactored_zdns
+package zdns
 
 type DNSFlags struct {
 	Response           bool `json:"response" groups:"flags,long,trace"`
