@@ -85,7 +85,8 @@ func NewExternalResolver() (*Resolver, error) {
 	return r, nil
 }
 
-// NewIterativeResolver creates a new Resolver that will perform iterative DNS resolution
+// NewIterativeResolver creates a new Resolver that will perform iterative DNS resolution using a cache for top-level domains
+// If cache is nil, one will be instantiated in this constructor.
 func NewIterativeResolver(cache *Cache) (*Resolver, error) {
 	r, err := newResolver()
 	if err != nil {
