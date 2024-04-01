@@ -31,13 +31,66 @@ const (
 	googleDNSResolverAddr       = "8.8.8.8:53"
 	defaultNameServerConfigFile = "/etc/resolv.conf"
 
-	defaultTimeout   = 15 * time.Second
-	defaultCacheSize = 10000
+	defaultTimeout               = 15 * time.Second // timeout for resolving a single name
+	defaultIterativeTimeout      = 4 * time.Second  // timeout for single iteration in an iterative query
+	defaultTCPOnly               = false
+	defaultUDPOnly               = false
+	defaultShouldRecycleSockets  = true // TODO Phillip - how does this change the behavior and why would you want it off?
+	defaultLogVerbosity          = 3    // 1 = lowest, 5 = highest
+	defaultRetries               = 1
+	defaultMaxDepth              = 10
+	defaultCheckingDisabledBit   = false // Sends DNS packets with the CD bit set
+	defaultNameServerModeEnabled = false // Treats input as nameservers to query with a static query rather than queries to send to a static name server
+	defaultCacheSize             = 10000
+	defaultShouldTrace           = false
+	defaultDNSSECEnabled         = false
 
-	// TODO Phillip - probably should put all defaults up here from the two constructors and the newResolver function
 )
 
-// TODO Phillip - Probably want to rename this
+type ResolverBuilder struct {
+	r *Resolver
+}
+
+func NewResolverBuilder() *ResolverBuilder {
+	return &ResolverBuilder{
+		r: &Resolver{
+			lookupClient: LookupClient{},
+
+			blacklist: blacklist.New(),
+			blMu:      sync.Mutex{},
+
+			retries:          defaultRetries,
+			timeout:          defaultTimeout,
+			shouldTrace:      defaultShouldTrace,
+			checkingDisabled: defaultCheckingDisabledBit,
+			dnsSecEnabled:    defaultDNSSECEnabled,
+			udpOnly:          defaultUDPOnly,
+			tcpOnly:          defaultTCPOnly,
+
+			ipv4Lookup: false,
+			ipv6Lookup: false,
+
+			logLevel: defaultLogVerbosity,
+		},
+	}
+}
+
+
+func (rb *ResolverBuilder) SetNameServers(nameServers []string) *ResolverBuilder {
+	rb.r.nameServers = nameServers
+	return rb
+}
+
+func (rb *ResolverBuilder) SetShouldTrace(shouldTrace bool) *ResolverBuilder {
+	rb.r.shouldTrace = shouldTrace
+	return rb
+}
+
+func (rb *ResolverBuilder) WithLookuper(lu Lookuper) *ResolverBuilder {
+	rb.r.lookupClient = lu
+	return rb
+}
+
 type Resolver struct {
 	cache        *Cache
 	lookupClient Lookuper // either a functional or mock Lookuper client for testing
@@ -52,9 +105,13 @@ type Resolver struct {
 
 	retries     int
 	shouldTrace bool
+	logLevel log.Level
 
 	ipv4Lookup bool
 	ipv6Lookup bool
+	udpOnly bool // only use UDP for lookups
+	tcpOnly bool // only use TCP for lookups
+	shouldRecycleSockets bool
 
 	isIterative          bool // whether the user desires iterative resolution or recursive
 	iterativeTimeout     time.Duration
@@ -67,6 +124,11 @@ type Resolver struct {
 	ednsOptions      []dns.EDNS0
 	checkingDisabled bool
 }
+
+func (r *Resolver) VerboseLog(depth int, args ...interface{}) {
+	log.Debug(makeVerbosePrefix(depth), args)
+}
+
 
 // NewExternalResolver creates a new Resolver that will perform DNS resolution using an external resolver (ex: 1.1.1.1)
 func NewExternalResolver() (*Resolver, error) {
@@ -104,8 +166,9 @@ func NewIterativeResolver(cache *Cache) (*Resolver, error) {
 		r.cache.Init(defaultCacheSize)
 	}
 	r.isIterative = true
-	r.iterativeTimeout = 4 * time.Second
-	r.maxDepth = 10
+	r.iterativeTimeout = defaultIterativeTimeout
+	r.maxDepth = defaultMaxDepth
+	r.retries = defaultRetries
 	// use the set of 13 root name servers
 	r.nameServers = RootServers[:]
 	return r, nil
@@ -136,40 +199,11 @@ func (r *Resolver) Lookup(q *Question) (*Result, error) {
 	}, nil
 }
 
-func (r *Resolver) WithNameServers(nameServers []string) *Resolver {
-	r.nameServers = nameServers
-	return r
-}
 
-func (r *Resolver) ShouldTrace(shouldTrace bool) *Resolver {
-	r.shouldTrace = shouldTrace
-	return r
-}
-
-func (r *Resolver) WithLookuper(lu Lookuper) *Resolver {
-	r.lookupClient = lu
-	return r
-}
-
-func (r *Resolver) VerboseLog(depth int, args ...interface{}) {
-	log.Debug(makeVerbosePrefix(depth), args)
-}
-
-// newResolver has the common setup for all resolvers
+// newResolver has the common setup for all resolvers and sets defaults
 func newResolver() (*Resolver, error) {
-	r := &Resolver{
-		isIterative:  false,
-		lookupClient: LookupClient{},
-
-		blacklist: blacklist.New(),
-		blMu:      sync.Mutex{},
-		retries:   1,
-
-		ipv4Lookup: false,
-		ipv6Lookup: false,
-	}
-	// TODO - Phillip make this changeable
-	log.SetLevel(log.DebugLevel)
+	// TODO Phillip integrate into builder
+	log.SetLevel(log.Level(defaultLogVerbosity))
 	// set-up persistent TCP/UDP connections and conn for UDP socket re-use
 	// Step 1: get the local address
 	conn, err := net.Dial("udp", googleDNSResolverAddr)
@@ -196,6 +230,7 @@ func (r *Resolver) setupConnectionsAndSockets(timeout time.Duration, localAddr n
 		Timeout:   timeout,
 		LocalAddr: &net.UDPAddr{IP: localAddr},
 	}
+	if r.
 	// create Packet Conn for use throughout thread's life
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{localAddr, 0, ""})
 	if err != nil {

@@ -273,7 +273,7 @@ func (r *Resolver) retryingLookup(q Question, nameServer string, recursive bool)
 	} else {
 		origTimeout = r.tcpClient.Timeout
 	}
-	// TODO: it feels like bad practice to change the timeout value of the client without user input, should return an error/log msg and exit
+	// TODO - Phillip it feels like bad practice to change the timeout value of the client without user input, should return an error/log msg and exit
 	// Leaving as a separate task so as not to refactor AND change functionality
 	defer func() {
 		// set timeout values back to original
