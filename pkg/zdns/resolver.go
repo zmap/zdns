@@ -25,28 +25,6 @@ import (
 	"time"
 )
 
-type transportMode int
-
-const (
-	UDPOrTCP transportMode = iota
-	UDPOnly
-	TCPOnly
-)
-
-func (tm transportMode) isValid() (bool, error) {
-	isValid := tm >= 0 && tm <= 2
-	if !isValid {
-		return false, fmt.Errorf("invalid transport mode: %d", tm)
-	}
-	return true, nil
-}
-
-// Left off trying to integrate this idea: https://refactoring.guru/design-patterns/builder/go/example
-// namely that there will be the pattern of
-// 1. Get ResolverBuilder
-// 2. Set options on ResolverBuilder
-// 3. Build External/Iterative Resolver
-
 type Resolver struct {
 	cache        *Cache
 	lookupClient Lookuper // either a functional or mock Lookuper client for testing
@@ -63,9 +41,8 @@ type Resolver struct {
 	shouldTrace bool
 	logLevel    log.Level
 
-	shouldUseIPv4        bool
-	shouldUseIPv6        bool
 	transportMode        transportMode
+	ipVersionMode        ipVersionMode
 	shouldRecycleSockets bool
 
 	isIterative          bool // whether the user desires iterative resolution or recursive
@@ -75,9 +52,9 @@ type Resolver struct {
 	nameServers          []string
 	lookupAllNameServers bool
 
-	dnsSecEnabled    bool
-	ednsOptions      []dns.EDNS0
-	checkingDisabled bool
+	dnsSecEnabled       bool
+	ednsOptions         []dns.EDNS0
+	checkingDisabledBit bool
 }
 
 func (r *Resolver) Lookup(q *Question) (*Result, error) {
