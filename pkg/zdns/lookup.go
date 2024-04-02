@@ -31,12 +31,17 @@ func GetDNSServers(path string) ([]string, error) {
 // Lookup client interface for help in mocking
 type Lookuper interface {
 	DoSingleNameserverLookup(r *Resolver, q Question, nameServer string) (SingleQueryResult, Trace, Status, error)
+	DoAllNameserverLookup(r *Resolver, q Question, nameServer string) (*CombinedResults, Trace, Status, error)
 }
 
 type LookupClient struct{}
 
 func (lc LookupClient) DoSingleNameserverLookup(r *Resolver, q Question, nameServer string) (SingleQueryResult, Trace, Status, error) {
 	return r.doSingleNameServerLookup(q, nameServer)
+}
+
+func (lc LookupClient) DoAllNameserverLookup(r *Resolver, q Question, nameServer string) (*CombinedResults, Trace, Status, error) {
+	return r.doLookupAllNameservers(q, nameServer)
 }
 
 /*

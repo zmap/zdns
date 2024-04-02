@@ -22,7 +22,6 @@ import (
 	"github.com/zmap/zdns/internal/util"
 	"net"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -66,7 +65,6 @@ func NewResolverBuilder() *ResolverConfigurer {
 			cache:        c,
 
 			blacklist: blacklist.New(),
-			blMu:      sync.Mutex{},
 
 			maxDepth:             defaultMaxDepth,
 			shouldRecycleSockets: defaultShouldRecycleSockets,
@@ -134,6 +132,11 @@ func (rc *ResolverConfigurer) WithCheckingDisabled(checkingDisabled bool) *Resol
 
 func (rc *ResolverConfigurer) WithDnsSecEnabled(dnsSecEnabled bool) *ResolverConfigurer {
 	rc.r.dnsSecEnabled = dnsSecEnabled
+	return rc
+}
+
+func (rc *ResolverConfigurer) WithLookupAllNameServers(lookupAllNameServers bool) *ResolverConfigurer {
+	rc.r.lookupAllNameServers = lookupAllNameServers
 	return rc
 }
 

@@ -34,6 +34,18 @@ type Question struct {
 
 type Trace []TraceStep
 
+type TraceStep struct {
+	Result     SingleQueryResult `json:"results" groups:"trace"`
+	DnsType    uint16            `json:"type" groups:"trace"`
+	DnsClass   uint16            `json:"class" groups:"trace"`
+	Name       string            `json:"name" groups:"trace"`
+	NameServer string            `json:"name_server" groups:"trace"`
+	Depth      int               `json:"depth" groups:"trace"`
+	Layer      string            `json:"layer" groups:"trace"`
+	Cached     IsCached          `json:"cached" groups:"trace"`
+	Try        int               `json:"try" groups:"trace"`
+}
+
 // TODO Phillip - many of these fields aren't being used, we should consider removing them or populating them
 // Result contains all the metadata from a complete lookup, potentailly after following many CNAMEs/etc.
 type Result struct {
@@ -69,18 +81,6 @@ type ExtendedResult struct {
 
 type CombinedResults struct {
 	Results []ExtendedResult `json:"results" groups:"short,normal,long,trace"`
-}
-
-type TraceStep struct {
-	Result     SingleQueryResult `json:"results" groups:"trace"`
-	DnsType    uint16            `json:"type" groups:"trace"`
-	DnsClass   uint16            `json:"class" groups:"trace"`
-	Name       string            `json:"name" groups:"trace"`
-	NameServer string            `json:"name_server" groups:"trace"`
-	Depth      int               `json:"depth" groups:"trace"`
-	Layer      string            `json:"layer" groups:"trace"`
-	Cached     IsCached          `json:"cached" groups:"trace"`
-	Try        int               `json:"try" groups:"trace"`
 }
 
 type IPResult struct {

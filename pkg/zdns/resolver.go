@@ -21,7 +21,6 @@ import (
 	"github.com/zmap/go-iptree/blacklist"
 	"math/rand"
 	"net"
-	"sync"
 	"time"
 )
 
@@ -30,7 +29,6 @@ type Resolver struct {
 	lookupClient Lookuper // either a functional or mock Lookuper client for testing
 
 	blacklist *blacklist.Blacklist
-	blMu      sync.Mutex
 
 	udpClient *dns.Client
 	tcpClient *dns.Client
@@ -80,6 +78,16 @@ func (r *Resolver) Lookup(q *Question) (*Result, error) {
 		Trace:  fullTrace,
 		Status: string(status),
 	}, nil
+}
+
+// Close cleans up any resources used by the resolver. This should be called when the resolver is no longer needed.
+// Lookup will panic if called after Close.
+func (r *Resolver) Close() {
+	if r.conn != nil {
+		if err := r.conn.Close(); err != nil {
+			log.Errorf("error closing connection: %w", err)
+		}
+	}
 }
 
 func (r *Resolver) randomNameServer() string {
