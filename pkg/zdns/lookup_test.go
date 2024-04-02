@@ -19,8 +19,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/zmap/dns"
 )
 
 type domain_ns struct {
@@ -57,13 +55,10 @@ func InitTest(t *testing.T) *Resolver {
 	protocolStatus = make(map[domain_ns]Status)
 	mockResults = make(map[domain_ns]SingleQueryResult)
 
-	r := Resolver{
-		nameServers: []string{"127.0.0.1"},
-		udpClient:   new(dns.Client),
-	}
 	mc := MockLookupClient{}
-	r.WithLookuper(mc)
-	return &r
+	r, err := NewResolverBuilder().WithNameServers([]string{"127.0.0.1"}).WithLookuper(mc).BuildExternalResolver()
+	assert.NoError(t, err)
+	return r
 }
 
 // Test specifying neither ipv4 not ipv6 flag looks up ipv4 by default

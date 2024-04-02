@@ -200,7 +200,7 @@ func (rc *ResolverConfigurer) BuildIterativeResolver(cache *Cache) (*Resolver, e
 }
 
 // isValid checks if the resolver is valid
-// Returns true, nil or false, error where error describes what is invalid about the resolver configurer. Called before building the resolver
+// Returns whether the resolver configurer is valid or not and if invalid, why. Called before building the resolver.
 func (rc *ResolverConfigurer) isValid() (bool, string) {
 	if rc.hasBeenBuilt {
 		return false, "cannot change resolver builder after resolver has been built"
@@ -213,8 +213,8 @@ func (rc *ResolverConfigurer) isValid() (bool, string) {
 
 // buildResolverHelper has the common build logic for all resolvers
 func (rc *ResolverConfigurer) buildResolverHelper() (*Resolver, error) {
-	if isValid, err := rc.isValid(); !isValid {
-		return nil, fmt.Errorf("invalid resolver: %w", err)
+	if isValid, notValidReason := rc.isValid(); !isValid {
+		return nil, fmt.Errorf("invalid resolver: %s", notValidReason)
 	}
 	log.SetLevel(rc.r.logLevel)
 	if !rc.localAddrSet {
