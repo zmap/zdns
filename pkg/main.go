@@ -11,16 +11,14 @@ import (
 // TODO PHillip, remove this file, just for testing
 
 func main() {
-	iterativeRes, err := zdns.NewIterativeResolver(nil)
+	iterativeRes, err := zdns.NewResolverBuilder().WithShouldTrace(true).BuildIterativeResolver(nil)
 	if err != nil {
 		log.Fatal("Error creating iterative resolver: %w", err)
 	}
-	iterativeRes.ShouldTrace(true)
-	externalRes, err := zdns.NewExternalResolver()
+	externalRes, err := zdns.NewResolverBuilder().WithNameServers([]string{"1.1.1.1:53"}).WithShouldTrace(true).BuildExternalResolver()
 	if err != nil {
 		log.Fatal("Error creating external resolver: %w", err)
 	}
-	externalRes = externalRes.WithNameServers([]string{"1.1.1.1:53"}).ShouldTrace(true)
 	q := zdns.Question{
 		Name:  "www.google.com",
 		Type:  dns.TypeA,
