@@ -53,22 +53,27 @@ func (mc MockLookupClient) DoSingleNameserverLookup(r *Resolver, q Question, nam
 	}
 }
 
-func (mc MockLookupClient) DoAllNameserverLookup(r *Resolver, q Question, nameServer string) (*CombinedResults, Trace, Status, error) {
+//func (mc MockLookupClient) DoAllNameserverLookup(r *Resolver, q Question, nameServer string) (*CombinedResults, Trace, Status, error) {
+//
+//}
 
-}
-
-func InitTest(t *testing.T) *ResolverConfigurer {
+func InitTest(t *testing.T) *ResolverConfig {
 	protocolStatus = make(map[domain_ns]Status)
 	mockResults = make(map[domain_ns]SingleQueryResult)
 
 	mc := MockLookupClient{}
-	rc := NewResolverBuilder().WithNameServers([]string{"127.0.0.1"}).WithLookuper(mc)
-	return rc
+	//rc := NewResolverBuilder().WithNameServers([]string{"127.0.0.1"}).WithLookuper(mc)
+	config := NewResolverConfig()
+	config.NameServers = []string{"127.0.0.1"}
+	config.LookupClient = mc
+
+	return config
 }
 
 // Test specifying neither ipv4 not ipv6 flag looks up ipv4 by default
 func TestOneA(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -95,7 +100,8 @@ func TestOneA(t *testing.T) {
 // Test two ipv4 addresses
 
 func TestTwoA(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -129,7 +135,8 @@ func TestTwoA(t *testing.T) {
 // Test ipv6 results not returned when lookupIpv6 is false
 
 func TestQuadAWithoutFlag(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -164,7 +171,8 @@ func TestQuadAWithoutFlag(t *testing.T) {
 // Test ipv6 results
 
 func TestOnlyQuadA(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -192,7 +200,8 @@ func TestOnlyQuadA(t *testing.T) {
 // Test both ipv4 and ipv6 results are returned
 
 func TestAandQuadA(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -226,7 +235,8 @@ func TestAandQuadA(t *testing.T) {
 // Test two ipv6 addresses are returned
 
 func TestTwoQuadA(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -261,7 +271,8 @@ func TestTwoQuadA(t *testing.T) {
 // we get empty result
 
 func TestNoResults(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -282,7 +293,8 @@ func TestNoResults(t *testing.T) {
 // Test CName lookup returns ipv4 address
 
 func TestCname(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "cname.example.com"
@@ -327,7 +339,8 @@ func TestCname(t *testing.T) {
 // Test CName with lookupIpv6 as true returns ipv6 addresses
 
 func TestQuadAWithCname(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "cname.example.com"
@@ -361,7 +374,8 @@ func TestQuadAWithCname(t *testing.T) {
 // Test that MX record with no A or AAAA records gives error
 
 func TestUnexpectedMxOnly(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -394,7 +408,8 @@ func TestUnexpectedMxOnly(t *testing.T) {
 // Test A and AAAA records in additionals
 
 func TestMxAndAdditionals(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -435,7 +450,8 @@ func TestMxAndAdditionals(t *testing.T) {
 // Test A record with IPv6 address gives error
 
 func TestMismatchIpType(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -468,7 +484,8 @@ func TestMismatchIpType(t *testing.T) {
 // Test cname loops terminate with error
 
 func TestCnameLoops(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "cname1.example.com"
@@ -519,7 +536,8 @@ func TestCnameLoops(t *testing.T) {
 // Test recursion in cname lookup with length > 10 terminate with error
 
 func TestExtendedRecursion(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 
 	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
@@ -556,7 +574,8 @@ func TestExtendedRecursion(t *testing.T) {
 // Test empty non-terminal returns no error
 
 func TestEmptyNonTerminal(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "leaf.intermediate.example.com"
@@ -600,7 +619,8 @@ func TestEmptyNonTerminal(t *testing.T) {
 // Test Non-existent domain in the zone returns NXDOMAIN
 
 func TestNXDomain(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
 	res, _, status, _ := resolver.DoTargetedLookup("nonexistent.example.com", ns1, true, true)
@@ -614,7 +634,8 @@ func TestNXDomain(t *testing.T) {
 // Test both ipv4 and ipv6 results are deduplicated before returning
 
 func TestAandQuadADedup(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "cname1.example.com"
@@ -710,7 +731,8 @@ func TestAandQuadADedup(t *testing.T) {
 // Test server failure returns SERVFAIL
 
 func TestServFail(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -733,7 +755,8 @@ func TestServFail(t *testing.T) {
 /*NS lookup tests*/
 
 func TestNsAInAdditional(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 	lookupIpv4 := true
 	lookupIpv6 := false
@@ -776,7 +799,8 @@ func TestNsAInAdditional(t *testing.T) {
 }
 
 func TestTwoNSInAdditional(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 	lookupIpv4 := true
 	lookupIpv6 := false
@@ -837,7 +861,8 @@ func TestTwoNSInAdditional(t *testing.T) {
 }
 
 func TestAandQuadAInAdditional(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 	lookupIpv4 := true
 	lookupIpv6 := true
@@ -887,7 +912,8 @@ func TestAandQuadAInAdditional(t *testing.T) {
 }
 
 func TestNsMismatchIpType(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 	lookupIpv4 := true
 	lookupIpv6 := true
@@ -937,7 +963,8 @@ func TestNsMismatchIpType(t *testing.T) {
 }
 
 func TestAandQuadALookup(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 	lookupIpv4 := true
 	lookupIpv6 := true
@@ -999,7 +1026,8 @@ func TestAandQuadALookup(t *testing.T) {
 }
 
 func TestNsNXDomain(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 	lookupIpv4 := true
 	lookupIpv6 := false
@@ -1012,7 +1040,8 @@ func TestNsNXDomain(t *testing.T) {
 }
 
 func TestNsServFail(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 	lookupIpv4 := true
 	lookupIpv6 := false
@@ -1032,7 +1061,8 @@ func TestNsServFail(t *testing.T) {
 }
 
 func TestErrorInTargetedLookup(t *testing.T) {
-	resolver, err := InitTest(t).BuildExternalResolver()
+	config := InitTest(t)
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 	lookupIpv4 := true
 	lookupIpv6 := true
@@ -1067,7 +1097,9 @@ func TestErrorInTargetedLookup(t *testing.T) {
 // Test One NS with one IP with only ipv4-lookup
 
 func TestAllNsLookupOneNs(t *testing.T) {
-	resolver, err := InitTest(t).WithLookupAllNameServers(true).BuildExternalResolver()
+	config := InitTest(t)
+	config.LookupAllNameServers = true
+	resolver, err := InitExternalResolver(config)
 	assert.Nil(t, err)
 
 	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")

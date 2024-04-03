@@ -31,7 +31,7 @@ func GetDNSServers(path string) ([]string, error) {
 // Lookup client interface for help in mocking
 type Lookuper interface {
 	DoSingleNameserverLookup(r *Resolver, q Question, nameServer string) (SingleQueryResult, Trace, Status, error)
-	DoAllNameserverLookup(r *Resolver, q Question, nameServer string) (*CombinedResults, Trace, Status, error)
+	//DoAllNameserverLookup(r *Resolver, q Question, nameServer string) (*CombinedResults, Trace, Status, error)
 }
 
 type LookupClient struct{}
@@ -40,9 +40,9 @@ func (lc LookupClient) DoSingleNameserverLookup(r *Resolver, q Question, nameSer
 	return r.doSingleNameServerLookup(q, nameServer)
 }
 
-func (lc LookupClient) DoAllNameserverLookup(r *Resolver, q Question, nameServer string) (*CombinedResults, Trace, Status, error) {
-	return r.doLookupAllNameservers(q, nameServer)
-}
+//func (lc LookupClient) DoAllNameserverLookup(r *Resolver, q Question, nameServer string) (*CombinedResults, Trace, Status, error) {
+//	return r.doLookupAllNameservers(q, nameServer)
+//}
 
 /*
 // TODO Phillip, yeah we gotta rename this
@@ -223,17 +223,17 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 	// TODO Phillip, fix this locking code to be safer, ie within a function and a defer unlock()
 	// Could wrap the blacklist in a SafeBlacklist wrapper struct that handles the locking
 	if r.blacklist != nil {
-		r.blMu.Lock()
+		r.blMutex.Lock()
 		if blacklisted, err := r.blacklist.IsBlacklisted(nameServerIP); err != nil {
-			r.blMu.Unlock()
+			r.blMutex.Unlock()
 			var r SingleQueryResult
 			return r, isCached, STATUS_ERROR, 0, err
 		} else if blacklisted {
-			r.blMu.Unlock()
+			r.blMutex.Unlock()
 			var r SingleQueryResult
 			return r, isCached, STATUS_BLACKLIST, 0, nil
 		}
-		r.blMu.Unlock()
+		r.blMutex.Unlock()
 	}
 
 	// Now, we check the authoritative:
