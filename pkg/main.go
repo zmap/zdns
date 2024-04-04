@@ -20,6 +20,7 @@ func main() {
 	config = zdns.NewResolverConfig()
 	config.NameServers = []string{"1.1.1.1:53"}
 	externalRes, err := zdns.InitExternalResolver(config)
+	//eliminate double constructors
 	if err != nil {
 		log.Fatal("Error creating external resolver: %w", err)
 	}

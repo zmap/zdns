@@ -53,10 +53,6 @@ func (mc MockLookupClient) DoSingleNameserverLookup(r *Resolver, q Question, nam
 	}
 }
 
-//func (mc MockLookupClient) DoAllNameserverLookup(r *Resolver, q Question, nameServer string) (*CombinedResults, Trace, Status, error) {
-//
-//}
-
 func InitTest(t *testing.T) *ResolverConfig {
 	protocolStatus = make(map[domain_ns]Status)
 	mockResults = make(map[domain_ns]SingleQueryResult)

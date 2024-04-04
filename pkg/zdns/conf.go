@@ -14,69 +14,16 @@
 
 package zdns
 
-import (
-	"net"
-	"time"
-
-	"github.com/zmap/dns"
-)
-
-type GlobalConf struct {
-	Threads               int
-	Timeout               time.Duration
-	IterationTimeout      time.Duration
-	Retries               int
-	AlexaFormat           bool
-	MetadataFormat        bool
-	NameServerInputFormat bool
-	IterativeResolution   bool
-	LookupAllNameServers  bool
-
-	ResultVerbosity string
-	IncludeInOutput string
-	OutputGroups    []string
-
-	MaxDepth             int
-	CacheSize            int
-	GoMaxProcs           int
-	Verbosity            int
-	TimeFormat           string
-	PassedName           string
-	NameServersSpecified bool
-	NameServers          []string
-	TCPOnly              bool
-	UDPOnly              bool
-	RecycleSockets       bool
-	LocalAddrSpecified   bool
-	LocalAddrs           []net.IP
-	ClientSubnet         *dns.EDNS0_SUBNET
-	NSID                 *dns.EDNS0_NSID
-	Dnssec               bool
-	CheckingDisabled     bool
-
-	InputFilePath    string
-	OutputFilePath   string
-	LogFilePath      string
-	MetadataFilePath string
-
-	NamePrefix     string
-	NameOverride   string
-	NameServerMode bool
-
-	Module string
-	Class  uint16
-}
-
-type Metadata struct {
-	Names       int            `json:"names"`
-	Status      map[string]int `json:"statuses"`
-	StartTime   string         `json:"start_time"`
-	EndTime     string         `json:"end_time"`
-	NameServers []string       `json:"name_servers"`
-	Timeout     int            `json:"timeout"`
-	Retries     int            `json:"retries"`
-	Conf        *GlobalConf    `json:"conf"`
-}
+//type Metadata struct {
+//	Names       int            `json:"names"`
+//	Status      map[string]int `json:"statuses"`
+//	StartTime   string         `json:"start_time"`
+//	EndTime     string         `json:"end_time"`
+//	NameServers []string       `json:"name_servers"`
+//	Timeout     int            `json:"timeout"`
+//	Retries     int            `json:"retries"`
+//	Conf        *GlobalConf    `json:"conf"`
+//}
 
 type TargetedDomain struct {
 	Domain      string   `json:"domain"`

@@ -54,7 +54,8 @@ type ResolverConfig struct {
 	LookupClient Lookuper // either a functional or mock Lookuper client for testing
 
 	Blacklist *blacklist.Blacklist
-	BlMutex   *sync.Mutex
+	// Wrap this with a SafeBlacklist
+	BlMutex *sync.Mutex
 
 	LocalAddr net.IP
 

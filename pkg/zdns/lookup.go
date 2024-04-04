@@ -148,12 +148,12 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer s
 	depth int, layer string, trace Trace) (SingleQueryResult, Trace, Status, error) {
 	//
 	if log.GetLevel() == log.DebugLevel {
-		r.VerboseLog((depth), "iterative lookup for ", q.Name, " (", q.Type, ") against ", nameServer, " layer ", layer)
+		r.VerboseLog(depth, "iterative lookup for ", q.Name, " (", q.Type, ") against ", nameServer, " layer ", layer)
 	}
 	if depth > r.maxDepth {
 		var result SingleQueryResult
-		r.VerboseLog((depth + 1), "-> Max recursion depth reached")
-		return result, trace, STATUS_ERROR, errors.New("Max recursion depth reached")
+		r.VerboseLog(depth+1, "-> Max recursion depth reached")
+		return result, trace, STATUS_ERROR, errors.New("max recursion depth reached")
 	}
 	result, isCached, status, try, err := r.cachedRetryingLookup(ctx, q, nameServer, layer, depth)
 	if r.shouldTrace && status == STATUS_NOERROR {
@@ -470,7 +470,7 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 	// Short circuit a lookup from the glue
 	// Normally this would be handled by caching, but we want to support following glue
 	// that would normally be cache poison. Because it's "ok" and quite common
-	res, status := checkGlue(server, depth, result)
+	res, status := checkGlue(server, result)
 	if status != STATUS_NOERROR {
 		// Fall through to normal query
 		var q Question
@@ -496,4 +496,9 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 		}
 	}
 	return "", STATUS_SERVFAIL, layer, trace
+}
+
+func ValidLookups() []string {
+	// TODO Phillip - populate correctly
+	return []string{"A", "NS"}
 }

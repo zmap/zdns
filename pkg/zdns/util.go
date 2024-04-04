@@ -87,7 +87,7 @@ func nextAuthority(name, layer string) (string, error) {
 	return next, nil
 }
 
-func checkGlue(server string, depth int, result SingleQueryResult) (SingleQueryResult, Status) {
+func checkGlue(server string, result SingleQueryResult) (SingleQueryResult, Status) {
 	for _, additional := range result.Additional {
 		ans, ok := additional.(Answer)
 		if !ok {

@@ -15,8 +15,11 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/zmap/dns"
+	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -24,22 +27,54 @@ import (
 	"github.com/zmap/zdns/pkg/zdns"
 )
 
-var cfgFile string
-var GC zdns.GlobalConf
+type CLIConf struct {
+	Threads               int
+	Timeout               time.Duration
+	IterationTimeout      time.Duration
+	Retries               int
+	AlexaFormat           bool
+	MetadataFormat        bool
+	NameServerInputFormat bool
+	IterativeResolution   bool
+	LookupAllNameServers  bool
 
-// TODO: these options may need to be set as flags or in GC, to standardize.
-var (
-	Servers_string      string
-	Localaddr_string    string
-	Localif_string      string
-	Config_file         string
-	Timeout             int
-	IterationTimeout    int
-	Class_string        string
-	NanoSeconds         bool
-	ClientSubnet_string string
-	NSID                bool
-)
+	ResultVerbosity string
+	IncludeInOutput string
+	OutputGroups    []string
+
+	MaxDepth             int
+	CacheSize            int
+	GoMaxProcs           int
+	Verbosity            int
+	TimeFormat           string
+	PassedName           string
+	NameServersSpecified bool
+	NameServers          []string
+	TCPOnly              bool
+	UDPOnly              bool
+	RecycleSockets       bool
+	LocalAddrSpecified   bool
+	LocalAddrs           []net.IP
+	ClientSubnet         *dns.EDNS0_SUBNET
+	NSID                 *dns.EDNS0_NSID
+	Dnssec               bool
+	CheckingDisabled     bool
+
+	InputFilePath    string
+	OutputFilePath   string
+	LogFilePath      string
+	MetadataFilePath string
+
+	NamePrefix     string
+	NameOverride   string
+	NameServerMode bool
+
+	Module string
+	Class  uint16
+}
+
+var cfgFile string
+var GC CLIConf
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -50,16 +85,42 @@ https://github.com/zmap/dns (and in turn https://github.com/miekg/dns) for const
 and parsing raw DNS packets.
 
 ZDNS also includes its own recursive resolution and a cache to further optimize performance.`,
-	ValidArgs: zdns.Validlookups(),
-	Args:      cobra.ExactValidArgs(1),
+	ValidArgs: zdns.ValidLookups(),
+	Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 	Run: func(cmd *cobra.Command, args []string) {
 		GC.Module = strings.ToUpper(args[0])
-		zdns.Run(GC, cmd.Flags(),
-			&Timeout, &IterationTimeout,
-			&Class_string, &Servers_string,
-			&Config_file, &Localaddr_string,
-			&Localif_string, &NanoSeconds, &ClientSubnet_string, &NSID)
+		fmt.Println("Hello!")
+		Run(GC, cmd.Flags())
 	},
+}
+
+// mxlookupCmd represents the mxlookup command
+var mxlookupCmd = &cobra.Command{
+	Use:   "mxlookup",
+	Short: "Run a more exhaustive mxlookup",
+	Long: `mxlookup will additionally do an A lookup for the IP addresses that
+correspond with an exchange record.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		GC.Module = strings.ToUpper("mxlookup")
+		Run(GC, cmd.Flags())
+	},
+}
+
+// alookupCmd represents the alookup command
+var alookupCmd = &cobra.Command{
+	Use:   "alookup",
+	Short: "A record lookups that follow CNAME records",
+	Long: `alookup will get the information that is typically desired, instead of just
+the information that exists in a single record.
+
+Specifically, alookup acts similar to nslookup and will follow CNAME records.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		GC.Module = strings.ToUpper("alookup")
+		Run(GC, cmd.Flags())
+	},
+}
+
+func init() {
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -73,6 +134,19 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+
+	rootCmd.AddCommand(alookupCmd)
+	rootCmd.AddCommand(mxlookupCmd)
+
+	alookupCmd.PersistentFlags().Bool("ipv4-lookup", false, "perform A lookups for each MX server")
+	alookupCmd.PersistentFlags().Bool("ipv6-lookup", false, "perform AAAA record lookups for each MX server")
+
+	mxlookupCmd.PersistentFlags().Bool("ipv4-lookup", false, "perform A lookups for each MX server")
+	mxlookupCmd.PersistentFlags().Bool("ipv6-lookup", false, "perform AAAA record lookups for each MX server")
+	mxlookupCmd.PersistentFlags().Int("mx-cache-size", 1000, "number of records to store in MX -> A/AAAA cache")
+
+	util.BindFlags(alookupCmd, viper.GetViper(), util.EnvPrefix)
+	util.BindFlags(mxlookupCmd, viper.GetViper(), util.EnvPrefix)
 
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
