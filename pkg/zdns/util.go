@@ -151,7 +151,7 @@ func TranslateDNSErrorCode(err int) Status {
 }
 
 // TODO Phillip add comment
-func populateResults(records []interface{}, dnsType uint16, candidateSet map[string][]Answer, cnameSet map[string][]Answer, garbage map[string][]Answer) {
+func PopulateResults(records []interface{}, dnsType uint16, candidateSet map[string][]Answer, cnameSet map[string][]Answer, garbage map[string][]Answer) {
 	for _, a := range records {
 		// filter only valid answers of requested type or CNAME (#163)
 		if ans, ok := a.(Answer); ok {

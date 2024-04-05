@@ -13,16 +13,18 @@ import (
 func main() {
 	config := zdns.NewResolverConfig()
 	config.ShouldTrace = true
-	iterativeRes, err := zdns.InitIterativeResolver(config)
+	config.IsIterative = true
+	iterativeRes, err := zdns.InitResolver(config)
 	if err != nil {
-		log.Fatal("Error creating iterative resolver: %w", err)
+		log.Fatal("Error creating iterative zdns: %w", err)
 	}
 	config = zdns.NewResolverConfig()
 	config.NameServers = []string{"1.1.1.1:53"}
-	externalRes, err := zdns.InitExternalResolver(config)
+	config.IsIterative = false
+	externalRes, err := zdns.InitResolver(config)
 	//eliminate double constructors
 	if err != nil {
-		log.Fatal("Error creating external resolver: %w", err)
+		log.Fatal("Error creating external zdns: %w", err)
 	}
 	q := zdns.Question{
 		Name:  "www.google.com",
@@ -34,19 +36,19 @@ func main() {
 		Type:  dns.TypeA,
 		Class: dns.ClassINET,
 	}
-	res, err := externalRes.Lookup(&q)
+	res, _, _, err := externalRes.Lookup(&q, nil)
 	if err != nil {
 		log.Fatalf("Error resolving: %w", err)
 	}
 	fmt.Printf("External: %v\n", res)
 
-	res, err = iterativeRes.Lookup(&q)
+	res, _, _, err = iterativeRes.Lookup(&q, nil)
 	if err != nil {
 		log.Fatalf("Error resolving: %w", err)
 	}
 	fmt.Printf("Iterative: %v\n", res)
 
-	res, err = iterativeRes.Lookup(&q1)
+	res, _, _, err = iterativeRes.Lookup(&q1, nil)
 	if err != nil {
 		log.Fatalf("Error resolving: %w", err)
 	}

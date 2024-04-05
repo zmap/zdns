@@ -31,13 +31,13 @@ func GetDNSServers(path string) ([]string, error) {
 
 // Lookup client interface for help in mocking
 type Lookuper interface {
-	DoSingleNameserverLookup(r *Resolver, q Question, nameServer string) (SingleQueryResult, Trace, Status, error)
+	DoSingleNameserverLookup(r *Resolver, q Question, nameServer string) (*SingleQueryResult, Trace, Status, error)
 	//DoAllNameserverLookup(r *Resolver, q Question, nameServer string) (*CombinedResults, Trace, Status, error)
 }
 
 type LookupClient struct{}
 
-func (lc LookupClient) DoSingleNameserverLookup(r *Resolver, q Question, nameServer string) (SingleQueryResult, Trace, Status, error) {
+func (lc LookupClient) DoSingleNameserverLookup(r *Resolver, q Question, nameServer string) (*SingleQueryResult, Trace, Status, error) {
 	return r.doSingleNameServerLookup(q, nameServer)
 }
 
@@ -58,57 +58,17 @@ doSingleNameServerLookup
 
 	retryingLookup
 */
-func (r *Resolver) doLookupAllNameservers(q Question, nameServer string) (*CombinedResults, Trace, Status, error) {
-	var retv CombinedResults
-	var curServer string
 
-	// Lookup both ipv4 and ipv6 addresses of nameservers.
-	nsResults, nsTrace, nsStatus, nsError := r.doNSLookup(q.Name, true, true, nameServer)
-
-	// Terminate early if nameserver lookup also failed
-	if nsStatus != STATUS_NOERROR {
-		return nil, nsTrace, nsStatus, nsError
-	}
-
-	// fullTrace holds the complete trace including all lookups
-	var fullTrace Trace = nsTrace
-	var tmpRes SingleQueryResult
-
-	for _, nserver := range nsResults.Servers {
-		// Use all the ipv4 and ipv6 addresses of each nameserver
-		nameserver := nserver.Name
-		ips := append(nserver.IPv4Addresses, nserver.IPv6Addresses...)
-		for _, ip := range ips {
-			curServer = net.JoinHostPort(ip, "53")
-			res, trace, status, err := r.lookupClient.DoSingleNameserverLookup(r, q, curServer)
-
-			fullTrace = append(fullTrace, trace...)
-			tmpRes = SingleQueryResult{}
-			if err == nil {
-				tmpRes = res
-			}
-			extendedResult := ExtendedResult{
-				Res:        tmpRes,
-				Status:     status,
-				Nameserver: nameserver,
-				Trace:      trace,
-			}
-			retv.Results = append(retv.Results, extendedResult)
-		}
-	}
-	return &retv, fullTrace, STATUS_NOERROR, nil
-}
-
-func (r *Resolver) doSingleNameServerLookup(q Question, nameServer string) (SingleQueryResult, Trace, Status, error) {
+func (r *Resolver) doSingleNameServerLookup(q Question, nameServer string) (*SingleQueryResult, Trace, Status, error) {
 	if nameServer == "" {
-		return SingleQueryResult{}, nil, STATUS_ILLEGAL_INPUT, errors.New("no nameserver specified")
+		return nil, nil, STATUS_ILLEGAL_INPUT, errors.New("no nameserver specified")
 	}
 
 	if q.Type == dns.TypePTR {
 		var err error
 		q.Name, err = dns.ReverseAddr(q.Name)
 		if err != nil {
-			return SingleQueryResult{}, nil, STATUS_ILLEGAL_INPUT, err
+			return nil, nil, STATUS_ILLEGAL_INPUT, err
 		}
 		q.Name = q.Name[:len(q.Name)-1]
 	}
@@ -119,13 +79,13 @@ func (r *Resolver) doSingleNameServerLookup(q Question, nameServer string) (Sing
 		result, trace, status, err := r.iterativeLookup(ctx, q, nameServer, 1, ".", make(Trace, 0))
 		r.verboseLog(0, "MIEKG-OUT: iterative lookup for ", q.Name, " (", q.Type, "): status: ", status, " , err: ", err)
 		if r.shouldTrace {
-			return result, trace, status, err
+			return &result, trace, status, err
 		}
-		return result, trace, status, err
+		return &result, nil, status, err
 	}
 	res, status, try, err := r.retryingLookup(q, nameServer, true)
 	if err != nil {
-		return res, nil, status, fmt.Errorf("could not perform retrying lookup for name %v: %w", q.Name, err)
+		return &res, nil, status, fmt.Errorf("could not perform retrying lookup for name %v: %w", q.Name, err)
 
 	}
 	trace := make(Trace, 0)
@@ -142,7 +102,7 @@ func (r *Resolver) doSingleNameServerLookup(q Question, nameServer string) (Sing
 		t.Try = try
 		trace = append(trace, t)
 	}
-	return res, trace, status, err
+	return &res, trace, status, err
 }
 
 func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer string,
