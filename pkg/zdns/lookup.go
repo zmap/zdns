@@ -112,11 +112,11 @@ func (r *Resolver) doSingleNameServerLookup(q Question, nameServer string) (Sing
 		q.Name = q.Name[:len(q.Name)-1]
 	}
 	if r.isIterative {
-		r.VerboseLog(0, "MIEKG-IN: iterative lookup for ", q.Name, " (", q.Type, ")")
+		r.verboseLog(0, "MIEKG-IN: iterative lookup for ", q.Name, " (", q.Type, ")")
 		ctx, cancel := context.WithTimeout(context.Background(), r.iterativeTimeout)
 		defer cancel()
 		result, trace, status, err := r.iterativeLookup(ctx, q, nameServer, 1, ".", make(Trace, 0))
-		r.VerboseLog(0, "MIEKG-OUT: iterative lookup for ", q.Name, " (", q.Type, "): status: ", status, " , err: ", err)
+		r.verboseLog(0, "MIEKG-OUT: iterative lookup for ", q.Name, " (", q.Type, "): status: ", status, " , err: ", err)
 		if r.shouldTrace {
 			return result, trace, status, err
 		}
@@ -148,11 +148,11 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer s
 	depth int, layer string, trace Trace) (SingleQueryResult, Trace, Status, error) {
 	//
 	if log.GetLevel() == log.DebugLevel {
-		r.VerboseLog(depth, "iterative lookup for ", q.Name, " (", q.Type, ") against ", nameServer, " layer ", layer)
+		r.verboseLog(depth, "iterative lookup for ", q.Name, " (", q.Type, ") against ", nameServer, " layer ", layer)
 	}
 	if depth > r.maxDepth {
 		var result SingleQueryResult
-		r.VerboseLog(depth+1, "-> Max recursion depth reached")
+		r.verboseLog(depth+1, "-> Max recursion depth reached")
 		return result, trace, STATUS_ERROR, errors.New("max recursion depth reached")
 	}
 	result, isCached, status, try, err := r.cachedRetryingLookup(ctx, q, nameServer, layer, depth)
@@ -171,28 +171,28 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer s
 
 	}
 	if status != STATUS_NOERROR {
-		r.VerboseLog((depth + 1), "-> error occurred during lookup")
+		r.verboseLog((depth + 1), "-> error occurred during lookup")
 		return result, trace, status, err
 	} else if len(result.Answers) != 0 || result.Flags.Authoritative == true {
 		if len(result.Answers) != 0 {
-			r.VerboseLog((depth + 1), "-> answers found")
+			r.verboseLog((depth + 1), "-> answers found")
 			if len(result.Authorities) > 0 {
-				r.VerboseLog((depth + 2), "Dropping ", len(result.Authorities), " authority answers from output")
+				r.verboseLog((depth + 2), "Dropping ", len(result.Authorities), " authority answers from output")
 				result.Authorities = make([]interface{}, 0)
 			}
 			if len(result.Additional) > 0 {
-				r.VerboseLog((depth + 2), "Dropping ", len(result.Additional), " additional answers from output")
+				r.verboseLog((depth + 2), "Dropping ", len(result.Additional), " additional answers from output")
 				result.Additional = make([]interface{}, 0)
 			}
 		} else {
-			r.VerboseLog((depth + 1), "-> authoritative response found")
+			r.verboseLog((depth + 1), "-> authoritative response found")
 		}
 		return result, trace, status, err
 	} else if len(result.Authorities) != 0 {
-		r.VerboseLog((depth + 1), "-> Authority found, iterating")
+		r.verboseLog((depth + 1), "-> Authority found, iterating")
 		return r.iterateOnAuthorities(ctx, q, depth, result, layer, trace)
 	} else {
-		r.VerboseLog((depth + 1), "-> No Authority found, error")
+		r.verboseLog((depth + 1), "-> No Authority found, error")
 		return result, trace, STATUS_ERROR, errors.New("NOERROR record without any answers or authorities")
 	}
 }
@@ -200,12 +200,12 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer s
 func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameServer, layer string, depth int) (SingleQueryResult, IsCached, Status, int, error) {
 	var isCached IsCached
 	isCached = false
-	r.VerboseLog(depth+1, "Cached retrying lookup. Name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
+	r.verboseLog(depth+1, "Cached retrying lookup. Name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
 
 	// Check if the timeout has been reached
 	select {
 	case <-ctx.Done():
-		r.VerboseLog(depth+2, "ITERATIVE_TIMEOUT ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
+		r.verboseLog(depth+2, "ITERATIVE_TIMEOUT ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
 		var r SingleQueryResult
 		return r, isCached, STATUS_ITER_TIMEOUT, 0, nil
 	default:
@@ -270,7 +270,7 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 // retryingLookup wraps around wireLookup to perform a DNS lookup with retries
 // Returns the result, status, number of tries, and error
 func (r *Resolver) retryingLookup(q Question, nameServer string, recursive bool) (SingleQueryResult, Status, int, error) {
-	r.VerboseLog(1, "****WIRE LOOKUP*** ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
+	r.verboseLog(1, "****WIRE LOOKUP*** ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
 
 	var origTimeout time.Duration
 	if r.udpClient != nil {
@@ -402,11 +402,11 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 		return r, trace, STATUS_NOAUTH, nil
 	}
 	for i, elem := range result.Authorities {
-		r.VerboseLog(depth+1, "Trying Authority: ", elem)
+		r.verboseLog(depth+1, "Trying Authority: ", elem)
 		ns, ns_status, layer, trace := r.extractAuthority(ctx, elem, layer, depth, result, trace)
-		r.VerboseLog((depth + 1), "Output from extract authorities: ", ns)
+		r.verboseLog((depth + 1), "Output from extract authorities: ", ns)
 		if ns_status == STATUS_ITER_TIMEOUT {
-			r.VerboseLog((depth + 2), "--> Hit iterative timeout: ")
+			r.verboseLog((depth + 2), "--> Hit iterative timeout: ")
 			var r SingleQueryResult
 			return r, trace, STATUS_ITER_TIMEOUT, nil
 		}
@@ -416,11 +416,11 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 			// default case we continue
 			if new_status == nil && err == nil {
 				if i+1 == len(result.Authorities) {
-					r.VerboseLog((depth + 2), "--> Auth find Failed. Unknown error. No more authorities to try, terminating: ", ns_status)
+					r.verboseLog((depth + 2), "--> Auth find Failed. Unknown error. No more authorities to try, terminating: ", ns_status)
 					var r SingleQueryResult
 					return r, trace, ns_status, err
 				} else {
-					r.VerboseLog((depth + 2), "--> Auth find Failed. Unknown error. Continue: ", ns_status)
+					r.verboseLog((depth + 2), "--> Auth find Failed. Unknown error. Continue: ", ns_status)
 					continue
 				}
 			} else {
@@ -428,24 +428,24 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 				var localResult SingleQueryResult
 				if i+1 == len(result.Authorities) {
 					// We don't allow the continue fall through in order to report the last auth falure code, not STATUS_EROR
-					r.VerboseLog((depth + 2), "--> Final auth find non-success. Last auth. Terminating: ", ns_status)
+					r.verboseLog((depth + 2), "--> Final auth find non-success. Last auth. Terminating: ", ns_status)
 					return localResult, trace, *new_status, err
 				} else {
-					r.VerboseLog((depth + 2), "--> Auth find non-success. Trying next: ", ns_status)
+					r.verboseLog((depth + 2), "--> Auth find non-success. Trying next: ", ns_status)
 					continue
 				}
 			}
 		}
 		iterateResult, trace, status, err := r.iterativeLookup(ctx, q, ns, depth+1, layer, trace)
 		if isStatusAnswer(status) {
-			r.VerboseLog((depth + 1), "--> Auth Resolution success: ", status)
+			r.verboseLog((depth + 1), "--> Auth Resolution success: ", status)
 			return iterateResult, trace, status, err
 		} else if i+1 < len(result.Authorities) {
-			r.VerboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed: ", status, ". Will try next authority")
+			r.verboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed: ", status, ". Will try next authority")
 			continue
 		} else {
 			// We don't allow the continue fall through in order to report the last auth falure code, not STATUS_EROR
-			r.VerboseLog((depth + 2), "--> Iterative resolution of ", q.Name, " at ", ns, " Failed. Last auth. Terminating: ", status)
+			r.verboseLog((depth + 2), "--> Iterative resolution of ", q.Name, " at ", ns, " Failed. Last auth. Terminating: ", status)
 			return iterateResult, trace, status, err
 		}
 	}
@@ -501,4 +501,8 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 func ValidLookups() []string {
 	// TODO Phillip - populate correctly
 	return []string{"A", "NS"}
+}
+
+func (r *Resolver) verboseLog(depth int, args ...interface{}) {
+	log.Debug(makeVerbosePrefix(depth), args)
 }

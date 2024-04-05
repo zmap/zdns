@@ -67,6 +67,7 @@ type ResolverConfig struct {
 	IPVersionMode        ipVersionMode
 	ShouldRecycleSockets bool
 
+	IsIterative          bool
 	IterativeTimeout     time.Duration
 	Timeout              time.Duration // timeout for the network conns
 	MaxDepth             int
@@ -150,7 +151,7 @@ type Resolver struct {
 	checkingDisabledBit bool
 }
 
-func initResolverHelper(config *ResolverConfig) (*Resolver, error) {
+func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	if isValid, notValidReason := config.isValid(); !isValid {
 		return nil, fmt.Errorf("invalid resolver: %s", notValidReason)
 	}
@@ -182,6 +183,7 @@ func initResolverHelper(config *ResolverConfig) (*Resolver, error) {
 		ipVersionMode:        config.IPVersionMode,
 		shouldRecycleSockets: config.ShouldRecycleSockets,
 
+		isIterative: config.IsIterative,
 		timeout:     config.Timeout,
 		nameServers: config.NameServers,
 
@@ -231,32 +233,16 @@ func initResolverHelper(config *ResolverConfig) (*Resolver, error) {
 			LocalAddr: &net.TCPAddr{IP: r.localAddr},
 		}
 	}
-	return r, nil
-}
-
-func InitIterativeResolver(config *ResolverConfig) (*Resolver, error) {
-	r, err := initResolverHelper(config)
-	if err != nil {
-		return nil, fmt.Errorf("error initializing iterative resolver: %w", err)
-	}
-	r.isIterative = true
-	r.iterativeTimeout = config.IterativeTimeout
-	r.maxDepth = config.MaxDepth
-	r.lookupAllNameServers = config.LookupAllNameServers
-	if r.nameServers == nil || len(r.nameServers) == 0 {
-		// use the set of 13 root name servers
-		r.nameServers = RootServers[:]
-	}
-	return r, nil
-}
-
-func InitExternalResolver(config *ResolverConfig) (*Resolver, error) {
-	r, err := initResolverHelper(config)
-	if err != nil {
-		return nil, fmt.Errorf("error initializing external resolver: %w", err)
-	}
-	r.isIterative = false
-	if r.nameServers == nil || len(r.nameServers) == 0 {
+	if r.isIterative {
+		r.iterativeTimeout = config.IterativeTimeout
+		r.maxDepth = config.MaxDepth
+		r.lookupAllNameServers = config.LookupAllNameServers
+		if r.nameServers == nil || len(r.nameServers) == 0 {
+			// use the set of 13 root name servers
+			r.nameServers = RootServers[:]
+		}
+	} else if r.nameServers == nil || len(r.nameServers) == 0 {
+		// not iterative and client didn't specify name servers
 		// configure the default name servers the OS is using
 		ns, err := GetDNSServers(defaultNameServerConfigFile)
 		if err != nil {
@@ -313,8 +299,4 @@ func (r *Resolver) randomNameServer() string {
 		log.Fatal("No name servers specified")
 	}
 	return r.nameServers[rand.Intn(l)]
-}
-
-func (r *Resolver) VerboseLog(depth int, args ...interface{}) {
-	log.Debug(makeVerbosePrefix(depth), args)
 }
