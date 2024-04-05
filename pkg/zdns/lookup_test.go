@@ -69,7 +69,7 @@ func InitTest(t *testing.T) *ResolverConfig {
 // Test specifying neither ipv4 not ipv6 flag looks up ipv4 by default
 func TestOneA(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -97,7 +97,7 @@ func TestOneA(t *testing.T) {
 
 func TestTwoA(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -132,7 +132,7 @@ func TestTwoA(t *testing.T) {
 
 func TestQuadAWithoutFlag(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -168,7 +168,7 @@ func TestQuadAWithoutFlag(t *testing.T) {
 
 func TestOnlyQuadA(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -197,7 +197,7 @@ func TestOnlyQuadA(t *testing.T) {
 
 func TestAandQuadA(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -232,7 +232,7 @@ func TestAandQuadA(t *testing.T) {
 
 func TestTwoQuadA(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -268,7 +268,7 @@ func TestTwoQuadA(t *testing.T) {
 
 func TestNoResults(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -290,7 +290,7 @@ func TestNoResults(t *testing.T) {
 
 func TestCname(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "cname.example.com"
@@ -336,7 +336,7 @@ func TestCname(t *testing.T) {
 
 func TestQuadAWithCname(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "cname.example.com"
@@ -371,7 +371,7 @@ func TestQuadAWithCname(t *testing.T) {
 
 func TestUnexpectedMxOnly(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -405,7 +405,7 @@ func TestUnexpectedMxOnly(t *testing.T) {
 
 func TestMxAndAdditionals(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -447,7 +447,7 @@ func TestMxAndAdditionals(t *testing.T) {
 
 func TestMismatchIpType(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -481,7 +481,7 @@ func TestMismatchIpType(t *testing.T) {
 
 func TestCnameLoops(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "cname1.example.com"
@@ -533,7 +533,7 @@ func TestCnameLoops(t *testing.T) {
 
 func TestExtendedRecursion(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 
 	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
@@ -571,7 +571,7 @@ func TestExtendedRecursion(t *testing.T) {
 
 func TestEmptyNonTerminal(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "leaf.intermediate.example.com"
@@ -616,7 +616,7 @@ func TestEmptyNonTerminal(t *testing.T) {
 
 func TestNXDomain(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
 	res, _, status, _ := resolver.DoTargetedLookup("nonexistent.example.com", ns1, true, true)
@@ -631,7 +631,7 @@ func TestNXDomain(t *testing.T) {
 
 func TestAandQuadADedup(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "cname1.example.com"
@@ -728,7 +728,7 @@ func TestAandQuadADedup(t *testing.T) {
 
 func TestServFail(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 
 	domain1 := "example.com"
@@ -752,7 +752,7 @@ func TestServFail(t *testing.T) {
 
 func TestNsAInAdditional(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 	lookupIpv4 := true
 	lookupIpv6 := false
@@ -790,13 +790,13 @@ func TestNsAInAdditional(t *testing.T) {
 		IPv4Addresses: []string{"192.0.2.3"},
 		IPv6Addresses: nil,
 	}
-	res, _, _, _ := resolver.DoNSLookup("example.com", lookupIpv4, lookupIpv6, ns1)
+	res, _, _, _ := resolver.doNSLookup("example.com", lookupIpv4, lookupIpv6, ns1)
 	verifyNsResult(t, res.Servers, expectedServersMap)
 }
 
 func TestTwoNSInAdditional(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 	lookupIpv4 := true
 	lookupIpv6 := false
@@ -852,13 +852,13 @@ func TestTwoNSInAdditional(t *testing.T) {
 		IPv4Addresses: []string{"192.0.2.4"},
 		IPv6Addresses: nil,
 	}
-	res, _, _, _ := resolver.DoNSLookup("example.com", lookupIpv4, lookupIpv6, ns1)
+	res, _, _, _ := resolver.doNSLookup("example.com", lookupIpv4, lookupIpv6, ns1)
 	verifyNsResult(t, res.Servers, expectedServersMap)
 }
 
 func TestAandQuadAInAdditional(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 	lookupIpv4 := true
 	lookupIpv6 := true
@@ -903,13 +903,13 @@ func TestAandQuadAInAdditional(t *testing.T) {
 		IPv4Addresses: []string{"192.0.2.3"},
 		IPv6Addresses: []string{"2001:db8::4"},
 	}
-	res, _, _, _ := resolver.DoNSLookup("example.com", lookupIpv4, lookupIpv6, ns1)
+	res, _, _, _ := resolver.doNSLookup("example.com", lookupIpv4, lookupIpv6, ns1)
 	verifyNsResult(t, res.Servers, expectedServersMap)
 }
 
 func TestNsMismatchIpType(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 	lookupIpv4 := true
 	lookupIpv6 := true
@@ -954,13 +954,13 @@ func TestNsMismatchIpType(t *testing.T) {
 		IPv4Addresses: nil,
 		IPv6Addresses: nil,
 	}
-	res, _, _, _ := resolver.DoNSLookup("example.com", lookupIpv4, lookupIpv6, ns1)
+	res, _, _, _ := resolver.doNSLookup("example.com", lookupIpv4, lookupIpv6, ns1)
 	verifyNsResult(t, res.Servers, expectedServersMap)
 }
 
 func TestAandQuadALookup(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 	lookupIpv4 := true
 	lookupIpv6 := true
@@ -1017,27 +1017,27 @@ func TestAandQuadALookup(t *testing.T) {
 		IPv4Addresses: []string{"192.0.2.3"},
 		IPv6Addresses: []string{"2001:db8::4"},
 	}
-	res, _, _, _ := resolver.DoNSLookup("example.com", lookupIpv4, lookupIpv6, ns1)
+	res, _, _, _ := resolver.doNSLookup("example.com", lookupIpv4, lookupIpv6, ns1)
 	verifyNsResult(t, res.Servers, expectedServersMap)
 }
 
 func TestNsNXDomain(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 	lookupIpv4 := true
 	lookupIpv6 := false
 
 	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
 
-	_, _, status, _ := resolver.DoNSLookup("nonexistent.example.com", lookupIpv4, lookupIpv6, ns1)
+	_, _, status, _ := resolver.doNSLookup("nonexistent.example.com", lookupIpv4, lookupIpv6, ns1)
 
 	assert.Equal(t, status, STATUS_NXDOMAIN)
 }
 
 func TestNsServFail(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 	lookupIpv4 := true
 	lookupIpv6 := false
@@ -1049,7 +1049,7 @@ func TestNsServFail(t *testing.T) {
 	mockResults[domain_ns_1] = SingleQueryResult{}
 	protocolStatus[domain_ns_1] = STATUS_SERVFAIL
 
-	res, _, status, _ := resolver.DoNSLookup("example.com", lookupIpv4, lookupIpv6, ns1)
+	res, _, status, _ := resolver.doNSLookup("example.com", lookupIpv4, lookupIpv6, ns1)
 	serversLength := len(res.Servers)
 
 	assert.Equal(t, status, protocolStatus[domain_ns_1])
@@ -1058,7 +1058,7 @@ func TestNsServFail(t *testing.T) {
 
 func TestErrorInTargetedLookup(t *testing.T) {
 	config := InitTest(t)
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 	lookupIpv4 := true
 	lookupIpv6 := true
@@ -1085,7 +1085,7 @@ func TestErrorInTargetedLookup(t *testing.T) {
 
 	protocolStatus[domain_ns_1] = STATUS_ERROR
 
-	res, _, status, _ := resolver.DoNSLookup("example.com", lookupIpv4, lookupIpv6, ns1)
+	res, _, status, _ := resolver.doNSLookup("example.com", lookupIpv4, lookupIpv6, ns1)
 	assert.Equal(t, len(res.Servers), 0)
 	assert.Equal(t, status, protocolStatus[domain_ns_1])
 }
@@ -1095,7 +1095,7 @@ func TestErrorInTargetedLookup(t *testing.T) {
 func TestAllNsLookupOneNs(t *testing.T) {
 	config := InitTest(t)
 	config.LookupAllNameServers = true
-	resolver, err := InitExternalResolver(config)
+	resolver, err := InitResolver(config)
 	assert.Nil(t, err)
 
 	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
@@ -1192,7 +1192,7 @@ func TestAllNsLookupOneNs(t *testing.T) {
 		Name:  "example.com.",
 	}
 
-	res, err := resolver.Lookup(&q)
+	res, err := resolver.Lookup(&q, nil)
 	assert.Nil(t, err)
 	verifyCombinedResult(t, res.Data.(CombinedResults).Results, expectedRes)
 }

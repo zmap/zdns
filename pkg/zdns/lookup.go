@@ -7,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
 	"net"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -62,7 +63,7 @@ func (r *Resolver) doLookupAllNameservers(q Question, nameServer string) (*Combi
 	var curServer string
 
 	// Lookup both ipv4 and ipv6 addresses of nameservers.
-	nsResults, nsTrace, nsStatus, nsError := r.DoNSLookup(q.Name, true, true, nameServer)
+	nsResults, nsTrace, nsStatus, nsError := r.doNSLookup(q.Name, true, true, nameServer)
 
 	// Terminate early if nameserver lookup also failed
 	if nsStatus != STATUS_NOERROR {
@@ -503,6 +504,28 @@ func ValidLookups() []string {
 	return []string{"A", "NS"}
 }
 
-func (r *Resolver) verboseLog(depth int, args ...interface{}) {
-	log.Debug(makeVerbosePrefix(depth), args)
+// CheckTxtRecords common function for all modules based on search in TXT record
+func CheckTxtRecords(res interface{}, status Status, regex *regexp.Regexp, err error) (string, Status, error) {
+	if status != STATUS_NOERROR {
+		return "", status, err
+	}
+	cast, _ := res.(SingleQueryResult)
+	resString, err := FindTxtRecord(cast, regex)
+	if err != nil {
+		status = STATUS_NO_RECORD
+	} else {
+		status = STATUS_NOERROR
+	}
+	return resString, status, err
+}
+
+func FindTxtRecord(res SingleQueryResult, regex *regexp.Regexp) (string, error) {
+
+	for _, a := range res.Answers {
+		ans, _ := a.(Answer)
+		if regex == nil || regex.MatchString(ans.Answer) {
+			return ans.Answer, nil
+		}
+	}
+	return "", errors.New("no such TXT record found")
 }

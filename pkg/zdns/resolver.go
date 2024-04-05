@@ -255,29 +255,37 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	return r, nil
 }
 
-func (r *Resolver) Lookup(q *Question) (*Result, error) {
+func (r *Resolver) Lookup(q *Question, nameServer net.IP) (*Result, error) {
 	var res interface{}
 	var fullTrace Trace
 	var status Status
 	var err error
 
-	ns := r.randomNameServer()
-	if r.lookupAllNameServers {
-		res, fullTrace, status, err = r.doLookupAllNameservers(*q, ns)
-		if err != nil {
-			return nil, fmt.Errorf("error resolving name %v for all name servers based on initial server %v: %w", q.Name, ns, err)
-		}
+	var ns string
+	if nameServer == nil {
+		ns = r.randomNameServer()
 	} else {
-		res, fullTrace, status, err = r.lookupClient.DoSingleNameserverLookup(r, *q, ns)
-		if err != nil {
-			return nil, fmt.Errorf("error resolving name %v for a single name server %v: %w", q.Name, ns, err)
-		}
+		ns = nameServer.String()
 	}
+	res, fullTrace, status, err = r.lookupClient.DoSingleNameserverLookup(r, *q, ns)
+	if err != nil {
+		return nil, fmt.Errorf("error resolving name %v for a single name server %v: %w", q.Name, ns, err)
+	}
+
 	return &Result{
 		Data:   res,
 		Trace:  fullTrace,
 		Status: string(status),
 	}, nil
+}
+
+func (r *Resolver) LookupAllNameservers(q *Question) (interface{}, error) {
+	// TODO implement
+	return nil, nil
+	//res, fullTrace, status, err := r.doLookupAllNameservers(*q, ns)
+	//if err != nil {
+	//	return nil, fmt.Errorf("error resolving name %v for all name servers based on initial server %v: %w", q.Name, ns, err)
+	//}
 }
 
 // Close cleans up any resources used by the resolver. This should be called when the resolver is no longer needed.
@@ -299,4 +307,8 @@ func (r *Resolver) randomNameServer() string {
 		log.Fatal("No name servers specified")
 	}
 	return r.nameServers[rand.Intn(l)]
+}
+
+func (r *Resolver) verboseLog(depth int, args ...interface{}) {
+	log.Debug(makeVerbosePrefix(depth), args)
 }

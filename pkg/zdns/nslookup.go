@@ -33,7 +33,7 @@ type NSResult struct {
 	Servers []NSRecord `json:"servers,omitempty" groups:"short,normal,long,trace"`
 }
 
-func (r *Resolver) DoNSLookup(name string, lookupIpv4 bool, lookupIpv6 bool, nameServer string) (NSResult, Trace, Status, error) {
+func (r *Resolver) doNSLookup(name string, lookupIpv4 bool, lookupIpv6 bool, nameServer string) (NSResult, Trace, Status, error) {
 	var retv NSResult
 	ns, trace, status, err := r.doSingleNameServerLookup(Question{Name: name, Type: dns.TypeNS}, nameServer)
 	if status != STATUS_NOERROR || err != nil {
@@ -110,7 +110,7 @@ func (r *Resolver) DoNSLookup(name string, lookupIpv4 bool, lookupIpv6 bool, nam
 //	l := LookupClient{}
 //	lookupIpv4 := s.Factory.Factory.IPv4Lookup || !s.Factory.Factory.IPv6Lookup
 //	lookupIpv6 := s.Factory.Factory.IPv6Lookup
-//	return s.DoNSLookup(l, name, lookupIpv4, lookupIpv6, nameServer)
+//	return s.doNSLookup(l, name, lookupIpv4, lookupIpv6, nameServer)
 //}
 //j
 //func (s *RoutineLookupFactory) MakeLookuper() (zdns.Lookuper, error) {
