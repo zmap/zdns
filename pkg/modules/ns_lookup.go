@@ -15,10 +15,8 @@
 package modules
 
 import (
-	"fmt"
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/pkg/zdns"
-	"net"
 	"strings"
 )
 
@@ -36,13 +34,9 @@ type NSResult struct {
 	Servers []NSRecord `json:"servers,omitempty" groups:"short,normal,long,trace"`
 }
 
-func doNSLookup(r *zdns.Resolver, name string, lookupIpv4 bool, lookupIpv6 bool, nameServer string) (NSResult, zdns.Trace, zdns.Status, error) {
-	nameServerIP := net.ParseIP(nameServer)
-	if nameServerIP == nil {
-		return NSResult{}, nil, zdns.STATUS_ILLEGAL_INPUT, fmt.Errorf("could not parse nameserver IP address")
-	}
+func DoNSLookup(r *zdns.Resolver, name string, lookupIpv4 bool, lookupIpv6 bool, nameServer string) (NSResult, zdns.Trace, zdns.Status, error) {
 	var retv NSResult
-	ns, trace, status, err := r.Lookup(&zdns.Question{Name: name, Type: dns.TypeNS}, nameServerIP)
+	ns, trace, status, err := r.Lookup(&zdns.Question{Name: name, Type: dns.TypeNS}, nameServer)
 
 	if status != zdns.STATUS_NOERROR || err != nil {
 		return retv, trace, status, err

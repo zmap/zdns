@@ -15,28 +15,43 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/zmap/dns"
+	"github.com/zmap/zdns/internal/util"
+	"github.com/zmap/zdns/pkg/zdns"
 	"net"
 	"os"
 	"strings"
-	"time"
-
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"github.com/zmap/zdns/internal/util"
-	"github.com/zmap/zdns/pkg/zdns"
+	"sync"
 )
+
+type InputHandler interface {
+	FeedChannel(in chan<- interface{}, wg *sync.WaitGroup) error
+}
+type OutputHandler interface {
+	WriteResults(results <-chan string, wg *sync.WaitGroup) error
+}
 
 type CLIConf struct {
 	Threads               int
-	Timeout               time.Duration
-	IterationTimeout      time.Duration
+	Timeout               int
+	IterationTimeout      int
 	Retries               int
 	AlexaFormat           bool
 	MetadataFormat        bool
 	NameServerInputFormat bool
 	IterativeResolution   bool
 	LookupAllNameServers  bool
+
+	NameServersString  string
+	LocalAddrString    string
+	LocalIfaceString   string
+	ConfigFilePath     string
+	ClassString        string
+	UseNanoseconds     bool
+	ClientSubnetString string
+	RequestNSID        bool
 
 	ResultVerbosity string
 	IncludeInOutput string
@@ -62,6 +77,8 @@ type CLIConf struct {
 
 	InputFilePath    string
 	OutputFilePath   string
+	InputHandler     InputHandler
+	OutputHandler    OutputHandler
 	LogFilePath      string
 	MetadataFilePath string
 
@@ -182,17 +199,17 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&GC.RecycleSockets, "recycle-sockets", true, "Create long-lived unbound UDP socket for each thread at launch and reuse for all (UDP) queries")
 	rootCmd.PersistentFlags().BoolVar(&GC.NameServerMode, "name-server-mode", false, "Treats input as nameservers to query with a static query rather than queries to send to a static name server")
 
-	//rootCmd.PersistentFlags().StringVar(&Servers_string, "name-servers", "", "List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53.")
-	//rootCmd.PersistentFlags().StringVar(&Localaddr_string, "local-addr", "", "comma-delimited list of local addresses to use")
-	//rootCmd.PersistentFlags().StringVar(&Localif_string, "local-interface", "", "local interface to use")
-	//rootCmd.PersistentFlags().StringVar(&Config_file, "conf-file", "/etc/resolv.conf", "config file for DNS servers")
-	//rootCmd.PersistentFlags().IntVar(&Timeout, "timeout", 15, "timeout for resolving an individual name")
-	//rootCmd.PersistentFlags().IntVar(&IterationTimeout, "iteration-timeout", 4, "timeout for resolving a single iteration in an iterative query")
-	//rootCmd.PersistentFlags().StringVar(&Class_string, "class", "INET", "DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY. Default: INET.")
-	//rootCmd.PersistentFlags().BoolVar(&NanoSeconds, "nanoseconds", false, "Use nanosecond resolution timestamps")
-	//rootCmd.PersistentFlags().StringVar(&ClientSubnet_string, "client-subnet", "", "Client subnet in CIDR format for EDNS0.")
-	//rootCmd.PersistentFlags().BoolVar(&GC.Dnssec, "dnssec", false, "Requests DNSSEC records by setting the DNSSEC OK (DO) bit")
-	//rootCmd.PersistentFlags().BoolVar(&NSID, "nsid", false, "Request NSID.")
+	rootCmd.PersistentFlags().StringVar(&GC.NameServersString, "name-servers", "", "List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53.")
+	rootCmd.PersistentFlags().StringVar(&GC.LocalAddrString, "local-addr", "", "comma-delimited list of local addresses to use")
+	rootCmd.PersistentFlags().StringVar(&GC.LocalIfaceString, "local-interface", "", "local interface to use")
+	rootCmd.PersistentFlags().StringVar(&GC.ConfigFilePath, "conf-file", "/etc/resolv.conf", "config file for DNS servers")
+	rootCmd.PersistentFlags().IntVar(&GC.Timeout, "timeout", 15, "timeout for resolving an individual name")
+	rootCmd.PersistentFlags().IntVar(&GC.IterationTimeout, "iteration-timeout", 4, "timeout for resolving a single iteration in an iterative query")
+	rootCmd.PersistentFlags().StringVar(&GC.ClassString, "class", "INET", "DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY. Default: INET.")
+	rootCmd.PersistentFlags().BoolVar(&GC.UseNanoseconds, "nanoseconds", false, "Use nanosecond resolution timestamps")
+	rootCmd.PersistentFlags().StringVar(&GC.ClientSubnetString, "client-subnet", "", "Client subnet in CIDR format for EDNS0.")
+	rootCmd.PersistentFlags().BoolVar(&GC.Dnssec, "dnssec", false, "Requests DNSSEC records by setting the DNSSEC OK (DO) bit")
+	rootCmd.PersistentFlags().BoolVar(&GC.RequestNSID, "nsid", false, "Request NSID.")
 
 	rootCmd.PersistentFlags().Bool("ipv4-lookup", false, "Perform an IPv4 Lookup in modules")
 	rootCmd.PersistentFlags().Bool("ipv6-lookup", false, "Perform an IPv6 Lookup in modules")

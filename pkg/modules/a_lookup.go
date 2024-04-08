@@ -18,7 +18,6 @@ import (
 	"errors"
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/pkg/zdns"
-	"net"
 	"strings"
 )
 
@@ -89,7 +88,7 @@ func recursiveIPLookup(r *zdns.Resolver, name string, nameServer string, dnsType
 	if _, ok := candidateSet[name]; !ok {
 		var status zdns.Status
 		var err error
-		result, trace, status, err = r.Lookup(&zdns.Question{Name: name, Type: dnsType}, net.IP(nameServer))
+		result, trace, status, err = r.Lookup(&zdns.Question{Name: name, Type: dnsType}, nameServer)
 		if status != zdns.STATUS_NOERROR || err != nil {
 			return nil, trace, status, err
 		}

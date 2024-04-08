@@ -255,14 +255,11 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	return r, nil
 }
 
-func (r *Resolver) Lookup(q *Question, nameServer net.IP) (*SingleQueryResult, Trace, Status, error) {
-	var ns string
-	if nameServer == nil {
-		ns = r.randomNameServer()
-	} else {
-		ns = nameServer.String()
+func (r *Resolver) Lookup(q *Question, nameServer string) (*SingleQueryResult, Trace, Status, error) {
+	if nameServer == "" {
+		nameServer = r.randomNameServer()
 	}
-	return r.lookupClient.DoSingleNameserverLookup(r, *q, ns)
+	return r.lookupClient.DoSingleNameserverLookup(r, *q, nameServer)
 }
 
 func (r *Resolver) LookupAllNameservers(q *Question) (interface{}, error) {
