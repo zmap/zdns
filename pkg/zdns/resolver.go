@@ -134,7 +134,6 @@ type Resolver struct {
 	ipVersionMode        ipVersionMode
 	shouldRecycleSockets bool
 
-	isIterative          bool // whether the user desires iterative resolution or recursive
 	iterativeTimeout     time.Duration
 	timeout              time.Duration // timeout for the network conns
 	maxDepth             int
@@ -178,8 +177,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		ipVersionMode:        config.IPVersionMode,
 		shouldRecycleSockets: config.ShouldRecycleSockets,
 
-		isIterative: config.IsIterative,
-		timeout:     config.Timeout,
+		timeout: config.Timeout,
 
 		dnsSecEnabled:       config.DNSSecEnabled,
 		ednsOptions:         config.EdnsOptions,
