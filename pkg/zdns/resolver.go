@@ -18,12 +18,11 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
-	"github.com/zmap/go-iptree/blacklist"
 	"github.com/zmap/zdns/internal/util"
+	blacklist "github.com/zmap/zdns/pkg/safe_blacklist"
 	"math/rand"
 	"net"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -53,9 +52,7 @@ type ResolverConfig struct {
 	CacheSize    int      // don't use both cache and cacheSize
 	LookupClient Lookuper // either a functional or mock Lookuper client for testing
 
-	Blacklist *blacklist.Blacklist
-	// Wrap this with a SafeBlacklist
-	BlMutex *sync.Mutex
+	Blacklist *blacklist.SafeBlacklist
 
 	LocalAddr net.IP
 
@@ -100,7 +97,6 @@ func NewResolverConfig() *ResolverConfig {
 		Cache:        c,
 
 		Blacklist: blacklist.New(),
-		BlMutex:   new(sync.Mutex),
 
 		TransportMode:        defaultTransportMode,
 		IPVersionMode:        defaultIPVersionMode,
@@ -123,8 +119,7 @@ type Resolver struct {
 	cache        *Cache
 	lookupClient Lookuper // either a functional or mock Lookuper client for testing
 
-	blacklist *blacklist.Blacklist
-	blMutex   *sync.Mutex
+	blacklist *blacklist.SafeBlacklist
 
 	udpClient *dns.Client
 	tcpClient *dns.Client
@@ -171,7 +166,6 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		lookupClient: config.LookupClient,
 
 		blacklist: config.Blacklist,
-		blMutex:   config.BlMutex,
 
 		localAddr: config.LocalAddr,
 
@@ -185,11 +179,16 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 
 		isIterative: config.IsIterative,
 		timeout:     config.Timeout,
-		nameServers: config.NameServers,
 
 		dnsSecEnabled:       config.DNSSecEnabled,
 		ednsOptions:         config.EdnsOptions,
 		checkingDisabledBit: config.CheckingDisabledBit,
+	}
+	// TODO - Phillip double-check that this is a deep copy
+	r.nameServers = make([]string, len(config.NameServers))
+	elemsCopied := copy(r.nameServers, config.NameServers)
+	if elemsCopied != len(config.NameServers) {
+		log.Fatal("failed to copy entire name servers list from config")
 	}
 	log.SetLevel(r.logLevel)
 	if len(r.localAddr) == 0 {
@@ -265,6 +264,50 @@ func (r *Resolver) Lookup(q *Question, nameServer string) (*SingleQueryResult, T
 func (r *Resolver) LookupAllNameservers(q *Question) (interface{}, error) {
 	// TODO implement
 	return nil, nil
+	/*
+
+		// DoLookupAllNameservers - lookup all nameservers at a given level, then perform a Loookup on each nameserver in that level
+		func DoLookupAllNameservers(r *zdns.Resolver, q zdns.Question, nameServer string) (*zdns.CombinedResults, zdns.Trace, zdns.Status, error) {
+			var retv zdns.CombinedResults
+			var curServer string
+
+			// Lookup both ipv4 and ipv6 addresses of nameservers.
+			nsResults, nsTrace, nsStatus, nsError := DoNSLookup(r, q.Name, true, true, nameServer)
+
+			// Terminate early if nameserver lookup also failed
+			if nsStatus != zdns.STATUS_NOERROR {
+				return nil, nsTrace, nsStatus, nsError
+			}
+
+			// fullTrace holds the complete trace including all lookups
+			var fullTrace zdns.Trace = nsTrace
+			var tmpRes zdns.SingleQueryResult
+
+			for _, nserver := range nsResults.Servers {
+				// Use all the ipv4 and ipv6 addresses of each nameserver
+				nameserver := nserver.Name
+				ips := append(nserver.IPv4Addresses, nserver.IPv6Addresses...)
+				for _, ip := range ips {
+					curServer = net.JoinHostPort(ip, "53")
+					res, trace, status, err := r.Lookup(&q, curServer)
+
+					fullTrace = append(fullTrace, trace...)
+					tmpRes = zdns.SingleQueryResult{}
+					if err == nil {
+						tmpRes = *res
+					}
+					extendedResult := zdns.ExtendedResult{
+						Res:        tmpRes,
+						Status:     status,
+						Nameserver: nameserver,
+						Trace:      trace,
+					}
+					retv.Results = append(retv.Results, extendedResult)
+				}
+			}
+			return &retv, fullTrace, zdns.STATUS_NOERROR, nil
+		}
+	*/
 }
 
 // Close cleans up any resources used by the resolver. This should be called when the resolver is no longer needed.

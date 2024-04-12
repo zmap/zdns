@@ -51,7 +51,7 @@ type CLIConf struct {
 	ClassString        string
 	UseNanoseconds     bool
 	ClientSubnetString string
-	RequestNSID        bool
+	UseNSID            bool
 
 	ResultVerbosity string
 	IncludeInOutput string
@@ -107,7 +107,7 @@ ZDNS also includes its own recursive resolution and a cache to further optimize 
 	Run: func(cmd *cobra.Command, args []string) {
 		GC.Module = strings.ToUpper(args[0])
 		fmt.Println("Hello!")
-		Run(GC, cmd.Flags())
+		//Run(GC, cmd.Flags())
 	},
 }
 
@@ -119,7 +119,7 @@ var mxlookupCmd = &cobra.Command{
 correspond with an exchange record.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		GC.Module = strings.ToUpper("mxlookup")
-		Run(GC, cmd.Flags())
+		//Run(GC, cmd.Flags())
 	},
 }
 
@@ -133,7 +133,7 @@ the information that exists in a single record.
 Specifically, alookup acts similar to nslookup and will follow CNAME records.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		GC.Module = strings.ToUpper("alookup")
-		Run(GC, cmd.Flags())
+		//Run(GC, cmd.Flags())
 	},
 }
 
@@ -209,7 +209,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&GC.UseNanoseconds, "nanoseconds", false, "Use nanosecond resolution timestamps")
 	rootCmd.PersistentFlags().StringVar(&GC.ClientSubnetString, "client-subnet", "", "Client subnet in CIDR format for EDNS0.")
 	rootCmd.PersistentFlags().BoolVar(&GC.Dnssec, "dnssec", false, "Requests DNSSEC records by setting the DNSSEC OK (DO) bit")
-	rootCmd.PersistentFlags().BoolVar(&GC.RequestNSID, "nsid", false, "Request NSID.")
+	rootCmd.PersistentFlags().BoolVar(&GC.UseNSID, "nsid", false, "Request NSID.")
 
 	rootCmd.PersistentFlags().Bool("ipv4-lookup", false, "Perform an IPv4 Lookup in modules")
 	rootCmd.PersistentFlags().Bool("ipv6-lookup", false, "Perform an IPv6 Lookup in modules")

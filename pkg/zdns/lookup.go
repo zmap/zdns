@@ -181,20 +181,14 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 
 	nameServerIP, _, err := net.SplitHostPort(nameServer)
 	// Stop if we hit a nameserver we don't want to hit
-	// TODO Phillip, fix this locking code to be safer, ie within a function and a defer unlock()
-	// Could wrap the blacklist in a SafeBlacklist wrapper struct that handles the locking
 	if r.blacklist != nil {
-		r.blMutex.Lock()
 		if blacklisted, err := r.blacklist.IsBlacklisted(nameServerIP); err != nil {
-			r.blMutex.Unlock()
 			var r SingleQueryResult
 			return r, isCached, STATUS_ERROR, 0, err
 		} else if blacklisted {
-			r.blMutex.Unlock()
 			var r SingleQueryResult
 			return r, isCached, STATUS_BLACKLIST, 0, nil
 		}
-		r.blMutex.Unlock()
 	}
 
 	// Now, we check the authoritative:

@@ -107,47 +107,6 @@ func DoNSLookup(r *zdns.Resolver, name string, lookupIpv4 bool, lookupIpv6 bool,
 	return retv, trace, zdns.STATUS_NOERROR, nil
 }
 
-//func (r *Resolver) doLookupAllNameservers(q Question, nameServer string) (*CombinedResults, Trace, Status, error) {
-//	var retv CombinedResults
-//	var curServer string
-//
-//	// Lookup both ipv4 and ipv6 addresses of nameservers.
-//	nsResults, nsTrace, nsStatus, nsError := r.doNSLookup(q.Name, true, true, nameServer)
-//
-//	// Terminate early if nameserver lookup also failed
-//	if nsStatus != STATUS_NOERROR {
-//		return nil, nsTrace, nsStatus, nsError
-//	}
-//
-//	// fullTrace holds the complete trace including all lookups
-//	var fullTrace Trace = nsTrace
-//	var tmpRes SingleQueryResult
-//
-//	for _, nserver := range nsResults.Servers {
-//		// Use all the ipv4 and ipv6 addresses of each nameserver
-//		nameserver := nserver.Name
-//		ips := append(nserver.IPv4Addresses, nserver.IPv6Addresses...)
-//		for _, ip := range ips {
-//			curServer = net.JoinHostPort(ip, "53")
-//			res, trace, status, err := r.lookupClient.DoSingleNameserverLookup(r, q, curServer)
-//
-//			fullTrace = append(fullTrace, trace...)
-//			tmpRes = SingleQueryResult{}
-//			if err == nil {
-//				tmpRes = res
-//			}
-//			extendedResult := ExtendedResult{
-//				Res:        tmpRes,
-//				Status:     status,
-//				Nameserver: nameserver,
-//				Trace:      trace,
-//			}
-//			retv.Results = append(retv.Results, extendedResult)
-//		}
-//	}
-//	return &retv, fullTrace, STATUS_NOERROR, nil
-//}
-
 // TODO Phillip remove: leaving for now to make sure the tests work
 //func (s *Lookup) DoLookup(name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 //	l := LookupClient{}
