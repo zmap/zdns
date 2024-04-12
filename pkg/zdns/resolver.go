@@ -251,15 +251,18 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	return r, nil
 }
 
-func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryResult, Trace, Status, error) {
+// TODO Phillip comment
+func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryResult, Status, error) {
 	if dstServer == "" {
 		dstServer = r.randomExternalNameServer()
 	}
-	return r.lookupClient.DoSingleDstServerLookup(r, *q, dstServer)
+	lookup, _, status, err := r.lookupClient.DoSingleDstServerLookup(r, *q, dstServer, false)
+	return lookup, status, err
 }
 
+// TODO Phillip comment
 func (r *Resolver) IterativeLookup(q *Question) (*SingleQueryResult, Trace, Status, error) {
-	return r.lookupClient.DoSingleDstServerLookup(r, *q, r.randomRootNameServer())
+	return r.lookupClient.DoSingleDstServerLookup(r, *q, r.randomRootNameServer(), true)
 }
 
 func (r *Resolver) LookupAllNameservers(q *Question) (interface{}, error) {

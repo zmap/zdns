@@ -31,14 +31,14 @@ func GetDNSServers(path string) ([]string, error) {
 
 // Lookup client interface for help in mocking
 type Lookuper interface {
-	DoSingleDstServerLookup(r *Resolver, q Question, nameServer string) (*SingleQueryResult, Trace, Status, error)
+	DoSingleDstServerLookup(r *Resolver, q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error)
 	//DoAllNameserverLookup(r *Resolver, q Question, nameServer string) (*CombinedResults, Trace, Status, error)
 }
 
 type LookupClient struct{}
 
-func (lc LookupClient) DoSingleDstServerLookup(r *Resolver, q Question, nameServer string) (*SingleQueryResult, Trace, Status, error) {
-	return r.doSingleDstServerLookup(q, nameServer)
+func (lc LookupClient) DoSingleDstServerLookup(r *Resolver, q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
+	return r.doSingleDstServerLookup(q, nameServer, isIterative)
 }
 
 //func (lc LookupClient) DoAllNameserverLookup(r *Resolver, q Question, nameServer string) (*CombinedResults, Trace, Status, error) {
@@ -59,7 +59,7 @@ doSingleDstServerLookup
 	retryingLookup
 */
 
-func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string) (*SingleQueryResult, Trace, Status, error) {
+func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
 	if nameServer == "" {
 		return nil, nil, STATUS_ILLEGAL_INPUT, errors.New("no nameserver specified")
 	}
@@ -72,7 +72,7 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string) (*Sing
 		}
 		q.Name = q.Name[:len(q.Name)-1]
 	}
-	if r.isIterative {
+	if isIterative {
 		r.verboseLog(0, "MIEKG-IN: iterative lookup for ", q.Name, " (", q.Type, ")")
 		ctx, cancel := context.WithTimeout(context.Background(), r.iterativeTimeout)
 		defer cancel()
