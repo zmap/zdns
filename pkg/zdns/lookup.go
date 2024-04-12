@@ -31,14 +31,14 @@ func GetDNSServers(path string) ([]string, error) {
 
 // Lookup client interface for help in mocking
 type Lookuper interface {
-	DoSingleNameserverLookup(r *Resolver, q Question, nameServer string) (*SingleQueryResult, Trace, Status, error)
+	DoSingleDstServerLookup(r *Resolver, q Question, nameServer string) (*SingleQueryResult, Trace, Status, error)
 	//DoAllNameserverLookup(r *Resolver, q Question, nameServer string) (*CombinedResults, Trace, Status, error)
 }
 
 type LookupClient struct{}
 
-func (lc LookupClient) DoSingleNameserverLookup(r *Resolver, q Question, nameServer string) (*SingleQueryResult, Trace, Status, error) {
-	return r.doSingleNameServerLookup(q, nameServer)
+func (lc LookupClient) DoSingleDstServerLookup(r *Resolver, q Question, nameServer string) (*SingleQueryResult, Trace, Status, error) {
+	return r.doSingleDstServerLookup(q, nameServer)
 }
 
 //func (lc LookupClient) DoAllNameserverLookup(r *Resolver, q Question, nameServer string) (*CombinedResults, Trace, Status, error) {
@@ -47,19 +47,19 @@ func (lc LookupClient) DoSingleNameserverLookup(r *Resolver, q Question, nameSer
 
 /*
 // TODO Phillip, yeah we gotta rename this
-doSingleNameServerLookup
+doSingleDstServerLookup
 
 	iterativeLookup
 		cachedRetryingLookup
 			retryingLookup
 				wireLookup
 
-doSingleNameServerLookup
+doSingleDstServerLookup
 
 	retryingLookup
 */
 
-func (r *Resolver) doSingleNameServerLookup(q Question, nameServer string) (*SingleQueryResult, Trace, Status, error) {
+func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string) (*SingleQueryResult, Trace, Status, error) {
 	if nameServer == "" {
 		return nil, nil, STATUS_ILLEGAL_INPUT, errors.New("no nameserver specified")
 	}
@@ -432,7 +432,7 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 		q.Name = server
 		q.Type = dns.TypeA
 		q.Class = dns.ClassINET
-		res, trace, status, _ = r.iterativeLookup(ctx, q, r.randomNameServer(), depth+1, ".", trace)
+		res, trace, status, _ = r.iterativeLookup(ctx, q, r.randomRootNameServer(), depth+1, ".", trace)
 	}
 	if status == STATUS_ITER_TIMEOUT {
 		return "", status, "", trace

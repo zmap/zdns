@@ -64,12 +64,12 @@ type ResolverConfig struct {
 	IPVersionMode        ipVersionMode
 	ShouldRecycleSockets bool
 
-	IsIterative          bool
-	IterativeTimeout     time.Duration
-	Timeout              time.Duration // timeout for the network conns
-	MaxDepth             int
-	NameServers          []string
-	LookupAllNameServers bool
+	IsIterative         bool
+	IterativeTimeout    time.Duration
+	Timeout             time.Duration // timeout for the network conns
+	MaxDepth            int
+	ExternalNameServers []string // name servers used for external lookups
+	//LookupAllNameServers bool // TODO Phillip - this should probably be a specific API call rather than a Config option
 
 	DNSSecEnabled       bool
 	EdnsOptions         []dns.EDNS0
@@ -138,7 +138,8 @@ type Resolver struct {
 	iterativeTimeout     time.Duration
 	timeout              time.Duration // timeout for the network conns
 	maxDepth             int
-	nameServers          []string
+	externalNameServers  []string // name servers used by external lookups (either OS or user specified)
+	rootNameServers      []string // root servers used for iterative lookups
 	lookupAllNameServers bool
 
 	dnsSecEnabled       bool
@@ -184,12 +185,6 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		ednsOptions:         config.EdnsOptions,
 		checkingDisabledBit: config.CheckingDisabledBit,
 	}
-	// TODO - Phillip double-check that this is a deep copy
-	r.nameServers = make([]string, len(config.NameServers))
-	elemsCopied := copy(r.nameServers, config.NameServers)
-	if elemsCopied != len(config.NameServers) {
-		log.Fatal("failed to copy entire name servers list from config")
-	}
 	log.SetLevel(r.logLevel)
 	if len(r.localAddr) == 0 {
 		// localAddr not set, so we need to find the default IP address
@@ -232,33 +227,39 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 			LocalAddr: &net.TCPAddr{IP: r.localAddr},
 		}
 	}
-	if r.isIterative {
-		r.iterativeTimeout = config.IterativeTimeout
-		r.maxDepth = config.MaxDepth
-		r.lookupAllNameServers = config.LookupAllNameServers
-		if r.nameServers == nil || len(r.nameServers) == 0 {
-			// use the set of 13 root name servers
-			r.nameServers = RootServers[:]
-		}
-	} else if r.nameServers == nil || len(r.nameServers) == 0 {
-		// not iterative and client didn't specify name servers
-		// configure the default name servers the OS is using
+	// TODO - Phillip double-check that this is a deep copy
+	r.externalNameServers = make([]string, len(config.ExternalNameServers))
+	elemsCopied := copy(r.externalNameServers, config.ExternalNameServers)
+	if elemsCopied != len(config.ExternalNameServers) {
+		log.Fatal("failed to copy entire name servers list from config")
+	}
+	r.iterativeTimeout = config.IterativeTimeout
+	r.maxDepth = config.MaxDepth
+	// r.lookupAllNameServers = config.LookupAllNameServers// TODO Phillip - this should probably be a specific API call rather than a Config option
+	// use the set of 13 root name servers
+	r.rootNameServers = RootServers[:]
+	if r.externalNameServers == nil || len(r.externalNameServers) == 0 {
+		// client did not specify name servers, so use the default from the OS
 		ns, err := GetDNSServers(defaultNameServerConfigFile)
 		if err != nil {
 			ns = util.GetDefaultResolvers()
 			log.Warn("Unable to parse resolvers file with error %w. Using ZDNS defaults: ", err, strings.Join(ns, ", "))
 		}
-		r.nameServers = ns
-		log.Info("No name servers specified. will use: ", strings.Join(r.nameServers, ", "))
+		r.externalNameServers = ns
+		log.Info("No name servers specified. will use: ", strings.Join(r.externalNameServers, ", "))
 	}
 	return r, nil
 }
 
-func (r *Resolver) Lookup(q *Question, nameServer string) (*SingleQueryResult, Trace, Status, error) {
-	if nameServer == "" {
-		nameServer = r.randomNameServer()
+func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryResult, Trace, Status, error) {
+	if dstServer == "" {
+		dstServer = r.randomExternalNameServer()
 	}
-	return r.lookupClient.DoSingleNameserverLookup(r, *q, nameServer)
+	return r.lookupClient.DoSingleDstServerLookup(r, *q, dstServer)
+}
+
+func (r *Resolver) IterativeLookup(q *Question) (*SingleQueryResult, Trace, Status, error) {
+	return r.lookupClient.DoSingleDstServerLookup(r, *q, r.randomRootNameServer())
 }
 
 func (r *Resolver) LookupAllNameservers(q *Question) (interface{}, error) {
@@ -320,15 +321,20 @@ func (r *Resolver) Close() {
 	}
 }
 
-func (r *Resolver) randomNameServer() string {
-	if r.nameServers == nil || len(r.nameServers) == 0 {
-		log.Fatal("No name servers specified")
+func (r *Resolver) randomExternalNameServer() string {
+	l := len(r.externalNameServers)
+	if r.externalNameServers == nil || l == 0 {
+		log.Fatal("no external name servers specified")
 	}
-	l := len(r.nameServers)
-	if l == 0 {
-		log.Fatal("No name servers specified")
+	return r.externalNameServers[rand.Intn(l)]
+}
+
+func (r *Resolver) randomRootNameServer() string {
+	l := len(r.rootNameServers)
+	if r.rootNameServers == nil || l == 0 {
+		log.Fatal("no root name servers specified")
 	}
-	return r.nameServers[rand.Intn(l)]
+	return r.externalNameServers[rand.Intn(l)]
 }
 
 func (r *Resolver) verboseLog(depth int, args ...interface{}) {

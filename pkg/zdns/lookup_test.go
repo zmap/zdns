@@ -41,7 +41,7 @@ package zdns
 //
 //type MockLookupClient struct{}
 //
-//func (mc MockLookupClient) DoSingleNameserverLookup(r *Resolver, q Question, nameServer string) (SingleQueryResult, Trace, Status, error) {
+//func (mc MockLookupClient) DoSingleDstServerLookup(r *Resolver, q Question, nameServer string) (SingleQueryResult, Trace, Status, error) {
 //	cur_domain_ns := domain_ns{domain: q.Name, ns: nameServer}
 //	if res, ok := mockResults[cur_domain_ns]; ok {
 //		var status = STATUS_NOERROR
@@ -74,7 +74,7 @@ package zdns
 //	assert.Nil(t, err)
 //
 //	domain1 := "example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -102,7 +102,7 @@ package zdns
 //	assert.Nil(t, err)
 //
 //	domain1 := "example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -137,7 +137,7 @@ package zdns
 //	assert.Nil(t, err)
 //
 //	domain1 := "example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -173,7 +173,7 @@ package zdns
 //	assert.Nil(t, err)
 //
 //	domain1 := "example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -202,7 +202,7 @@ package zdns
 //	assert.Nil(t, err)
 //
 //	domain1 := "example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -237,7 +237,7 @@ package zdns
 //	assert.Nil(t, err)
 //
 //	domain1 := "example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -273,7 +273,7 @@ package zdns
 //	assert.Nil(t, err)
 //
 //	domain1 := "example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -295,7 +295,7 @@ package zdns
 //	assert.Nil(t, err)
 //
 //	domain1 := "cname.example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -341,7 +341,7 @@ package zdns
 //	assert.Nil(t, err)
 //
 //	domain1 := "cname.example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -376,7 +376,7 @@ package zdns
 //	assert.Nil(t, err)
 //
 //	domain1 := "example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -410,7 +410,7 @@ package zdns
 //	assert.Nil(t, err)
 //
 //	domain1 := "example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -452,7 +452,7 @@ package zdns
 //	assert.Nil(t, err)
 //
 //	domain1 := "example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -486,7 +486,7 @@ package zdns
 //	assert.Nil(t, err)
 //
 //	domain1 := "cname1.example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -537,7 +537,7 @@ package zdns
 //	resolver, err := InitResolver(config)
 //	assert.Nil(t, err)
 //
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	// Create a CNAME chain of length > 10
 //	for i := 1; i < 12; i++ {
 //		domain_ns := domain_ns{
@@ -576,7 +576,7 @@ package zdns
 //	assert.Nil(t, err)
 //
 //	domain1 := "leaf.intermediate.example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -619,7 +619,7 @@ package zdns
 //	config := InitTest(t)
 //	resolver, err := InitResolver(config)
 //	assert.Nil(t, err)
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	res, _, status, _ := resolver.DoTargetedLookup("nonexistent.example.com", ns1, true, true)
 //	if status != STATUS_NXDOMAIN {
 //		t.Errorf("Expected STATUS_NXDOMAIN status, got %v", status)
@@ -638,7 +638,7 @@ package zdns
 //	domain1 := "cname1.example.com"
 //	domain2 := "cname2.example.com"
 //	domain3 := "example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //	domain_ns_2 := domain_ns{domain: domain2, ns: ns1}
 //	domain_ns_3 := domain_ns{domain: domain3, ns: ns1}
@@ -733,7 +733,7 @@ package zdns
 //	assert.Nil(t, err)
 //
 //	domain1 := "example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{}
@@ -759,7 +759,7 @@ package zdns
 //	lookupIpv6 := false
 //
 //	domain1 := "example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -803,7 +803,7 @@ package zdns
 //	lookupIpv6 := false
 //
 //	domain1 := "example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -865,7 +865,7 @@ package zdns
 //	lookupIpv6 := true
 //
 //	domain1 := "example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -916,7 +916,7 @@ package zdns
 //	lookupIpv6 := true
 //
 //	domain1 := "example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -967,7 +967,7 @@ package zdns
 //	lookupIpv6 := true
 //
 //	domain1 := "example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -1029,7 +1029,7 @@ package zdns
 //	lookupIpv4 := true
 //	lookupIpv6 := false
 //
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //
 //	_, _, status, _ := resolver.doNSLookup("nonexistent.example.com", lookupIpv4, lookupIpv6, ns1)
 //
@@ -1044,7 +1044,7 @@ package zdns
 //	lookupIpv6 := false
 //
 //	domain1 := "example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{}
@@ -1065,7 +1065,7 @@ package zdns
 //	lookupIpv6 := true
 //
 //	domain1 := "example.com"
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 //
 //	mockResults[domain_ns_1] = SingleQueryResult{
@@ -1099,7 +1099,7 @@ package zdns
 //	resolver, err := InitResolver(config)
 //	assert.Nil(t, err)
 //
-//	ns1 := net.JoinHostPort(resolver.nameServers[0], "53")
+//	ns1 := net.JoinHostPort(resolver.externalNameServers[0], "53")
 //	domain1 := "example.com"
 //	ns_domain1 := "ns1.example.com"
 //	ipv4_1 := "192.0.2.1"
@@ -1204,7 +1204,7 @@ package zdns
 ////		zdns, err := InitTest(t).BuildExternalResolver()
 ////		assert.Nil(t, err)
 ////
-////		ns1 := net.JoinHostPort(zdns.nameServers[0], "53")
+////		ns1 := net.JoinHostPort(zdns.externalNameServers[0], "53")
 ////		domain1 := "example.com"
 ////		ns_domain1 := "ns1.example.com"
 ////		ipv4_1 := "192.0.2.1"
@@ -1319,7 +1319,7 @@ package zdns
 ////		zdns, err := InitTest(t).BuildExternalResolver()
 ////		assert.Nil(t, err)
 ////
-////		ns1 := net.JoinHostPort(zdns.nameServers[0], "53")
+////		ns1 := net.JoinHostPort(zdns.externalNameServers[0], "53")
 ////		domain1 := "example.com"
 ////		ns_domain1 := "ns1.example.com"
 ////		ns_domain2 := "ns2.example.com"
@@ -1426,7 +1426,7 @@ package zdns
 ////		zdns, err := InitTest(t).BuildExternalResolver()
 ////		assert.Nil(t, err)
 ////
-////		ns1 := net.JoinHostPort(zdns.nameServers[0], "53")
+////		ns1 := net.JoinHostPort(zdns.externalNameServers[0], "53")
 ////		domain1 := "example.com"
 ////		ns_domain1 := "ns1.example.com"
 ////		ipv4_1 := "192.0.2.1"
@@ -1517,7 +1517,7 @@ package zdns
 ////		zdns, err := InitTest(t).BuildExternalResolver()
 ////		assert.Nil(t, err)
 ////
-////		ns1 := net.JoinHostPort(zdns.nameServers[0], "53")
+////		ns1 := net.JoinHostPort(zdns.externalNameServers[0], "53")
 ////		res, _, status, _ := a.DoLookupAllNameservers(mc, "example.com", ns1)
 ////
 ////		assert.Equal(t, status, STATUS_NXDOMAIN)
@@ -1528,7 +1528,7 @@ package zdns
 ////		zdns, err := InitTest(t).BuildExternalResolver()
 ////		assert.Nil(t, err)
 ////
-////		ns1 := net.JoinHostPort(zdns.nameServers[0], "53")
+////		ns1 := net.JoinHostPort(zdns.externalNameServers[0], "53")
 ////		domain1 := "example.com"
 ////		domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
 ////
