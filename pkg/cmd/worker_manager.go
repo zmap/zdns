@@ -273,6 +273,7 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	}
 	config.Cache = new(zdns.Cache)
 	config.Cache.Init(gc.CacheSize)
+	config.LogLevel = log.Level(gc.Verbosity)
 
 	// TODO Phillip- populate blacklist
 	return config
