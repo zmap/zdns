@@ -78,30 +78,24 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 		defer cancel()
 		result, trace, status, err := r.iterativeLookup(ctx, q, nameServer, 1, ".", make(Trace, 0))
 		r.verboseLog(0, "MIEKG-OUT: iterative lookup for ", q.Name, " (", q.Type, "): status: ", status, " , err: ", err)
-		if r.shouldTrace {
-			return &result, trace, status, err
-		}
-		return &result, nil, status, err
+		return &result, trace, status, err
 	}
 	res, status, try, err := r.retryingLookup(q, nameServer, true)
 	if err != nil {
 		return &res, nil, status, fmt.Errorf("could not perform retrying lookup for name %v: %w", q.Name, err)
 
 	}
-	trace := make(Trace, 0)
-	if r.shouldTrace {
-		var t TraceStep
-		t.Result = res
-		t.DnsType = q.Type
-		t.DnsClass = q.Class
-		t.Name = q.Name
-		t.NameServer = nameServer
-		t.Layer = q.Name
-		t.Depth = 1
-		t.Cached = false
-		t.Try = try
-		trace = append(trace, t)
-	}
+	var t TraceStep
+	t.Result = res
+	t.DnsType = q.Type
+	t.DnsClass = q.Class
+	t.Name = q.Name
+	t.NameServer = nameServer
+	t.Layer = q.Name
+	t.Depth = 1
+	t.Cached = false
+	t.Try = try
+	trace := Trace{t}
 	return &res, trace, status, err
 }
 
@@ -117,7 +111,7 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer s
 		return result, trace, STATUS_ERROR, errors.New("max recursion depth reached")
 	}
 	result, isCached, status, try, err := r.cachedRetryingLookup(ctx, q, nameServer, layer, depth)
-	if r.shouldTrace && status == STATUS_NOERROR {
+	if status == STATUS_NOERROR {
 		var t TraceStep
 		t.Result = result
 		t.DnsType = q.Type
@@ -129,7 +123,6 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer s
 		t.Cached = isCached
 		t.Try = try
 		trace = append(trace, t)
-
 	}
 	if status != STATUS_NOERROR {
 		r.verboseLog((depth + 1), "-> error occurred during lookup")

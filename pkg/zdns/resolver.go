@@ -126,9 +126,10 @@ type Resolver struct {
 	conn      *dns.Conn
 	localAddr net.IP
 
-	retries     int
-	shouldTrace bool
-	logLevel    log.Level
+	retries int
+	// TODO Phillip - IMO the caller can use the trace or not, it's up to them to decide
+	//shouldTrace bool
+	logLevel log.Level
 
 	transportMode        transportMode
 	ipVersionMode        ipVersionMode
@@ -169,9 +170,8 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 
 		localAddr: config.LocalAddr,
 
-		retries:     config.Retries,
-		shouldTrace: config.ShouldTrace,
-		logLevel:    config.LogLevel,
+		retries:  config.Retries,
+		logLevel: config.LogLevel,
 
 		transportMode:        config.TransportMode,
 		ipVersionMode:        config.IPVersionMode,

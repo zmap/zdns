@@ -13,462 +13,506 @@
  */
 package cmd
 
-//
-//import (
-//	"encoding/json"
-//	"fmt"
-//	log "github.com/sirupsen/logrus"
-//	"github.com/spf13/pflag"
-//	"github.com/zmap/dns"
-//	"github.com/zmap/zdns/internal/util"
-//	"github.com/zmap/zdns/iohandlers"
-//	"github.com/zmap/zdns/pkg/zdns"
-//	"net"
-//	"os"
-//	"runtime"
-//	"strconv"
-//	"strings"
-//	"sync"
-//	"time"
-//)
-//
-//type routineMetadata struct {
-//	Names  int
-//	Status map[zdns.Status]int
-//}
-//
-//type Metadata struct {
-//	Names       int            `json:"names"`
-//	Status      map[string]int `json:"statuses"`
-//	StartTime   string         `json:"start_time"`
-//	EndTime     string         `json:"end_time"`
-//	NameServers []string       `json:"name_servers"`
-//	Timeout     int            `json:"timeout"`
-//	Retries     int            `json:"retries"`
-//	Conf        *CLIConf       `json:"conf"`
-//}
-//
-//func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
-//	if gc.LogFilePath != "" {
-//		f, err := os.OpenFile(gc.LogFilePath, os.O_WRONLY|os.O_CREATE, 0666)
-//		if err != nil {
-//			log.Fatalf("Unable to open log file (%s): %s", gc.LogFilePath, err.Error())
-//		}
-//		log.SetOutput(f)
-//	}
-//
-//	// Translate the assigned verbosity level to a logrus log level.
-//	// TODO Phillip - check that log level is being correctly used by zdns
-//	logLevel := log.InfoLevel
-//	switch gc.Verbosity {
-//	case 1: // Fatal
-//		logLevel = log.FatalLevel
-//	case 2: // Error
-//		logLevel = log.ErrorLevel
-//	case 3: // Warnings  (default)
-//		logLevel = log.WarnLevel
-//	case 4: // Information
-//		logLevel = log.WarnLevel
-//	case 5: // Debugging
-//		logLevel = log.DebugLevel
-//	default:
-//		log.Fatal("Unknown verbosity level specified. Must be between 1 (lowest)--5 (highest)")
-//	}
-//	log.SetLevel(logLevel)
-//
-//	// complete post facto global initialization based on command line arguments
-//
-//	// class initialization
-//	switch strings.ToUpper(gc.ClassString) {
-//	case "INET", "IN":
-//		gc.Class = dns.ClassINET
-//	case "CSNET", "CS":
-//		gc.Class = dns.ClassCSNET
-//	case "CHAOS", "CH":
-//		gc.Class = dns.ClassCHAOS
-//	case "HESIOD", "HS":
-//		gc.Class = dns.ClassHESIOD
-//	case "NONE":
-//		gc.Class = dns.ClassNONE
-//	case "ANY":
-//		gc.Class = dns.ClassANY
-//	default:
-//		log.Fatal("Unknown record class specified. Valid valued are INET (default), CSNET, CHAOS, HESIOD, NONE, ANY")
-//	}
-//
-//	if gc.LookupAllNameServers {
-//		if gc.NameServersString != "" {
-//			log.Fatal("Name servers cannot be specified in --all-nameservers mode.")
-//		}
-//	}
-//
-//	if gc.NameServersString == "" {
-//		// if we're doing recursive resolution, figure out default OS name servers
-//		// otherwise, use the set of 13 root name servers
-//		if gc.IterativeResolution {
-//			gc.NameServers = zdns.RootServers[:]
-//		} else {
-//			ns, err := GetDNSServers(gc.ConfigFilePath)
-//			if err != nil {
-//				ns = util.GetDefaultResolvers()
-//				log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(ns, ", "))
-//			}
-//			gc.NameServers = ns
-//		}
-//		gc.NameServersSpecified = false
-//		log.Info("No name servers specified. will use: ", strings.Join(gc.NameServers, ", "))
-//	} else {
-//		if gc.NameServerMode {
-//			log.Fatal("name servers cannot be specified on command line in --name-server-mode")
-//		}
-//		var ns []string
-//		if (gc.NameServersString)[0] == '@' {
-//			filepath := (gc.NameServersString)[1:]
-//			f, err := os.ReadFile(filepath)
-//			if err != nil {
-//				log.Fatalf("Unable to read file (%s): %s", filepath, err.Error())
-//			}
-//			if len(f) == 0 {
-//				log.Fatalf("Empty file (%s)", filepath)
-//			}
-//			ns = strings.Split(strings.Trim(string(f), "\n"), "\n")
-//		} else {
-//			ns = strings.Split(gc.NameServersString, ",")
-//		}
-//		for i, s := range ns {
-//			ns[i] = util.AddDefaultPortToDNSServerName(s)
-//		}
-//		gc.NameServers = ns
-//	}
-//
-//	if gc.ClientSubnetString != "" {
-//		parts := strings.Split(gc.ClientSubnetString, "/")
-//		if len(parts) != 2 {
-//			log.Fatalf("Client subnet should be in CIDR format: %s", gc.ClientSubnetString)
-//		}
-//		ip := net.ParseIP(parts[0])
-//		if ip == nil {
-//			log.Fatalf("Client subnet invalid: %s", gc.ClientSubnetString)
-//		}
-//		netmask, err := strconv.Atoi(parts[1])
-//		if err != nil {
-//			log.Fatalf("Client subnet netmask invalid: %s", gc.ClientSubnetString)
-//		}
-//		if netmask > 24 || netmask < 8 {
-//			log.Fatalf("Client subnet netmask must be in 8..24: %s", gc.ClientSubnetString)
-//		}
-//		gc.ClientSubnet = new(dns.EDNS0_SUBNET)
-//		gc.ClientSubnet.Code = dns.EDNS0SUBNET
-//		if ip.To4() == nil {
-//			gc.ClientSubnet.Family = 2
-//		} else {
-//			gc.ClientSubnet.Family = 1
-//		}
-//		gc.ClientSubnet.SourceNetmask = uint8(netmask)
-//		gc.ClientSubnet.Address = ip
-//		// TODO Phillip - need to use this somehow
-//	}
-//
-//	if GC.LocalAddrString != "" {
-//		for _, la := range strings.Split(GC.LocalAddrString, ",") {
-//			ip := net.ParseIP(la)
-//			if ip != nil {
-//				gc.LocalAddrs = append(gc.LocalAddrs, ip)
-//			} else {
-//				log.Fatal("Invalid argument for --local-addr (", la, "). Must be a comma-separated list of valid IP addresses.")
-//			}
-//		}
-//		log.Info("using local address: ", GC.LocalAddrString)
-//		gc.LocalAddrSpecified = true
-//	}
-//
-//	if gc.LocalIfaceString != "" {
-//		if gc.LocalAddrSpecified {
-//			log.Fatal("Both --local-addr and --local-interface specified.")
-//		} else {
-//			li, err := net.InterfaceByName(gc.LocalAddrString)
-//			if err != nil {
-//				log.Fatal("Invalid local interface specified: ", err)
-//			}
-//			addrs, err := li.Addrs()
-//			if err != nil {
-//				log.Fatal("Unable to detect addresses of local interface: ", err)
-//			}
-//			for _, la := range addrs {
-//				gc.LocalAddrs = append(gc.LocalAddrs, la.(*net.IPNet).IP)
-//				gc.LocalAddrSpecified = true
-//			}
-//			log.Info("using local interface: ", gc.LocalAddrString)
-//		}
-//	}
-//	if !gc.LocalAddrSpecified {
-//		// Find local address for use in unbound UDP sockets
-//		if conn, err := net.Dial("udp", "8.8.8.8:53"); err != nil {
-//			log.Fatal("Unable to find default IP address: ", err)
-//		} else {
-//			gc.LocalAddrs = append(gc.LocalAddrs, conn.LocalAddr().(*net.UDPAddr).IP)
-//			err := conn.Close()
-//			if err != nil {
-//				log.Warn("Unable to close test connection to Google Public DNS: ", err)
-//			}
-//		}
-//	}
-//	if gc.UseNanoseconds {
-//		gc.TimeFormat = time.RFC3339Nano
-//	} else {
-//		gc.TimeFormat = time.RFC3339
-//	}
-//	if gc.GoMaxProcs < 0 {
-//		log.Fatal("Invalid argument for --go-processes. Must be >1.")
-//	}
-//
-//	if gc.GoMaxProcs != 0 {
-//		runtime.GOMAXPROCS(gc.GoMaxProcs)
-//	}
-//
-//	// the margin for limit of open files covers different build platforms (linux/darwin), metadata files, or
-//	// input and output files etc.
-//	// check ulimit if value is high enough and if not, try to fix it
-//	ulimitCheck(uint64(gc.Threads + 100))
-//
-//	if gc.UDPOnly && gc.TCPOnly {
-//		log.Fatal("TCP Only and UDP Only are conflicting")
-//	}
-//	if gc.NameServerMode && gc.AlexaFormat {
-//		log.Fatal("Alexa mode is incompatible with name server mode")
-//	}
-//	if gc.NameServerMode && gc.MetadataFormat {
-//		log.Fatal("Metadata mode is incompatible with name server mode")
-//	}
-//	if gc.NameServerMode && gc.NameOverride == "" && gc.Module != "BINDVERSION" {
-//		log.Fatal("Static Name must be defined with --override-name in --name-server-mode unless DNS module does not expect names (e.g., BINDVERSION).")
-//	}
-//	// Output Groups are defined by a base + any additional fields that the user wants
-//	groups := strings.Split(gc.IncludeInOutput, ",")
-//	if gc.ResultVerbosity != "short" && gc.ResultVerbosity != "normal" && gc.ResultVerbosity != "long" && gc.ResultVerbosity != "trace" {
-//		log.Fatal("Invalid result verbosity. Options: short, normal, long, trace")
-//	}
-//
-//	gc.OutputGroups = append(gc.OutputGroups, gc.ResultVerbosity)
-//	gc.OutputGroups = append(gc.OutputGroups, groups...)
-//
-//	// setup i/o
-//	gc.InputHandler = iohandlers.NewFileInputHandler(gc.InputFilePath)
-//	gc.OutputHandler = iohandlers.NewFileOutputHandler(gc.OutputFilePath)
-//	return gc
-//}
-//
-//func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
-//	config := zdns.NewResolverConfig()
-//	config.Timeout = time.Second * time.Duration(gc.Timeout)
-//	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
-//	// copy nameservers to resolver config
-//	config.NameServers = gc.NameServers
-//
-//	if gc.UseNSID {
-//		config.EdnsOptions = append(config.EdnsOptions, new(dns.EDNS0_NSID))
-//	}
-//	config.Cache = new(zdns.Cache)
-//	config.Cache.Init(gc.CacheSize)
-//
-//	// TODO Phillip- populate blacklist
-//	return config
-//}
-//
-//func Run(gc CLIConf, flags *pflag.FlagSet) {
-//	gc = *populateCLIConfig(&gc, flags)
-//	resolverConfig := populateResolverConfig(&gc)
-//	// DoLookup:
-//	//	- n threads that do processing from in and place results in out
-//	//	- process until inChan closes, then wg.done()
-//	// Once we processing threads have all finished, wait until the
-//	// output and metadata threads have completed
-//	inChan := make(chan interface{})
-//	outChan := make(chan string)
-//	metaChan := make(chan routineMetadata, gc.Threads)
-//	var routineWG sync.WaitGroup
-//
-//	inHandler := gc.InputHandler
-//	if inHandler == nil {
-//		log.Fatal("Input handler is nil")
-//	}
-//
-//	outHandler := gc.OutputHandler
-//	if outHandler == nil {
-//		log.Fatal("Output handler is nil")
-//	}
-//
-//	// Use handlers to populate the input and output/results channel
-//	go func() {
-//		err := inHandler.FeedChannel(inChan, &routineWG)
-//		if err != nil {
-//			log.Fatal("could not feed input channel: %v", err)
-//		}
-//	}()
-//	go func() {
-//		err := outHandler.WriteResults(outChan, &routineWG)
-//		if err != nil {
-//			log.Fatal("could not write output results from output channel: %v", err)
-//		}
-//	}()
-//	routineWG.Add(2)
-//
-//	// create pool of worker goroutines
-//	var lookupWG sync.WaitGroup
-//	lookupWG.Add(gc.Threads)
-//	startTime := time.Now().Format(gc.TimeFormat)
-//	// create shared cache for all threads to share
-//	for i := 0; i < gc.Threads; i++ {
-//		go doLookup(resolverConfig, inChan, outChan, metaChan, &lookupWG, i)
-//	}
-//	lookupWG.Wait()
-//	close(outChan)
-//	close(metaChan)
-//	routineWG.Wait()
-//	if gc.MetadataFilePath != "" {
-//		// we're done processing data. aggregate all the data from individual routines
-//		metaData := aggregateMetadata(metaChan)
-//		metaData.StartTime = startTime
-//		metaData.EndTime = time.Now().Format(gc.TimeFormat)
-//		metaData.NameServers = gc.NameServers
-//		metaData.Retries = gc.Retries
-//		// Seconds() returns a float. However, timeout is passed in as an integer
-//		// command line argument, so there should be no loss of data when casting
-//		// back to an integer here.
-//		metaData.Timeout = gc.Timeout
-//		metaData.Conf = gc
-//		// add global lookup-related metadata
-//		// write out metadata
-//		var f *os.File
-//		if gc.MetadataFilePath == "-" {
-//			f = os.Stderr
-//		} else {
-//			var err error
-//			f, err = os.OpenFile(gc.MetadataFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-//			if err != nil {
-//				log.Fatal("unable to open metadata file:", err.Error())
-//			}
-//			defer f.Close()
-//		}
-//		j, err := json.Marshal(metaData)
-//		if err != nil {
-//			log.Fatal("unable to JSON encode metadata:", err.Error())
-//		}
-//		f.WriteString(string(j))
-//	}
-//	return nil
-//
-//	//// allow the factory to initialize itself
-//	//if err := factory.Initialize(&gc); err != nil {
-//	//	log.Fatal("Factory was unable to initialize:", err.Error())
-//	//}
-//	//// run it.
-//	//if err := DoLookups(factory, &gc); err != nil {
-//	//	log.Fatal("Unable to run lookups:", err.Error())
-//	//}
-//	//// allow the factory to finalize itself
-//	//if err := factory.Finalize(); err != nil {
-//	//	log.Fatal("Factory was unable to finalize:", err.Error())
-//	//}
-//}
-//
-//func doLookup(rc *zdns.ResolverConfig, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup, threadID int) error {
-//	resolver, err := zdns.InitResolver(rc)
-//	if err != nil {
-//		return fmt.Errorf("could not init resolver: %w", err)
-//	}
-//	var metadata routineMetadata
-//	metadata.Status = make(map[Status]int)
-//	for genericInput := range input {
-//		var res Result
-//		var innerRes interface{}
-//		var trace []interface{}
-//		var status Status
-//		var err error
-//		l, err := f.MakeLookup()
-//		if err != nil {
-//			log.Fatal("Unable to build lookup instance", err)
-//		}
-//		line := genericInput.(string)
-//		var changed bool
-//		var lookupName string
-//		rawName := ""
-//		nameServer := ""
-//		var rank int
-//		var entryMetadata string
-//		if gc.AlexaFormat == true {
-//			rawName, rank = parseAlexa(line)
-//			res.AlexaRank = rank
-//		} else if gc.MetadataFormat {
-//			rawName, entryMetadata = parseMetadataInputLine(line)
-//			res.Metadata = entryMetadata
-//		} else if gc.NameServerMode {
-//			nameServer, err = util.AddDefaultPortToDNSServerName(line)
-//			if err != nil {
-//				log.Fatal("Unable to parse nameserver: ", err)
-//			}
-//		} else {
-//			rawName, nameServer = parseNormalInputLine(line)
-//		}
-//		lookupName, changed = makeName(rawName, gc.NamePrefix, gc.NameOverride)
-//		if changed {
-//			res.AlteredName = lookupName
-//		}
-//		res.Name = rawName
-//		res.Class = dns.Class(gc.Class).String()
-//		innerRes, trace, status, err = l.DoLookup(lookupName, nameServer)
-//		res.Timestamp = time.Now().Format(gc.TimeFormat)
-//		if status != STATUS_NO_OUTPUT {
-//			res.Status = string(status)
-//			res.Data = innerRes
-//			res.Trace = trace
-//			if err != nil {
-//				res.Error = err.Error()
-//			}
-//			v, _ := version.NewVersion("0.0.0")
-//			o := &sheriff.Options{
-//				Groups:     gc.OutputGroups,
-//				ApiVersion: v,
-//			}
-//			data, err := sheriff.Marshal(o, res)
-//			jsonRes, err := json.Marshal(data)
-//			if err != nil {
-//				log.Fatal("Unable to marshal JSON result", err)
-//			}
-//			output <- string(jsonRes)
-//		}
-//		metadata.Names++
-//		metadata.Status[status]++
-//	}
-//	metaChan <- metadata
-//	wg.Done()
-//	return nil
-//}
-//
-//func GetDNSServers(path string) ([]string, error) {
-//	c, err := dns.ClientConfigFromFile(path)
-//	if err != nil {
-//		return []string{}, err
-//	}
-//	var servers []string
-//	for _, s := range c.Servers {
-//		if s[0:1] != "[" && strings.Contains(s, ":") {
-//			s = "[" + s + "]"
-//		}
-//		full := strings.Join([]string{s, c.Port}, ":")
-//		servers = append(servers, full)
-//	}
-//	return servers, nil
-//}
-//
-//func aggregateMetadata(c <-chan routineMetadata) Metadata {
-//	var meta Metadata
-//	meta.Status = make(map[string]int)
-//	for m := range c {
-//		meta.Names += m.Names
-//		for k, v := range m.Status {
-//			meta.Status[string(k)] += v
-//		}
-//	}
-//	return meta
-//}
+import (
+	"encoding/csv"
+	"encoding/json"
+	"fmt"
+	"github.com/hashicorp/go-version"
+	"github.com/liip/sheriff"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
+	"github.com/zmap/dns"
+	"github.com/zmap/zdns/internal/util"
+	"github.com/zmap/zdns/iohandlers"
+	"github.com/zmap/zdns/pkg/zdns"
+	"net"
+	"os"
+	"runtime"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+)
+
+type routineMetadata struct {
+	Names  int
+	Status map[zdns.Status]int
+}
+
+type Metadata struct {
+	Names       int            `json:"names"`
+	Status      map[string]int `json:"statuses"`
+	StartTime   string         `json:"start_time"`
+	EndTime     string         `json:"end_time"`
+	NameServers []string       `json:"name_servers"`
+	Timeout     int            `json:"timeout"`
+	Retries     int            `json:"retries"`
+	Conf        *CLIConf       `json:"conf"`
+}
+
+func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
+	if gc.LogFilePath != "" {
+		f, err := os.OpenFile(gc.LogFilePath, os.O_WRONLY|os.O_CREATE, 0666)
+		if err != nil {
+			log.Fatalf("Unable to open log file (%s): %s", gc.LogFilePath, err.Error())
+		}
+		log.SetOutput(f)
+	}
+
+	// Translate the assigned verbosity level to a logrus log level.
+	// TODO Phillip - check that log level is being correctly used by zdns
+	logLevel := log.InfoLevel
+	switch gc.Verbosity {
+	case 1: // Fatal
+		logLevel = log.FatalLevel
+	case 2: // Error
+		logLevel = log.ErrorLevel
+	case 3: // Warnings  (default)
+		logLevel = log.WarnLevel
+	case 4: // Information
+		logLevel = log.WarnLevel
+	case 5: // Debugging
+		logLevel = log.DebugLevel
+	default:
+		log.Fatal("Unknown verbosity level specified. Must be between 1 (lowest)--5 (highest)")
+	}
+	log.SetLevel(logLevel)
+
+	// complete post facto global initialization based on command line arguments
+
+	// class initialization
+	switch strings.ToUpper(gc.ClassString) {
+	case "INET", "IN":
+		gc.Class = dns.ClassINET
+	case "CSNET", "CS":
+		gc.Class = dns.ClassCSNET
+	case "CHAOS", "CH":
+		gc.Class = dns.ClassCHAOS
+	case "HESIOD", "HS":
+		gc.Class = dns.ClassHESIOD
+	case "NONE":
+		gc.Class = dns.ClassNONE
+	case "ANY":
+		gc.Class = dns.ClassANY
+	default:
+		log.Fatal("Unknown record class specified. Valid valued are INET (default), CSNET, CHAOS, HESIOD, NONE, ANY")
+	}
+
+	if gc.LookupAllNameServers {
+		if gc.NameServersString != "" {
+			log.Fatal("Name servers cannot be specified in --all-nameservers mode.")
+		}
+	}
+
+	if gc.NameServersString == "" {
+		// if we're doing recursive resolution, figure out default OS name servers
+		// otherwise, use the set of 13 root name servers
+		if gc.IterativeResolution {
+			gc.NameServers = zdns.RootServers[:]
+		} else {
+			ns, err := GetDNSServers(gc.ConfigFilePath)
+			if err != nil {
+				ns = util.GetDefaultResolvers()
+				log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(ns, ", "))
+			}
+			gc.NameServers = ns
+		}
+		gc.NameServersSpecified = false
+		log.Info("No name servers specified. will use: ", strings.Join(gc.NameServers, ", "))
+	} else {
+		if gc.NameServerMode {
+			log.Fatal("name servers cannot be specified on command line in --name-server-mode")
+		}
+		var ns []string
+		if (gc.NameServersString)[0] == '@' {
+			filepath := (gc.NameServersString)[1:]
+			f, err := os.ReadFile(filepath)
+			if err != nil {
+				log.Fatalf("Unable to read file (%s): %s", filepath, err.Error())
+			}
+			if len(f) == 0 {
+				log.Fatalf("Empty file (%s)", filepath)
+			}
+			ns = strings.Split(strings.Trim(string(f), "\n"), "\n")
+		} else {
+			ns = strings.Split(gc.NameServersString, ",")
+		}
+		for i, s := range ns {
+			ns[i] = util.AddDefaultPortToDNSServerName(s)
+		}
+		gc.NameServers = ns
+	}
+
+	if gc.ClientSubnetString != "" {
+		parts := strings.Split(gc.ClientSubnetString, "/")
+		if len(parts) != 2 {
+			log.Fatalf("Client subnet should be in CIDR format: %s", gc.ClientSubnetString)
+		}
+		ip := net.ParseIP(parts[0])
+		if ip == nil {
+			log.Fatalf("Client subnet invalid: %s", gc.ClientSubnetString)
+		}
+		netmask, err := strconv.Atoi(parts[1])
+		if err != nil {
+			log.Fatalf("Client subnet netmask invalid: %s", gc.ClientSubnetString)
+		}
+		if netmask > 24 || netmask < 8 {
+			log.Fatalf("Client subnet netmask must be in 8..24: %s", gc.ClientSubnetString)
+		}
+		gc.ClientSubnet = new(dns.EDNS0_SUBNET)
+		gc.ClientSubnet.Code = dns.EDNS0SUBNET
+		if ip.To4() == nil {
+			gc.ClientSubnet.Family = 2
+		} else {
+			gc.ClientSubnet.Family = 1
+		}
+		gc.ClientSubnet.SourceNetmask = uint8(netmask)
+		gc.ClientSubnet.Address = ip
+		// TODO Phillip - need to use this somehow
+	}
+
+	if GC.LocalAddrString != "" {
+		for _, la := range strings.Split(GC.LocalAddrString, ",") {
+			ip := net.ParseIP(la)
+			if ip != nil {
+				gc.LocalAddrs = append(gc.LocalAddrs, ip)
+			} else {
+				log.Fatal("Invalid argument for --local-addr (", la, "). Must be a comma-separated list of valid IP addresses.")
+			}
+		}
+		log.Info("using local address: ", GC.LocalAddrString)
+		gc.LocalAddrSpecified = true
+	}
+
+	if gc.LocalIfaceString != "" {
+		if gc.LocalAddrSpecified {
+			log.Fatal("Both --local-addr and --local-interface specified.")
+		} else {
+			li, err := net.InterfaceByName(gc.LocalAddrString)
+			if err != nil {
+				log.Fatal("Invalid local interface specified: ", err)
+			}
+			addrs, err := li.Addrs()
+			if err != nil {
+				log.Fatal("Unable to detect addresses of local interface: ", err)
+			}
+			for _, la := range addrs {
+				gc.LocalAddrs = append(gc.LocalAddrs, la.(*net.IPNet).IP)
+				gc.LocalAddrSpecified = true
+			}
+			log.Info("using local interface: ", gc.LocalAddrString)
+		}
+	}
+	if !gc.LocalAddrSpecified {
+		// Find local address for use in unbound UDP sockets
+		if conn, err := net.Dial("udp", "8.8.8.8:53"); err != nil {
+			log.Fatal("Unable to find default IP address: ", err)
+		} else {
+			gc.LocalAddrs = append(gc.LocalAddrs, conn.LocalAddr().(*net.UDPAddr).IP)
+			err := conn.Close()
+			if err != nil {
+				log.Warn("Unable to close test connection to Google Public DNS: ", err)
+			}
+		}
+	}
+	if gc.UseNanoseconds {
+		gc.TimeFormat = time.RFC3339Nano
+	} else {
+		gc.TimeFormat = time.RFC3339
+	}
+	if gc.GoMaxProcs < 0 {
+		log.Fatal("Invalid argument for --go-processes. Must be >1.")
+	}
+
+	if gc.GoMaxProcs != 0 {
+		runtime.GOMAXPROCS(gc.GoMaxProcs)
+	}
+
+	// the margin for limit of open files covers different build platforms (linux/darwin), metadata files, or
+	// input and output files etc.
+	// check ulimit if value is high enough and if not, try to fix it
+	ulimitCheck(uint64(gc.Threads + 100))
+
+	if gc.UDPOnly && gc.TCPOnly {
+		log.Fatal("TCP Only and UDP Only are conflicting")
+	}
+	if gc.NameServerMode && gc.AlexaFormat {
+		log.Fatal("Alexa mode is incompatible with name server mode")
+	}
+	if gc.NameServerMode && gc.MetadataFormat {
+		log.Fatal("Metadata mode is incompatible with name server mode")
+	}
+	if gc.NameServerMode && gc.NameOverride == "" && gc.Module != "BINDVERSION" {
+		log.Fatal("Static Name must be defined with --override-name in --name-server-mode unless DNS module does not expect names (e.g., BINDVERSION).")
+	}
+	// Output Groups are defined by a base + any additional fields that the user wants
+	groups := strings.Split(gc.IncludeInOutput, ",")
+	if gc.ResultVerbosity != "short" && gc.ResultVerbosity != "normal" && gc.ResultVerbosity != "long" && gc.ResultVerbosity != "trace" {
+		log.Fatal("Invalid result verbosity. Options: short, normal, long, trace")
+	}
+
+	gc.OutputGroups = append(gc.OutputGroups, gc.ResultVerbosity)
+	gc.OutputGroups = append(gc.OutputGroups, groups...)
+
+	// setup i/o
+	gc.InputHandler = iohandlers.NewFileInputHandler(gc.InputFilePath)
+	gc.OutputHandler = iohandlers.NewFileOutputHandler(gc.OutputFilePath)
+	return gc
+}
+
+func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
+	config := zdns.NewResolverConfig()
+	config.Timeout = time.Second * time.Duration(gc.Timeout)
+	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
+	config.IsIterative = gc.IterativeResolution
+	// copy nameservers to resolver config
+	config.ExternalNameServers = gc.NameServers
+
+	if gc.UseNSID {
+		config.EdnsOptions = append(config.EdnsOptions, new(dns.EDNS0_NSID))
+	}
+	config.Cache = new(zdns.Cache)
+	config.Cache.Init(gc.CacheSize)
+
+	// TODO Phillip- populate blacklist
+	return config
+}
+
+func Run(gc CLIConf, flags *pflag.FlagSet) {
+	gc = *populateCLIConfig(&gc, flags)
+	resolverConfig := populateResolverConfig(&gc)
+	// DoLookup:
+	//	- n threads that do processing from in and place results in out
+	//	- process until inChan closes, then wg.done()
+	// Once we processing threads have all finished, wait until the
+	// output and metadata threads have completed
+	inChan := make(chan interface{})
+	outChan := make(chan string)
+	metaChan := make(chan routineMetadata, gc.Threads)
+	var routineWG sync.WaitGroup
+
+	inHandler := gc.InputHandler
+	if inHandler == nil {
+		log.Fatal("Input handler is nil")
+	}
+
+	outHandler := gc.OutputHandler
+	if outHandler == nil {
+		log.Fatal("Output handler is nil")
+	}
+
+	// Use handlers to populate the input and output/results channel
+	go func() {
+		err := inHandler.FeedChannel(inChan, &routineWG)
+		if err != nil {
+			log.Fatal("could not feed input channel: %v", err)
+		}
+	}()
+	go func() {
+		err := outHandler.WriteResults(outChan, &routineWG)
+		if err != nil {
+			log.Fatal("could not write output results from output channel: %v", err)
+		}
+	}()
+	routineWG.Add(2)
+
+	// create pool of worker goroutines
+	var lookupWG sync.WaitGroup
+	lookupWG.Add(gc.Threads)
+	startTime := time.Now().Format(gc.TimeFormat)
+	// create shared cache for all threads to share
+	for i := 0; i < gc.Threads; i++ {
+		go func() {
+			err := doLookupWorker(&gc, resolverConfig, inChan, outChan, metaChan, &lookupWG)
+			if err != nil {
+				log.Fatal("could not start lookup worker: %v", err)
+			}
+		}()
+	}
+	lookupWG.Wait()
+	close(outChan)
+	close(metaChan)
+	routineWG.Wait()
+	if gc.MetadataFilePath != "" {
+		// we're done processing data. aggregate all the data from individual routines
+		metaData := aggregateMetadata(metaChan)
+		metaData.StartTime = startTime
+		metaData.EndTime = time.Now().Format(gc.TimeFormat)
+		metaData.NameServers = gc.NameServers
+		metaData.Retries = gc.Retries
+		// Seconds() returns a float. However, timeout is passed in as an integer
+		// command line argument, so there should be no loss of data when casting
+		// back to an integer here.
+		metaData.Timeout = gc.Timeout
+		metaData.Conf = &gc
+		// add global lookup-related metadata
+		// write out metadata
+		var f *os.File
+		if gc.MetadataFilePath == "-" {
+			f = os.Stderr
+		} else {
+			var err error
+			f, err = os.OpenFile(gc.MetadataFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+			if err != nil {
+				log.Fatal("unable to open metadata file:", err.Error())
+			}
+			defer f.Close()
+		}
+		j, err := json.Marshal(metaData)
+		if err != nil {
+			log.Fatal("unable to JSON encode metadata:", err.Error())
+		}
+		_, err = f.WriteString(string(j))
+		if err != nil {
+			return
+		}
+	}
+}
+
+// doLookupWorker is a single worker thread that processes lookups from the input channel. It calls wg.Done when it is finished.
+func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
+	defer wg.Done()
+	resolver, err := zdns.InitResolver(rc)
+	if err != nil {
+		return fmt.Errorf("could not init resolver: %w", err)
+	}
+	var metadata routineMetadata
+	metadata.Status = make(map[zdns.Status]int)
+	for genericInput := range input {
+		var res zdns.Result
+		var innerRes interface{}
+		var trace zdns.Trace
+		var status zdns.Status
+		var err error
+		line := genericInput.(string)
+		var changed bool
+		var lookupName string
+		rawName := ""
+		nameServer := ""
+		var rank int
+		var entryMetadata string
+		if gc.AlexaFormat == true {
+			rawName, rank = parseAlexa(line)
+			res.AlexaRank = rank
+		} else if gc.MetadataFormat {
+			rawName, entryMetadata = parseMetadataInputLine(line)
+			res.Metadata = entryMetadata
+		} else if gc.NameServerMode {
+			nameServer = util.AddDefaultPortToDNSServerName(line)
+		} else {
+			rawName, nameServer = parseNormalInputLine(line)
+		}
+		lookupName, changed = makeName(rawName, gc.NamePrefix, gc.NameOverride)
+		if changed {
+			res.AlteredName = lookupName
+		}
+		res.Name = rawName
+		res.Class = dns.Class(gc.Class).String()
+		dnsType, ok := module_to_type[gc.Module]
+		if !ok {
+			log.Fatalf("Module %s not found in module_to_type map", gc.Module)
+		}
+
+		if rc.IsIterative {
+			innerRes, trace, status, err = resolver.IterativeLookup(&zdns.Question{Name: res.Name, Class: gc.Class, Type: dnsType})
+		} else if !rc.IsIterative {
+			innerRes, status, err = resolver.ExternalLookup(&zdns.Question{Name: res.Name, Class: gc.Class, Type: dnsType}, nameServer)
+		}
+
+		res.Timestamp = time.Now().Format(gc.TimeFormat)
+		if status != zdns.STATUS_NO_OUTPUT {
+			res.Status = string(status)
+			res.Data = innerRes
+			res.Trace = trace
+			if err != nil {
+				res.Error = err.Error()
+			}
+			v, _ := version.NewVersion("0.0.0")
+			o := &sheriff.Options{
+				Groups:     gc.OutputGroups,
+				ApiVersion: v,
+			}
+			data, err := sheriff.Marshal(o, res)
+			jsonRes, err := json.Marshal(data)
+			if err != nil {
+				log.Fatal("Unable to marshal JSON result", err)
+			}
+			output <- string(jsonRes)
+		}
+		metadata.Names++
+		metadata.Status[status]++
+	}
+	metaChan <- metadata
+	return nil
+}
+
+func GetDNSServers(path string) ([]string, error) {
+	c, err := dns.ClientConfigFromFile(path)
+	if err != nil {
+		return []string{}, err
+	}
+	var servers []string
+	for _, s := range c.Servers {
+		if s[0:1] != "[" && strings.Contains(s, ":") {
+			s = "[" + s + "]"
+		}
+		full := strings.Join([]string{s, c.Port}, ":")
+		servers = append(servers, full)
+	}
+	return servers, nil
+}
+
+func parseAlexa(line string) (string, int) {
+	s := strings.SplitN(line, ",", 2)
+	rank, err := strconv.Atoi(s[0])
+	if err != nil {
+		log.Fatal("Malformed Alexa Top Million file")
+	}
+	return s[1], rank
+}
+
+func parseMetadataInputLine(line string) (string, string) {
+	s := strings.SplitN(line, ",", 2)
+	if len(s) == 1 {
+		return s[0], ""
+	}
+	return s[0], s[1]
+}
+
+func parseNormalInputLine(line string) (string, string) {
+	r := csv.NewReader(strings.NewReader(line))
+	s, err := r.Read()
+	if err != nil || len(s) == 0 {
+		return line, ""
+	}
+	if len(s) == 1 {
+		return s[0], ""
+	} else {
+		ns := util.AddDefaultPortToDNSServerName(s[1])
+		return s[0], ns
+	}
+}
+
+func makeName(name, prefix, nameOverride string) (string, bool) {
+	if nameOverride != "" {
+		return nameOverride, true
+	}
+	trimmedName := strings.TrimSuffix(name, ".")
+	if prefix == "" {
+		return trimmedName, name != trimmedName
+	} else {
+		return strings.Join([]string{prefix, trimmedName}, ""), true
+	}
+}
+
+func aggregateMetadata(c <-chan routineMetadata) Metadata {
+	var meta Metadata
+	meta.Status = make(map[string]int)
+	for m := range c {
+		meta.Names += m.Names
+		for k, v := range m.Status {
+			meta.Status[string(k)] += v
+		}
+	}
+	return meta
+}

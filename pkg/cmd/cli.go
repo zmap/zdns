@@ -106,8 +106,7 @@ ZDNS also includes its own recursive resolution and a cache to further optimize 
 	Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 	Run: func(cmd *cobra.Command, args []string) {
 		GC.Module = strings.ToUpper(args[0])
-		fmt.Println("Hello!")
-		//Run(GC, cmd.Flags())
+		Run(GC, cmd.Flags())
 	},
 }
 
@@ -214,7 +213,6 @@ func init() {
 	rootCmd.PersistentFlags().Bool("ipv4-lookup", false, "Perform an IPv4 Lookup in modules")
 	rootCmd.PersistentFlags().Bool("ipv6-lookup", false, "Perform an IPv6 Lookup in modules")
 	rootCmd.PersistentFlags().String("blacklist-file", "", "blacklist file for servers to exclude from lookups")
-	rootCmd.PersistentFlags().Int("mx-cache-size", 1000, "number of records to store in MX -> A/AAAA cache")
 }
 
 // initConfig reads in config file and ENV variables if set.
