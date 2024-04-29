@@ -10,7 +10,7 @@ import (
 
 // TODO PHillip, remove this file, just for testing
 
-func main() {
+func library() {
 	q := zdns.Question{
 		Name:  "www.google.com",
 		Type:  dns.TypeA,
@@ -26,14 +26,12 @@ func main() {
 	config.ShouldTrace = true
 	config.IsIterative = true
 
-	//config.NameServers = []string{"b.gtld-servers.net"}   <-------  won't work
-	config.NameServers = []string{"170.247.170.2:53"}
 	iterativeRes, err := zdns.InitResolver(config)
 	if err != nil {
 		log.Fatal("Error creating iterative zdns: %w", err)
 	}
 
-	res, _, _, err := iterativeRes.Lookup(&q, "")
+	res, _, _, err := iterativeRes.IterativeLookup(&q)
 	if err != nil {
 		log.Fatalf("Error resolving: %w", err)
 	}
@@ -44,7 +42,7 @@ func main() {
 	cache.Init(10000)
 
 	config = zdns.NewResolverConfig()
-	config.NameServers = []string{"1.1.1.1:53"}
+	config.ExternalNameServers = []string{"1.1.1.1:53"}
 	config.IsIterative = false
 	externalRes, err := zdns.InitResolver(config)
 	if err != nil {
@@ -55,24 +53,28 @@ func main() {
 		log.Fatal("Error creating external zdns: %w", err)
 	}
 	go func() {
-		res, _, _, err = externalRes.Lookup(&q, "")
+		res, _, err = externalRes.ExternalLookup(&q, "")
 		if err != nil {
 			log.Fatalf("Error resolving: %w", err)
 		}
 		fmt.Printf("External: %v\n", res)
 	}()
 	go func() {
-		res, _, _, err = externalRes2.Lookup(&q, "")
+		res, _, err = externalRes2.ExternalLookup(&q, "")
 		if err != nil {
 			log.Fatalf("Error resolving: %w", err)
 		}
 		fmt.Printf("External: %v\n", res)
 	}()
 
-	res, _, _, err = iterativeRes.Lookup(&q1, "")
+	res, _, _, err = iterativeRes.IterativeLookup(&q1)
 	if err != nil {
 		log.Fatalf("Error resolving: %w", err)
 	}
 	fmt.Printf("Iterative: %v\n", res)
 
+}
+
+func main() {
+	library()
 }

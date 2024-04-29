@@ -335,7 +335,7 @@ func (r *Resolver) randomRootNameServer() string {
 	if r.rootNameServers == nil || l == 0 {
 		log.Fatal("no root name servers specified")
 	}
-	return r.externalNameServers[rand.Intn(l)]
+	return r.rootNameServers[rand.Intn(l)]
 }
 
 func (r *Resolver) verboseLog(depth int, args ...interface{}) {

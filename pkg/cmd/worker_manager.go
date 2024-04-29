@@ -442,8 +442,8 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan interface
 		}
 		metadata.Names++
 		metadata.Status[status]++
+		metaChan <- metadata
 	}
-	metaChan <- metadata
 	return nil
 }
 
