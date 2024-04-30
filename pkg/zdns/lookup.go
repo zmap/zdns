@@ -456,7 +456,10 @@ func CheckTxtRecords(res interface{}, status Status, regex *regexp.Regexp, err e
 	if status != STATUS_NOERROR {
 		return "", status, err
 	}
-	cast, _ := res.(SingleQueryResult)
+	cast, ok := res.(SingleQueryResult)
+	if !ok {
+		return "", STATUS_ERROR, errors.New("could not cast result to SingleQueryResult")
+	}
 	resString, err := FindTxtRecord(cast, regex)
 	if err != nil {
 		status = STATUS_NO_RECORD

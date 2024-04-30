@@ -12,8 +12,9 @@ import (
 var module_to_type map[string]uint16
 
 const (
-	MXLOOKUP = "MXLOOKUP"
-	NSLOOKUP = "NSLOOKUP"
+	BINDVERSION = "BINDVERSION"
+	MXLOOKUP    = "MXLOOKUP"
+	NSLOOKUP    = "NSLOOKUP"
 )
 
 func init() {

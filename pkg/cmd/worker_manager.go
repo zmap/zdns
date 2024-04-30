@@ -24,6 +24,7 @@ import (
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/internal/util"
 	"github.com/zmap/zdns/iohandlers"
+	"github.com/zmap/zdns/pkg/modules/bindversion"
 	blacklist "github.com/zmap/zdns/pkg/safe_blacklist"
 	"github.com/zmap/zdns/pkg/zdns"
 	"net"
@@ -243,7 +244,7 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 	if gc.NameServerMode && gc.MetadataFormat {
 		log.Fatal("Metadata mode is incompatible with name server mode")
 	}
-	if gc.NameServerMode && gc.NameOverride == "" && gc.Module != "BINDVERSION" {
+	if gc.NameServerMode && gc.NameOverride == "" && gc.Module != BINDVERSION {
 		log.Fatal("Static Name must be defined with --override-name in --name-server-mode unless DNS module does not expect names (e.g., BINDVERSION).")
 	}
 	// Output Groups are defined by a base + any additional fields that the user wants
@@ -422,6 +423,8 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, moduleData *moduleData
 		res.Class = dns.Class(gc.Class).String()
 
 		switch gc.Module {
+		case BINDVERSION:
+			innerRes, trace, status, err = bindversion.DoLookup(resolver, rc.IsIterative, nameServer)
 		case MXLOOKUP:
 			innerRes, trace, status, err = moduleData.MXLookup.DoLookup(resolver, lookupName, nameServer)
 		case NSLOOKUP:
