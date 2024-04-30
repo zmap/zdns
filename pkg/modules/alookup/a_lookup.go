@@ -12,18 +12,21 @@
  * permissions and limitations under the License.
  */
 
-package modules
+package alookup
 
 import (
 	"errors"
+	"strings"
+
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/pkg/zdns"
-	"strings"
 )
 
 // DoTargetedLookup performs a lookup of the given domain name against the given nameserver, looking up both IPv4 and IPv6 addresses
 // Will follow CNAME records as well as A/AAAA records to get IP addresses
-func DoTargetedLookup(r *zdns.Resolver, name, nameServer string, lookupIpv4 bool, lookupIpv6 bool) (*zdns.IPResult, zdns.Trace, zdns.Status, error) {
+func DoTargetedLookup(r *zdns.Resolver, name, nameServer string, ipMode zdns.IPVersionMode) (*zdns.IPResult, zdns.Trace, zdns.Status, error) {
+	lookupIPv4 := ipMode == zdns.IPv4Only || ipMode == zdns.IPv4OrIPv6
+	lookupIPv6 := ipMode == zdns.IPv6Only || ipMode == zdns.IPv4OrIPv6
 	name = strings.ToLower(name)
 	res := zdns.IPResult{}
 	candidateSet := map[string][]zdns.Answer{}
@@ -35,7 +38,7 @@ func DoTargetedLookup(r *zdns.Resolver, name, nameServer string, lookupIpv4 bool
 	var ipv4status zdns.Status
 	var ipv6status zdns.Status
 
-	if lookupIpv4 {
+	if lookupIPv4 {
 		ipv4, ipv4Trace, ipv4status, _ = recursiveIPLookup(r, name, nameServer, dns.TypeA, candidateSet, cnameSet, name, 0)
 		if len(ipv4) > 0 {
 			ipv4 = zdns.Unique(ipv4)
@@ -45,7 +48,7 @@ func DoTargetedLookup(r *zdns.Resolver, name, nameServer string, lookupIpv4 bool
 	}
 	candidateSet = map[string][]zdns.Answer{}
 	cnameSet = map[string][]zdns.Answer{}
-	if lookupIpv6 {
+	if lookupIPv6 {
 		ipv6, ipv6Trace, ipv6status, _ = recursiveIPLookup(r, name, nameServer, dns.TypeAAAA, candidateSet, cnameSet, name, 0)
 		if len(ipv6) > 0 {
 			ipv6 = zdns.Unique(ipv6)
@@ -59,9 +62,9 @@ func DoTargetedLookup(r *zdns.Resolver, name, nameServer string, lookupIpv4 bool
 	// In case we get no IPs and a non-NOERROR status from either
 	// IPv4 or IPv6 lookup, we return that status.
 	if len(res.IPv4Addresses) == 0 && len(res.IPv6Addresses) == 0 {
-		if lookupIpv4 && !zdns.SafeStatus(ipv4status) {
+		if lookupIPv4 && !zdns.SafeStatus(ipv4status) {
 			return nil, combinedTrace, ipv4status, nil
-		} else if lookupIpv6 && !zdns.SafeStatus(ipv6status) {
+		} else if lookupIPv6 && !zdns.SafeStatus(ipv6status) {
 			return nil, combinedTrace, ipv6status, nil
 		} else {
 			return &res, combinedTrace, zdns.STATUS_NOERROR, nil

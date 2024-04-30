@@ -31,15 +31,26 @@ func (tm transportMode) isValid() (bool, string) {
 	return true, ""
 }
 
-type ipVersionMode int
+type IPVersionMode int
 
 const (
-	IPv4Only ipVersionMode = iota
+	IPv4Only IPVersionMode = iota
 	IPv6Only
 	IPv4OrIPv6
 )
 
-func (ivm ipVersionMode) isValid() (bool, string) {
+func GetIPVersionMode(ipv4, ipv6 bool) IPVersionMode {
+	if ipv4 && ipv6 {
+		return IPv4OrIPv6
+	} else if ipv4 {
+		return IPv4Only
+	} else if ipv6 {
+		return IPv6Only
+	}
+	return IPv4OrIPv6
+}
+
+func (ivm IPVersionMode) IsValid() (bool, string) {
 	isValid := ivm >= 0 && ivm <= 2
 	if !isValid {
 		return false, fmt.Sprintf("invalid ip version mode: %d", ivm)

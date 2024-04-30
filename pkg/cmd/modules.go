@@ -3,8 +3,10 @@ package cmd
 import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+	"github.com/zmap/zdns/pkg/modules/nslookup"
+
 	"github.com/zmap/dns"
-	"github.com/zmap/zdns/pkg/modules"
+	"github.com/zmap/zdns/pkg/modules/mxlookup"
 )
 
 var module_to_type map[string]uint16
@@ -83,14 +85,17 @@ func init() {
 }
 
 type moduleData struct {
-	MXLookup *modules.MXLookup
+	MXLookup *mxlookup.MXLookupConfig
+	NSLookup *nslookup.NSLookupConfig
 }
 
 func populateModuleData(gc *CLIConf, flags *pflag.FlagSet) *moduleData {
 	modData := new(moduleData)
 	switch gc.Module {
 	case "MXLOOKUP":
-		modData.MXLookup = modules.Initialize(flags)
+		modData.MXLookup = mxlookup.Initialize(flags)
+	case "NSLOOKUP":
+		modData.NSLookup = nslookup.Initialize(flags)
 	default:
 		log.Debug("nothing to be done for module instantiation")
 	}

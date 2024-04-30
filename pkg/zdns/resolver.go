@@ -61,7 +61,7 @@ type ResolverConfig struct {
 	LogLevel    log.Level
 
 	TransportMode        transportMode
-	IPVersionMode        ipVersionMode
+	IPVersionMode        IPVersionMode
 	ShouldRecycleSockets bool
 
 	IsIterative         bool
@@ -80,7 +80,7 @@ func (rc *ResolverConfig) isValid() (bool, string) {
 	if isValid, reason := rc.TransportMode.isValid(); !isValid {
 		return false, reason
 	}
-	if isValid, reason := rc.IPVersionMode.isValid(); !isValid {
+	if isValid, reason := rc.IPVersionMode.IsValid(); !isValid {
 		return false, reason
 	}
 	if rc.Cache != nil && rc.CacheSize != 0 {
@@ -132,7 +132,7 @@ type Resolver struct {
 	logLevel log.Level
 
 	transportMode        transportMode
-	ipVersionMode        ipVersionMode
+	ipVersionMode        IPVersionMode
 	shouldRecycleSockets bool
 
 	iterativeTimeout     time.Duration
