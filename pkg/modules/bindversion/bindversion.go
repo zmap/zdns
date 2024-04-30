@@ -26,7 +26,7 @@ type Result struct {
 }
 
 func DoLookup(r *zdns.Resolver, isIterative bool, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
-	var innerRes interface{}
+	var innerRes *zdns.SingleQueryResult
 	var trace zdns.Trace
 	var status zdns.Status
 	var err error

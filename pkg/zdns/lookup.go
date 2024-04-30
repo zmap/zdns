@@ -452,15 +452,11 @@ func ValidLookups() []string {
 }
 
 // CheckTxtRecords common function for all modules based on search in TXT record
-func CheckTxtRecords(res interface{}, status Status, regex *regexp.Regexp, err error) (string, Status, error) {
+func CheckTxtRecords(res *SingleQueryResult, status Status, regex *regexp.Regexp, err error) (string, Status, error) {
 	if status != STATUS_NOERROR {
 		return "", status, err
 	}
-	cast, ok := res.(SingleQueryResult)
-	if !ok {
-		return "", STATUS_ERROR, errors.New("could not cast result to SingleQueryResult")
-	}
-	resString, err := FindTxtRecord(cast, regex)
+	resString, err := FindTxtRecord(res, regex)
 	if err != nil {
 		status = STATUS_NO_RECORD
 	} else {
@@ -469,7 +465,7 @@ func CheckTxtRecords(res interface{}, status Status, regex *regexp.Regexp, err e
 	return resString, status, err
 }
 
-func FindTxtRecord(res SingleQueryResult, regex *regexp.Regexp) (string, error) {
+func FindTxtRecord(res *SingleQueryResult, regex *regexp.Regexp) (string, error) {
 
 	for _, a := range res.Answers {
 		ans, _ := a.(Answer)
