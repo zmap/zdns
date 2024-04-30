@@ -422,14 +422,14 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, moduleData *moduleData
 		res.Class = dns.Class(gc.Class).String()
 
 		switch gc.Module {
-		case "MXLOOKUP":
+		case MXLOOKUP:
 			innerRes, trace, status, err = moduleData.MXLookup.DoLookup(resolver, lookupName, nameServer)
-		case "NSLOOKUP":
+		case NSLOOKUP:
 			innerRes, trace, status, err = moduleData.NSLookup.DoNSLookup(resolver, lookupName, rc.IsIterative, nameServer)
 		default:
 			dnsType, ok := module_to_type[gc.Module]
 			if !ok {
-				log.Fatalf("Module %s not found in module_to_type map", gc.Module)
+				log.Fatalf("module %s not found in module_to_type map", gc.Module)
 			}
 			if rc.IsIterative {
 				innerRes, trace, status, err = resolver.IterativeLookup(&zdns.Question{Name: res.Name, Class: gc.Class, Type: dnsType})

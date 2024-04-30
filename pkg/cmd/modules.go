@@ -11,6 +11,11 @@ import (
 
 var module_to_type map[string]uint16
 
+const (
+	MXLOOKUP = "MXLOOKUP"
+	NSLOOKUP = "NSLOOKUP"
+)
+
 func init() {
 	module_to_type = map[string]uint16{
 		"A":          dns.TypeA,
@@ -92,9 +97,9 @@ type moduleData struct {
 func populateModuleData(gc *CLIConf, flags *pflag.FlagSet) *moduleData {
 	modData := new(moduleData)
 	switch gc.Module {
-	case "MXLOOKUP":
+	case MXLOOKUP:
 		modData.MXLookup = mxlookup.Initialize(flags)
-	case "NSLOOKUP":
+	case NSLOOKUP:
 		modData.NSLookup = nslookup.Initialize(flags)
 	default:
 		log.Debug("nothing to be done for module instantiation")
