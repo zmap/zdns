@@ -64,11 +64,12 @@ func Initialize(f *pflag.FlagSet) *MXLookupConfig {
 	return mxLookup
 }
 
-func (mxLookup *MXLookupConfig) LookupIPs(r *zdns.Resolver, name, nameServer string, ipMode zdns.IPVersionMode) (CachedAddresses, zdns.Trace) {
+func (mxLookup *MXLookupConfig) lookupIPs(r *zdns.Resolver, name, nameServer string, ipMode zdns.IPVersionMode) (CachedAddresses, zdns.Trace) {
 	if mxLookup == nil {
 		log.Fatal("mxLookup is not initialized")
 	}
 	mxLookup.CHmu.Lock()
+	// TODO this comment V is present in the original code and has been there since 2017 IIRC, so ask Zakir what to do
 	// XXX this should be changed to a miekglookup
 	res, found := mxLookup.CacheHash.Get(name)
 	mxLookup.CHmu.Unlock()
@@ -100,7 +101,7 @@ func (mxLookup *MXLookupConfig) DoLookup(r *zdns.Resolver, name, nameServer stri
 		if mxAns, ok := ans.(zdns.PrefAnswer); ok {
 			name = strings.TrimSuffix(mxAns.Answer.Answer, ".")
 			rec := MXRecord{TTL: mxAns.Ttl, Type: mxAns.Type, Class: mxAns.Class, Name: name, Preference: mxAns.Preference}
-			ips, secondTrace := mxLookup.LookupIPs(r, name, nameServer, ipMode)
+			ips, secondTrace := mxLookup.lookupIPs(r, name, nameServer, ipMode)
 			rec.IPv4Addresses = ips.IPv4Addresses
 			rec.IPv6Addresses = ips.IPv6Addresses
 			retv.Servers = append(retv.Servers, rec)

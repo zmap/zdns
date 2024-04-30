@@ -424,6 +424,8 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, moduleData *moduleData
 		switch gc.Module {
 		case "MXLOOKUP":
 			innerRes, trace, status, err = moduleData.MXLookup.DoLookup(resolver, lookupName, nameServer)
+		case "NSLOOKUP":
+			innerRes, trace, status, err = moduleData.NSLookup.DoNSLookup(resolver, lookupName, rc.IsIterative, nameServer)
 		default:
 			dnsType, ok := module_to_type[gc.Module]
 			if !ok {

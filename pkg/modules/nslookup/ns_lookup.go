@@ -59,7 +59,7 @@ type NSResult struct {
 	Servers []NSRecord `json:"servers,omitempty" groups:"short,normal,long,trace"`
 }
 
-func DoNSLookup(r *zdns.Resolver, name string, ipMode zdns.IPVersionMode, isIterative bool, nameServer string) (NSResult, zdns.Trace, zdns.Status, error) {
+func (nsConfig *NSLookupConfig) DoNSLookup(r *zdns.Resolver, name string, isIterative bool, nameServer string) (NSResult, zdns.Trace, zdns.Status, error) {
 	if isIterative && nameServer != "" {
 		log.Warn("iterative lookup requested with name server, ignoring name server")
 	}
@@ -112,14 +112,26 @@ func DoNSLookup(r *zdns.Resolver, name string, ipMode zdns.IPVersionMode, isIter
 		var findIpv4 = false
 		var findIpv6 = false
 
-		if ipMode == zdns.IPv4Only || ipMode == zdns.IPv4OrIPv6 {
+		lookupIPv4 := nsConfig.IPv4Lookup
+		lookupIPv6 := nsConfig.IPv6Lookup
+		var ipMode zdns.IPVersionMode
+		if lookupIPv4 && lookupIPv6 {
+			ipMode = zdns.IPv4OrIPv6
+		} else if lookupIPv4 && !lookupIPv6 {
+			ipMode = zdns.IPv4Only
+		} else if !lookupIPv4 && lookupIPv6 {
+			ipMode = zdns.IPv6Only
+		} else {
+			ipMode = zdns.IPv4Only
+		}
+		if lookupIPv4 {
 			if ips, ok := ipv4s[rec.Name]; ok {
 				rec.IPv4Addresses = ips
 			} else {
 				findIpv4 = true
 			}
 		}
-		if ipMode == zdns.IPv6Only || ipMode == zdns.IPv4OrIPv6 {
+		if lookupIPv6 {
 			if ips, ok := ipv6s[rec.Name]; ok {
 				rec.IPv6Addresses = ips
 			} else {
