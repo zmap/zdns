@@ -75,12 +75,13 @@ type CLIConf struct {
 	Dnssec               bool
 	CheckingDisabled     bool
 
-	InputFilePath    string
-	OutputFilePath   string
-	InputHandler     InputHandler
-	OutputHandler    OutputHandler
-	LogFilePath      string
-	MetadataFilePath string
+	InputFilePath     string
+	OutputFilePath    string
+	BlacklistFilePath string
+	InputHandler      InputHandler
+	OutputHandler     OutputHandler
+	LogFilePath       string
+	MetadataFilePath  string
 
 	NamePrefix     string
 	NameOverride   string
@@ -212,7 +213,7 @@ func init() {
 
 	rootCmd.PersistentFlags().Bool("ipv4-lookup", false, "Perform an IPv4 Lookup in modules")
 	rootCmd.PersistentFlags().Bool("ipv6-lookup", false, "Perform an IPv6 Lookup in modules")
-	rootCmd.PersistentFlags().String("blacklist-file", "", "blacklist file for servers to exclude from lookups")
+	rootCmd.PersistentFlags().StringVar(&GC.BlacklistFilePath, "blacklist-file", "", "blacklist file for servers to exclude from lookups")
 }
 
 // initConfig reads in config file and ENV variables if set.

@@ -24,6 +24,7 @@ import (
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/internal/util"
 	"github.com/zmap/zdns/iohandlers"
+	blacklist "github.com/zmap/zdns/pkg/safe_blacklist"
 	"github.com/zmap/zdns/pkg/zdns"
 	"net"
 	"os"
@@ -279,7 +280,12 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config.Cache.Init(gc.CacheSize)
 	config.LogLevel = log.Level(gc.Verbosity)
 
-	// TODO Phillip- populate blacklist
+	if gc.BlacklistFilePath != "" {
+		config.Blacklist = blacklist.New()
+		if err := config.Blacklist.ParseFromFile(gc.BlacklistFilePath); err != nil {
+			log.Fatal("unable to parse blacklist file: ", err)
+		}
+	}
 	return config
 }
 
