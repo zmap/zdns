@@ -250,12 +250,12 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 }
 
 // TODO Phillip comment
-func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryResult, Status, error) {
+func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryResult, Trace, Status, error) {
 	if dstServer == "" {
 		dstServer = r.randomExternalNameServer()
 	}
-	lookup, _, status, err := r.lookupClient.DoSingleDstServerLookup(r, *q, dstServer, false)
-	return lookup, status, err
+	lookup, trace, status, err := r.lookupClient.DoSingleDstServerLookup(r, *q, dstServer, false)
+	return lookup, trace, status, err
 }
 
 // TODO Phillip comment

@@ -254,9 +254,13 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 	gc.OutputGroups = append(gc.OutputGroups, gc.ResultVerbosity)
 	gc.OutputGroups = append(gc.OutputGroups, groups...)
 
-	// setup i/o
-	gc.InputHandler = iohandlers.NewFileInputHandler(gc.InputFilePath)
-	gc.OutputHandler = iohandlers.NewFileOutputHandler(gc.OutputFilePath)
+	// setup i/o if not specified
+	if gc.InputHandler == nil {
+		gc.InputHandler = iohandlers.NewFileInputHandler(gc.InputFilePath)
+	}
+	if gc.OutputHandler == nil {
+		gc.OutputHandler = iohandlers.NewFileOutputHandler(gc.OutputFilePath)
+	}
 	return gc
 }
 
@@ -282,6 +286,7 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 func Run(gc CLIConf, flags *pflag.FlagSet) {
 	gc = *populateCLIConfig(&gc, flags)
 	resolverConfig := populateResolverConfig(&gc)
+	modData := populateModuleData(&gc, flags)
 	// DoLookup:
 	//	- n threads that do processing from in and place results in out
 	//	- process until inChan closes, then wg.done()
@@ -324,7 +329,7 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 	// create shared cache for all threads to share
 	for i := 0; i < gc.Threads; i++ {
 		go func() {
-			err := doLookupWorker(&gc, resolverConfig, inChan, outChan, metaChan, &lookupWG)
+			err := doLookupWorker(&gc, resolverConfig, modData, inChan, outChan, metaChan, &lookupWG)
 			if err != nil {
 				log.Fatal("could not start lookup worker: %v", err)
 			}
@@ -371,7 +376,7 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 }
 
 // doLookupWorker is a single worker thread that processes lookups from the input channel. It calls wg.Done when it is finished.
-func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
+func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, moduleData *moduleData, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	resolver, err := zdns.InitResolver(rc)
 	if err != nil {
@@ -409,15 +414,20 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan interface
 		}
 		res.Name = rawName
 		res.Class = dns.Class(gc.Class).String()
-		dnsType, ok := module_to_type[gc.Module]
-		if !ok {
-			log.Fatalf("Module %s not found in module_to_type map", gc.Module)
-		}
 
-		if rc.IsIterative {
-			innerRes, trace, status, err = resolver.IterativeLookup(&zdns.Question{Name: res.Name, Class: gc.Class, Type: dnsType})
-		} else if !rc.IsIterative {
-			innerRes, status, err = resolver.ExternalLookup(&zdns.Question{Name: res.Name, Class: gc.Class, Type: dnsType}, nameServer)
+		switch gc.Module {
+		case "MXLOOKUP":
+			innerRes, trace, status, err = moduleData.MXLookup.DoLookup(resolver, lookupName, nameServer)
+		default:
+			dnsType, ok := module_to_type[gc.Module]
+			if !ok {
+				log.Fatalf("Module %s not found in module_to_type map", gc.Module)
+			}
+			if rc.IsIterative {
+				innerRes, trace, status, err = resolver.IterativeLookup(&zdns.Question{Name: res.Name, Class: gc.Class, Type: dnsType})
+			} else if !rc.IsIterative {
+				innerRes, trace, status, err = resolver.ExternalLookup(&zdns.Question{Name: res.Name, Class: gc.Class, Type: dnsType}, nameServer)
+			}
 		}
 
 		res.Timestamp = time.Now().Format(gc.TimeFormat)

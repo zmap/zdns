@@ -88,7 +88,8 @@ func recursiveIPLookup(r *zdns.Resolver, name string, nameServer string, dnsType
 	if _, ok := candidateSet[name]; !ok {
 		var status zdns.Status
 		var err error
-		result, trace, status, err = r.Lookup(&zdns.Question{Name: name, Type: dnsType}, nameServer)
+		result, trace, status, err = r.ExternalLookup(&zdns.Question{Name: name, Type: dnsType, Class: dns.ClassINET}, nameServer)
+
 		if status != zdns.STATUS_NOERROR || err != nil {
 			return nil, trace, status, err
 		}

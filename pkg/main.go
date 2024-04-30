@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/zmap/dns"
+	"github.com/zmap/zdns/pkg/cmd"
 	"github.com/zmap/zdns/pkg/zdns"
 
 	log "github.com/sirupsen/logrus"
@@ -75,6 +76,12 @@ func library() {
 
 }
 
+func cli() {
+	cmd.Execute()
+
+}
+
 func main() {
-	library()
+	//library()
+	cli()
 }

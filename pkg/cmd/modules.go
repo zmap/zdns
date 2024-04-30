@@ -1,6 +1,11 @@
 package cmd
 
-import "github.com/zmap/dns"
+import (
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
+	"github.com/zmap/dns"
+	"github.com/zmap/zdns/pkg/modules"
+)
 
 var module_to_type map[string]uint16
 
@@ -75,4 +80,20 @@ func init() {
 		"URI":        dns.TypeURI,
 		"ANY":        dns.TypeANY,
 	}
+}
+
+type moduleData struct {
+	MXLookup *modules.MXLookup
+}
+
+func populateModuleData(gc *CLIConf, flags *pflag.FlagSet) *moduleData {
+	modData := new(moduleData)
+	switch gc.Module {
+	case "MXLOOKUP":
+		modData.MXLookup = modules.Initialize(flags)
+	default:
+		log.Debug("nothing to be done for module instantiation")
+	}
+	return modData
+
 }
