@@ -1,12 +1,11 @@
 package mxlookup
 
 import (
+	"github.com/spf13/pflag"
 	"strings"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
-
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/cachehash"
 	"github.com/zmap/zdns/pkg/modules/alookup"
@@ -40,8 +39,8 @@ type MXLookupConfig struct {
 	CHmu        sync.Mutex
 }
 
-func Initialize(f *pflag.FlagSet) *MXLookupConfig {
-
+// CLIInit initializes the MXLookupConfig with the given parameters, used to call MXLookup from the command line
+func CLIInit(f *pflag.FlagSet) *MXLookupConfig {
 	ipv4Lookup, err := f.GetBool("ipv4-lookup")
 	if err != nil {
 		panic(err)
@@ -54,7 +53,17 @@ func Initialize(f *pflag.FlagSet) *MXLookupConfig {
 	if err != nil {
 		panic(err)
 	}
+	return Init(ipv4Lookup, ipv6Lookup, mxCacheSize)
+}
 
+// Init initializes the MXLookupConfig with the given parameters, used to call MXLookup programmatically
+func Init(ipv4Lookup, ipv6Lookup bool, mxCacheSize int) *MXLookupConfig {
+	if !ipv4Lookup && !ipv6Lookup {
+		log.Fatal("At least one of ipv4-lookup or ipv6-lookup must be true")
+	}
+	if mxCacheSize <= 0 {
+		log.Fatal("mxCacheSize must be greater than 0, got ", mxCacheSize)
+	}
 	mxLookup := new(MXLookupConfig)
 	mxLookup.IPv4Lookup = ipv4Lookup
 	mxLookup.IPv6Lookup = ipv6Lookup
@@ -82,7 +91,6 @@ func (mxLookup *MXLookupConfig) lookupIPs(r *zdns.Resolver, name, nameServer str
 		retv.IPv4Addresses = result.IPv4Addresses
 		retv.IPv6Addresses = result.IPv6Addresses
 	}
-
 	mxLookup.CHmu.Lock()
 	mxLookup.CacheHash.Add(name, retv)
 	mxLookup.CHmu.Unlock()

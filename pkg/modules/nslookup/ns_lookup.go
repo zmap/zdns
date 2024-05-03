@@ -29,8 +29,8 @@ type NSLookupConfig struct {
 	IPv6Lookup bool
 }
 
-func Initialize(f *pflag.FlagSet) *NSLookupConfig {
-
+// CLIInit initializes the NSLookupConfig with the given parameters, used to call NSLookup from the command line
+func CLIInit(f *pflag.FlagSet) *NSLookupConfig {
 	ipv4Lookup, err := f.GetBool("ipv4-lookup")
 	if err != nil {
 		panic(err)
@@ -39,7 +39,11 @@ func Initialize(f *pflag.FlagSet) *NSLookupConfig {
 	if err != nil {
 		panic(err)
 	}
+	return Init(ipv4Lookup, ipv6Lookup)
+}
 
+// Init initializes the NSLookupConfig with the given parameters, used to call NSLookup programmatically
+func Init(ipv4Lookup bool, ipv6Lookup bool) *NSLookupConfig {
 	nsLookup := new(NSLookupConfig)
 	nsLookup.IPv4Lookup = ipv4Lookup
 	nsLookup.IPv6Lookup = ipv6Lookup

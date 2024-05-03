@@ -99,11 +99,12 @@ func populateModuleData(gc *CLIConf, flags *pflag.FlagSet) *moduleData {
 	modData := new(moduleData)
 	switch gc.Module {
 	case MXLOOKUP:
-		modData.MXLookup = mxlookup.Initialize(flags)
+		modData.MXLookup = mxlookup.CLIInit(flags)
 	case NSLOOKUP:
-		modData.NSLookup = nslookup.Initialize(flags)
+		modData.NSLookup = nslookup.CLIInit(flags)
 	default:
 		log.Debug("nothing to be done for module instantiation")
+		return nil
 	}
 	return modData
 

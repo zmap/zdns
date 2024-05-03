@@ -422,6 +422,8 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, moduleData *moduleData
 		res.Name = rawName
 		res.Class = dns.Class(gc.Class).String()
 
+		// TODO Phillip - Zakir mentioned we need a way to create a module and "register" it without editing main code
+		// See existing RegisterLookup for an example
 		switch gc.Module {
 		case BINDVERSION:
 			innerRes, trace, status, err = bindversion.DoLookup(resolver, rc.IsIterative, nameServer)
