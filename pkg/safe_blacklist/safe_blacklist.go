@@ -8,13 +8,13 @@ import (
 // SafeBlacklist is a thread-safe wrapper around the blacklist package
 type SafeBlacklist struct {
 	Blacklist *blacklist.Blacklist
-	lock      *sync.Mutex
+	lock      *sync.RWMutex
 }
 
 func New() *SafeBlacklist {
 	return &SafeBlacklist{
 		Blacklist: blacklist.New(),
-		lock:      &sync.Mutex{},
+		lock:      &sync.RWMutex{},
 	}
 }
 
@@ -31,7 +31,7 @@ func (b *SafeBlacklist) ParseFromFile(path string) error {
 }
 
 func (b *SafeBlacklist) IsBlacklisted(ip string) (bool, error) {
-	b.lock.Lock()
-	defer b.lock.Unlock()
+	b.lock.RLock()
+	defer b.lock.RUnlock()
 	return b.Blacklist.IsBlacklisted(ip)
 }
