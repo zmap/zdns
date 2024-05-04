@@ -62,7 +62,6 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 	}
 
 	// Translate the assigned verbosity level to a logrus log level.
-	// TODO Phillip - check that log level is being correctly used by zdns
 	logLevel := log.InfoLevel
 	switch gc.Verbosity {
 	case 1: // Fatal
@@ -100,11 +99,12 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 		log.Fatal("Unknown record class specified. Valid valued are INET (default), CSNET, CHAOS, HESIOD, NONE, ANY")
 	}
 
-	if gc.LookupAllNameServers {
-		if gc.NameServersString != "" {
-			log.Fatal("Name servers cannot be specified in --all-nameservers mode.")
-		}
-	}
+	// TODO removing since it's broken in the main codebase - Phillip
+	//if gc.LookupAllNameServers {
+	//	if gc.NameServersString != "" {
+	//		log.Fatal("Name servers cannot be specified in --all-nameservers mode.")
+	//	}
+	//}
 
 	if gc.NameServersString == "" {
 		// if we're doing recursive resolution, figure out default OS name servers
@@ -119,7 +119,6 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 			}
 			gc.NameServers = ns
 		}
-		gc.NameServersSpecified = false
 		log.Info("No name servers specified. will use: ", strings.Join(gc.NameServers, ", "))
 	} else {
 		if gc.NameServerMode {
@@ -266,8 +265,26 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 	return gc
 }
 
-func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
+func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverConfig {
 	config := zdns.NewResolverConfig()
+	useIPv4, err := flags.GetBool("ipv4-lookup")
+	if err != nil {
+		log.Fatal("Unable to parse ipv4 flag: ", err)
+	}
+	useIPv6, err := flags.GetBool("ipv6-lookup")
+	if err != nil {
+		log.Fatal("Unable to parse ipv6 flag: ", err)
+	}
+	if useIPv4 && useIPv6 {
+		config.IPVersionMode = zdns.IPv4OrIPv6
+	} else if useIPv4 {
+		config.IPVersionMode = zdns.IPv4Only
+	} else if useIPv6 {
+		config.IPVersionMode = zdns.IPv6Only
+	} else {
+		config.IPVersionMode = zdns.IPv4Only
+	}
+
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
 	config.IsIterative = gc.IterativeResolution
@@ -277,8 +294,18 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	if gc.UseNSID {
 		config.EdnsOptions = append(config.EdnsOptions, new(dns.EDNS0_NSID))
 	}
+	if gc.ClientSubnet != nil {
+		config.EdnsOptions = append(config.EdnsOptions, gc.ClientSubnet)
+	}
 	config.Cache = new(zdns.Cache)
 	config.Cache.Init(gc.CacheSize)
+	config.Retries = gc.Retries
+	config.MaxDepth = gc.MaxDepth
+	config.CheckingDisabledBit = gc.CheckingDisabled
+	config.ShouldRecycleSockets = gc.RecycleSockets
+	config.ExternalNameServers = gc.NameServers
+	config.LocalAddrs = gc.LocalAddrs
+
 	config.LogLevel = log.Level(gc.Verbosity)
 
 	if gc.BlacklistFilePath != "" {
@@ -292,13 +319,14 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 
 func Run(gc CLIConf, flags *pflag.FlagSet) {
 	gc = *populateCLIConfig(&gc, flags)
-	resolverConfig := populateResolverConfig(&gc)
+	resolverConfig := populateResolverConfig(&gc, flags)
 	modData := populateModuleData(&gc, flags)
 	// DoLookup:
 	//	- n threads that do processing from in and place results in out
 	//	- process until inChan closes, then wg.done()
 	// Once we processing threads have all finished, wait until the
 	// output and metadata threads have completed
+	log.Warn("IP Mode: ", resolverConfig.IPVersionMode)
 	inChan := make(chan interface{})
 	outChan := make(chan string)
 	metaChan := make(chan routineMetadata, gc.Threads)
@@ -338,7 +366,7 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 		go func() {
 			err := doLookupWorker(&gc, resolverConfig, modData, inChan, outChan, metaChan, &lookupWG)
 			if err != nil {
-				log.Fatal("could not start lookup worker: %v", err)
+				log.Fatal("could not start lookup worker: ", err)
 			}
 		}()
 	}

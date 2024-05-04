@@ -34,46 +34,41 @@ type OutputHandler interface {
 }
 
 type CLIConf struct {
-	Threads               int
-	Timeout               int
-	IterationTimeout      int
-	Retries               int
-	AlexaFormat           bool
-	MetadataFormat        bool
-	NameServerInputFormat bool
-	IterativeResolution   bool
-	LookupAllNameServers  bool
+	Threads             int
+	Timeout             int
+	IterationTimeout    int
+	Retries             int
+	AlexaFormat         bool
+	MetadataFormat      bool
+	IterativeResolution bool
 
 	NameServersString  string
 	LocalAddrString    string
 	LocalIfaceString   string
-	ConfigFilePath     string
+	ConfigFilePath     string // TODO Phillip - implement/ figure out what this is
 	ClassString        string
 	UseNanoseconds     bool
 	ClientSubnetString string
-	UseNSID            bool
 
 	ResultVerbosity string
 	IncludeInOutput string
 	OutputGroups    []string
 
-	MaxDepth             int
-	CacheSize            int
-	GoMaxProcs           int
-	Verbosity            int
-	TimeFormat           string
-	PassedName           string
-	NameServersSpecified bool
-	NameServers          []string
-	TCPOnly              bool
-	UDPOnly              bool
-	RecycleSockets       bool
-	LocalAddrSpecified   bool
-	LocalAddrs           []net.IP
-	ClientSubnet         *dns.EDNS0_SUBNET
-	NSID                 *dns.EDNS0_NSID
-	Dnssec               bool
-	CheckingDisabled     bool
+	MaxDepth           int
+	CacheSize          int
+	GoMaxProcs         int
+	Verbosity          int
+	TimeFormat         string
+	NameServers        []string
+	TCPOnly            bool
+	UDPOnly            bool
+	RecycleSockets     bool
+	LocalAddrSpecified bool
+	LocalAddrs         []net.IP
+	ClientSubnet       *dns.EDNS0_SUBNET
+	UseNSID            bool
+	Dnssec             bool
+	CheckingDisabled   bool
 
 	InputFilePath     string
 	OutputFilePath    string
@@ -131,9 +126,10 @@ var alookupCmd = &cobra.Command{
 the information that exists in a single record.
 
 Specifically, alookup acts similar to nslookup and will follow CNAME records.`,
+	Args: cobra.MatchAll(cobra.ExactArgs(0), cobra.OnlyValidArgs),
 	Run: func(cmd *cobra.Command, args []string) {
 		GC.Module = strings.ToUpper("alookup")
-		//Run(GC, cmd.Flags())
+		Run(GC, cmd.Flags())
 	},
 }
 
@@ -180,7 +176,8 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&GC.AlexaFormat, "alexa", false, "is input file from Alexa Top Million download")
 	rootCmd.PersistentFlags().BoolVar(&GC.MetadataFormat, "metadata-passthrough", false, "if input records have the form 'name,METADATA', METADATA will be propagated to the output")
 	rootCmd.PersistentFlags().BoolVar(&GC.IterativeResolution, "iterative", false, "Perform own iteration instead of relying on recursive resolver")
-	rootCmd.PersistentFlags().BoolVar(&GC.LookupAllNameServers, "all-nameservers", false, "Perform the lookup via all the nameservers for the domain.")
+	// TODO removing since it's broken in the main codebase, will open a new Issue to fix
+	//rootCmd.PersistentFlags().BoolVar(&GC.LookupAllNameServers, "all-nameservers", false, "Perform the lookup via all the nameservers for the domain.")
 	rootCmd.PersistentFlags().StringVar(&GC.InputFilePath, "input-file", "-", "names to read")
 	rootCmd.PersistentFlags().StringVar(&GC.OutputFilePath, "output-file", "-", "where should JSON output be saved")
 	rootCmd.PersistentFlags().StringVar(&GC.MetadataFilePath, "metadata-file", "", "where should JSON metadata be saved")

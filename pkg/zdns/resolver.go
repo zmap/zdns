@@ -54,11 +54,10 @@ type ResolverConfig struct {
 
 	Blacklist *blacklist.SafeBlacklist
 
-	LocalAddr net.IP
+	LocalAddrs []net.IP // local addresses to use for connections, one will be selected at random for the resolver
 
-	Retries     int
-	ShouldTrace bool
-	LogLevel    log.Level
+	Retries  int
+	LogLevel log.Level
 
 	TransportMode        transportMode
 	IPVersionMode        IPVersionMode
@@ -69,7 +68,6 @@ type ResolverConfig struct {
 	Timeout             time.Duration // timeout for the network conns
 	MaxDepth            int
 	ExternalNameServers []string // name servers used for external lookups
-	//LookupAllNameServers bool // TODO Phillip - this should probably be a specific API call rather than a Config option
 
 	DNSSecEnabled       bool
 	EdnsOptions         []dns.EDNS0
@@ -96,15 +94,15 @@ func NewResolverConfig() *ResolverConfig {
 		LookupClient: LookupClient{},
 		Cache:        c,
 
-		Blacklist: blacklist.New(),
+		Blacklist:  blacklist.New(),
+		LocalAddrs: nil,
 
 		TransportMode:        defaultTransportMode,
 		IPVersionMode:        defaultIPVersionMode,
 		ShouldRecycleSockets: defaultShouldRecycleSockets,
 
-		Retries:     defaultRetries,
-		ShouldTrace: defaultShouldTrace,
-		LogLevel:    defaultLogVerbosity,
+		Retries:  defaultRetries,
+		LogLevel: defaultLogVerbosity,
 
 		Timeout:          defaultTimeout,
 		IterativeTimeout: defaultIterativeTimeout,
@@ -126,9 +124,7 @@ type Resolver struct {
 	conn      *dns.Conn
 	localAddr net.IP
 
-	retries int
-	// TODO Phillip - IMO the caller can use the trace or not, it's up to them to decide
-	//shouldTrace bool
+	retries  int
 	logLevel log.Level
 
 	transportMode        transportMode
@@ -168,8 +164,6 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 
 		blacklist: config.Blacklist,
 
-		localAddr: config.LocalAddr,
-
 		retries:  config.Retries,
 		logLevel: config.LogLevel,
 
@@ -195,6 +189,9 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		if err = conn.Close(); err != nil {
 			log.Error("unable to close test connection to Google public DNS: ", err)
 		}
+	} else {
+		// caller provided local addresses, choose a random one
+		r.localAddr = config.LocalAddrs[rand.Intn(len(config.LocalAddrs))]
 	}
 	if r.shouldRecycleSockets {
 		// create persistent connection
