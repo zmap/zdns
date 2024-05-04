@@ -16,11 +16,45 @@ package alookup
 
 import (
 	"errors"
+	"github.com/spf13/pflag"
+	"github.com/zmap/zdns/pkg/cmd"
 	"strings"
 
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/pkg/zdns"
 )
+
+type ALookupModule struct {
+	IPv4Lookup bool
+	IPv6Lookup bool
+}
+
+func init() {
+	al := new(ALookupModule)
+	cmd.RegisterLookupModule("ALOOKUP", al)
+}
+
+func (al *ALookupModule) CLIInit(gc *cmd.CLIConf, resolverConfig *zdns.ResolverConfig, f *pflag.FlagSet) {
+	ipv4Lookup, err := f.GetBool("ipv4-lookup")
+	if err != nil {
+		panic(err)
+	}
+	ipv6Lookup, err := f.GetBool("ipv6-lookup")
+	if err != nil {
+		panic(err)
+	}
+	al.Init(ipv4Lookup, ipv6Lookup)
+}
+
+func (al *ALookupModule) Init(ipv4Lookup bool, ipv6Lookup bool) {
+	al.IPv4Lookup = ipv4Lookup
+	al.IPv6Lookup = ipv6Lookup
+}
+
+func (al *ALookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+	ipResult, trace, status, err := DoTargetedLookup(r, lookupName, nameServer, zdns.GetIPVersionMode(al.IPv4Lookup, al.IPv6Lookup))
+	return ipResult, trace, status, err
+}
 
 // DoTargetedLookup performs a lookup of the given domain name against the given nameserver, looking up both IPv4 and IPv6 addresses
 // Will follow CNAME records as well as A/AAAA records to get IP addresses

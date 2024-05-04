@@ -15,8 +15,14 @@
 package bindversion
 
 import (
+	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
+	"github.com/zmap/zdns/pkg/cmd"
 	"github.com/zmap/zdns/pkg/zdns"
+)
+
+const (
+	BindVersionQueryName = "VERSION.BIND"
 )
 
 // result to be returned by scan of host
@@ -25,15 +31,28 @@ type Result struct {
 	Resolver    string `json:"resolver" groups:"resolver,short,normal,long,trace"`
 }
 
-func DoLookup(r *zdns.Resolver, isIterative bool, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+type BindVersionLookupModule struct {
+	cmd.BasicLookupModule
+}
+
+func init() {
+	b := new(BindVersionLookupModule)
+	cmd.RegisterLookupModule("BINDVERSION", b)
+}
+
+func (b *BindVersionLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) {
+	b.BasicLookupModule.CLIInit(gc, rc, flags)
+}
+
+func (b *BindVersionLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	var innerRes *zdns.SingleQueryResult
 	var trace zdns.Trace
 	var status zdns.Status
 	var err error
-	if isIterative {
-		innerRes, trace, status, err = r.IterativeLookup(&zdns.Question{Name: "VERSION.BIND", Type: dns.TypeTXT, Class: dns.ClassCHAOS})
+	if b.IsIterative {
+		innerRes, trace, status, err = r.IterativeLookup(&zdns.Question{Name: BindVersionQueryName, Type: dns.TypeTXT, Class: dns.ClassCHAOS})
 	} else {
-		innerRes, trace, status, err = r.ExternalLookup(&zdns.Question{Name: "VERSION.BIND", Type: dns.TypeTXT, Class: dns.ClassCHAOS}, nameServer)
+		innerRes, trace, status, err = r.ExternalLookup(&zdns.Question{Name: BindVersionQueryName, Type: dns.TypeTXT, Class: dns.ClassCHAOS}, nameServer)
 	}
 	resString, resStatus, err := zdns.CheckTxtRecords(innerRes, status, nil, err)
 	res := Result{BindVersion: resString}

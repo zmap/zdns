@@ -17,6 +17,7 @@ package nslookup
 import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+	"github.com/zmap/zdns/pkg/cmd"
 	"github.com/zmap/zdns/pkg/modules/alookup"
 	"strings"
 
@@ -24,13 +25,19 @@ import (
 	"github.com/zmap/zdns/pkg/zdns"
 )
 
-type NSLookupConfig struct {
+func init() {
+	ns := new(NSLookupModule)
+	cmd.RegisterLookupModule("NS", ns)
+}
+
+type NSLookupModule struct {
+	cmd.BasicLookupModule
 	IPv4Lookup bool
 	IPv6Lookup bool
 }
 
-// CLIInit initializes the NSLookupConfig with the given parameters, used to call NSLookup from the command line
-func CLIInit(f *pflag.FlagSet) *NSLookupConfig {
+// CLIInit initializes the NSLookupModule with the given parameters, used to call NSLookup from the command line
+func (ns *NSLookupModule) CLIInit(gc *cmd.CLIConf, resolverConf *zdns.ResolverConfig, f *pflag.FlagSet) {
 	ipv4Lookup, err := f.GetBool("ipv4-lookup")
 	if err != nil {
 		panic(err)
@@ -39,15 +46,14 @@ func CLIInit(f *pflag.FlagSet) *NSLookupConfig {
 	if err != nil {
 		panic(err)
 	}
-	return Init(ipv4Lookup, ipv6Lookup)
+	ns.BasicLookupModule.CLIInit(gc, resolverConf, f)
+	ns.Init(ipv4Lookup, ipv6Lookup)
 }
 
-// Init initializes the NSLookupConfig with the given parameters, used to call NSLookup programmatically
-func Init(ipv4Lookup bool, ipv6Lookup bool) *NSLookupConfig {
-	nsLookup := new(NSLookupConfig)
-	nsLookup.IPv4Lookup = ipv4Lookup
-	nsLookup.IPv6Lookup = ipv6Lookup
-	return nsLookup
+// Init initializes the NSLookupModule with the given parameters, used to call NSLookup programmatically
+func (ns *NSLookupModule) Init(ipv4Lookup bool, ipv6Lookup bool) {
+	ns.IPv4Lookup = ipv4Lookup
+	ns.IPv6Lookup = ipv6Lookup
 }
 
 // NSRecord result to be returned by scan of host
@@ -63,19 +69,19 @@ type NSResult struct {
 	Servers []NSRecord `json:"servers,omitempty" groups:"short,normal,long,trace"`
 }
 
-func (nsConfig *NSLookupConfig) DoNSLookup(r *zdns.Resolver, name string, isIterative bool, nameServer string) (NSResult, zdns.Trace, zdns.Status, error) {
-	if isIterative && nameServer != "" {
-		log.Warn("iterative lookup requested with name server, ignoring name server")
+func (nsConfig *NSLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+	if nsConfig.IsIterative && nameServer != "" {
+		log.Warn("iterative lookup requested with lookupName server, ignoring lookupName server")
 	}
 
 	var trace zdns.Trace
 	var ns *zdns.SingleQueryResult
 	var status zdns.Status
 	var err error
-	if isIterative {
-		ns, trace, status, err = r.IterativeLookup(&zdns.Question{Name: name, Type: dns.TypeNS, Class: dns.ClassINET})
+	if nsConfig.IsIterative {
+		ns, trace, status, err = r.IterativeLookup(&zdns.Question{Name: lookupName, Type: dns.TypeNS, Class: dns.ClassINET})
 	} else {
-		ns, trace, status, err = r.ExternalLookup(&zdns.Question{Name: name, Type: dns.TypeNS, Class: dns.ClassINET}, nameServer)
+		ns, trace, status, err = r.ExternalLookup(&zdns.Question{Name: lookupName, Type: dns.TypeNS, Class: dns.ClassINET}, nameServer)
 	}
 
 	var retv NSResult
@@ -118,16 +124,7 @@ func (nsConfig *NSLookupConfig) DoNSLookup(r *zdns.Resolver, name string, isIter
 
 		lookupIPv4 := nsConfig.IPv4Lookup
 		lookupIPv6 := nsConfig.IPv6Lookup
-		var ipMode zdns.IPVersionMode
-		if lookupIPv4 && lookupIPv6 {
-			ipMode = zdns.IPv4OrIPv6
-		} else if lookupIPv4 && !lookupIPv6 {
-			ipMode = zdns.IPv4Only
-		} else if !lookupIPv4 && lookupIPv6 {
-			ipMode = zdns.IPv6Only
-		} else {
-			ipMode = zdns.IPv4Only
-		}
+		ipMode := zdns.GetIPVersionMode(lookupIPv4, lookupIPv6)
 		if lookupIPv4 {
 			if ips, ok := ipv4s[rec.Name]; ok {
 				rec.IPv4Addresses = ips

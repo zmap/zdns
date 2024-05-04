@@ -59,7 +59,8 @@ func TestBindVersionLookup_Valid_1(t *testing.T) {
 		Answers: []interface{}{
 			zdns.Answer{Name: "VERSION.BIND", Answer: "Nominum Vantio 5.4.1.0", Class: "CHAOS"}},
 	}
-	res, _, status, _ := DoLookup(resolver, false, "1.2.3.4")
+	bvModule := BindVersionLookupModule{}
+	res, _, status, _ := bvModule.Lookup(resolver, "", "1.2.3.4")
 	assert.Equal(t, queries[0].q.Class, uint16(dns.ClassCHAOS))
 	assert.Equal(t, queries[0].q.Type, dns.TypeTXT)
 	assert.Equal(t, queries[0].q.Name, "VERSION.BIND")
@@ -74,7 +75,8 @@ func TestBindVersionLookup_NotValid_1(t *testing.T) {
 	mockResults["VERSION.BIND"] = &zdns.SingleQueryResult{
 		Answers: []interface{}{},
 	}
-	res, _, status, _ := DoLookup(resolver, false, "1.2.3.4")
+	bvModule := BindVersionLookupModule{}
+	res, _, status, _ := bvModule.Lookup(resolver, "", "1.2.3.4")
 	assert.Equal(t, queries[0].q.Class, uint16(dns.ClassCHAOS))
 	assert.Equal(t, queries[0].q.Type, dns.TypeTXT)
 	assert.Equal(t, queries[0].q.Name, "VERSION.BIND")

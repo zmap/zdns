@@ -5,8 +5,16 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/pkg/cmd"
+	_ "github.com/zmap/zdns/pkg/modules/alookup"
 	"github.com/zmap/zdns/pkg/modules/mxlookup"
 	"github.com/zmap/zdns/pkg/zdns"
+	//_ "github.com/zmap/zdns/pkg/modules/axfr"
+	_ "github.com/zmap/zdns/pkg/modules/bindversion"
+	//_ "github.com/zmap/zdns/pkg/modules/dmarc"
+	//_ "github.com/zmap/zdns/pkg/modules/miekg"
+	_ "github.com/zmap/zdns/pkg/modules/mxlookup"
+	_ "github.com/zmap/zdns/pkg/modules/nslookup"
+	//_ "github.com/zmap/zdns/pkg/modules/spf"
 )
 
 // TODO PHillip, remove this file, just for testing

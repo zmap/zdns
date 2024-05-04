@@ -24,7 +24,6 @@ import (
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/internal/util"
 	"github.com/zmap/zdns/iohandlers"
-	"github.com/zmap/zdns/pkg/modules/bindversion"
 	blacklist "github.com/zmap/zdns/pkg/safe_blacklist"
 	"github.com/zmap/zdns/pkg/zdns"
 	"net"
@@ -275,15 +274,7 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 	if err != nil {
 		log.Fatal("Unable to parse ipv6 flag: ", err)
 	}
-	if useIPv4 && useIPv6 {
-		config.IPVersionMode = zdns.IPv4OrIPv6
-	} else if useIPv4 {
-		config.IPVersionMode = zdns.IPv4Only
-	} else if useIPv6 {
-		config.IPVersionMode = zdns.IPv6Only
-	} else {
-		config.IPVersionMode = zdns.IPv4Only
-	}
+	config.IPVersionMode = zdns.GetIPVersionMode(useIPv4, useIPv6)
 
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
@@ -320,13 +311,16 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 func Run(gc CLIConf, flags *pflag.FlagSet) {
 	gc = *populateCLIConfig(&gc, flags)
 	resolverConfig := populateResolverConfig(&gc, flags)
-	modData := populateModuleData(&gc, flags)
+	lookupModule, err := GetLookupModule(gc.Module)
+	if err != nil {
+		log.Fatal("could not get lookup module: ", err)
+	}
+	lookupModule.CLIInit(&gc, resolverConfig, flags)
 	// DoLookup:
 	//	- n threads that do processing from in and place results in out
 	//	- process until inChan closes, then wg.done()
 	// Once we processing threads have all finished, wait until the
 	// output and metadata threads have completed
-	log.Warn("IP Mode: ", resolverConfig.IPVersionMode)
 	inChan := make(chan interface{})
 	outChan := make(chan string)
 	metaChan := make(chan routineMetadata, gc.Threads)
@@ -364,7 +358,7 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 	// create shared cache for all threads to share
 	for i := 0; i < gc.Threads; i++ {
 		go func() {
-			err := doLookupWorker(&gc, resolverConfig, modData, inChan, outChan, metaChan, &lookupWG)
+			err := doLookupWorker(&gc, lookupModule, resolverConfig, inChan, outChan, metaChan, &lookupWG)
 			if err != nil {
 				log.Fatal("could not start lookup worker: ", err)
 			}
@@ -411,7 +405,7 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 }
 
 // doLookupWorker is a single worker thread that processes lookups from the input channel. It calls wg.Done when it is finished.
-func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, moduleData *moduleData, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
+func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	resolver, err := zdns.InitResolver(rc)
 	if err != nil {
@@ -450,26 +444,7 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, moduleData *moduleData
 		res.Name = rawName
 		res.Class = dns.Class(gc.Class).String()
 
-		// TODO Phillip - Zakir mentioned we need a way to create a module and "register" it without editing main code
-		// See existing RegisterLookup for an example
-		switch gc.Module {
-		case BINDVERSION:
-			innerRes, trace, status, err = bindversion.DoLookup(resolver, rc.IsIterative, nameServer)
-		case MXLOOKUP:
-			innerRes, trace, status, err = moduleData.MXLookup.DoLookup(resolver, lookupName, nameServer)
-		case NSLOOKUP:
-			innerRes, trace, status, err = moduleData.NSLookup.DoNSLookup(resolver, lookupName, rc.IsIterative, nameServer)
-		default:
-			dnsType, ok := module_to_type[gc.Module]
-			if !ok {
-				log.Fatalf("module %s not found in module_to_type map", gc.Module)
-			}
-			if rc.IsIterative {
-				innerRes, trace, status, err = resolver.IterativeLookup(&zdns.Question{Name: res.Name, Class: gc.Class, Type: dnsType})
-			} else if !rc.IsIterative {
-				innerRes, trace, status, err = resolver.ExternalLookup(&zdns.Question{Name: res.Name, Class: gc.Class, Type: dnsType}, nameServer)
-			}
-		}
+		innerRes, trace, status, err = lookup.Lookup(resolver, lookupName, nameServer)
 
 		res.Timestamp = time.Now().Format(gc.TimeFormat)
 		if status != zdns.STATUS_NO_OUTPUT {
