@@ -124,3 +124,11 @@ func GetLookupModule(name string) (LookupModule, error) {
 	}
 	return module, nil
 }
+
+func GetValidLookups() []string {
+	var lookups []string
+	for lookup, _ := range moduleToLookupModule {
+		lookups = append(lookups, lookup)
+	}
+	return lookups
+}

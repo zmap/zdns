@@ -446,11 +446,6 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 	return "", STATUS_SERVFAIL, layer, trace
 }
 
-func ValidLookups() []string {
-	// TODO Phillip - populate correctly
-	return []string{"A", "NS"}
-}
-
 // CheckTxtRecords common function for all modules based on search in TXT record
 func CheckTxtRecords(res *SingleQueryResult, status Status, regex *regexp.Regexp, err error) (string, Status, error) {
 	if status != STATUS_NOERROR {

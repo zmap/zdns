@@ -19,7 +19,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/internal/util"
-	"github.com/zmap/zdns/pkg/zdns"
 	"net"
 	"os"
 	"strings"
@@ -98,7 +97,7 @@ https://github.com/zmap/dns (and in turn https://github.com/miekg/dns) for const
 and parsing raw DNS packets.
 
 ZDNS also includes its own recursive resolution and a cache to further optimize performance.`,
-	ValidArgs: zdns.ValidLookups(),
+	ValidArgs: GetValidLookups(),
 	Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 	Run: func(cmd *cobra.Command, args []string) {
 		GC.Module = strings.ToUpper(args[0])
