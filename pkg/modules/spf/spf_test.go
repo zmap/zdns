@@ -43,6 +43,7 @@ func (ml MockLookup) DoSingleDstServerLookup(r *zdns.Resolver, question zdns.Que
 
 func InitTest(t *testing.T) *zdns.Resolver {
 	mockResults = make(map[string]*zdns.SingleQueryResult)
+	queries = make([]QueryRecord, 0)
 	rc := zdns.ResolverConfig{
 		ExternalNameServers: []string{"127.0.0.1"},
 		LookupClient:        MockLookup{}}
@@ -53,13 +54,6 @@ func InitTest(t *testing.T) *zdns.Resolver {
 }
 
 func TestLookup_DoTxtLookup_Valid_1(t *testing.T) {
-	//_, _, _, l := InitTest()
-	//mockResults["google.com"] = miekg.Result{
-	//	Answers: []interface{}{
-	//		miekg.Answer{Name: "google.com", Answer: "some TXT record"},
-	//		miekg.Answer{Name: "google.com", Answer: "v=spf1 mx include:_spf.google.com -all"}},
-	//}
-	//res, _, status, _ := l.DoLookup("google.com", "")
 	resolver := InitTest(t)
 	mockResults["google.com"] = &zdns.SingleQueryResult{
 		Answers: []interface{}{
@@ -67,77 +61,84 @@ func TestLookup_DoTxtLookup_Valid_1(t *testing.T) {
 			zdns.Answer{Name: "google.com", Answer: "v=spf1 mx include:_spf.google.com -all"}},
 	}
 	spfModule := SpfLookupModule{}
-	spfModule.CLIInit(nil, &zdns.ResolverConfig{IsIterative: false}, nil)
-	res, _, status, _ := spfModule.Lookup(resolver, "", "1.2.3.4")
+	spfModule.CLIInit(nil, &zdns.ResolverConfig{IsIterative: false, LookupClient: MockLookup{}}, nil)
+	res, _, status, _ := spfModule.Lookup(resolver, "google.com", "")
 	assert.Equal(t, queries[0].Class, uint16(dns.ClassINET))
 	assert.Equal(t, queries[0].Type, dns.TypeTXT)
 	assert.Equal(t, queries[0].Name, "google.com")
-	assert.Equal(t, queries[0].NameServer, "")
+	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
 
 	assert.Equal(t, zdns.STATUS_NOERROR, status)
 	assert.Equal(t, res.(Result).Spf, "v=spf1 mx include:_spf.google.com -all")
 }
 
-//func TestLookup_DoTxtLookup_Valid_2(t *testing.T) {
-//	_, _, _, l := InitTest()
-//	mockResults["google.com"] = miekg.Result{
-//		Answers: []interface{}{
-//			miekg.Answer{Name: "google.com", Answer: "some TXT record"},
-//			miekg.Answer{Name: "google.com", Answer: "V=SpF1 mx include:_spf.google.com -all"}},
-//	}
-//	res, _, status, _ := l.DoLookup("google.com", "")
-//	assert.Equal(t, queries[0].Class, uint16(dns.ClassINET))
-//	assert.Equal(t, queries[0].Type, dns.TypeTXT)
-//	assert.Equal(t, queries[0].Name, "google.com")
-//	assert.Equal(t, queries[0].NameServer, "")
-//
-//	assert.Equal(t, zdns.STATUS_NOERROR, status)
-//	assert.Equal(t, res.(Result).Spf, "V=SpF1 mx include:_spf.google.com -all")
-//}
-//
-//func TestLookup_DoTxtLookup_NotValid_1(t *testing.T) {
-//	_, _, _, l := InitTest()
-//	mockResults["google.com"] = miekg.Result{
-//		Answers: []interface{}{
-//			miekg.Answer{Name: "google.com", Answer: "some TXT record"},
-//			miekg.Answer{Name: "google.com", Answer: "  V  =  SpF1 mx include:_spf.google.com -all"}},
-//	}
-//	res, _, status, _ := l.DoLookup("google.com", "")
-//	assert.Equal(t, queries[0].Class, uint16(dns.ClassINET))
-//	assert.Equal(t, queries[0].Type, dns.TypeTXT)
-//	assert.Equal(t, queries[0].Name, "google.com")
-//	assert.Equal(t, queries[0].NameServer, "")
-//
-//	assert.Equal(t, zdns.STATUS_NO_RECORD, status)
-//	assert.Equal(t, res.(Result).Spf, "")
-//}
-//
-//func TestLookup_DoTxtLookup_NotValid_2(t *testing.T) {
-//	_, _, _, l := InitTest()
-//	mockResults["google.com"] = miekg.Result{
-//		Answers: []interface{}{
-//			miekg.Answer{Name: "google.com", Answer: "some TXT record"},
-//			miekg.Answer{Name: "google.com", Answer: "some other TXT record but no SPF"}},
-//	}
-//	res, _, status, _ := l.DoLookup("google.com", "")
-//	assert.Equal(t, queries[0].Class, uint16(dns.ClassINET))
-//	assert.Equal(t, queries[0].Type, dns.TypeTXT)
-//	assert.Equal(t, queries[0].Name, "google.com")
-//	assert.Equal(t, queries[0].NameServer, "")
-//
-//	assert.Equal(t, zdns.STATUS_NO_RECORD, status)
-//	assert.Equal(t, res.(Result).Spf, "")
-//}
-//
-//func TestLookup_DoTxtLookup_NoTXT(t *testing.T) {
-//	_, _, _, l := InitTest()
-//	res, _, status, _ := l.DoLookup("example.com", "")
-//	assert.Equal(t, queries[0].Class, uint16(dns.ClassINET))
-//	assert.Equal(t, queries[0].Type, dns.TypeTXT)
-//	assert.Equal(t, queries[0].Name, "example.com")
-//	assert.Equal(t, queries[0].NameServer, "")
-//
-//	assert.Equal(t, zdns.STATUS_NO_ANSWER, status)
-//	assert.Equal(t, res.(Result).Spf, "")
-//}
-//
+func TestLookup_DoTxtLookup_Valid_2(t *testing.T) {
+	resolver := InitTest(t)
+	mockResults["google.com"] = &zdns.SingleQueryResult{
+		Answers: []interface{}{
+			zdns.Answer{Name: "google.com", Answer: "some TXT record"},
+			zdns.Answer{Name: "google.com", Answer: "V=SpF1 mx include:_spf.google.com -all"}},
+	}
+	spfModule := SpfLookupModule{}
+	spfModule.CLIInit(nil, &zdns.ResolverConfig{IsIterative: false, LookupClient: MockLookup{}}, nil)
+	res, _, status, _ := spfModule.Lookup(resolver, "google.com", "")
+	assert.Equal(t, queries[0].Class, uint16(dns.ClassINET))
+	assert.Equal(t, queries[0].Type, dns.TypeTXT)
+	assert.Equal(t, queries[0].Name, "google.com")
+	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
+
+	assert.Equal(t, zdns.STATUS_NOERROR, status)
+	assert.Equal(t, res.(Result).Spf, "V=SpF1 mx include:_spf.google.com -all")
+}
+
+func TestLookup_DoTxtLookup_NotValid_1(t *testing.T) {
+	resolver := InitTest(t)
+	mockResults["google.com"] = &zdns.SingleQueryResult{
+		Answers: []interface{}{
+			zdns.Answer{Name: "google.com", Answer: "some TXT record"},
+			zdns.Answer{Name: "google.com", Answer: "  V  =  SpF1 mx include:_spf.google.com -all"}},
+	}
+	spfModule := SpfLookupModule{}
+	spfModule.CLIInit(nil, &zdns.ResolverConfig{IsIterative: false, LookupClient: MockLookup{}}, nil)
+	res, _, status, _ := spfModule.Lookup(resolver, "google.com", "")
+	assert.Equal(t, queries[0].Class, uint16(dns.ClassINET))
+	assert.Equal(t, queries[0].Type, dns.TypeTXT)
+	assert.Equal(t, queries[0].Name, "google.com")
+	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
+
+	assert.Equal(t, zdns.STATUS_NO_RECORD, status)
+	assert.Equal(t, res.(Result).Spf, "")
+}
+
+func TestLookup_DoTxtLookup_NotValid_2(t *testing.T) {
+	resolver := InitTest(t)
+	mockResults["google.com"] = &zdns.SingleQueryResult{
+		Answers: []interface{}{
+			zdns.Answer{Name: "google.com", Answer: "some TXT record"},
+			zdns.Answer{Name: "google.com", Answer: "some other TXT record but no SPF"}},
+	}
+	spfModule := SpfLookupModule{}
+	spfModule.CLIInit(nil, &zdns.ResolverConfig{IsIterative: false, LookupClient: MockLookup{}}, nil)
+	res, _, status, _ := spfModule.Lookup(resolver, "google.com", "")
+	assert.Equal(t, queries[0].Class, uint16(dns.ClassINET))
+	assert.Equal(t, queries[0].Type, dns.TypeTXT)
+	assert.Equal(t, queries[0].Name, "google.com")
+	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
+
+	assert.Equal(t, zdns.STATUS_NO_RECORD, status)
+	assert.Equal(t, res.(Result).Spf, "")
+}
+
+func TestLookup_DoTxtLookup_NoTXT(t *testing.T) {
+	resolver := InitTest(t)
+	spfModule := SpfLookupModule{}
+	spfModule.CLIInit(nil, &zdns.ResolverConfig{IsIterative: false, LookupClient: MockLookup{}}, nil)
+	res, _, status, _ := spfModule.Lookup(resolver, "example.com", "")
+	assert.Equal(t, queries[0].Class, uint16(dns.ClassINET))
+	assert.Equal(t, queries[0].Type, dns.TypeTXT)
+	assert.Equal(t, queries[0].Name, "example.com")
+	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
+
+	assert.Equal(t, zdns.STATUS_NO_ANSWER, status)
+	assert.Equal(t, res.(Result).Spf, "")
+}
