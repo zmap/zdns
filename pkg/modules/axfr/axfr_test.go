@@ -223,192 +223,192 @@ func TestLookupSingleNS(t *testing.T) {
 	verifyResult(t, res.(AXFRResult).Servers, expectedServersMap)
 }
 
-//// For some reason if two name servers have different records,
-//// they will return what is available with them
-//func TestLookupTwoNS(t *testing.T) {
-//	l := InitTest()
-//
-//	ns1 := "ns1.example.com"
-//	ip1 := "192.0.2.3"
-//	hostPort1 := net.JoinHostPort(ip1, "53")
-//	ns2 := "ns2.example.com"
-//	ip2 := "192.0.2.4"
-//	hostPort2 := net.JoinHostPort(ip2, "53")
-//
-//	nsRecords["example.com"] = nslookup.Result{
-//		Servers: []nslookup.NSRecord{
-//			{
-//				Name:          ns1 + ".",
-//				Type:          "NS",
-//				IPv4Addresses: []string{ip1},
-//				IPv6Addresses: nil,
-//				TTL:           3600,
-//			},
-//			{
-//				Name:          ns2 + ".",
-//				Type:          "NS",
-//				IPv4Addresses: []string{ip2},
-//				IPv6Addresses: nil,
-//				TTL:           3600,
-//			},
-//		},
-//	}
-//
-//	// A record
-//	ipv4 := &dns.A{
-//		Hdr: dns.RR_Header{
-//			Name:     "example.com",
-//			Rrtype:   dns.TypeA,
-//			Class:    dns.ClassINET,
-//			Ttl:      3600,
-//			Rdlength: 4,
-//		},
-//		A: net.ParseIP("192.0.2.1"),
-//	}
-//	// AAAA record
-//	ipv6 := &dns.AAAA{
-//		Hdr: dns.RR_Header{
-//			Name:     "example.com",
-//			Rrtype:   dns.TypeAAAA,
-//			Class:    dns.ClassINET,
-//			Ttl:      3600,
-//			Rdlength: 4,
-//		},
-//		AAAA: net.ParseIP("2001:db8::1"),
-//	}
-//
-//	axfrRecords[hostPort1] = []dns.RR{
-//		ipv4,
-//	}
-//	axfrRecords[hostPort2] = []dns.RR{
-//		ipv6,
-//	}
-//
-//	expectedServersMap := make(map[string][]interface{})
-//	expectedServersMap[ip1] = make([]interface{}, len(axfrRecords[hostPort1]))
-//	for i, rec := range axfrRecords[hostPort1] {
-//		expectedServersMap[ip1][i] = miekg.ParseAnswer(rec)
-//	}
-//	expectedServersMap[ip2] = make([]interface{}, len(axfrRecords[hostPort2]))
-//	for i, rec := range axfrRecords[hostPort2] {
-//		expectedServersMap[ip2][i] = miekg.ParseAnswer(rec)
-//	}
-//
-//	res, _, status, _ := l.DoLookup("example.com", "")
-//	assert.Equal(t, status, zdns.STATUS_NOERROR)
-//	verifyResult(t, res.(AXFRResult).Servers, expectedServersMap)
-//}
-//
-//// Failure in transfer via the channel should return status ERROR
-//func TestFailureInTransfer(t *testing.T) {
-//	l := InitTest()
-//
-//	ns1 := "ns1.example.com"
-//	ip1 := "192.0.2.3"
-//
-//	nsRecords["example.com"] = nslookup.Result{
-//		Servers: []nslookup.NSRecord{
-//			{
-//				Name:          ns1 + ".",
-//				Type:          "NS",
-//				IPv4Addresses: []string{ip1},
-//				IPv6Addresses: nil,
-//				TTL:           3600,
-//			},
-//		},
-//	}
-//
-//	transferError = "Error in transfer."
-//
-//	expectedServersMap := make(map[string][]interface{})
-//	expectedServersMap[ip1] = make([]interface{}, 0)
-//
-//	res, _, status, _ := l.DoLookup("example.com", "")
-//	// The overall status should be no error
-//	assert.Equal(t, status, zdns.STATUS_NOERROR)
-//	// The status for the axfr records for ns1 should be error
-//	assert.Equal(t, res.(AXFRResult).Servers[0].Status, zdns.STATUS_ERROR)
-//	// No records should be present for ns1
-//	assert.Equal(t, len(res.(AXFRResult).Servers[0].Records), 0)
-//}
-//
-//// Error in the envelope which is received via the channel should return status ERROR
-//func TestErrorInEnvelope(t *testing.T) {
-//	l := InitTest()
-//
-//	ns1 := "ns1.example.com"
-//	ip1 := "192.0.2.3"
-//
-//	nsRecords["example.com"] = nslookup.Result{
-//		Servers: []nslookup.NSRecord{
-//			{
-//				Name:          ns1 + ".",
-//				Type:          "NS",
-//				IPv4Addresses: []string{ip1},
-//				IPv6Addresses: nil,
-//				TTL:           3600,
-//			},
-//		},
-//	}
-//
-//	envelopeError = "Error in envelope."
-//
-//	expectedServersMap := make(map[string][]interface{})
-//	expectedServersMap[ip1] = make([]interface{}, 0)
-//
-//	res, _, status, _ := l.DoLookup("example.com", "")
-//	// The overall status should be no error
-//	assert.Equal(t, status, zdns.STATUS_NOERROR)
-//	// The status for the axfr records for ns1 should be error
-//	assert.Equal(t, res.(AXFRResult).Servers[0].Status, zdns.STATUS_ERROR)
-//	// No records should be present for ns1
-//	assert.Equal(t, len(res.(AXFRResult).Servers[0].Records), 0)
-//}
-//
-//// Test if no IPv4 addresses exist for NS, we do not return any records
-//func TestNoIpv4InNsLookup(t *testing.T) {
-//	l := InitTest()
-//
-//	ns1 := "ns1.example.com"
-//
-//	nsRecords["example.com"] = nslookup.Result{
-//		Servers: []nslookup.NSRecord{
-//			{
-//				Name:          ns1 + ".",
-//				Type:          "NS",
-//				IPv4Addresses: nil,
-//				IPv6Addresses: []string{"2001:db8::4"},
-//				TTL:           3600,
-//			},
-//		},
-//	}
-//
-//	res, _, status, _ := l.DoLookup("example.com", "")
-//	assert.Equal(t, status, zdns.STATUS_NOERROR)
-//	assert.Equal(t, len(res.(AXFRResult).Servers), 0)
-//}
-//
-//// Querying non-existent domains should return NXDOMAIN status
-//func TestNXDomain(t *testing.T) {
-//	l := InitTest()
-//	res, _, status, _ := l.DoLookup("example.com", "")
-//	assert.Equal(t, status, zdns.STATUS_NXDOMAIN)
-//	assert.Equal(t, res, nil)
-//}
-//
-//// Error in NS lookup should return the same status for overall lookup
-//func TestErrorInNsLookup(t *testing.T) {
-//	l := InitTest()
-//
-//	nsStatus = zdns.STATUS_SERVFAIL
-//	nsRecords["example.com"] = nslookup.Result{
-//		Servers: nil,
-//	}
-//
-//	res, _, status, _ := l.DoLookup("example.com", "")
-//	assert.Equal(t, status, nsStatus)
-//	assert.Equal(t, res, nil)
-//}
+// For some reason if two name servers have different records,
+// they will return what is available with them
+func TestLookupTwoNS(t *testing.T) {
+	axfrMod, resolver := InitTest()
+
+	ns1 := "ns1.example.com"
+	ip1 := "192.0.2.3"
+	hostPort1 := net.JoinHostPort(ip1, "53")
+	ns2 := "ns2.example.com"
+	ip2 := "192.0.2.4"
+	hostPort2 := net.JoinHostPort(ip2, "53")
+
+	nsRecords["example.com"] = nslookup.NSResult{
+		Servers: []nslookup.NSRecord{
+			{
+				Name:          ns1 + ".",
+				Type:          "NS",
+				IPv4Addresses: []string{ip1},
+				IPv6Addresses: nil,
+				TTL:           3600,
+			},
+			{
+				Name:          ns2 + ".",
+				Type:          "NS",
+				IPv4Addresses: []string{ip2},
+				IPv6Addresses: nil,
+				TTL:           3600,
+			},
+		},
+	}
+
+	// A record
+	ipv4 := &dns.A{
+		Hdr: dns.RR_Header{
+			Name:     "example.com",
+			Rrtype:   dns.TypeA,
+			Class:    dns.ClassINET,
+			Ttl:      3600,
+			Rdlength: 4,
+		},
+		A: net.ParseIP("192.0.2.1"),
+	}
+	// AAAA record
+	ipv6 := &dns.AAAA{
+		Hdr: dns.RR_Header{
+			Name:     "example.com",
+			Rrtype:   dns.TypeAAAA,
+			Class:    dns.ClassINET,
+			Ttl:      3600,
+			Rdlength: 4,
+		},
+		AAAA: net.ParseIP("2001:db8::1"),
+	}
+
+	axfrRecords[hostPort1] = []dns.RR{
+		ipv4,
+	}
+	axfrRecords[hostPort2] = []dns.RR{
+		ipv6,
+	}
+
+	expectedServersMap := make(map[string][]interface{})
+	expectedServersMap[ip1] = make([]interface{}, len(axfrRecords[hostPort1]))
+	for i, rec := range axfrRecords[hostPort1] {
+		expectedServersMap[ip1][i] = zdns.ParseAnswer(rec)
+	}
+	expectedServersMap[ip2] = make([]interface{}, len(axfrRecords[hostPort2]))
+	for i, rec := range axfrRecords[hostPort2] {
+		expectedServersMap[ip2][i] = zdns.ParseAnswer(rec)
+	}
+
+	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", "")
+	assert.Equal(t, status, zdns.STATUS_NOERROR)
+	verifyResult(t, res.(AXFRResult).Servers, expectedServersMap)
+}
+
+// Failure in transfer via the channel should return status ERROR
+func TestFailureInTransfer(t *testing.T) {
+	axfrMod, resolver := InitTest()
+
+	ns1 := "ns1.example.com"
+	ip1 := "192.0.2.3"
+
+	nsRecords["example.com"] = nslookup.NSResult{
+		Servers: []nslookup.NSRecord{
+			{
+				Name:          ns1 + ".",
+				Type:          "NS",
+				IPv4Addresses: []string{ip1},
+				IPv6Addresses: nil,
+				TTL:           3600,
+			},
+		},
+	}
+
+	transferError = "Error in transfer."
+
+	expectedServersMap := make(map[string][]interface{})
+	expectedServersMap[ip1] = make([]interface{}, 0)
+
+	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", "")
+	// The overall status should be no error
+	assert.Equal(t, status, zdns.STATUS_NOERROR)
+	// The status for the axfr records for ns1 should be error
+	assert.Equal(t, res.(AXFRResult).Servers[0].Status, zdns.STATUS_ERROR)
+	// No records should be present for ns1
+	assert.Equal(t, len(res.(AXFRResult).Servers[0].Records), 0)
+}
+
+// Error in the envelope which is received via the channel should return status ERROR
+func TestErrorInEnvelope(t *testing.T) {
+	axfrMod, resolver := InitTest()
+
+	ns1 := "ns1.example.com"
+	ip1 := "192.0.2.3"
+
+	nsRecords["example.com"] = nslookup.NSResult{
+		Servers: []nslookup.NSRecord{
+			{
+				Name:          ns1 + ".",
+				Type:          "NS",
+				IPv4Addresses: []string{ip1},
+				IPv6Addresses: nil,
+				TTL:           3600,
+			},
+		},
+	}
+
+	envelopeError = "Error in envelope."
+
+	expectedServersMap := make(map[string][]interface{})
+	expectedServersMap[ip1] = make([]interface{}, 0)
+
+	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", "")
+	// The overall status should be no error
+	assert.Equal(t, status, zdns.STATUS_NOERROR)
+	// The status for the axfr records for ns1 should be error
+	assert.Equal(t, res.(AXFRResult).Servers[0].Status, zdns.STATUS_ERROR)
+	// No records should be present for ns1
+	assert.Equal(t, len(res.(AXFRResult).Servers[0].Records), 0)
+}
+
+// Test if no IPv4 addresses exist for NS, we do not return any records
+func TestNoIpv4InNsLookup(t *testing.T) {
+	axfrMod, resolver := InitTest()
+
+	ns1 := "ns1.example.com"
+
+	nsRecords["example.com"] = nslookup.NSResult{
+		Servers: []nslookup.NSRecord{
+			{
+				Name:          ns1 + ".",
+				Type:          "NS",
+				IPv4Addresses: nil,
+				IPv6Addresses: []string{"2001:db8::4"},
+				TTL:           3600,
+			},
+		},
+	}
+
+	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", "")
+	assert.Equal(t, status, zdns.STATUS_NOERROR)
+	assert.Equal(t, len(res.(AXFRResult).Servers), 0)
+}
+
+// Querying non-existent domains should return NXDOMAIN status
+func TestNXDomain(t *testing.T) {
+	axfrMod, resolver := InitTest()
+	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", "")
+	assert.Equal(t, status, zdns.STATUS_NXDOMAIN)
+	assert.Equal(t, res, nil)
+}
+
+// Error in NS lookup should return the same status for overall lookup
+func TestErrorInNsLookup(t *testing.T) {
+	axfrMod, resolver := InitTest()
+
+	nsStatus = zdns.STATUS_SERVFAIL
+	nsRecords["example.com"] = nslookup.NSResult{
+		Servers: nil,
+	}
+
+	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", "")
+	assert.Equal(t, status, nsStatus)
+	assert.Equal(t, res, nil)
+}
 
 func verifyResult(t *testing.T, servers []AXFRServerResult, expectedServersMap map[string][]interface{}) {
 	serversLength := len(servers)
