@@ -48,7 +48,7 @@ func (al *ALookupModule) CLIInit(gc *cmd.CLIConf, resolverConfig *zdns.ResolverC
 }
 
 func (al *ALookupModule) Init(ipv4Lookup bool, ipv6Lookup bool) {
-	al.IPv4Lookup = ipv4Lookup
+	al.IPv4Lookup = ipv4Lookup || !ipv6Lookup
 	al.IPv6Lookup = ipv6Lookup
 }
 

@@ -43,10 +43,11 @@ type MXLookupModule struct {
 	MXCacheSize int
 	CacheHash   *cachehash.CacheHash
 	CHmu        sync.Mutex
+	// TODO Phillip add base module
 }
 
 // CLIInit initializes the MXLookupModule with the given parameters, used to call MXLookup from the command line
-func (mx *MXLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfig, f *pflag.FlagSet) {
+func (mx *MXLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfig, f *pflag.FlagSet) error {
 	ipv4Lookup, err := f.GetBool("ipv4-lookup")
 	if err != nil {
 		panic(err)
@@ -64,6 +65,7 @@ func (mx *MXLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfig, f *p
 		ipv4Lookup = true
 	}
 	mx.Init(ipv4Lookup, ipv6Lookup, mxCacheSize)
+	return nil
 }
 
 // Init initializes the MXLookupModule with the given parameters, used to call MXLookup programmatically
@@ -74,7 +76,7 @@ func (mx *MXLookupModule) Init(ipv4Lookup, ipv6Lookup bool, mxCacheSize int) {
 	if mxCacheSize <= 0 {
 		log.Fatal("mxCacheSize must be greater than 0, got ", mxCacheSize)
 	}
-	mx.IPv4Lookup = ipv4Lookup
+	mx.IPv4Lookup = ipv4Lookup || !ipv6Lookup
 	mx.IPv6Lookup = ipv6Lookup
 	mx.MXCacheSize = mxCacheSize
 	mx.CacheHash = new(cachehash.CacheHash)

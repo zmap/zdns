@@ -14,210 +14,215 @@
 
 package axfr
 
-//
-//import (
-//	"net"
-//	"reflect"
-//	"testing"
-//
-//	"github.com/zmap/dns"
-//	"github.com/zmap/zdns/pkg/miekg"
-//	"github.com/zmap/zdns/pkg/nslookup"
-//	"github.com/zmap/zdns/pkg/zdns"
-//	"gotest.tools/v3/assert"
-//)
-//
-//// Map from IPv4 address of server to DNS records
-//var axfrRecords = make(map[string][]dns.RR)
-//var transferError = ""
-//var envelopeError = ""
-//
-//// trError is used to specify error in the transfer over channel
-//type trError struct{}
-//
-//func (err trError) Error() string {
-//	return transferError
-//}
-//
-//// enError is used to specify error in envelope
-//type enError struct{}
-//
-//func (err enError) Error() string {
-//	return envelopeError
-//}
-//
-//func (s *Lookup) In(m *dns.Msg, server string) (chan *dns.Envelope, error) {
-//	var eError error = nil
-//	if envelopeError != "" {
-//		eError = enError{}
-//	}
-//	envelope := dns.Envelope{
-//		RR:    axfrRecords[server],
-//		Error: eError,
-//	}
-//	env := make(chan *dns.Envelope)
-//	if transferError == "" {
-//		go func() {
-//			env <- &envelope
-//			close(env)
-//		}()
-//		return env, nil
-//	} else {
-//		go func() {
-//			close(env)
-//		}()
-//		return env, trError{}
-//	}
-//}
-//
-//var nsRecords = make(map[string]nslookup.Result)
-//var nsStatus = zdns.STATUS_NOERROR
-//
-//// Mock the actual NS lookup.
-//func (s *Lookup) DoNSLookup(l LookupClient, name string, lookupIpv4 bool, lookupIpv6 bool, nameServer string) (nslookup.Result, zdns.Trace, zdns.Status, error) {
-//	if res, ok := nsRecords[name]; ok {
-//		return res, nil, nsStatus, nil
-//	} else {
-//		return nslookup.Result{}, nil, zdns.STATUS_NXDOMAIN, nil
-//	}
-//}
-//
-//func InitTest() zdns.Lookup {
-//	axfrRecords = make(map[string][]dns.RR)
-//	transferError = ""
-//	envelopeError = ""
-//
-//	nsRecords = make(map[string]nslookup.Result)
-//	nsStatus = zdns.STATUS_NOERROR
-//
-//	gc := new(zdns.GlobalConf)
-//	gc.NameServers = []string{"127.0.0.1"}
-//
-//	glf := new(AxfrLookupModule)
-//	glf.GlobalConf = gc
-//
-//	rlf := new(RoutineLookupFactory)
-//	rlf.Factory = glf
-//
-//	l, err := rlf.MakeLookup()
-//	if l == nil || err != nil {
-//		panic("Failed to initialize lookup")
-//	}
-//	return l
-//}
-//
-//// This test checks that different record types are correctly returned by AXFR
-//func TestLookupSingleNS(t *testing.T) {
-//	l := InitTest()
-//
-//	ns1 := "ns1.example.com"
-//	ip1 := "192.0.2.3"
-//	hostPort1 := net.JoinHostPort(ip1, "53")
-//
-//	nsRecords["example.com"] = nslookup.Result{
-//		Servers: []nslookup.NSRecord{
-//			{
-//				Name:          ns1 + ".",
-//				Type:          "NS",
-//				IPv4Addresses: []string{ip1},
-//				IPv6Addresses: nil,
-//				TTL:           3600,
-//			},
-//		},
-//	}
-//	// A record
-//	ipv4 := &dns.A{
-//		Hdr: dns.RR_Header{
-//			Name:     "example.com",
-//			Rrtype:   dns.TypeA,
-//			Class:    dns.ClassINET,
-//			Ttl:      3600,
-//			Rdlength: 4,
-//		},
-//		A: net.ParseIP("192.0.2.1"),
-//	}
-//	// AAAA record
-//	ipv6 := &dns.AAAA{
-//		Hdr: dns.RR_Header{
-//			Name:     "example.com",
-//			Rrtype:   dns.TypeAAAA,
-//			Class:    dns.ClassINET,
-//			Ttl:      3600,
-//			Rdlength: 4,
-//		},
-//		AAAA: net.ParseIP("2001:db8::1"),
-//	}
-//	// MX record
-//	mx := &dns.MX{
-//		Hdr: dns.RR_Header{
-//			Name:     "example.com",
-//			Rrtype:   dns.TypeMX,
-//			Class:    dns.ClassINET,
-//			Ttl:      3600,
-//			Rdlength: 4,
-//		},
-//		Preference: 1,
-//		Mx:         "mail.example.com.",
-//	}
-//	// NS record
-//	ns := &dns.NS{
-//		Hdr: dns.RR_Header{
-//			Name:     "example.com",
-//			Rrtype:   dns.TypeMX,
-//			Class:    dns.ClassINET,
-//			Ttl:      3600,
-//			Rdlength: 4,
-//		},
-//		Ns: "ns1.example.com.",
-//	}
-//	// SPF
-//	spf := &dns.SPF{
-//		Hdr: dns.RR_Header{
-//			Name:     "example.com",
-//			Rrtype:   dns.TypeSPF,
-//			Class:    dns.ClassINET,
-//			Ttl:      3600,
-//			Rdlength: 4,
-//		},
-//		Txt: []string{"some TXT record"},
-//	}
-//	// NAPTR record
-//	naptr := &dns.NAPTR{
-//		Hdr: dns.RR_Header{
-//			Name:     "9.8.7.6.5.5.5.4.3.2.1.e164.arpa",
-//			Rrtype:   dns.TypeNAPTR,
-//			Class:    dns.ClassINET,
-//			Ttl:      300,
-//			Rdlength: 0,
-//		},
-//		Order:       100,
-//		Preference:  10,
-//		Flags:       "u",
-//		Service:     "sip+E2U",
-//		Regexp:      "!^.*$!sip:number@example.com!",
-//		Replacement: ".",
-//	}
-//
-//	axfrRecords[hostPort1] = []dns.RR{
-//		ipv4,
-//		ipv6,
-//		mx,
-//		ns,
-//		spf,
-//		naptr,
-//	}
-//
-//	expectedServersMap := make(map[string][]interface{})
-//	expectedServersMap[ip1] = make([]interface{}, len(axfrRecords[hostPort1]))
-//	for i, rec := range axfrRecords[hostPort1] {
-//		expectedServersMap[ip1][i] = miekg.ParseAnswer(rec)
-//	}
-//
-//	res, _, status, _ := l.DoLookup("example.com", "")
-//	assert.Equal(t, status, zdns.STATUS_NOERROR)
-//	verifyResult(t, res.(AXFRResult).Servers, expectedServersMap)
-//}
-//
+import (
+	"github.com/spf13/pflag"
+	"github.com/zmap/zdns/pkg/cmd"
+	"github.com/zmap/zdns/pkg/modules/nslookup"
+	"net"
+	"reflect"
+	"testing"
+
+	"github.com/zmap/dns"
+	"github.com/zmap/zdns/pkg/zdns"
+	"gotest.tools/v3/assert"
+)
+
+// Map from IPv4 address of server to DNS records
+var axfrRecords = make(map[string][]dns.RR)
+var transferError = ""
+var envelopeError = ""
+
+// trError is used to specify error in the transfer over channel
+type trError struct{}
+
+func (err trError) Error() string {
+	return transferError
+}
+
+// enError is used to specify error in envelope
+type enError struct{}
+
+func (err enError) Error() string {
+	return envelopeError
+}
+
+func (a *AxfrLookupModule) In(m *dns.Msg, server string) (chan *dns.Envelope, error) {
+	var eError error = nil
+	if envelopeError != "" {
+		eError = enError{}
+	}
+	envelope := dns.Envelope{
+		RR:    axfrRecords[server],
+		Error: eError,
+	}
+	env := make(chan *dns.Envelope)
+	if transferError == "" {
+		go func() {
+			env <- &envelope
+			close(env)
+		}()
+		return env, nil
+	} else {
+		go func() {
+			close(env)
+		}()
+		return env, trError{}
+	}
+}
+
+var nsRecords = make(map[string]nslookup.NSResult)
+var nsStatus = zdns.STATUS_NOERROR
+
+// Mock the actual NS lookup.
+func mockNSLookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+	if res, ok := nsRecords[lookupName]; ok {
+		return res, nil, nsStatus, nil
+	} else {
+		return nslookup.NSResult{}, nil, zdns.STATUS_NXDOMAIN, nil
+	}
+}
+
+func InitTest() (*AxfrLookupModule, *zdns.Resolver) {
+	axfrRecords = make(map[string][]dns.RR)
+	transferError = ""
+	envelopeError = ""
+
+	nsRecords = make(map[string]nslookup.NSResult)
+	nsStatus = zdns.STATUS_NOERROR
+
+	cc := new(cmd.CLIConf)
+	cc.NameServers = []string{"127.0.0.1"}
+
+	rc := new(zdns.ResolverConfig)
+	flagSet := new(pflag.FlagSet)
+	flagSet.Bool("ipv4-lookup", false, "Use IPv4")
+	flagSet.Bool("ipv6-lookup", false, "Use IPv6")
+	flagSet.String("blacklist-file", "", "Blacklist")
+	axfrMod := new(AxfrLookupModule)
+	err := axfrMod.CLIInit(cc, rc, flagSet)
+	if err != nil {
+		panic("failed to initialize axfr test lookup with error: " + err.Error())
+	}
+	resolver, err := zdns.InitResolver(rc)
+	if err != nil {
+		panic("failed to initialize resolver: " + err.Error())
+	}
+	axfrMod.NSModule.WithTestingLookup(mockNSLookup)
+	return axfrMod, resolver
+}
+
+// This test checks that different record types are correctly returned by AXFR
+func TestLookupSingleNS(t *testing.T) {
+	axfrMod, resolver := InitTest()
+
+	ns1 := "ns1.example.com"
+	ip1 := "192.0.2.3"
+	hostPort1 := net.JoinHostPort(ip1, "53")
+
+	nsRecords["example.com"] = nslookup.NSResult{
+		Servers: []nslookup.NSRecord{
+			{
+				Name:          ns1 + ".",
+				Type:          "NS",
+				IPv4Addresses: []string{ip1},
+				IPv6Addresses: nil,
+				TTL:           3600,
+			},
+		},
+	}
+	// A record
+	ipv4 := &dns.A{
+		Hdr: dns.RR_Header{
+			Name:     "example.com",
+			Rrtype:   dns.TypeA,
+			Class:    dns.ClassINET,
+			Ttl:      3600,
+			Rdlength: 4,
+		},
+		A: net.ParseIP("192.0.2.1"),
+	}
+	// AAAA record
+	ipv6 := &dns.AAAA{
+		Hdr: dns.RR_Header{
+			Name:     "example.com",
+			Rrtype:   dns.TypeAAAA,
+			Class:    dns.ClassINET,
+			Ttl:      3600,
+			Rdlength: 4,
+		},
+		AAAA: net.ParseIP("2001:db8::1"),
+	}
+	// MX record
+	mx := &dns.MX{
+		Hdr: dns.RR_Header{
+			Name:     "example.com",
+			Rrtype:   dns.TypeMX,
+			Class:    dns.ClassINET,
+			Ttl:      3600,
+			Rdlength: 4,
+		},
+		Preference: 1,
+		Mx:         "mail.example.com.",
+	}
+	// NS record
+	ns := &dns.NS{
+		Hdr: dns.RR_Header{
+			Name:     "example.com",
+			Rrtype:   dns.TypeMX,
+			Class:    dns.ClassINET,
+			Ttl:      3600,
+			Rdlength: 4,
+		},
+		Ns: "ns1.example.com.",
+	}
+	// SPF
+	spf := &dns.SPF{
+		Hdr: dns.RR_Header{
+			Name:     "example.com",
+			Rrtype:   dns.TypeSPF,
+			Class:    dns.ClassINET,
+			Ttl:      3600,
+			Rdlength: 4,
+		},
+		Txt: []string{"some TXT record"},
+	}
+	// NAPTR record
+	naptr := &dns.NAPTR{
+		Hdr: dns.RR_Header{
+			Name:     "9.8.7.6.5.5.5.4.3.2.1.e164.arpa",
+			Rrtype:   dns.TypeNAPTR,
+			Class:    dns.ClassINET,
+			Ttl:      300,
+			Rdlength: 0,
+		},
+		Order:       100,
+		Preference:  10,
+		Flags:       "u",
+		Service:     "sip+E2U",
+		Regexp:      "!^.*$!sip:number@example.com!",
+		Replacement: ".",
+	}
+
+	axfrRecords[hostPort1] = []dns.RR{
+		ipv4,
+		ipv6,
+		mx,
+		ns,
+		spf,
+		naptr,
+	}
+
+	expectedServersMap := make(map[string][]interface{})
+	expectedServersMap[ip1] = make([]interface{}, len(axfrRecords[hostPort1]))
+	for i, rec := range axfrRecords[hostPort1] {
+		expectedServersMap[ip1][i] = zdns.ParseAnswer(rec)
+	}
+
+	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", "")
+	assert.Equal(t, status, zdns.STATUS_NOERROR)
+	verifyResult(t, res.(AXFRResult).Servers, expectedServersMap)
+}
+
 //// For some reason if two name servers have different records,
 //// they will return what is available with them
 //func TestLookupTwoNS(t *testing.T) {
@@ -404,23 +409,23 @@ package axfr
 //	assert.Equal(t, status, nsStatus)
 //	assert.Equal(t, res, nil)
 //}
-//
-//func verifyResult(t *testing.T, servers []AXFRServerResult, expectedServersMap map[string][]interface{}) {
-//	serversLength := len(servers)
-//	expectedServersLength := len(expectedServersMap)
-//
-//	if serversLength != expectedServersLength {
-//		t.Errorf("Expected %v servers, found %v", expectedServersLength, serversLength)
-//	}
-//
-//	for _, server := range servers {
-//		name := server.Server
-//		expectedRecords, ok := expectedServersMap[name]
-//		if !ok {
-//			t.Errorf("Did not find server %v in expected servers.", name)
-//		}
-//		if !reflect.DeepEqual(server.Records, expectedRecords) {
-//			t.Errorf("For server %v, found records: %v, expected records: %v", name, server.Records, expectedRecords)
-//		}
-//	}
-//}
+
+func verifyResult(t *testing.T, servers []AXFRServerResult, expectedServersMap map[string][]interface{}) {
+	serversLength := len(servers)
+	expectedServersLength := len(expectedServersMap)
+
+	if serversLength != expectedServersLength {
+		t.Errorf("Expected %v servers, found %v", expectedServersLength, serversLength)
+	}
+
+	for _, server := range servers {
+		name := server.Server
+		expectedRecords, ok := expectedServersMap[name]
+		if !ok {
+			t.Errorf("Did not find server %v in expected servers.", name)
+		}
+		if !reflect.DeepEqual(server.Records, expectedRecords) {
+			t.Errorf("For server %v, found records: %v, expected records: %v", name, server.Records, expectedRecords)
+		}
+	}
+}

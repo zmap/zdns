@@ -34,10 +34,12 @@ type NSLookupModule struct {
 	cmd.BasicLookupModule
 	IPv4Lookup bool
 	IPv6Lookup bool
+	// used for mocking
+	testingLookup func(r *zdns.Resolver, lookupName string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)
 }
 
 // CLIInit initializes the NSLookupModule with the given parameters, used to call NSLookup from the command line
-func (ns *NSLookupModule) CLIInit(gc *cmd.CLIConf, resolverConf *zdns.ResolverConfig, f *pflag.FlagSet) {
+func (ns *NSLookupModule) CLIInit(gc *cmd.CLIConf, resolverConf *zdns.ResolverConfig, f *pflag.FlagSet) error {
 	ipv4Lookup, err := f.GetBool("ipv4-lookup")
 	if err != nil {
 		panic(err)
@@ -46,13 +48,18 @@ func (ns *NSLookupModule) CLIInit(gc *cmd.CLIConf, resolverConf *zdns.ResolverCo
 	if err != nil {
 		panic(err)
 	}
+	if !ipv4Lookup && !ipv6Lookup {
+		log.Debug("NSModule: No IP version specified, defaulting to IPv4")
+		ipv4Lookup = true
+	}
 	ns.BasicLookupModule.CLIInit(gc, resolverConf, f)
 	ns.Init(ipv4Lookup, ipv6Lookup)
+	return nil
 }
 
 // Init initializes the NSLookupModule with the given parameters, used to call NSLookup programmatically
-func (ns *NSLookupModule) Init(ipv4Lookup bool, ipv6Lookup bool) {
-	ns.IPv4Lookup = ipv4Lookup
+func (ns *NSLookupModule) Init(ipv4Lookup, ipv6Lookup bool) {
+	ns.IPv4Lookup = ipv4Lookup || !ipv6Lookup
 	ns.IPv6Lookup = ipv6Lookup
 }
 
@@ -70,6 +77,10 @@ type NSResult struct {
 }
 
 func (nsConfig *NSLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+	if nsConfig.testingLookup != nil {
+		// used for mocking
+		return nsConfig.testingLookup(r, lookupName, nameServer)
+	}
 	if nsConfig.IsIterative && nameServer != "" {
 		log.Warn("iterative lookup requested with lookupName server, ignoring lookupName server")
 	}
@@ -160,4 +171,8 @@ func (nsConfig *NSLookupModule) Lookup(r *zdns.Resolver, lookupName string, name
 // Help returns the module's help string
 func (ns *NSLookupModule) Help() string {
 	return ""
+}
+
+func (ns *NSLookupModule) WithTestingLookup(f func(r *zdns.Resolver, lookupName string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)) {
+	ns.testingLookup = f
 }
