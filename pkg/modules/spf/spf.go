@@ -26,14 +26,14 @@ type SpfLookupModule struct {
 	re *regexp.Regexp
 }
 
-func (spf *SpfLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) {
+func (spf *SpfLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
 	spf.re = regexp.MustCompile(spfPrefixRegexp)
 	spf.BasicLookupModule.DNSType = dns.TypeTXT
 	spf.BasicLookupModule.DNSClass = dns.ClassINET
-	spf.BasicLookupModule.CLIInit(gc, rc, flags)
+	return spf.BasicLookupModule.CLIInit(gc, rc, flags)
 }
 
-func (spf *SpfLookupModule) Lookup(r *zdns.Resolver, name string, resolver string) (interface{}, zdns.Trace, zdns.Status, error) {
+func (spf *SpfLookupModule) Lookup(r *zdns.Resolver, name, resolver string) (interface{}, zdns.Trace, zdns.Status, error) {
 	innerRes, trace, status, err := spf.BasicLookupModule.Lookup(r, name, resolver)
 	castedInnerRes, ok := innerRes.(*zdns.SingleQueryResult)
 	if !ok {
@@ -42,4 +42,9 @@ func (spf *SpfLookupModule) Lookup(r *zdns.Resolver, name string, resolver strin
 	resString, resStatus, err := zdns.CheckTxtRecords(castedInnerRes, status, spf.re, err)
 	res := Result{Spf: resString}
 	return res, trace, resStatus, err
+}
+
+// Help
+func (spf *SpfLookupModule) Help() string {
+	return ""
 }

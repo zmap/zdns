@@ -9,8 +9,9 @@ import (
 )
 
 type LookupModule interface {
-	CLIInit(gc *CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet)
+	CLIInit(gc *CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error
 	Lookup(resolver *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)
+	Help() string
 }
 
 const (
@@ -102,11 +103,13 @@ type BasicLookupModule struct {
 	DNSClass    uint16
 }
 
-func (lm *BasicLookupModule) CLIInit(gc *CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) {
+func (lm *BasicLookupModule) CLIInit(gc *CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
 	lm.IsIterative = rc.IsIterative
+	return nil
 }
 
-func (lm *BasicLookupModule) SetFlags(f *pflag.FlagSet) {
+func (lm *BasicLookupModule) Help() string {
+	return ""
 }
 
 func (lm *BasicLookupModule) Lookup(resolver *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {

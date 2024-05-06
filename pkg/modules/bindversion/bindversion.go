@@ -40,8 +40,8 @@ func init() {
 	cmd.RegisterLookupModule("BINDVERSION", b)
 }
 
-func (b *BindVersionLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) {
-	b.BasicLookupModule.CLIInit(gc, rc, flags)
+func (b *BindVersionLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
+	return b.BasicLookupModule.CLIInit(gc, rc, flags)
 }
 
 func (b *BindVersionLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {

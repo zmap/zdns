@@ -126,3 +126,8 @@ func (mxLookup *MXLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer 
 	}
 	return &retv, trace, zdns.STATUS_NOERROR, nil
 }
+
+// Help returns the module's help string
+func (mxLookup *MXLookupModule) Help() string {
+	return ""
+}

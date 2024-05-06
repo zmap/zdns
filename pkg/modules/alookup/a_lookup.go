@@ -34,7 +34,7 @@ func init() {
 	cmd.RegisterLookupModule("ALOOKUP", al)
 }
 
-func (al *ALookupModule) CLIInit(gc *cmd.CLIConf, resolverConfig *zdns.ResolverConfig, f *pflag.FlagSet) {
+func (al *ALookupModule) CLIInit(gc *cmd.CLIConf, resolverConfig *zdns.ResolverConfig, f *pflag.FlagSet) error {
 	ipv4Lookup, err := f.GetBool("ipv4-lookup")
 	if err != nil {
 		panic(err)
@@ -44,6 +44,7 @@ func (al *ALookupModule) CLIInit(gc *cmd.CLIConf, resolverConfig *zdns.ResolverC
 		panic(err)
 	}
 	al.Init(ipv4Lookup, ipv6Lookup)
+	return nil
 }
 
 func (al *ALookupModule) Init(ipv4Lookup bool, ipv6Lookup bool) {
@@ -155,4 +156,9 @@ func recursiveIPLookup(r *zdns.Resolver, name string, nameServer string, dnsType
 		var ips []string
 		return ips, trace, zdns.STATUS_NOERROR, nil
 	}
+}
+
+// Help returns the module's help string
+func (al *ALookupModule) Help() string {
+	return ""
 }

@@ -156,3 +156,8 @@ func (nsConfig *NSLookupModule) Lookup(r *zdns.Resolver, lookupName string, name
 	}
 	return retv, trace, zdns.STATUS_NOERROR, nil
 }
+
+// Help returns the module's help string
+func (ns *NSLookupModule) Help() string {
+	return ""
+}
