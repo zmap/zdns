@@ -27,7 +27,7 @@ import (
 
 func init() {
 	ns := new(NSLookupModule)
-	cmd.RegisterLookupModule("NS", ns)
+	cmd.RegisterLookupModule("NSLOOKUP", ns)
 }
 
 type NSLookupModule struct {
