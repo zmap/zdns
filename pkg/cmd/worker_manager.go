@@ -296,6 +296,7 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 	config.ShouldRecycleSockets = gc.RecycleSockets
 	config.ExternalNameServers = gc.NameServers
 	config.LocalAddrs = gc.LocalAddrs
+	config.DNSSecEnabled = gc.Dnssec
 
 	config.LogLevel = log.Level(gc.Verbosity)
 
