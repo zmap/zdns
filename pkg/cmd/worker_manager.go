@@ -275,6 +275,7 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 		log.Fatal("Unable to parse ipv6 flag: ", err)
 	}
 	config.IPVersionMode = zdns.GetIPVersionMode(useIPv4, useIPv6)
+	config.TransportMode = zdns.GetTransportMode(gc.UDPOnly, gc.TCPOnly)
 
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)

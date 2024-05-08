@@ -23,6 +23,17 @@ const (
 	TCPOnly
 )
 
+func GetTransportMode(useUDP, useTCP bool) transportMode {
+	if useUDP && useTCP {
+		return UDPOrTCP
+	} else if useUDP {
+		return UDPOnly
+	} else if useTCP {
+		return TCPOnly
+	}
+	return UDPOrTCP
+}
+
 func (tm transportMode) isValid() (bool, string) {
 	isValid := tm >= 0 && tm <= 2
 	if !isValid {
