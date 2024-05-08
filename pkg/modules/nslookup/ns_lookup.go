@@ -39,7 +39,7 @@ type NSLookupModule struct {
 }
 
 // CLIInit initializes the NSLookupModule with the given parameters, used to call NSLookup from the command line
-func (ns *NSLookupModule) CLIInit(gc *cmd.CLIConf, resolverConf *zdns.ResolverConfig, f *pflag.FlagSet) error {
+func (nsMod *NSLookupModule) CLIInit(gc *cmd.CLIConf, resolverConf *zdns.ResolverConfig, f *pflag.FlagSet) error {
 	ipv4Lookup, err := f.GetBool("ipv4-lookup")
 	if err != nil {
 		panic(err)
@@ -52,15 +52,15 @@ func (ns *NSLookupModule) CLIInit(gc *cmd.CLIConf, resolverConf *zdns.ResolverCo
 		log.Debug("NSModule: No IP version specified, defaulting to IPv4")
 		ipv4Lookup = true
 	}
-	ns.BasicLookupModule.CLIInit(gc, resolverConf, f)
-	ns.Init(ipv4Lookup, ipv6Lookup)
+	nsMod.BasicLookupModule.CLIInit(gc, resolverConf, f)
+	nsMod.Init(ipv4Lookup, ipv6Lookup)
 	return nil
 }
 
 // Init initializes the NSLookupModule with the given parameters, used to call NSLookup programmatically
-func (ns *NSLookupModule) Init(ipv4Lookup, ipv6Lookup bool) {
-	ns.IPv4Lookup = ipv4Lookup || !ipv6Lookup
-	ns.IPv6Lookup = ipv6Lookup
+func (nsMod *NSLookupModule) Init(ipv4Lookup, ipv6Lookup bool) {
+	nsMod.IPv4Lookup = ipv4Lookup || !ipv6Lookup
+	nsMod.IPv6Lookup = ipv6Lookup
 }
 
 // NSRecord result to be returned by scan of host
@@ -76,12 +76,12 @@ type NSResult struct {
 	Servers []NSRecord `json:"servers,omitempty" groups:"short,normal,long,trace"`
 }
 
-func (nsConfig *NSLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
-	if nsConfig.testingLookup != nil {
+func (nsMod *NSLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+	if nsMod.testingLookup != nil {
 		// used for mocking
-		return nsConfig.testingLookup(r, lookupName, nameServer)
+		return nsMod.testingLookup(r, lookupName, nameServer)
 	}
-	if nsConfig.IsIterative && nameServer != "" {
+	if nsMod.IsIterative && nameServer != "" {
 		log.Warn("iterative lookup requested with lookupName server, ignoring lookupName server")
 	}
 
@@ -89,7 +89,7 @@ func (nsConfig *NSLookupModule) Lookup(r *zdns.Resolver, lookupName string, name
 	var ns *zdns.SingleQueryResult
 	var status zdns.Status
 	var err error
-	if nsConfig.IsIterative {
+	if nsMod.IsIterative {
 		ns, trace, status, err = r.IterativeLookup(&zdns.Question{Name: lookupName, Type: dns.TypeNS, Class: dns.ClassINET})
 	} else {
 		ns, trace, status, err = r.ExternalLookup(&zdns.Question{Name: lookupName, Type: dns.TypeNS, Class: dns.ClassINET}, nameServer)
@@ -133,8 +133,8 @@ func (nsConfig *NSLookupModule) Lookup(r *zdns.Resolver, lookupName string, name
 		var findIpv4 = false
 		var findIpv6 = false
 
-		lookupIPv4 := nsConfig.IPv4Lookup
-		lookupIPv6 := nsConfig.IPv6Lookup
+		lookupIPv4 := nsMod.IPv4Lookup
+		lookupIPv6 := nsMod.IPv6Lookup
 		ipMode := zdns.GetIPVersionMode(lookupIPv4, lookupIPv6)
 		if lookupIPv4 {
 			if ips, ok := ipv4s[rec.Name]; ok {
@@ -151,7 +151,7 @@ func (nsConfig *NSLookupModule) Lookup(r *zdns.Resolver, lookupName string, name
 			}
 		}
 		if findIpv4 || findIpv6 {
-			res, nextTrace, _, _ := alookup.DoTargetedLookup(r, rec.Name, nameServer, ipMode)
+			res, nextTrace, _, _ := alookup.DoTargetedLookup(r, rec.Name, nameServer, ipMode, nsMod.BasicLookupModule.IsIterative)
 			if res != nil {
 				if findIpv4 {
 					rec.IPv4Addresses = res.IPv4Addresses
@@ -169,10 +169,10 @@ func (nsConfig *NSLookupModule) Lookup(r *zdns.Resolver, lookupName string, name
 }
 
 // Help returns the module's help string
-func (ns *NSLookupModule) Help() string {
+func (nsMod *NSLookupModule) Help() string {
 	return ""
 }
 
-func (ns *NSLookupModule) WithTestingLookup(f func(r *zdns.Resolver, lookupName string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)) {
-	ns.testingLookup = f
+func (nsMod *NSLookupModule) WithTestingLookup(f func(r *zdns.Resolver, lookupName string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)) {
+	nsMod.testingLookup = f
 }

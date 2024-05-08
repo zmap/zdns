@@ -26,25 +26,25 @@ type DmarcLookupModule struct {
 	re *regexp.Regexp
 }
 
-func (dmarc *DmarcLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
-	dmarc.re = regexp.MustCompile(dmarcPrefixRegexp)
-	dmarc.BasicLookupModule.DNSType = dns.TypeTXT
-	dmarc.BasicLookupModule.DNSClass = dns.ClassINET
-	return dmarc.BasicLookupModule.CLIInit(gc, rc, flags)
+func (dmarcMod *DmarcLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
+	dmarcMod.re = regexp.MustCompile(dmarcPrefixRegexp)
+	dmarcMod.BasicLookupModule.DNSType = dns.TypeTXT
+	dmarcMod.BasicLookupModule.DNSClass = dns.ClassINET
+	return dmarcMod.BasicLookupModule.CLIInit(gc, rc, flags)
 }
 
-func (dmarc *DmarcLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
-	innerRes, trace, status, err := dmarc.BasicLookupModule.Lookup(r, lookupName, nameServer)
+func (dmarcMod *DmarcLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+	innerRes, trace, status, err := dmarcMod.BasicLookupModule.Lookup(r, lookupName, nameServer)
 	castedInnerRes, ok := innerRes.(*zdns.SingleQueryResult)
 	if !ok {
 		return nil, trace, status, errors.New("lookup didn't return a single query result type")
 	}
-	resString, resStatus, err := zdns.CheckTxtRecords(castedInnerRes, status, dmarc.re, err)
+	resString, resStatus, err := zdns.CheckTxtRecords(castedInnerRes, status, dmarcMod.re, err)
 	res := Result{Dmarc: resString}
 	return res, trace, resStatus, err
 }
 
 // Help
-func (dmarc *DmarcLookupModule) Help() string {
+func (dmarcMod *DmarcLookupModule) Help() string {
 	return ""
 }

@@ -61,12 +61,12 @@ type TransferClient struct {
 	dns.Transfer
 }
 
-func (a *AxfrLookupModule) doAXFR(name, server string) AXFRServerResult {
+func (axfrMod *AxfrLookupModule) doAXFR(name, server string) AXFRServerResult {
 	var retv AXFRServerResult
 	retv.Server = server
 	// check if the server address is blacklisted and if so, exclude
-	if a.Blacklist != nil {
-		if blacklisted, err := a.Blacklist.IsBlacklisted(server); err != nil {
+	if axfrMod.Blacklist != nil {
+		if blacklisted, err := axfrMod.Blacklist.IsBlacklisted(server); err != nil {
 			retv.Status = zdns.STATUS_ERROR
 			retv.Error = "blacklist-error"
 			return retv
@@ -78,7 +78,7 @@ func (a *AxfrLookupModule) doAXFR(name, server string) AXFRServerResult {
 	}
 	m := new(dns.Msg)
 	m.SetAxfr(dotName(name))
-	if a, err := a.In(m, net.JoinHostPort(server, "53")); err != nil {
+	if a, err := axfrMod.In(m, net.JoinHostPort(server, "53")); err != nil {
 		retv.Status = zdns.STATUS_ERROR
 		retv.Error = err.Error()
 		return retv
@@ -100,10 +100,10 @@ func (a *AxfrLookupModule) doAXFR(name, server string) AXFRServerResult {
 	return retv
 }
 
-func (a *AxfrLookupModule) Lookup(resolver *zdns.Resolver, name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+func (axfrMod *AxfrLookupModule) Lookup(resolver *zdns.Resolver, name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	var retv AXFRResult
 	if nameServer == "" {
-		parsedNS, trace, status, err := a.NSModule.Lookup(resolver, name, nameServer)
+		parsedNS, trace, status, err := axfrMod.NSModule.Lookup(resolver, name, nameServer)
 		if status != zdns.STATUS_NOERROR {
 			return nil, trace, status, err
 		}
@@ -113,23 +113,23 @@ func (a *AxfrLookupModule) Lookup(resolver *zdns.Resolver, name, nameServer stri
 		}
 		for _, server := range castedNS.Servers {
 			if len(server.IPv4Addresses) > 0 {
-				retv.Servers = append(retv.Servers, a.doAXFR(name, server.IPv4Addresses[0]))
+				retv.Servers = append(retv.Servers, axfrMod.doAXFR(name, server.IPv4Addresses[0]))
 			}
 		}
 	} else {
-		retv.Servers = append(retv.Servers, a.doAXFR(name, nameServer))
+		retv.Servers = append(retv.Servers, axfrMod.doAXFR(name, nameServer))
 	}
 	return retv, nil, zdns.STATUS_NOERROR, nil
 }
 
 // Command-line Help Documentation. This is the descriptive text what is
 // returned when you run zdns module --help
-func (s *AxfrLookupModule) Help() string {
+func (axfrMod *AxfrLookupModule) Help() string {
 	return ""
 }
 
 // TODO Phillip - the old code parsed a blacklist and set it as the blacklist. Ensure that we're instantiating the blacklist correctly with just the resolver
-func (a *AxfrLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
+func (axfrMod *AxfrLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
 	if gc == nil {
 		return errors.New("CLIConfig is nil")
 	}
@@ -143,18 +143,18 @@ func (a *AxfrLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfig, fla
 		log.Fatal("AXFR module does not support iterative resolution")
 	}
 	var err error
-	a.BlacklistPath, err = flags.GetString("blacklist-file")
+	axfrMod.BlacklistPath, err = flags.GetString("blacklist-file")
 	if err != nil {
 		return errors.Wrap(err, "failed to get blacklist-file flag")
 	}
-	if a.BlacklistPath != "" {
-		a.Blacklist = safe_blacklist.New()
-		if err = a.Blacklist.ParseFromFile(a.BlacklistPath); err != nil {
+	if axfrMod.BlacklistPath != "" {
+		axfrMod.Blacklist = safe_blacklist.New()
+		if err = axfrMod.Blacklist.ParseFromFile(axfrMod.BlacklistPath); err != nil {
 			return errors.Wrap(err, "failed to parse blacklist")
 		}
 	}
-	a.NSModule.CLIInit(gc, rc, flags)
-	if err = a.BasicLookupModule.CLIInit(gc, rc, flags); err != nil {
+	axfrMod.NSModule.CLIInit(gc, rc, flags)
+	if err = axfrMod.BasicLookupModule.CLIInit(gc, rc, flags); err != nil {
 		return errors.Wrap(err, "failed to initialize basic lookup module")
 	}
 	return nil

@@ -1,13 +1,14 @@
 package mxlookup
 
 import (
+	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
+	"github.com/zmap/dns"
 	"github.com/zmap/zdns/pkg/cmd"
 	"strings"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/zmap/dns"
 	"github.com/zmap/zdns/cachehash"
 	"github.com/zmap/zdns/pkg/modules/alookup"
 	"github.com/zmap/zdns/pkg/zdns"
@@ -43,11 +44,11 @@ type MXLookupModule struct {
 	MXCacheSize int
 	CacheHash   *cachehash.CacheHash
 	CHmu        sync.Mutex
-	// TODO Phillip add base module
+	cmd.BasicLookupModule
 }
 
 // CLIInit initializes the MXLookupModule with the given parameters, used to call MXLookup from the command line
-func (mx *MXLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfig, f *pflag.FlagSet) error {
+func (mxMod *MXLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfig, f *pflag.FlagSet) error {
 	ipv4Lookup, err := f.GetBool("ipv4-lookup")
 	if err != nil {
 		panic(err)
@@ -64,53 +65,61 @@ func (mx *MXLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfig, f *p
 		// need to use one of the two
 		ipv4Lookup = true
 	}
-	mx.Init(ipv4Lookup, ipv6Lookup, mxCacheSize)
+	mxMod.Init(ipv4Lookup, ipv6Lookup, mxCacheSize)
+	if err = mxMod.BasicLookupModule.CLIInit(gc, rc, f); err != nil {
+		return errors.Wrap(err, "failed to initialize BasicLookupModule")
+	}
 	return nil
 }
 
 // Init initializes the MXLookupModule with the given parameters, used to call MXLookup programmatically
-func (mx *MXLookupModule) Init(ipv4Lookup, ipv6Lookup bool, mxCacheSize int) {
+func (mxMod *MXLookupModule) Init(ipv4Lookup, ipv6Lookup bool, mxCacheSize int) {
 	if !ipv4Lookup && !ipv6Lookup {
 		log.Fatal("At least one of ipv4-lookup or ipv6-lookup must be true")
 	}
 	if mxCacheSize <= 0 {
 		log.Fatal("mxCacheSize must be greater than 0, got ", mxCacheSize)
 	}
-	mx.IPv4Lookup = ipv4Lookup || !ipv6Lookup
-	mx.IPv6Lookup = ipv6Lookup
-	mx.MXCacheSize = mxCacheSize
-	mx.CacheHash = new(cachehash.CacheHash)
-	mx.CacheHash.Init(mxCacheSize)
+	mxMod.IPv4Lookup = ipv4Lookup || !ipv6Lookup
+	mxMod.IPv6Lookup = ipv6Lookup
+	mxMod.MXCacheSize = mxCacheSize
+	mxMod.CacheHash = new(cachehash.CacheHash)
+	mxMod.CacheHash.Init(mxCacheSize)
 }
 
-func (mxLookup *MXLookupModule) lookupIPs(r *zdns.Resolver, name, nameServer string, ipMode zdns.IPVersionMode) (CachedAddresses, zdns.Trace) {
-	if mxLookup == nil {
-		log.Fatal("mxLookup is not initialized")
-	}
-	mxLookup.CHmu.Lock()
+func (mxMod *MXLookupModule) lookupIPs(r *zdns.Resolver, name, nameServer string, ipMode zdns.IPVersionMode) (CachedAddresses, zdns.Trace) {
+	mxMod.CHmu.Lock()
 	// TODO this comment V is present in the original code and has been there since 2017 IIRC, so ask Zakir what to do
 	// XXX this should be changed to a miekglookup
-	res, found := mxLookup.CacheHash.Get(name)
-	mxLookup.CHmu.Unlock()
+	res, found := mxMod.CacheHash.Get(name)
+	mxMod.CHmu.Unlock()
 	if found {
 		return res.(CachedAddresses), zdns.Trace{}
 	}
 	retv := CachedAddresses{}
-	result, trace, status, _ := alookup.DoTargetedLookup(r, name, nameServer, ipMode)
+	result, trace, status, _ := alookup.DoTargetedLookup(r, name, nameServer, ipMode, mxMod.IsIterative)
 	if status == zdns.STATUS_NOERROR && result != nil {
 		retv.IPv4Addresses = result.IPv4Addresses
 		retv.IPv6Addresses = result.IPv6Addresses
 	}
-	mxLookup.CHmu.Lock()
-	mxLookup.CacheHash.Add(name, retv)
-	mxLookup.CHmu.Unlock()
+	mxMod.CHmu.Lock()
+	mxMod.CacheHash.Add(name, retv)
+	mxMod.CHmu.Unlock()
 	return retv, trace
 }
 
-func (mxLookup *MXLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
-	ipMode := zdns.GetIPVersionMode(mxLookup.IPv4Lookup, mxLookup.IPv6Lookup)
+func (mxMod *MXLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+	ipMode := zdns.GetIPVersionMode(mxMod.IPv4Lookup, mxMod.IPv6Lookup)
 	retv := MXResult{Servers: []MXRecord{}}
-	res, trace, status, err := r.ExternalLookup(&zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET}, nameServer)
+	var res *zdns.SingleQueryResult
+	var trace zdns.Trace
+	var status zdns.Status
+	var err error
+	if mxMod.BasicLookupModule.IsIterative {
+		res, trace, status, err = r.IterativeLookup(&zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET})
+	} else {
+		res, trace, status, err = r.ExternalLookup(&zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET}, nameServer)
+	}
 	if status != zdns.STATUS_NOERROR || err != nil {
 		return nil, trace, status, err
 	}
@@ -119,7 +128,7 @@ func (mxLookup *MXLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer 
 		if mxAns, ok := ans.(zdns.PrefAnswer); ok {
 			lookupName = strings.TrimSuffix(mxAns.Answer.Answer, ".")
 			rec := MXRecord{TTL: mxAns.Ttl, Type: mxAns.Type, Class: mxAns.Class, Name: lookupName, Preference: mxAns.Preference}
-			ips, secondTrace := mxLookup.lookupIPs(r, lookupName, nameServer, ipMode)
+			ips, secondTrace := mxMod.lookupIPs(r, lookupName, nameServer, ipMode)
 			rec.IPv4Addresses = ips.IPv4Addresses
 			rec.IPv6Addresses = ips.IPv6Addresses
 			retv.Servers = append(retv.Servers, rec)
@@ -130,6 +139,6 @@ func (mxLookup *MXLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer 
 }
 
 // Help returns the module's help string
-func (mxLookup *MXLookupModule) Help() string {
+func (mxMod *MXLookupModule) Help() string {
 	return ""
 }

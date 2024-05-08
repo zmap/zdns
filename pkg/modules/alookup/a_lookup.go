@@ -15,7 +15,7 @@
 package alookup
 
 import (
-	"errors"
+	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"github.com/zmap/zdns/pkg/cmd"
 	"strings"
@@ -27,6 +27,7 @@ import (
 type ALookupModule struct {
 	IPv4Lookup bool
 	IPv6Lookup bool
+	baseModule cmd.BasicLookupModule
 }
 
 func init() {
@@ -34,7 +35,7 @@ func init() {
 	cmd.RegisterLookupModule("ALOOKUP", al)
 }
 
-func (al *ALookupModule) CLIInit(gc *cmd.CLIConf, resolverConfig *zdns.ResolverConfig, f *pflag.FlagSet) error {
+func (aMod *ALookupModule) CLIInit(gc *cmd.CLIConf, resolverConfig *zdns.ResolverConfig, f *pflag.FlagSet) error {
 	ipv4Lookup, err := f.GetBool("ipv4-lookup")
 	if err != nil {
 		panic(err)
@@ -43,23 +44,27 @@ func (al *ALookupModule) CLIInit(gc *cmd.CLIConf, resolverConfig *zdns.ResolverC
 	if err != nil {
 		panic(err)
 	}
-	al.Init(ipv4Lookup, ipv6Lookup)
+	aMod.Init(ipv4Lookup, ipv6Lookup)
+	err = aMod.baseModule.CLIInit(gc, resolverConfig, f)
+	if err != nil {
+		return errors.Wrap(err, "failed to initialize base module")
+	}
 	return nil
 }
 
-func (al *ALookupModule) Init(ipv4Lookup bool, ipv6Lookup bool) {
-	al.IPv4Lookup = ipv4Lookup || !ipv6Lookup
-	al.IPv6Lookup = ipv6Lookup
+func (aMod *ALookupModule) Init(ipv4Lookup bool, ipv6Lookup bool) {
+	aMod.IPv4Lookup = ipv4Lookup || !ipv6Lookup
+	aMod.IPv6Lookup = ipv6Lookup
 }
 
-func (al *ALookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
-	ipResult, trace, status, err := DoTargetedLookup(r, lookupName, nameServer, zdns.GetIPVersionMode(al.IPv4Lookup, al.IPv6Lookup))
+func (aMod *ALookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+	ipResult, trace, status, err := DoTargetedLookup(r, lookupName, nameServer, zdns.GetIPVersionMode(aMod.IPv4Lookup, aMod.IPv6Lookup), aMod.baseModule.IsIterative)
 	return ipResult, trace, status, err
 }
 
 // DoTargetedLookup performs a lookup of the given domain name against the given nameserver, looking up both IPv4 and IPv6 addresses
 // Will follow CNAME records as well as A/AAAA records to get IP addresses
-func DoTargetedLookup(r *zdns.Resolver, name, nameServer string, ipMode zdns.IPVersionMode) (*zdns.IPResult, zdns.Trace, zdns.Status, error) {
+func DoTargetedLookup(r *zdns.Resolver, name, nameServer string, ipMode zdns.IPVersionMode, isIterative bool) (*zdns.IPResult, zdns.Trace, zdns.Status, error) {
 	lookupIPv4 := ipMode == zdns.IPv4Only || ipMode == zdns.IPv4OrIPv6
 	lookupIPv6 := ipMode == zdns.IPv6Only || ipMode == zdns.IPv4OrIPv6
 	name = strings.ToLower(name)
@@ -74,7 +79,7 @@ func DoTargetedLookup(r *zdns.Resolver, name, nameServer string, ipMode zdns.IPV
 	var ipv6status zdns.Status
 
 	if lookupIPv4 {
-		ipv4, ipv4Trace, ipv4status, _ = recursiveIPLookup(r, name, nameServer, dns.TypeA, candidateSet, cnameSet, name, 0)
+		ipv4, ipv4Trace, ipv4status, _ = recursiveIPLookup(r, name, nameServer, dns.TypeA, candidateSet, cnameSet, name, 0, isIterative)
 		if len(ipv4) > 0 {
 			ipv4 = zdns.Unique(ipv4)
 			res.IPv4Addresses = make([]string, len(ipv4))
@@ -84,7 +89,7 @@ func DoTargetedLookup(r *zdns.Resolver, name, nameServer string, ipMode zdns.IPV
 	candidateSet = map[string][]zdns.Answer{}
 	cnameSet = map[string][]zdns.Answer{}
 	if lookupIPv6 {
-		ipv6, ipv6Trace, ipv6status, _ = recursiveIPLookup(r, name, nameServer, dns.TypeAAAA, candidateSet, cnameSet, name, 0)
+		ipv6, ipv6Trace, ipv6status, _ = recursiveIPLookup(r, name, nameServer, dns.TypeAAAA, candidateSet, cnameSet, name, 0, isIterative)
 		if len(ipv6) > 0 {
 			ipv6 = zdns.Unique(ipv6)
 			res.IPv6Addresses = make([]string, len(ipv6))
@@ -110,7 +115,7 @@ func DoTargetedLookup(r *zdns.Resolver, name, nameServer string, ipMode zdns.IPV
 
 // recursiveIPLookup helper fn that recursively follows both A/AAAA records and CNAME records to find IP addresses
 // returns an array of IP addresses, a trace of the lookups, a status, and an error
-func recursiveIPLookup(r *zdns.Resolver, name string, nameServer string, dnsType uint16, candidateSet map[string][]zdns.Answer, cnameSet map[string][]zdns.Answer, origName string, depth int) ([]string, zdns.Trace, zdns.Status, error) {
+func recursiveIPLookup(r *zdns.Resolver, name, nameServer string, dnsType uint16, candidateSet map[string][]zdns.Answer, cnameSet map[string][]zdns.Answer, origName string, depth int, isIterative bool) ([]string, zdns.Trace, zdns.Status, error) {
 	// avoid infinite loops
 	if name == origName && depth != 0 {
 		return nil, make(zdns.Trace, 0), zdns.STATUS_ERROR, errors.New("infinite redirection loop")
@@ -126,7 +131,11 @@ func recursiveIPLookup(r *zdns.Resolver, name string, nameServer string, dnsType
 	if _, ok := candidateSet[name]; !ok {
 		var status zdns.Status
 		var err error
-		result, trace, status, err = r.ExternalLookup(&zdns.Question{Name: name, Type: dnsType, Class: dns.ClassINET}, nameServer)
+		if isIterative {
+			result, trace, status, err = r.IterativeLookup(&zdns.Question{Name: name, Type: dnsType, Class: dns.ClassINET})
+		} else {
+			result, trace, status, err = r.ExternalLookup(&zdns.Question{Name: name, Type: dnsType, Class: dns.ClassINET}, nameServer)
+		}
 
 		if status != zdns.STATUS_NOERROR || err != nil {
 			return nil, trace, status, err
@@ -146,7 +155,7 @@ func recursiveIPLookup(r *zdns.Resolver, name string, nameServer string, dnsType
 	} else if res, ok = cnameSet[name]; ok && len(res) > 0 {
 		// we have a CNAME and need to further recurse to find IPs
 		shortName := strings.ToLower(strings.TrimSuffix(res[0].Answer, "."))
-		res, secondTrace, status, err := recursiveIPLookup(r, shortName, nameServer, dnsType, candidateSet, cnameSet, origName, depth+1)
+		res, secondTrace, status, err := recursiveIPLookup(r, shortName, nameServer, dnsType, candidateSet, cnameSet, origName, depth+1, isIterative)
 		trace = append(trace, secondTrace...)
 		return res, trace, status, err
 	} else if res, ok = garbage[name]; ok && len(res) > 0 {
@@ -159,6 +168,6 @@ func recursiveIPLookup(r *zdns.Resolver, name string, nameServer string, dnsType
 }
 
 // Help returns the module's help string
-func (al *ALookupModule) Help() string {
+func (aMod *ALookupModule) Help() string {
 	return ""
 }

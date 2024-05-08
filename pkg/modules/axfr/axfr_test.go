@@ -46,7 +46,7 @@ func (err enError) Error() string {
 	return envelopeError
 }
 
-func (a *AxfrLookupModule) In(m *dns.Msg, server string) (chan *dns.Envelope, error) {
+func (axfrMod *AxfrLookupModule) In(m *dns.Msg, server string) (chan *dns.Envelope, error) {
 	var eError error = nil
 	if envelopeError != "" {
 		eError = enError{}

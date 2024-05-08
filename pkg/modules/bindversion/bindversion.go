@@ -40,16 +40,16 @@ func init() {
 	cmd.RegisterLookupModule("BINDVERSION", b)
 }
 
-func (b *BindVersionLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
-	return b.BasicLookupModule.CLIInit(gc, rc, flags)
+func (bindVersionMod *BindVersionLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
+	return bindVersionMod.BasicLookupModule.CLIInit(gc, rc, flags)
 }
 
-func (b *BindVersionLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+func (bindVersionMod *BindVersionLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	var innerRes *zdns.SingleQueryResult
 	var trace zdns.Trace
 	var status zdns.Status
 	var err error
-	if b.IsIterative {
+	if bindVersionMod.IsIterative {
 		innerRes, trace, status, err = r.IterativeLookup(&zdns.Question{Name: BindVersionQueryName, Type: dns.TypeTXT, Class: dns.ClassCHAOS})
 	} else {
 		innerRes, trace, status, err = r.ExternalLookup(&zdns.Question{Name: BindVersionQueryName, Type: dns.TypeTXT, Class: dns.ClassCHAOS}, nameServer)
