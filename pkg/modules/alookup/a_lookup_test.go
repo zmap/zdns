@@ -613,6 +613,142 @@ func TestEmptyNonTerminal(t *testing.T) {
 	verifyResult(t, *res, nil, nil)
 }
 
+// Test Non-existent domain in the zone returns NXDOMAIN
+
+func TestNXDomain(t *testing.T) {
+	config := InitTest(t)
+	resolver, err := zdns.InitResolver(config)
+	assert.Nil(t, err)
+	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
+	res, _, status, _ := DoTargetedLookup(resolver, "nonexistent.example.com", ns1, zdns.IPv4OrIPv6, false)
+	if status != zdns.STATUS_NXDOMAIN {
+		t.Errorf("Expected STATUS_NXDOMAIN status, got %v", status)
+	} else if res != nil {
+		t.Errorf("Expected no results, got %v", res)
+	}
+}
+
+// Test both ipv4 and ipv6 results are deduplicated before returning
+func TestAandQuadADedup(t *testing.T) {
+	config := InitTest(t)
+	resolver, err := zdns.InitResolver(config)
+	assert.Nil(t, err)
+
+	domain1 := "cname1.example.com"
+	domain2 := "cname2.example.com"
+	domain3 := "example.com"
+	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
+	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
+	domain_ns_2 := domain_ns{domain: domain2, ns: ns1}
+	domain_ns_3 := domain_ns{domain: domain3, ns: ns1}
+
+	mockResults[domain_ns_1] = &zdns.SingleQueryResult{
+		Answers: []interface{}{zdns.Answer{
+			Ttl:    3600,
+			Type:   "CNAME",
+			Class:  "IN",
+			Name:   domain1,
+			Answer: domain2 + ".",
+		}, zdns.Answer{
+			Ttl:    3600,
+			Type:   "CNAME",
+			Class:  "IN",
+			Name:   domain2,
+			Answer: domain3 + ".",
+		}, zdns.Answer{
+			Ttl:    3600,
+			Type:   "A",
+			Class:  "IN",
+			Name:   domain3,
+			Answer: "192.0.2.1",
+		}, zdns.Answer{
+			Ttl:    3600,
+			Type:   "AAAA",
+			Class:  "IN",
+			Name:   domain3,
+			Answer: "2001:db8::3",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       zdns.DNSFlags{},
+	}
+
+	mockResults[domain_ns_2] = &zdns.SingleQueryResult{
+		Answers: []interface{}{zdns.Answer{
+			Ttl:    3600,
+			Type:   "CNAME",
+			Class:  "IN",
+			Name:   domain2,
+			Answer: domain3 + ".",
+		}, zdns.Answer{
+			Ttl:    3600,
+			Type:   "A",
+			Class:  "IN",
+			Name:   domain3,
+			Answer: "192.0.2.1",
+		}, zdns.Answer{
+			Ttl:    3600,
+			Type:   "AAAA",
+			Class:  "IN",
+			Name:   domain3,
+			Answer: "2001:db8::3",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       zdns.DNSFlags{},
+	}
+
+	mockResults[domain_ns_3] = &zdns.SingleQueryResult{
+		Answers: []interface{}{zdns.Answer{
+			Ttl:    3600,
+			Type:   "A",
+			Class:  "IN",
+			Name:   domain3,
+			Answer: "192.0.2.1",
+		}, zdns.Answer{
+			Ttl:    3600,
+			Type:   "AAAA",
+			Class:  "IN",
+			Name:   domain3,
+			Answer: "2001:db8::3",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       zdns.DNSFlags{},
+	}
+
+	res, _, _, _ := DoTargetedLookup(resolver, domain1, ns1, zdns.IPv4OrIPv6, false)
+	assert.NotNil(t, res)
+	verifyResult(t, *res, []string{"192.0.2.1"}, []string{"2001:db8::3"})
+}
+
+// Test server failure returns SERVFAIL
+
+func TestServFail(t *testing.T) {
+	config := InitTest(t)
+	resolver, err := zdns.InitResolver(config)
+	assert.Nil(t, err)
+
+	domain1 := "example.com"
+	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
+	domain_ns_1 := domain_ns{domain: domain1, ns: ns1}
+
+	mockResults[domain_ns_1] = &zdns.SingleQueryResult{}
+	name := "example.com"
+	protocolStatus[domain_ns_1] = zdns.STATUS_SERVFAIL
+
+	res, _, final_status, _ := DoTargetedLookup(resolver, name, ns1, zdns.IPv4OrIPv6, false)
+
+	if final_status != protocolStatus[domain_ns_1] {
+		t.Errorf("Expected %v status, got %v", protocolStatus, final_status)
+	} else if res != nil {
+		t.Errorf("Expected no results, got %v", res)
+	}
+}
+
 func verifyResult(t *testing.T, res zdns.IPResult, ipv4 []string, ipv6 []string) {
 	if !reflect.DeepEqual(ipv4, res.IPv4Addresses) {
 		t.Errorf("Expected %v, Received %v IPv4 address(es)", ipv4, res.IPv4Addresses)
