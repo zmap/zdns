@@ -16,7 +16,7 @@ package axfr
 
 import (
 	"github.com/spf13/pflag"
-	"github.com/zmap/zdns/pkg/cmd"
+	"github.com/zmap/zdns/cmd"
 	"github.com/zmap/zdns/pkg/modules/nslookup"
 	"net"
 	"reflect"

@@ -17,11 +17,7 @@ package nslookup
 import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
-	"github.com/zmap/zdns/pkg/cmd"
-	"github.com/zmap/zdns/pkg/modules/alookup"
-	"strings"
-
-	"github.com/zmap/dns"
+	"github.com/zmap/zdns/cmd"
 	"github.com/zmap/zdns/pkg/zdns"
 )
 
@@ -85,87 +81,11 @@ func (nsMod *NSLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameSer
 		log.Warn("iterative lookup requested with lookupName server, ignoring lookupName server")
 	}
 
-	var trace zdns.Trace
-	var ns *zdns.SingleQueryResult
-	var status zdns.Status
-	var err error
-	if nsMod.IsIterative {
-		ns, trace, status, err = r.IterativeLookup(&zdns.Question{Name: lookupName, Type: dns.TypeNS, Class: dns.ClassINET})
-	} else {
-		ns, trace, status, err = r.ExternalLookup(&zdns.Question{Name: lookupName, Type: dns.TypeNS, Class: dns.ClassINET}, nameServer)
+	res, trace, status, err := r.DoNSLookup(lookupName, nameServer)
+	if trace == nil {
+		trace = &zdns.Trace{}
 	}
-
-	var retv NSResult
-	if status != zdns.STATUS_NOERROR || err != nil {
-		return retv, trace, status, err
-	}
-	ipv4s := make(map[string][]string)
-	ipv6s := make(map[string][]string)
-	for _, ans := range ns.Additional {
-		a, ok := ans.(zdns.Answer)
-		if !ok {
-			continue
-		}
-		recName := strings.TrimSuffix(a.Name, ".")
-		if zdns.VerifyAddress(a.Type, a.Answer) {
-			if a.Type == "A" {
-				ipv4s[recName] = append(ipv4s[recName], a.Answer)
-			} else if a.Type == "AAAA" {
-				ipv6s[recName] = append(ipv6s[recName], a.Answer)
-			}
-		}
-	}
-	for _, ans := range ns.Answers {
-		a, ok := ans.(zdns.Answer)
-		if !ok {
-			continue
-		}
-
-		if a.Type != "NS" {
-			continue
-		}
-
-		var rec NSRecord
-		rec.Type = a.Type
-		rec.Name = strings.TrimSuffix(a.Answer, ".")
-		rec.TTL = a.Ttl
-
-		var findIpv4 = false
-		var findIpv6 = false
-
-		lookupIPv4 := nsMod.IPv4Lookup
-		lookupIPv6 := nsMod.IPv6Lookup
-		ipMode := zdns.GetIPVersionMode(lookupIPv4, lookupIPv6)
-		if lookupIPv4 {
-			if ips, ok := ipv4s[rec.Name]; ok {
-				rec.IPv4Addresses = ips
-			} else {
-				findIpv4 = true
-			}
-		}
-		if lookupIPv6 {
-			if ips, ok := ipv6s[rec.Name]; ok {
-				rec.IPv6Addresses = ips
-			} else {
-				findIpv6 = true
-			}
-		}
-		if findIpv4 || findIpv6 {
-			res, nextTrace, _, _ := alookup.DoTargetedLookup(r, rec.Name, nameServer, ipMode, nsMod.BasicLookupModule.IsIterative)
-			if res != nil {
-				if findIpv4 {
-					rec.IPv4Addresses = res.IPv4Addresses
-				}
-				if findIpv6 {
-					rec.IPv6Addresses = res.IPv6Addresses
-				}
-			}
-			trace = append(trace, nextTrace...)
-		}
-
-		retv.Servers = append(retv.Servers, rec)
-	}
-	return retv, trace, zdns.STATUS_NOERROR, nil
+	return res, *trace, status, err
 }
 
 // Help returns the module's help string

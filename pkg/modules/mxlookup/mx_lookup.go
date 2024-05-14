@@ -4,13 +4,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
-	"github.com/zmap/zdns/pkg/cmd"
+	"github.com/zmap/zdns/cmd"
 	"strings"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zdns/cachehash"
-	"github.com/zmap/zdns/pkg/modules/alookup"
 	"github.com/zmap/zdns/pkg/zdns"
 )
 
@@ -97,7 +96,7 @@ func (mxMod *MXLookupModule) lookupIPs(r *zdns.Resolver, name, nameServer string
 		return res.(CachedAddresses), zdns.Trace{}
 	}
 	retv := CachedAddresses{}
-	result, trace, status, _ := alookup.DoTargetedLookup(r, name, nameServer, ipMode, mxMod.IsIterative)
+	result, trace, status, _ := r.DoTargetedLookup(name, nameServer, ipMode, mxMod.IsIterative)
 	if status == zdns.STATUS_NOERROR && result != nil {
 		retv.IPv4Addresses = result.IPv4Addresses
 		retv.IPv6Addresses = result.IPv6Addresses

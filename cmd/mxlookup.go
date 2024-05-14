@@ -1,5 +1,5 @@
 /*
- * ZDNS Copyright 2016 Regents of the University of Michigan
+ * ZDNS Copyright 2024 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,12 +14,11 @@
 package cmd
 
 import (
+	"github.com/spf13/viper"
+	"github.com/zmap/zdns/internal/util"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"github.com/zmap/zdns/internal/util"
-	"github.com/zmap/zdns/pkg/zdns"
 )
 
 // mxlookupCmd represents the mxlookup command
@@ -30,11 +29,7 @@ var mxlookupCmd = &cobra.Command{
 correspond with an exchange record.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		GC.Module = strings.ToUpper("mxlookup")
-		zdns.Run(GC, cmd.Flags(),
-			&Timeout, &IterationTimeout,
-			&Class_string, &Servers_string,
-			&Config_file, &Localaddr_string,
-			&Localif_string, &NanoSeconds, &ClientSubnet_string, &NSID)
+		Run(GC, cmd.Flags())
 	},
 }
 

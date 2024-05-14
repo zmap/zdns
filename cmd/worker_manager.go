@@ -342,13 +342,13 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 	go func() {
 		err := inHandler.FeedChannel(inChan, &routineWG)
 		if err != nil {
-			log.Fatal("could not feed input channel: %v", err)
+			log.Fatal(fmt.Sprintf("could not feed input channel: %v", err))
 		}
 	}()
 	go func() {
 		err := outHandler.WriteResults(outChan, &routineWG)
 		if err != nil {
-			log.Fatal("could not write output results from output channel: %v", err)
+			log.Fatal(fmt.Sprintf("could not write output results from output channel: %v", err))
 		}
 	}()
 	routineWG.Add(2)

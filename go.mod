@@ -13,6 +13,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/zmap/dns v1.1.45-zdns-0
 	github.com/zmap/go-iptree v0.0.0-20210731043055-d4e632617837
+	gotest.tools/v3 v3.5.1
 )
 
 require (
@@ -42,5 +43,4 @@ require (
 	golang.org/x/tools v0.13.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	gotest.tools/v3 v3.5.1 // indirect
 )

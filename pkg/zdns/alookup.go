@@ -1,0 +1,112 @@
+package zdns
+
+import (
+	"github.com/pkg/errors"
+	"github.com/zmap/dns"
+	"strings"
+)
+
+// DoTargetedLookup performs a lookup of the given domain name against the given nameserver, looking up both IPv4 and IPv6 addresses
+// Will follow CNAME records as well as A/AAAA records to get IP addresses
+func (resolver *Resolver) DoTargetedLookup(name, nameServer string, ipMode IPVersionMode, isIterative bool) (*IPResult, Trace, Status, error) {
+	lookupIPv4 := ipMode == IPv4Only || ipMode == IPv4OrIPv6
+	lookupIPv6 := ipMode == IPv6Only || ipMode == IPv4OrIPv6
+	name = strings.ToLower(name)
+	res := IPResult{}
+	candidateSet := map[string][]Answer{}
+	cnameSet := map[string][]Answer{}
+	var ipv4 []string
+	var ipv6 []string
+	var ipv4Trace Trace
+	var ipv6Trace Trace
+	var ipv4status Status
+	var ipv6status Status
+
+	if lookupIPv4 {
+		ipv4, ipv4Trace, ipv4status, _ = recursiveIPLookup(resolver, name, nameServer, dns.TypeA, candidateSet, cnameSet, name, 0, isIterative)
+		if len(ipv4) > 0 {
+			ipv4 = Unique(ipv4)
+			res.IPv4Addresses = make([]string, len(ipv4))
+			copy(res.IPv4Addresses, ipv4)
+		}
+	}
+	candidateSet = map[string][]Answer{}
+	cnameSet = map[string][]Answer{}
+	if lookupIPv6 {
+		ipv6, ipv6Trace, ipv6status, _ = recursiveIPLookup(resolver, name, nameServer, dns.TypeAAAA, candidateSet, cnameSet, name, 0, isIterative)
+		if len(ipv6) > 0 {
+			ipv6 = Unique(ipv6)
+			res.IPv6Addresses = make([]string, len(ipv6))
+			copy(res.IPv6Addresses, ipv6)
+		}
+	}
+
+	combinedTrace := append(ipv4Trace, ipv6Trace...)
+
+	// In case we get no IPs and a non-NOERROR status from either
+	// IPv4 or IPv6 lookup, we return that status.
+	if len(res.IPv4Addresses) == 0 && len(res.IPv6Addresses) == 0 {
+		if lookupIPv4 && !SafeStatus(ipv4status) {
+			return nil, combinedTrace, ipv4status, nil
+		} else if lookupIPv6 && !SafeStatus(ipv6status) {
+			return nil, combinedTrace, ipv6status, nil
+		} else {
+			return &res, combinedTrace, STATUS_NOERROR, nil
+		}
+	}
+	return &res, combinedTrace, STATUS_NOERROR, nil
+}
+
+// recursiveIPLookup helper fn that recursively follows both A/AAAA records and CNAME records to find IP addresses
+// returns an array of IP addresses, a trace of the lookups, a status, and an error
+func recursiveIPLookup(r *Resolver, name, nameServer string, dnsType uint16, candidateSet map[string][]Answer, cnameSet map[string][]Answer, origName string, depth int, isIterative bool) ([]string, Trace, Status, error) {
+	// avoid infinite loops
+	if name == origName && depth != 0 {
+		return nil, make(Trace, 0), STATUS_ERROR, errors.New("infinite redirection loop")
+	}
+	if depth > 10 {
+		return nil, make(Trace, 0), STATUS_ERROR, errors.New("max recursion depth reached")
+	}
+	// check if the record is already in our cache. if not, perform normal A lookup and
+	// see what comes back. Then iterate over results and if needed, perform further lookups
+	var trace Trace
+	var result *SingleQueryResult
+	garbage := map[string][]Answer{}
+	if _, ok := candidateSet[name]; !ok {
+		var status Status
+		var err error
+		if isIterative {
+			result, trace, status, err = r.IterativeLookup(&Question{Name: name, Type: dnsType, Class: dns.ClassINET})
+		} else {
+			result, trace, status, err = r.ExternalLookup(&Question{Name: name, Type: dnsType, Class: dns.ClassINET}, nameServer)
+		}
+
+		if status != STATUS_NOERROR || err != nil {
+			return nil, trace, status, err
+		}
+
+		PopulateResults(result.Answers, dnsType, candidateSet, cnameSet, garbage)
+		PopulateResults(result.Additional, dnsType, candidateSet, cnameSet, garbage)
+	}
+	// our cache should now have any data that exists about the current name
+	if res, ok := candidateSet[name]; ok && len(res) > 0 {
+		// we have IP addresses to hand back to the user. let's make an easy-to-use array of strings
+		var ips []string
+		for _, answer := range res {
+			ips = append(ips, answer.Answer)
+		}
+		return ips, trace, STATUS_NOERROR, nil
+	} else if res, ok = cnameSet[name]; ok && len(res) > 0 {
+		// we have a CNAME and need to further recurse to find IPs
+		shortName := strings.ToLower(strings.TrimSuffix(res[0].Answer, "."))
+		res, secondTrace, status, err := recursiveIPLookup(r, shortName, nameServer, dnsType, candidateSet, cnameSet, origName, depth+1, isIterative)
+		trace = append(trace, secondTrace...)
+		return res, trace, status, err
+	} else if res, ok = garbage[name]; ok && len(res) > 0 {
+		return nil, trace, STATUS_ERROR, errors.New("unexpected record type received")
+	} else {
+		// we have no data whatsoever about this name. return an empty recordset to the user
+		var ips []string
+		return ips, trace, STATUS_NOERROR, nil
+	}
+}

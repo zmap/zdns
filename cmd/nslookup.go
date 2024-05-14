@@ -19,7 +19,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/zmap/zdns/internal/util"
-	"github.com/zmap/zdns/pkg/zdns"
 )
 
 // nslookupCmd represents the nslookup command
@@ -29,11 +28,7 @@ var nslookupCmd = &cobra.Command{
 	Long:  `nslookup will additionally do an A/AAAA lookup for the IP addresses that correspond with name server records.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		GC.Module = strings.ToUpper("nslookup")
-		zdns.Run(GC, cmd.Flags(),
-			&Timeout, &IterationTimeout,
-			&Class_string, &Servers_string,
-			&Config_file, &Localaddr_string,
-			&Localif_string, &NanoSeconds, &ClientSubnet_string, &NSID)
+		Run(GC, cmd.Flags())
 	},
 }
 

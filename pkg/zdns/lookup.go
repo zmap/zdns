@@ -41,24 +41,6 @@ func (lc LookupClient) DoSingleDstServerLookup(r *Resolver, q Question, nameServ
 	return r.doSingleDstServerLookup(q, nameServer, isIterative)
 }
 
-//func (lc LookupClient) DoAllNameserverLookup(r *Resolver, q Question, nameServer string) (*CombinedResults, Trace, Status, error) {
-//	return r.doLookupAllNameservers(q, nameServer)
-//}
-
-/*
-// TODO Phillip, yeah we gotta rename this
-doSingleDstServerLookup
-
-	iterativeLookup
-		cachedRetryingLookup
-			retryingLookup
-				wireLookup
-
-doSingleDstServerLookup
-
-	retryingLookup
-*/
-
 func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
 	if nameServer == "" {
 		return nil, nil, STATUS_ILLEGAL_INPUT, errors.New("no nameserver specified")
@@ -97,6 +79,46 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 	t.Try = try
 	trace := Trace{t}
 	return &res, trace, status, err
+}
+
+func (r *Resolver) DoLookupAllNameservers(q *Question, nameServer string) (*CombinedResults, *Trace, Status, error) {
+	var retv CombinedResults
+	var curServer string
+
+	// Lookup both ipv4 and ipv6 addresses of nameservers.
+	nsResults, nsTrace, nsStatus, nsError := r.DoNSLookup(q.Name, nameServer)
+
+	// Terminate early if nameserver lookup also failed
+	if nsStatus != STATUS_NOERROR {
+		return nil, nsTrace, nsStatus, nsError
+	}
+	if nsResults == nil {
+		return nil, nsTrace, nsStatus, errors.New("no results from nameserver lookup")
+	}
+
+	// fullTrace holds the complete trace including all lookups
+	var fullTrace = Trace{}
+	if nsTrace != nil {
+		fullTrace = append(fullTrace, *nsTrace...)
+	}
+	for _, nserver := range nsResults.Servers {
+		// Use all the ipv4 and ipv6 addresses of each nameserver
+		nameserver := nserver.Name
+		ips := append(nserver.IPv4Addresses, nserver.IPv6Addresses...)
+		for _, ip := range ips {
+			curServer = net.JoinHostPort(ip, "53")
+			res, trace, status, _ := r.ExternalLookup(q, curServer)
+
+			fullTrace = append(fullTrace, trace...)
+			extendedResult := ExtendedResult{
+				Res:        *res,
+				Status:     status,
+				Nameserver: nameserver,
+			}
+			retv.Results = append(retv.Results, extendedResult)
+		}
+	}
+	return &retv, &fullTrace, STATUS_NOERROR, nil
 }
 
 func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer string,

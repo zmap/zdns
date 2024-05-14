@@ -14,7 +14,7 @@
 package main
 
 import (
-	"github.com/zmap/zdns/pkg/cmd"
+	"github.com/zmap/zdns/cmd"
 	// the order of these imports is important, as the modules are registered in the init() functions.
 	// Import modules after the basic cmd pkg
 	_ "github.com/zmap/zdns/pkg/modules/alookup"

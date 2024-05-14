@@ -17,10 +17,7 @@ package alookup
 import (
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
-	"github.com/zmap/zdns/pkg/cmd"
-	"strings"
-
-	"github.com/zmap/dns"
+	"github.com/zmap/zdns/cmd"
 	"github.com/zmap/zdns/pkg/zdns"
 )
 
@@ -58,113 +55,8 @@ func (aMod *ALookupModule) Init(ipv4Lookup bool, ipv6Lookup bool) {
 }
 
 func (aMod *ALookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
-	ipResult, trace, status, err := DoTargetedLookup(r, lookupName, nameServer, zdns.GetIPVersionMode(aMod.IPv4Lookup, aMod.IPv6Lookup), aMod.baseModule.IsIterative)
+	ipResult, trace, status, err := r.DoTargetedLookup(lookupName, nameServer, zdns.GetIPVersionMode(aMod.IPv4Lookup, aMod.IPv6Lookup), aMod.baseModule.IsIterative)
 	return ipResult, trace, status, err
-}
-
-// DoTargetedLookup performs a lookup of the given domain name against the given nameserver, looking up both IPv4 and IPv6 addresses
-// Will follow CNAME records as well as A/AAAA records to get IP addresses
-func DoTargetedLookup(r *zdns.Resolver, name, nameServer string, ipMode zdns.IPVersionMode, isIterative bool) (*zdns.IPResult, zdns.Trace, zdns.Status, error) {
-	lookupIPv4 := ipMode == zdns.IPv4Only || ipMode == zdns.IPv4OrIPv6
-	lookupIPv6 := ipMode == zdns.IPv6Only || ipMode == zdns.IPv4OrIPv6
-	name = strings.ToLower(name)
-	res := zdns.IPResult{}
-	candidateSet := map[string][]zdns.Answer{}
-	cnameSet := map[string][]zdns.Answer{}
-	var ipv4 []string
-	var ipv6 []string
-	var ipv4Trace zdns.Trace
-	var ipv6Trace zdns.Trace
-	var ipv4status zdns.Status
-	var ipv6status zdns.Status
-
-	if lookupIPv4 {
-		ipv4, ipv4Trace, ipv4status, _ = recursiveIPLookup(r, name, nameServer, dns.TypeA, candidateSet, cnameSet, name, 0, isIterative)
-		if len(ipv4) > 0 {
-			ipv4 = zdns.Unique(ipv4)
-			res.IPv4Addresses = make([]string, len(ipv4))
-			copy(res.IPv4Addresses, ipv4)
-		}
-	}
-	candidateSet = map[string][]zdns.Answer{}
-	cnameSet = map[string][]zdns.Answer{}
-	if lookupIPv6 {
-		ipv6, ipv6Trace, ipv6status, _ = recursiveIPLookup(r, name, nameServer, dns.TypeAAAA, candidateSet, cnameSet, name, 0, isIterative)
-		if len(ipv6) > 0 {
-			ipv6 = zdns.Unique(ipv6)
-			res.IPv6Addresses = make([]string, len(ipv6))
-			copy(res.IPv6Addresses, ipv6)
-		}
-	}
-
-	combinedTrace := append(ipv4Trace, ipv6Trace...)
-
-	// In case we get no IPs and a non-NOERROR status from either
-	// IPv4 or IPv6 lookup, we return that status.
-	if len(res.IPv4Addresses) == 0 && len(res.IPv6Addresses) == 0 {
-		if lookupIPv4 && !zdns.SafeStatus(ipv4status) {
-			return nil, combinedTrace, ipv4status, nil
-		} else if lookupIPv6 && !zdns.SafeStatus(ipv6status) {
-			return nil, combinedTrace, ipv6status, nil
-		} else {
-			return &res, combinedTrace, zdns.STATUS_NOERROR, nil
-		}
-	}
-	return &res, combinedTrace, zdns.STATUS_NOERROR, nil
-}
-
-// recursiveIPLookup helper fn that recursively follows both A/AAAA records and CNAME records to find IP addresses
-// returns an array of IP addresses, a trace of the lookups, a status, and an error
-func recursiveIPLookup(r *zdns.Resolver, name, nameServer string, dnsType uint16, candidateSet map[string][]zdns.Answer, cnameSet map[string][]zdns.Answer, origName string, depth int, isIterative bool) ([]string, zdns.Trace, zdns.Status, error) {
-	// avoid infinite loops
-	if name == origName && depth != 0 {
-		return nil, make(zdns.Trace, 0), zdns.STATUS_ERROR, errors.New("infinite redirection loop")
-	}
-	if depth > 10 {
-		return nil, make(zdns.Trace, 0), zdns.STATUS_ERROR, errors.New("max recursion depth reached")
-	}
-	// check if the record is already in our cache. if not, perform normal A lookup and
-	// see what comes back. Then iterate over results and if needed, perform further lookups
-	var trace zdns.Trace
-	var result *zdns.SingleQueryResult
-	garbage := map[string][]zdns.Answer{}
-	if _, ok := candidateSet[name]; !ok {
-		var status zdns.Status
-		var err error
-		if isIterative {
-			result, trace, status, err = r.IterativeLookup(&zdns.Question{Name: name, Type: dnsType, Class: dns.ClassINET})
-		} else {
-			result, trace, status, err = r.ExternalLookup(&zdns.Question{Name: name, Type: dnsType, Class: dns.ClassINET}, nameServer)
-		}
-
-		if status != zdns.STATUS_NOERROR || err != nil {
-			return nil, trace, status, err
-		}
-
-		zdns.PopulateResults(result.Answers, dnsType, candidateSet, cnameSet, garbage)
-		zdns.PopulateResults(result.Additional, dnsType, candidateSet, cnameSet, garbage)
-	}
-	// our cache should now have any data that exists about the current name
-	if res, ok := candidateSet[name]; ok && len(res) > 0 {
-		// we have IP addresses to hand back to the user. let's make an easy-to-use array of strings
-		var ips []string
-		for _, answer := range res {
-			ips = append(ips, answer.Answer)
-		}
-		return ips, trace, zdns.STATUS_NOERROR, nil
-	} else if res, ok = cnameSet[name]; ok && len(res) > 0 {
-		// we have a CNAME and need to further recurse to find IPs
-		shortName := strings.ToLower(strings.TrimSuffix(res[0].Answer, "."))
-		res, secondTrace, status, err := recursiveIPLookup(r, shortName, nameServer, dnsType, candidateSet, cnameSet, origName, depth+1, isIterative)
-		trace = append(trace, secondTrace...)
-		return res, trace, status, err
-	} else if res, ok = garbage[name]; ok && len(res) > 0 {
-		return nil, trace, zdns.STATUS_ERROR, errors.New("unexpected record type received")
-	} else {
-		// we have no data whatsoever about this name. return an empty recordset to the user
-		var ips []string
-		return ips, trace, zdns.STATUS_NOERROR, nil
-	}
 }
 
 // Help returns the module's help string
