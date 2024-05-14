@@ -260,55 +260,6 @@ func (r *Resolver) IterativeLookup(q *Question) (*SingleQueryResult, Trace, Stat
 	return r.lookupClient.DoSingleDstServerLookup(r, *q, r.randomRootNameServer(), true)
 }
 
-func (r *Resolver) LookupAllNameservers(q *Question) (interface{}, error) {
-	// TODO implement
-	return nil, nil
-	/*
-
-		// DoLookupAllNameservers - lookup all nameservers at a given level, then perform a Loookup on each nameserver in that level
-		func DoLookupAllNameservers(r *zdns.Resolver, q zdns.Question, nameServer string) (*zdns.CombinedResults, zdns.Trace, zdns.Status, error) {
-			var retv zdns.CombinedResults
-			var curServer string
-
-			// Lookup both ipv4 and ipv6 addresses of nameservers.
-			nsResults, nsTrace, nsStatus, nsError := DoNSLookup(r, q.Name, true, true, nameServer)
-
-			// Terminate early if nameserver lookup also failed
-			if nsStatus != zdns.STATUS_NOERROR {
-				return nil, nsTrace, nsStatus, nsError
-			}
-
-			// fullTrace holds the complete trace including all lookups
-			var fullTrace zdns.Trace = nsTrace
-			var tmpRes zdns.SingleQueryResult
-
-			for _, nserver := range nsResults.Servers {
-				// Use all the ipv4 and ipv6 addresses of each nameserver
-				nameserver := nserver.Name
-				ips := append(nserver.IPv4Addresses, nserver.IPv6Addresses...)
-				for _, ip := range ips {
-					curServer = net.JoinHostPort(ip, "53")
-					res, trace, status, err := r.Lookup(&q, curServer)
-
-					fullTrace = append(fullTrace, trace...)
-					tmpRes = zdns.SingleQueryResult{}
-					if err == nil {
-						tmpRes = *res
-					}
-					extendedResult := zdns.ExtendedResult{
-						Res:        tmpRes,
-						Status:     status,
-						Nameserver: nameserver,
-						Trace:      trace,
-					}
-					retv.Results = append(retv.Results, extendedResult)
-				}
-			}
-			return &retv, fullTrace, zdns.STATUS_NOERROR, nil
-		}
-	*/
-}
-
 // Close cleans up any resources used by the resolver. This should be called when the resolver is no longer needed.
 // Lookup will panic if called after Close.
 func (r *Resolver) Close() {

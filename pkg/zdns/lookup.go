@@ -81,7 +81,7 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 	return &res, trace, status, err
 }
 
-func (r *Resolver) DoLookupAllNameservers(q *Question, nameServer string) (*CombinedResults, *Trace, Status, error) {
+func (r *Resolver) LookupAllNameservers(q *Question, nameServer string) (*CombinedResults, *Trace, Status, error) {
 	var retv CombinedResults
 	var curServer string
 
