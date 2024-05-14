@@ -86,7 +86,7 @@ func (r *Resolver) LookupAllNameservers(q *Question, nameServer string) (*Combin
 	var curServer string
 
 	// Lookup both ipv4 and ipv6 addresses of nameservers.
-	nsResults, nsTrace, nsStatus, nsError := r.DoNSLookup(q.Name, nameServer)
+	nsResults, nsTrace, nsStatus, nsError := r.DoNSLookup(q.Name, nameServer, false)
 
 	// Terminate early if nameserver lookup also failed
 	if nsStatus != STATUS_NOERROR {

@@ -15,6 +15,7 @@ package zdns
 
 import (
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
 	"strings"
 )
@@ -38,9 +39,10 @@ type NSResult struct {
 }
 
 // DoNSLookup performs a DNS NS lookup on the given name against the given name server.
-func (r *Resolver) DoNSLookup(lookupName, nameServer string) (*NSResult, *Trace, Status, error) {
-	if len(nameServer) == 0 {
-		return nil, nil, "", errors.New("no name server provided for NS lookup")
+func (r *Resolver) DoNSLookup(lookupName, nameServer string, isIterative bool) (*NSResult, *Trace, Status, error) {
+	if !isIterative && len(nameServer) == 0 {
+		nameServer = r.randomExternalNameServer()
+		log.Info("no name server provided for external NS lookup, using random external name server: ", nameServer)
 	}
 	if len(lookupName) == 0 {
 		return nil, nil, "", errors.New("no name provided for NS lookup")
@@ -50,7 +52,12 @@ func (r *Resolver) DoNSLookup(lookupName, nameServer string) (*NSResult, *Trace,
 	var ns *SingleQueryResult
 	var status Status
 	var err error
-	ns, trace, status, err = r.ExternalLookup(&Question{Name: lookupName, Type: dns.TypeNS, Class: dns.ClassINET}, nameServer)
+	if isIterative {
+		ns, trace, status, err = r.IterativeLookup(&Question{Name: lookupName, Type: dns.TypeNS, Class: dns.ClassINET})
+	} else {
+		ns, trace, status, err = r.ExternalLookup(&Question{Name: lookupName, Type: dns.TypeNS, Class: dns.ClassINET}, nameServer)
+
+	}
 
 	var retv NSResult
 	if status != STATUS_NOERROR || err != nil {

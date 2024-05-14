@@ -1359,7 +1359,7 @@ func TestNsAInAdditional(t *testing.T) {
 		IPv4Addresses: []string{"192.0.2.3"},
 		IPv6Addresses: nil,
 	}
-	res, _, _, _ := resolver.DoNSLookup("example.com", ns1)
+	res, _, _, _ := resolver.DoNSLookup("example.com", ns1, false)
 	verifyNsResult(t, res.Servers, expectedServersMap)
 }
 
@@ -1420,7 +1420,7 @@ func TestTwoNSInAdditional(t *testing.T) {
 		IPv4Addresses: []string{"192.0.2.4"},
 		IPv6Addresses: nil,
 	}
-	res, _, _, _ := resolver.DoNSLookup("example.com", ns1)
+	res, _, _, _ := resolver.DoNSLookup("example.com", ns1, false)
 	verifyNsResult(t, res.Servers, expectedServersMap)
 }
 
@@ -1470,7 +1470,7 @@ func TestAandQuadAInAdditional(t *testing.T) {
 		IPv4Addresses: []string{"192.0.2.3"},
 		IPv6Addresses: []string{"2001:db8::4"},
 	}
-	res, _, _, _ := resolver.DoNSLookup("example.com", ns1)
+	res, _, _, _ := resolver.DoNSLookup("example.com", ns1, false)
 	verifyNsResult(t, res.Servers, expectedServersMap)
 }
 
@@ -1520,7 +1520,7 @@ func TestNsMismatchIpType(t *testing.T) {
 		IPv4Addresses: nil,
 		IPv6Addresses: nil,
 	}
-	res, _, _, _ := resolver.DoNSLookup("example.com", ns1)
+	res, _, _, _ := resolver.DoNSLookup("example.com", ns1, false)
 	verifyNsResult(t, res.Servers, expectedServersMap)
 }
 
@@ -1582,7 +1582,7 @@ func TestAandQuadALookup(t *testing.T) {
 		IPv4Addresses: []string{"192.0.2.3"},
 		IPv6Addresses: []string{"2001:db8::4"},
 	}
-	res, _, _, _ := resolver.DoNSLookup("example.com", ns1)
+	res, _, _, _ := resolver.DoNSLookup("example.com", ns1, false)
 	verifyNsResult(t, res.Servers, expectedServersMap)
 }
 
@@ -1593,7 +1593,7 @@ func TestNsNXDomain(t *testing.T) {
 
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
 
-	_, _, status, _ := resolver.DoNSLookup("nonexistentexample.com", ns1)
+	_, _, status, _ := resolver.DoNSLookup("nonexistentexample.com", ns1, false)
 
 	assert.Equal(t, status, STATUS_NXDOMAIN)
 }
@@ -1610,7 +1610,7 @@ func TestNsServFail(t *testing.T) {
 	mockResults[domain_ns_1] = SingleQueryResult{}
 	protocolStatus[domain_ns_1] = STATUS_SERVFAIL
 
-	res, _, status, _ := resolver.DoNSLookup("example.com", ns1)
+	res, _, status, _ := resolver.DoNSLookup("example.com", ns1, false)
 	serversLength := len(res.Servers)
 
 	assert.Equal(t, status, protocolStatus[domain_ns_1])
@@ -1644,7 +1644,7 @@ func TestErrorInTargetedLookup(t *testing.T) {
 
 	protocolStatus[domain_ns_1] = STATUS_ERROR
 
-	res, _, status, _ := resolver.DoNSLookup("example.com", ns1)
+	res, _, status, _ := resolver.DoNSLookup("example.com", ns1, false)
 	assert.Equal(t, len(res.Servers), 0)
 	assert.Equal(t, status, protocolStatus[domain_ns_1])
 }

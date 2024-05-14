@@ -81,7 +81,7 @@ func (nsMod *NSLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameSer
 		log.Warn("iterative lookup requested with lookupName server, ignoring lookupName server")
 	}
 
-	res, trace, status, err := r.DoNSLookup(lookupName, nameServer)
+	res, trace, status, err := r.DoNSLookup(lookupName, nameServer, nsMod.IsIterative)
 	if trace == nil {
 		trace = &zdns.Trace{}
 	}
