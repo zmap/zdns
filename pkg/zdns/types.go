@@ -58,7 +58,7 @@ func GetIPVersionMode(ipv4, ipv6 bool) IPVersionMode {
 	} else if ipv6 {
 		return IPv6Only
 	}
-	return IPv4OrIPv6
+	return IPv4Only
 }
 
 func (ivm IPVersionMode) IsValid() (bool, string) {
