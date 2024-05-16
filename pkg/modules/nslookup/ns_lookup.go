@@ -68,10 +68,6 @@ type NSRecord struct {
 	TTL           uint32   `json:"ttl" groups:"normal,long,trace"`
 }
 
-type NSResult struct {
-	Servers []NSRecord `json:"servers,omitempty" groups:"short,normal,long,trace"`
-}
-
 func (nsMod *NSLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	if nsMod.testingLookup != nil {
 		// used for mocking
