@@ -17,7 +17,6 @@ package axfr
 import (
 	"github.com/spf13/pflag"
 	"github.com/zmap/zdns/cmd"
-	"github.com/zmap/zdns/pkg/modules/nslookup"
 	"net"
 	"reflect"
 	"testing"
@@ -70,7 +69,7 @@ func (axfrMod *AxfrLookupModule) In(m *dns.Msg, server string) (chan *dns.Envelo
 	}
 }
 
-var nsRecords = make(map[string]nslookup.NSResult)
+var nsRecords = make(map[string]*zdns.NSResult)
 var nsStatus = zdns.STATUS_NOERROR
 
 // Mock the actual NS lookup.
@@ -78,7 +77,7 @@ func mockNSLookup(r *zdns.Resolver, lookupName, nameServer string) (interface{},
 	if res, ok := nsRecords[lookupName]; ok {
 		return res, nil, nsStatus, nil
 	} else {
-		return nslookup.NSResult{}, nil, zdns.STATUS_NXDOMAIN, nil
+		return zdns.NSResult{}, nil, zdns.STATUS_NXDOMAIN, nil
 	}
 }
 
@@ -87,7 +86,7 @@ func InitTest() (*AxfrLookupModule, *zdns.Resolver) {
 	transferError = ""
 	envelopeError = ""
 
-	nsRecords = make(map[string]nslookup.NSResult)
+	nsRecords = make(map[string]*zdns.NSResult)
 	nsStatus = zdns.STATUS_NOERROR
 
 	cc := new(cmd.CLIConf)
@@ -119,8 +118,8 @@ func TestLookupSingleNS(t *testing.T) {
 	ip1 := "192.0.2.3"
 	hostPort1 := net.JoinHostPort(ip1, "53")
 
-	nsRecords["example.com"] = nslookup.NSResult{
-		Servers: []nslookup.NSRecord{
+	nsRecords["example.com"] = &zdns.NSResult{
+		Servers: []zdns.NSRecord{
 			{
 				Name:          ns1 + ".",
 				Type:          "NS",
@@ -235,8 +234,8 @@ func TestLookupTwoNS(t *testing.T) {
 	ip2 := "192.0.2.4"
 	hostPort2 := net.JoinHostPort(ip2, "53")
 
-	nsRecords["example.com"] = nslookup.NSResult{
-		Servers: []nslookup.NSRecord{
+	nsRecords["example.com"] = &zdns.NSResult{
+		Servers: []zdns.NSRecord{
 			{
 				Name:          ns1 + ".",
 				Type:          "NS",
@@ -306,8 +305,8 @@ func TestFailureInTransfer(t *testing.T) {
 	ns1 := "ns1.example.com"
 	ip1 := "192.0.2.3"
 
-	nsRecords["example.com"] = nslookup.NSResult{
-		Servers: []nslookup.NSRecord{
+	nsRecords["example.com"] = &zdns.NSResult{
+		Servers: []zdns.NSRecord{
 			{
 				Name:          ns1 + ".",
 				Type:          "NS",
@@ -339,8 +338,8 @@ func TestErrorInEnvelope(t *testing.T) {
 	ns1 := "ns1.example.com"
 	ip1 := "192.0.2.3"
 
-	nsRecords["example.com"] = nslookup.NSResult{
-		Servers: []nslookup.NSRecord{
+	nsRecords["example.com"] = &zdns.NSResult{
+		Servers: []zdns.NSRecord{
 			{
 				Name:          ns1 + ".",
 				Type:          "NS",
@@ -371,8 +370,8 @@ func TestNoIpv4InNsLookup(t *testing.T) {
 
 	ns1 := "ns1.example.com"
 
-	nsRecords["example.com"] = nslookup.NSResult{
-		Servers: []nslookup.NSRecord{
+	nsRecords["example.com"] = &zdns.NSResult{
+		Servers: []zdns.NSRecord{
 			{
 				Name:          ns1 + ".",
 				Type:          "NS",
@@ -401,7 +400,7 @@ func TestErrorInNsLookup(t *testing.T) {
 	axfrMod, resolver := InitTest()
 
 	nsStatus = zdns.STATUS_SERVFAIL
-	nsRecords["example.com"] = nslookup.NSResult{
+	nsRecords["example.com"] = &zdns.NSResult{
 		Servers: nil,
 	}
 

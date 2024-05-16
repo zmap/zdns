@@ -59,15 +59,6 @@ func (nsMod *NSLookupModule) Init(ipv4Lookup, ipv6Lookup bool) {
 	nsMod.IPv6Lookup = ipv6Lookup
 }
 
-// NSRecord result to be returned by scan of host
-type NSRecord struct {
-	Name          string   `json:"name" groups:"short,normal,long,trace"`
-	Type          string   `json:"type" groups:"short,normal,long,trace"`
-	IPv4Addresses []string `json:"ipv4_addresses,omitempty" groups:"short,normal,long,trace"`
-	IPv6Addresses []string `json:"ipv6_addresses,omitempty" groups:"short,normal,long,trace"`
-	TTL           uint32   `json:"ttl" groups:"normal,long,trace"`
-}
-
 func (nsMod *NSLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	if nsMod.testingLookup != nil {
 		// used for mocking

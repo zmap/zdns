@@ -109,7 +109,7 @@ func (axfrMod *AxfrLookupModule) Lookup(resolver *zdns.Resolver, name, nameServe
 		}
 		castedNS, ok := parsedNS.(*zdns.NSResult)
 		if !ok {
-			return nil, trace, status, errors.New("failed to cast parsedNS to nslookup.NSResult")
+			return nil, trace, status, errors.New("failed to cast parsedNS to zdns.NSResult")
 		}
 		for _, server := range castedNS.Servers {
 			if len(server.IPv4Addresses) > 0 {
