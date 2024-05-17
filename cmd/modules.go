@@ -111,13 +111,15 @@ func RegisterLookupModule(name string, lm LookupModule) {
 }
 
 type BasicLookupModule struct {
-	IsIterative bool
-	DNSType     uint16
-	DNSClass    uint16
+	IsIterative          bool
+	LookupAllNameServers bool
+	DNSType              uint16
+	DNSClass             uint16
 }
 
 func (lm *BasicLookupModule) CLIInit(gc *CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
 	lm.IsIterative = rc.IsIterative
+	lm.LookupAllNameServers = rc.LookupAllNameServers
 	return nil
 }
 
@@ -126,11 +128,13 @@ func (lm *BasicLookupModule) Help() string {
 }
 
 func (lm *BasicLookupModule) Lookup(resolver *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+	if lm.LookupAllNameServers {
+		return resolver.LookupAllNameservers(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass}, nameServer)
+	}
 	if lm.IsIterative {
 		return resolver.IterativeLookup(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass})
-	} else {
-		return resolver.ExternalLookup(&zdns.Question{Type: lm.DNSType, Class: lm.DNSClass, Name: lookupName}, nameServer)
 	}
+	return resolver.ExternalLookup(&zdns.Question{Type: lm.DNSType, Class: lm.DNSClass, Name: lookupName}, nameServer)
 }
 
 func GetLookupModule(name string) (LookupModule, error) {

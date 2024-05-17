@@ -63,11 +63,12 @@ type ResolverConfig struct {
 	IPVersionMode        IPVersionMode
 	ShouldRecycleSockets bool
 
-	IsIterative         bool
-	IterativeTimeout    time.Duration
-	Timeout             time.Duration // timeout for the network conns
-	MaxDepth            int
-	ExternalNameServers []string // name servers used for external lookups
+	IsIterative          bool
+	IterativeTimeout     time.Duration
+	Timeout              time.Duration // timeout for the network conns
+	MaxDepth             int
+	ExternalNameServers  []string // name servers used for external lookups
+	LookupAllNameServers bool     // perform the lookup via all the nameservers for the domain
 
 	DNSSecEnabled       bool
 	EdnsOptions         []dns.EDNS0
@@ -101,6 +102,7 @@ func NewResolverConfig() *ResolverConfig {
 		TransportMode:        defaultTransportMode,
 		IPVersionMode:        defaultIPVersionMode,
 		ShouldRecycleSockets: defaultShouldRecycleSockets,
+		LookupAllNameServers: false,
 
 		Retries:  defaultRetries,
 		LogLevel: defaultLogVerbosity,
@@ -170,8 +172,9 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 
 		blacklist: config.Blacklist,
 
-		retries:  config.Retries,
-		logLevel: config.LogLevel,
+		retries:              config.Retries,
+		logLevel:             config.LogLevel,
+		lookupAllNameServers: config.LookupAllNameServers,
 
 		transportMode:        config.TransportMode,
 		ipVersionMode:        config.IPVersionMode,

@@ -39,7 +39,7 @@ type NSResult struct {
 }
 
 // DoNSLookup performs a DNS NS lookup on the given name against the given name server.
-func (r *Resolver) DoNSLookup(lookupName, nameServer string, isIterative bool) (*NSResult, *Trace, Status, error) {
+func (r *Resolver) DoNSLookup(lookupName, nameServer string, isIterative bool) (*NSResult, Trace, Status, error) {
 	if !isIterative && len(nameServer) == 0 {
 		nameServer = r.randomExternalNameServer()
 		log.Info("no name server provided for external NS lookup, using random external name server: ", nameServer)
@@ -61,7 +61,7 @@ func (r *Resolver) DoNSLookup(lookupName, nameServer string, isIterative bool) (
 
 	var retv NSResult
 	if status != STATUS_NOERROR || err != nil {
-		return &retv, &trace, status, err
+		return &retv, trace, status, err
 	}
 	ipv4s := make(map[string][]string)
 	ipv6s := make(map[string][]string)
@@ -129,5 +129,5 @@ func (r *Resolver) DoNSLookup(lookupName, nameServer string, isIterative bool) (
 
 		retv.Servers = append(retv.Servers, rec)
 	}
-	return &retv, &trace, STATUS_NOERROR, nil
+	return &retv, trace, STATUS_NOERROR, nil
 }

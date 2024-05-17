@@ -53,21 +53,22 @@ type CLIConf struct {
 	IncludeInOutput string
 	OutputGroups    []string
 
-	MaxDepth           int
-	CacheSize          int
-	GoMaxProcs         int
-	Verbosity          int
-	TimeFormat         string
-	NameServers        []string
-	TCPOnly            bool
-	UDPOnly            bool
-	RecycleSockets     bool
-	LocalAddrSpecified bool
-	LocalAddrs         []net.IP
-	ClientSubnet       *dns.EDNS0_SUBNET
-	UseNSID            bool
-	Dnssec             bool
-	CheckingDisabled   bool
+	MaxDepth             int
+	CacheSize            int
+	GoMaxProcs           int
+	Verbosity            int
+	TimeFormat           string
+	NameServers          []string
+	LookupAllNameServers bool
+	TCPOnly              bool
+	UDPOnly              bool
+	RecycleSockets       bool
+	LocalAddrSpecified   bool
+	LocalAddrs           []net.IP
+	ClientSubnet         *dns.EDNS0_SUBNET
+	UseNSID              bool
+	Dnssec               bool
+	CheckingDisabled     bool
 
 	InputFilePath     string
 	OutputFilePath    string
@@ -132,8 +133,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&GC.AlexaFormat, "alexa", false, "is input file from Alexa Top Million download")
 	rootCmd.PersistentFlags().BoolVar(&GC.MetadataFormat, "metadata-passthrough", false, "if input records have the form 'name,METADATA', METADATA will be propagated to the output")
 	rootCmd.PersistentFlags().BoolVar(&GC.IterativeResolution, "iterative", false, "Perform own iteration instead of relying on recursive resolver")
-	// TODO removing since it's broken in the main codebase, will open a new Issue to fix
-	//rootCmd.PersistentFlags().BoolVar(&GC.LookupAllNameServers, "all-nameservers", false, "Perform the lookup via all the nameservers for the domain.")
+	rootCmd.PersistentFlags().BoolVar(&GC.LookupAllNameServers, "all-nameservers", false, "Perform the lookup via all the nameservers for the domain.")
 	rootCmd.PersistentFlags().StringVar(&GC.InputFilePath, "input-file", "", "names to read, defaults to stdin")
 	rootCmd.PersistentFlags().StringVar(&GC.OutputFilePath, "output-file", "", "where should JSON output be saved, defaults to stdout")
 	rootCmd.PersistentFlags().StringVar(&GC.MetadataFilePath, "metadata-file", "", "where should JSON metadata be saved, defaults to stderr")

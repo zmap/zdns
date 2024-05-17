@@ -70,9 +70,9 @@ func (nsMod *NSLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameSer
 
 	res, trace, status, err := r.DoNSLookup(lookupName, nameServer, nsMod.IsIterative)
 	if trace == nil {
-		trace = &zdns.Trace{}
+		trace = zdns.Trace{}
 	}
-	return res, *trace, status, err
+	return res, trace, status, err
 }
 
 // Help returns the module's help string

@@ -94,7 +94,10 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 	return &res, trace, status, err
 }
 
-func (r *Resolver) LookupAllNameservers(q *Question, nameServer string) (*CombinedResults, *Trace, Status, error) {
+// TODO - This is incomplete. We only lookup all nameservers for the initial name server lookup, then just send the DNS query to this set.
+// If we want to iteratively lookup all nameservers at each level of the query, we need to fix this.
+// Issue - https://github.com/zmap/zdns/issues/362
+func (r *Resolver) LookupAllNameservers(q *Question, nameServer string) (*CombinedResults, Trace, Status, error) {
 	var retv CombinedResults
 	var curServer string
 
@@ -112,7 +115,7 @@ func (r *Resolver) LookupAllNameservers(q *Question, nameServer string) (*Combin
 	// fullTrace holds the complete trace including all lookups
 	var fullTrace = Trace{}
 	if nsTrace != nil {
-		fullTrace = append(fullTrace, *nsTrace...)
+		fullTrace = append(fullTrace, nsTrace...)
 	}
 	for _, nserver := range nsResults.Servers {
 		// Use all the ipv4 and ipv6 addresses of each nameserver
@@ -131,7 +134,7 @@ func (r *Resolver) LookupAllNameservers(q *Question, nameServer string) (*Combin
 			retv.Results = append(retv.Results, extendedResult)
 		}
 	}
-	return &retv, &fullTrace, STATUS_NOERROR, nil
+	return &retv, fullTrace, STATUS_NOERROR, nil
 }
 
 func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer string,
