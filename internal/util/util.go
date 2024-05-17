@@ -27,7 +27,9 @@ import (
 var rePort *regexp.Regexp
 var reV6 *regexp.Regexp
 
-const EnvPrefix = "ZDNS"
+const (
+	EnvPrefix = "ZDNS"
+)
 
 func AddDefaultPortToDNSServerName(s string) string {
 	if !rePort.MatchString(s) {
