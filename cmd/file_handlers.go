@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"bufio"
+	"github.com/zmap/zdns/internal/util"
 	"os"
 	"sync"
 
@@ -74,7 +75,7 @@ func (h *FileOutputHandler) WriteResults(results <-chan string, wg *sync.WaitGro
 		f = os.Stdout
 	} else {
 		var err error
-		f, err = os.OpenFile(h.filepath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		f, err = os.OpenFile(h.filepath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, util.DefaultFilePermissions)
 		if err != nil {
 			log.Fatalf("unable to open output file: %v", err)
 		}

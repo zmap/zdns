@@ -53,7 +53,7 @@ type Metadata struct {
 
 func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 	if gc.LogFilePath != "" && gc.LogFilePath != "-" {
-		f, err := os.OpenFile(gc.LogFilePath, os.O_WRONLY|os.O_CREATE, 0666)
+		f, err := os.OpenFile(gc.LogFilePath, os.O_WRONLY|os.O_CREATE, util.DefaultFilePermissions)
 		if err != nil {
 			log.Fatalf("Unable to open log file (%s): %s", gc.LogFilePath, err.Error())
 		}
@@ -387,7 +387,7 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 	if gc.MetadataFilePath == "" {
 		f = os.Stderr
 	} else {
-		f, err = os.OpenFile(gc.MetadataFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		f, err = os.OpenFile(gc.MetadataFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, util.DefaultFilePermissions)
 		if err != nil {
 			log.Fatal("unable to open metadata file:", err.Error())
 		}

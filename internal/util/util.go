@@ -28,7 +28,8 @@ var rePort *regexp.Regexp
 var reV6 *regexp.Regexp
 
 const (
-	EnvPrefix = "ZDNS"
+	EnvPrefix              = "ZDNS"
+	DefaultFilePermissions = 0644 // rw-r--r--
 )
 
 func AddDefaultPortToDNSServerName(s string) string {
