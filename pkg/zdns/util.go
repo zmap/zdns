@@ -173,7 +173,8 @@ func PopulateResults(records []interface{}, dnsType uint16, candidateSet map[str
 	}
 }
 
-// TODO Phillip - add a comment
+// handleStatus is a helper function to deal with a status and error. Error is only returned if the status is an
+// Iterative Timeout
 func handleStatus(status *Status, err error) (*Status, error) {
 	switch *status {
 	case STATUS_ITER_TIMEOUT:

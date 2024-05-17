@@ -87,6 +87,7 @@ func (rc *ResolverConfig) isValid() (bool, string) {
 	return true, ""
 }
 
+// NewResolverConfig creates a new ResolverConfig with default values.
 func NewResolverConfig() *ResolverConfig {
 	c := new(Cache)
 	c.Init(defaultCacheSize)
@@ -113,6 +114,7 @@ func NewResolverConfig() *ResolverConfig {
 	}
 }
 
+// Resolver is a struct that holds the state of a DNS resolver. It is used to perform DNS lookups.
 type Resolver struct {
 	cache        *Cache
 	lookupClient Lookuper // either a functional or mock Lookuper client for testing
@@ -141,8 +143,12 @@ type Resolver struct {
 	dnsSecEnabled       bool
 	ednsOptions         []dns.EDNS0
 	checkingDisabledBit bool
+	isClosed            bool // true if the resolver has been closed, lookup will panic if called after Close
 }
 
+// InitResolver creates a new Resolver struct using the ResolverConfig. The Resolver is used to perform DNS lookups.
+// It is safe to create multiple Resolvers with the same ResolverConfig but each resolver should perform only one lookup at a time.
+// Returns a Resolver ptr and any error that occurred
 func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	if isValid, notValidReason := config.isValid(); !isValid {
 		return nil, fmt.Errorf("invalid resolver config: %s", notValidReason)
@@ -222,15 +228,14 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 			LocalAddr: &net.TCPAddr{IP: r.localAddr},
 		}
 	}
-	// TODO - Phillip double-check that this is a deep copy
 	r.externalNameServers = make([]string, len(config.ExternalNameServers))
+	// deep copy external name servers from config to resolver
 	elemsCopied := copy(r.externalNameServers, config.ExternalNameServers)
 	if elemsCopied != len(config.ExternalNameServers) {
 		log.Fatal("failed to copy entire name servers list from config")
 	}
 	r.iterativeTimeout = config.IterativeTimeout
 	r.maxDepth = config.MaxDepth
-	// r.lookupAllNameServers = config.LookupAllNameServers// TODO Phillip - this should probably be a specific API call rather than a Config option
 	// use the set of 13 root name servers
 	r.rootNameServers = RootServers[:]
 	if r.externalNameServers == nil || len(r.externalNameServers) == 0 {
@@ -246,8 +251,16 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	return r, nil
 }
 
-// TODO Phillip comment
+// ExternalLookup performs a single lookup of a DNS question, q,  against an external name server, dstServer. If dstServer is not
+// specified (ie. is an empty string), a random external name server will be used from the resolver's list of external name servers.
+// Thread-safety note: It is UNSAFE to use the same Resolver object to perform multiple lookups concurrently. If you need to perform
+// multiple lookups concurrently, create a new Resolver object for each concurrent lookup.
+// Returns the result of the lookup, the trace of the lookup (what each nameserver along the lookup returned), the
+// status of the lookup, and any error that occurred.
 func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryResult, Trace, Status, error) {
+	if r.isClosed {
+		log.Fatal("resolver has been closed, cannot perform lookup")
+	}
 	if dstServer == "" {
 		dstServer = r.randomExternalNameServer()
 	}
@@ -255,8 +268,16 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryRe
 	return lookup, trace, status, err
 }
 
-// TODO Phillip comment
+// IterativeLookup performs a single iterative lookup of a DNS question, q,  against a root name server. Iterative lookups
+// follow nameservers from the root to the authoritative nameserver for the query.
+// Thread-safety note: It is UNSAFE to use the same Resolver object to perform multiple lookups concurrently. If you need to perform
+// multiple lookups concurrently, create a new Resolver object for each concurrent lookup.
+// Returns the result of the lookup, the trace of the lookup (what each nameserver along the lookup returned), the
+// status of the lookup, and any error that occurred.
 func (r *Resolver) IterativeLookup(q *Question) (*SingleQueryResult, Trace, Status, error) {
+	if r.isClosed {
+		log.Fatal("resolver has been closed, cannot perform lookup")
+	}
 	return r.lookupClient.DoSingleDstServerLookup(r, *q, r.randomRootNameServer(), true)
 }
 
