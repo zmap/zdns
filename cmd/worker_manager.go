@@ -138,7 +138,11 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 			ns = strings.Split(gc.NameServersString, ",")
 		}
 		for i, s := range ns {
-			ns[i] = util.AddDefaultPortToDNSServerName(s)
+			nsWithPort, err := util.AddDefaultPortToDNSServerName(s)
+			if err != nil {
+				log.Fatalf("unable to parse name server: %s", s)
+			}
+			ns[i] = nsWithPort
 		}
 		gc.NameServers = ns
 	}
@@ -437,7 +441,10 @@ func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, i
 			rawName, entryMetadata = parseMetadataInputLine(line)
 			res.Metadata = entryMetadata
 		} else if gc.NameServerMode {
-			nameServer = util.AddDefaultPortToDNSServerName(line)
+			nameServer, err = util.AddDefaultPortToDNSServerName(line)
+			if err != nil {
+				log.Fatal("unable to parse name server: ", line)
+			}
 		} else {
 			rawName, nameServer = parseNormalInputLine(line)
 		}
@@ -519,7 +526,10 @@ func parseNormalInputLine(line string) (string, string) {
 	if len(s) == 1 {
 		return s[0], ""
 	} else {
-		ns := util.AddDefaultPortToDNSServerName(s[1])
+		ns, err := util.AddDefaultPortToDNSServerName(s[1])
+		if err != nil {
+			log.Fatal("unable to parse name server: ", s[1])
+		}
 		return s[0], ns
 	}
 }
