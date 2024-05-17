@@ -374,41 +374,43 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 	close(outChan)
 	close(metaChan)
 	routineWG.Wait()
-	// we're done processing data. aggregate all the data from individual routines
-	metaData := aggregateMetadata(metaChan)
-	metaData.StartTime = startTime
-	metaData.EndTime = time.Now().Format(gc.TimeFormat)
-	metaData.NameServers = gc.NameServers
-	metaData.Retries = gc.Retries
-	// Seconds() returns a float. However, timeout is passed in as an integer
-	// command line argument, so there should be no loss of data when casting
-	// back to an integer here.
-	metaData.Timeout = gc.Timeout
-	metaData.Conf = &gc
-	// add global lookup-related metadata
-	// write out metadata
-	var f *os.File
-	if gc.MetadataFilePath == "" {
-		f = os.Stderr
-	} else {
-		f, err = os.OpenFile(gc.MetadataFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, util.DefaultFilePermissions)
-		if err != nil {
-			log.Fatal("unable to open metadata file:", err.Error())
-		}
-		defer func(f *os.File) {
-			err = f.Close()
+	if gc.MetadataFilePath != "" {
+		// we're done processing data. aggregate all the data from individual routines
+		metaData := aggregateMetadata(metaChan)
+		metaData.StartTime = startTime
+		metaData.EndTime = time.Now().Format(gc.TimeFormat)
+		metaData.NameServers = gc.NameServers
+		metaData.Retries = gc.Retries
+		// Seconds() returns a float. However, timeout is passed in as an integer
+		// command line argument, so there should be no loss of data when casting
+		// back to an integer here.
+		metaData.Timeout = gc.Timeout
+		metaData.Conf = &gc
+		// add global lookup-related metadata
+		// write out metadata
+		var f *os.File
+		if gc.MetadataFilePath == "-" {
+			f = os.Stderr
+		} else {
+			f, err = os.OpenFile(gc.MetadataFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, util.DefaultFilePermissions)
 			if err != nil {
-				log.Error("unable to close metadata file:", err.Error())
+				log.Fatal("unable to open metadata file:", err.Error())
 			}
-		}(f)
-	}
-	j, err := json.Marshal(metaData)
-	if err != nil {
-		log.Fatal("unable to JSON encode metadata:", err.Error())
-	}
-	_, err = f.WriteString(string(j))
-	if err != nil {
-		return
+			defer func(f *os.File) {
+				err = f.Close()
+				if err != nil {
+					log.Error("unable to close metadata file:", err.Error())
+				}
+			}(f)
+		}
+		j, err := json.Marshal(metaData)
+		if err != nil {
+			log.Fatal("unable to JSON encode metadata:", err.Error())
+		}
+		_, err = f.WriteString(string(j))
+		if err != nil {
+			log.Errorf("unable to write metadata with error: %v", err)
+		}
 	}
 }
 

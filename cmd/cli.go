@@ -134,9 +134,9 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&GC.MetadataFormat, "metadata-passthrough", false, "if input records have the form 'name,METADATA', METADATA will be propagated to the output")
 	rootCmd.PersistentFlags().BoolVar(&GC.IterativeResolution, "iterative", false, "Perform own iteration instead of relying on recursive resolver")
 	rootCmd.PersistentFlags().BoolVar(&GC.LookupAllNameServers, "all-nameservers", false, "Perform the lookup via all the nameservers for the domain.")
-	rootCmd.PersistentFlags().StringVar(&GC.InputFilePath, "input-file", "", "names to read, defaults to stdin")
-	rootCmd.PersistentFlags().StringVar(&GC.OutputFilePath, "output-file", "", "where should JSON output be saved, defaults to stdout")
-	rootCmd.PersistentFlags().StringVar(&GC.MetadataFilePath, "metadata-file", "", "where should JSON metadata be saved, defaults to stderr")
+	rootCmd.PersistentFlags().StringVar(&GC.InputFilePath, "input-file", "-", "names to read, defaults to stdin")
+	rootCmd.PersistentFlags().StringVar(&GC.OutputFilePath, "output-file", "-", "where should JSON output be saved, defaults to stdout")
+	rootCmd.PersistentFlags().StringVar(&GC.MetadataFilePath, "metadata-file", "", "where should JSON metadata be saved, defaults to no metadata output. Use '-' for stderr.")
 	rootCmd.PersistentFlags().StringVar(&GC.LogFilePath, "log-file", "", "where should JSON logs be saved, defaults to stderr")
 
 	rootCmd.PersistentFlags().StringVar(&GC.ResultVerbosity, "result-verbosity", "normal", "Sets verbosity of each output record. Options: short, normal, long, trace")
