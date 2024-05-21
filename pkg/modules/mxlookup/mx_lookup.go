@@ -101,7 +101,7 @@ func (mxMod *MXLookupModule) Init(ipv4Lookup, ipv6Lookup bool, mxCacheSize int) 
 
 func (mxMod *MXLookupModule) lookupIPs(r *zdns.Resolver, name, nameServer string, ipMode zdns.IPVersionMode) (CachedAddresses, zdns.Trace) {
 	mxMod.CHmu.Lock()
-	// TODO this comment V is present in the original code and has been there since 2017 IIRC, so ask Zakir what to do
+	// TODO - Phillip this comment V is present in the original code and has been there since 2017 IIRC, so ask Zakir what to do
 	// XXX this should be changed to a miekglookup
 	res, found := mxMod.CacheHash.Get(name)
 	mxMod.CHmu.Unlock()

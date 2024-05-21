@@ -98,12 +98,11 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 		log.Fatal("Unknown record class specified. Valid valued are INET (default), CSNET, CHAOS, HESIOD, NONE, ANY")
 	}
 
-	// TODO removing since it's broken in the main codebase - Phillip
-	//if gc.LookupAllNameServers {
-	//	if gc.NameServersString != "" {
-	//		log.Fatal("Name servers cannot be specified in --all-nameservers mode.")
-	//	}
-	//}
+	if gc.LookupAllNameServers {
+		if gc.NameServersString != "" {
+			log.Fatal("Name servers cannot be specified in --all-nameservers mode.")
+		}
+	}
 
 	if gc.NameServersString == "" {
 		// if we're doing recursive resolution, figure out default OS name servers
@@ -286,6 +285,7 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 	config.IsIterative = gc.IterativeResolution
 	// copy nameservers to resolver config
 	config.ExternalNameServers = gc.NameServers
+	config.LookupAllNameServers = gc.LookupAllNameServers
 
 	if gc.UseNSID {
 		config.EdnsOptions = append(config.EdnsOptions, new(dns.EDNS0_NSID))
