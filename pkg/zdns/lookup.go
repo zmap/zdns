@@ -45,7 +45,6 @@ func GetDNSServers(path string) ([]string, error) {
 // Lookup client interface for help in mocking
 type Lookuper interface {
 	DoSingleDstServerLookup(r *Resolver, q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error)
-	//DoAllNameserverLookup(r *Resolver, q Question, nameServer string) (*CombinedResults, Trace, Status, error)
 }
 
 type LookupClient struct{}
@@ -75,6 +74,15 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 		r.verboseLog(0, "MIEKG-OUT: iterative lookup for ", q.Name, " (", q.Type, "): status: ", status, " , err: ", err)
 		return &result, trace, status, err
 	}
+
+	isBlacklisted, err := r.blacklist.IsBlacklisted(nameServer)
+	if err != nil {
+		return nil, nil, STATUS_ERROR, fmt.Errorf("could not check blacklist for nameserver %s: %w", nameServer, err)
+	}
+	if isBlacklisted {
+		return nil, nil, STATUS_BLACKLIST, fmt.Errorf("nameserver (%s) is blacklisted", nameServer)
+	}
+
 	res, status, try, err := r.retryingLookup(q, nameServer, true)
 	if err != nil {
 		return &res, nil, status, fmt.Errorf("could not perform retrying lookup for name %v: %w", q.Name, err)

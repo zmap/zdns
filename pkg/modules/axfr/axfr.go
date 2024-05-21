@@ -128,7 +128,6 @@ func (axfrMod *AxfrLookupModule) Help() string {
 	return ""
 }
 
-// TODO Phillip - the old code parsed a blacklist and set it as the blacklist. Ensure that we're instantiating the blacklist correctly with just the resolver
 func (axfrMod *AxfrLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
 	if gc == nil {
 		return errors.New("CLIConfig is nil")
@@ -153,7 +152,10 @@ func (axfrMod *AxfrLookupModule) CLIInit(gc *cmd.CLIConf, rc *zdns.ResolverConfi
 			return errors.Wrap(err, "failed to parse blacklist")
 		}
 	}
-	axfrMod.NSModule.CLIInit(gc, rc, flags)
+	err = axfrMod.NSModule.CLIInit(gc, rc, flags)
+	if err != nil {
+		return errors.Wrap(err, "failed to initialize NSLookupModule as apart of axfrModule")
+	}
 	if err = axfrMod.BasicLookupModule.CLIInit(gc, rc, flags); err != nil {
 		return errors.Wrap(err, "failed to initialize basic lookup module")
 	}
