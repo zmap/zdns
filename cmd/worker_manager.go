@@ -171,7 +171,6 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 		}
 		gc.ClientSubnet.SourceNetmask = uint8(netmask)
 		gc.ClientSubnet.Address = ip
-		// TODO Phillip - need to use this somehow
 	}
 
 	if GC.LocalAddrString != "" {
