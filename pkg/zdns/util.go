@@ -129,6 +129,7 @@ func VerifyAddress(ansType string, ip string) bool {
 		return isIpv6
 	}
 	// TODO Phillip - this seems like strange behavior. Maybe assert that ansType is either 'A' or 'AAAA'?
+	// I'll come back to this post-merge, it was like this in the original version.
 	return !isIpv4 && !isIpv6
 }
 

@@ -44,7 +44,7 @@ type CLIConf struct {
 	NameServersString  string
 	LocalAddrString    string
 	LocalIfaceString   string
-	ConfigFilePath     string // TODO Phillip - implement/ figure out what this is
+	ConfigFilePath     string
 	ClassString        string
 	UseNanoseconds     bool
 	ClientSubnetString string

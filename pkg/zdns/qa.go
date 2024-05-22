@@ -46,7 +46,6 @@ type TraceStep struct {
 	Try        int               `json:"try" groups:"trace"`
 }
 
-// TODO Phillip - many of these fields aren't being used, we should consider removing them or populating them
 // Result contains all the metadata from a complete lookup, potentailly after following many CNAMEs/etc.
 type Result struct {
 	AlteredName string      `json:"altered_name,omitempty" groups:"short,normal,long,trace"`
