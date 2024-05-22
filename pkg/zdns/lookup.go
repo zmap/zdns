@@ -50,6 +50,21 @@ type Lookuper interface {
 type LookupClient struct{}
 
 func (lc LookupClient) DoSingleDstServerLookup(r *Resolver, q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
+	// Check that nameserver isn't blacklisted
+	nameServerIP, _, err := net.SplitHostPort(nameServer)
+	if err != nil {
+		return nil, nil, STATUS_ERROR, fmt.Errorf("could not split nameserver %s: %w", nameServer, err)
+	}
+	// Stop if we hit a nameserver we don't want to hit
+	if r.blacklist != nil {
+		if blacklisted, err := r.blacklist.IsBlacklisted(nameServerIP); err != nil {
+			var r SingleQueryResult
+			return &r, Trace{}, STATUS_ERROR, fmt.Errorf("could not check blacklist for nameserver %s: %w", nameServer, err)
+		} else if blacklisted {
+			var r SingleQueryResult
+			return &r, Trace{}, STATUS_BLACKLIST, nil
+		}
+	}
 	return r.doSingleDstServerLookup(q, nameServer, isIterative)
 }
 
@@ -73,14 +88,6 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 		result, trace, status, err := r.iterativeLookup(ctx, q, nameServer, 1, ".", make(Trace, 0))
 		r.verboseLog(0, "MIEKG-OUT: iterative lookup for ", q.Name, " (", q.Type, "): status: ", status, " , err: ", err)
 		return &result, trace, status, err
-	}
-
-	isBlacklisted, err := r.blacklist.IsBlacklisted(nameServer)
-	if err != nil {
-		return nil, nil, STATUS_ERROR, fmt.Errorf("could not check blacklist for nameserver %s: %w", nameServer, err)
-	}
-	if isBlacklisted {
-		return nil, nil, STATUS_BLACKLIST, fmt.Errorf("nameserver (%s) is blacklisted", nameServer)
 	}
 
 	res, status, try, err := r.retryingLookup(q, nameServer, true)
