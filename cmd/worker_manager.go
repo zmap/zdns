@@ -480,8 +480,8 @@ func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, i
 		}
 		metadata.Names++
 		metadata.Status[status]++
-		metaChan <- metadata
 	}
+	metaChan <- metadata
 	return nil
 }
 
