@@ -64,6 +64,7 @@ func (s *Cache) AddCachedAnswer(answer interface{}, depth int) {
 	}
 	expiresAt := time.Now().Add(time.Duration(a.Ttl) * time.Second)
 	s.IterativeCache.Lock(q)
+	defer s.IterativeCache.Unlock(q)
 	// don't bother to move this to the top of the linked list. we're going
 	// to add this record back in momentarily and that will take care of this
 	i, ok := s.IterativeCache.GetNoMove(q)
@@ -82,7 +83,6 @@ func (s *Cache) AddCachedAnswer(answer interface{}, depth int) {
 	ca.Answers[a] = ta
 	s.IterativeCache.Add(q, ca)
 	s.VerboseLog(depth+1, "Add cached answer ", q, " ", ca)
-	s.IterativeCache.Unlock(q)
 }
 
 func (s *Cache) GetCachedResult(q Question, isAuthCheck bool, depth int) (SingleQueryResult, bool) {
