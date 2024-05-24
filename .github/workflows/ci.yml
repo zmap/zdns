@@ -40,4 +40,4 @@ jobs:
       - name: Large-Scale Integration Test
         run: |
           python --version
-          cat largescaleintegration/top-1k.csv | ./zdns A --iterative | grep "TIMEOUT" | wc -l
+          cat largescaleintegration/top-1k.csv | ./zdns A --iterative 
