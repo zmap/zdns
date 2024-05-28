@@ -20,6 +20,8 @@ jobs:
           else
             echo 'All .go files in repo have an appropriate header'
           fi
+  # This tests runs both unit tests and integration tests that validate that ZDNS can pull many DNS record types against
+  # our controlled domain
   build-and-test:
     runs-on: ubuntu-latest
     steps:
@@ -41,6 +43,7 @@ jobs:
           sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
           python --version
           ./testing/integration_tests.py
+  # This test runs an integration test for a ZDNS scan on 100 domains to validate that the A records are correct
   build-and-test-large-scale:
     runs-on: ubuntu-latest
     steps:
