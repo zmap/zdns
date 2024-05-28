@@ -143,8 +143,6 @@ class TestZDNS(unittest.TestCase):
     def setUpClass(cls):
         with open(TOP_1K_DOMAINS_FILE, "r") as f:
             domains = f.read().splitlines()
-
-        domains = domains[0:100]
         # These are those domains which we can successfully request using the requests library directed at an IP address
         # This excludes domains that use some form of DDoS mitigation, such as Cloudflare, which have more sophisticated
         # bot detection
