@@ -18,14 +18,12 @@ authors:
    given-names: "Gautam"
  - family-names: "Berger"
    given-names: "Briana"
- - family-names: "Berger"
-   given-names: "Briana"
  - family-names: "Drakontaidis"
    given-names: "Spencer"
  - family-names: "Ascheman"
    given-names: "Anna"
 title: "zdns"
-date-released: 2016
+date-released: 2016-07
 url: "https://github.com/zmap/zdns"
 preferred-citation:
   type: "conference-paper"
@@ -34,8 +32,6 @@ preferred-citation:
      given-names: "Liz"
    - family-names: "Akiwate"
      given-names: "Gautam"
-   - family-names: "Berger"
-     given-names: "Briana"
    - family-names: "Berger"
      given-names: "Briana"
    - family-names: "Drakontaidis"
