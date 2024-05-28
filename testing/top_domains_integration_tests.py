@@ -11,7 +11,7 @@ import unittest
 import json
 
 ZDNS_EXECUTABLE = "./zdns"
-TOP_1K_DOMAINS_FILE = "./testing/top-1k.csv"
+TOP_DOMAINS_FILE = "./testing/top-domains.csv"
 
 def can_request_successfully(domain: str, ip: str) -> bool:
     user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.3 Safari/605.1.15"
@@ -141,7 +141,7 @@ def get_zdns_results_a_lookup(domains: List[str]) -> List[tuple[str, str]]:
 class TestZDNS(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        with open(TOP_1K_DOMAINS_FILE, "r") as f:
+        with open(TOP_DOMAINS_FILE, "r") as f:
             domains = f.read().splitlines()
         # These are those domains which we can successfully request using the requests library directed at an IP address
         # This excludes domains that use some form of DDoS mitigation, such as Cloudflare, which have more sophisticated
@@ -151,15 +151,20 @@ class TestZDNS(unittest.TestCase):
     def test_zdns_a(self):
         zdns = get_zdns_results_a(self.known_reachable_domains)
         print(f"ZDNS resolved {len(zdns)} domains to IP addresses from request-able domains")
-        for domain, ip in zdns:
-            self.assertTrue(can_request_successfully(domain, ip),
-                            "ZDNS resolved a domain to an IP address that will not respond to requests for the given domain")
+        # Check that the IP addresses ZDNS resolved the domains to are reachable, but in parallel
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            results = [executor.submit(can_request_successfully, domain, ip) for domain, ip in zdns]
+            for future in concurrent.futures.as_completed(results):
+                self.assertTrue(future.result(), "ZDNS resolved a domain to an IP address that will not respond to requests for the given domain")
 
     def test_zdns_a_lookup(self):
         zdns = get_zdns_results_a_lookup(self.known_reachable_domains)
         print(f"ZDNS resolved {len(zdns)} domains to IP addresses from request-able domains")
-        for domain, ip in zdns:
-            self.assertTrue(can_request_successfully(domain, ip), "ZDNS resolved a domain to an IP address that will not respond to requests for the given domain")
+        # Check that the IP addresses ZDNS resolved the domains to are reachable, but in parallel
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            results = [executor.submit(can_request_successfully, domain, ip) for domain, ip in zdns]
+            for future in concurrent.futures.as_completed(results):
+                self.assertTrue(future.result(), "ZDNS resolved a domain to an IP address that will not respond to requests for the given domain")
 
 
 if __name__ == '__main__':
