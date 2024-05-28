@@ -116,7 +116,7 @@ def get_zdns_results_a(domains: List[str]) -> List[tuple[str, str]]:
             ip = line.split('"answer":"')[1].split('"')[0]
             domain_ip_pairs.append((domain, ip))
         else:
-            print(f"Failed to resolve domain: {line}")
+            print(f"Failed to parse ZDNS output: {line}")
     return domain_ip_pairs
 
 
@@ -134,7 +134,7 @@ def get_zdns_results_a_lookup(domains: List[str]) -> List[tuple[str, str]]:
                     domain = line_data.get('name')
                     domain_ip_pairs.append((domain, ip))
         else:
-            print(f"Failed to resolve domain: {line}")
+            print(f"Failed to parse ZDNS output: {line}")
     return domain_ip_pairs
 
 
