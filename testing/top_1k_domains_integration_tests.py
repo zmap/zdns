@@ -11,6 +11,7 @@ import unittest
 import json
 
 ZDNS_EXECUTABLE = "./zdns"
+TOP_1K_DOMAINS_FILE = "./testing/top-1k.csv"
 
 def can_request_successfully(domain: str, ip: str) -> bool:
     user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.3 Safari/605.1.15"
@@ -140,7 +141,7 @@ def get_zdns_results_a_lookup(domains: List[str]) -> List[tuple[str, str]]:
 class TestZDNS(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        with open("top-1k.csv", "r") as f:
+        with open(TOP_1K_DOMAINS_FILE, "r") as f:
             domains = f.read().splitlines()
 
         domains = domains[0:100]
