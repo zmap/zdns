@@ -53,4 +53,4 @@ jobs:
       - name: Large-Scale Integration Test
         run: |
           python --version
-          ./testing/large_scale_integration_test.py
+          ./testing/top_1k_domains_integration_tests.py
