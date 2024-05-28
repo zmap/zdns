@@ -11,7 +11,7 @@ import subprocess
 import unittest
 import json
 
-ZDNS_EXECUTABLE = "./zdns"
+ZDNS_EXECUTABLE = "../zdns"
 
 def can_request_successfully(domain: str, ip: str) -> bool:
     user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.3 Safari/605.1.15"

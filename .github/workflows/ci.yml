@@ -36,8 +36,21 @@ jobs:
           sudo rm /etc/resolv.conf
           sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
           python --version
-          ./integration_tests.py
+          ./testing/integration_tests.py
+  build-and-test-top-1k:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.20'
+      - name: Build
+        run: |
+          go version
+          make
       - name: Large-Scale Integration Test
         run: |
           python --version
-          cat largescaleintegration/top-1k.csv | ./zdns A --iterative 
+          ./testing/large_scale_integration_test.py
