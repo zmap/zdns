@@ -11,8 +11,9 @@ import unittest
 import json
 
 ZDNS_EXECUTABLE = "./zdns"
-TOP_DOMAINS_FILE = "./testing/top-domains.csv"
+TOP_DOMAINS_FILE = "./testing/domains.csv"
 
+# This function checks if a domain can be successfully requested at a given IP
 def can_request_successfully(domain: str, ip: str) -> bool:
     user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.3 Safari/605.1.15"
     headers = {"Host": domain, "User-Agent": user_agent}
@@ -91,16 +92,11 @@ def get_requestable_domains(domains: List[str]) -> List[str]:
         for future in concurrent.futures.as_completed(results):
             domain, ip, result = future.result()
             if result == 0:
+                # domain is reachable
                 successes_requests.append(domain)
-            # elif result == 1:
-            #     successes_puppeteer.append(domain)
-            elif result == -1:
-                print(f"Failed to visit {domain} with either requests or puppeteer")
 
     print(f"Successfully requested {len(successes_requests)} out of {len(domains)} domains with requests")
-    # print(f"Successfully visited {len(successes_puppeteer)} out of {len(domains)} domains with puppeteer")
     print("Requests successes:", successes_requests)
-    # print("Puppeteer successes:", successes_puppeteer)
     print("Failures:", set(domains) - set(successes_requests))
     return successes_requests
 
