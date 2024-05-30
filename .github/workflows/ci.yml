@@ -43,4 +43,3 @@ jobs:
           sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
           python --version
           ./testing/integration_tests.py
-
