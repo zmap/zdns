@@ -1,0 +1,26 @@
+# This test is a bit flaky so we don't want to gate PR's with it but it does provide good info of the accuracy of ZDNS.
+name: Weekly Scan Integration Test
+
+on:
+  schedule:
+    - cron: '0 0 * * MON'  # Runs at 00:00 UTC on Mondays
+
+jobs:
+  # This test runs an integration test for a ZDNS scan on 100 domains to validate that the A records are correct
+  build-and-test-large-scale:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.20'
+      - name: Build
+        run: |
+          go version
+          make
+      - name: Large-Scale Integration Test
+        run: |
+          python --version
+          ./testing/top_domains_integration_tests.py

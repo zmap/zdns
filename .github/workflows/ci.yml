@@ -43,21 +43,4 @@ jobs:
           sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
           python --version
           ./testing/integration_tests.py
-  # This test runs an integration test for a ZDNS scan on 100 domains to validate that the A records are correct
-  build-and-test-large-scale:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.20'
-      - name: Build
-        run: |
-          go version
-          make
-      - name: Large-Scale Integration Test
-        run: |
-          python --version
-          ./testing/top_domains_integration_tests.py
+
