@@ -39,7 +39,7 @@ def recursiveSort(obj):
 class Tests(unittest.TestCase):
 
     maxDiff = None
-    ZDNS_EXECUTABLE = "./zdns" 
+    ZDNS_EXECUTABLE = "./zdns"
 
     def run_zdns_check_failure(self, flags, name, expected_err, executable=ZDNS_EXECUTABLE):
         flags = flags + " --threads=10"
