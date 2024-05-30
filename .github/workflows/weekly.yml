@@ -4,6 +4,7 @@ name: Weekly Scan Integration Test
 on:
   schedule:
     - cron: '0 0 * * MON'  # Runs at 00:00 UTC on Mondays
+  workflow_dispatch:  # Allows manual triggering
 
 jobs:
   # This test runs an integration test for a ZDNS scan on 100 domains to validate that the A records are correct
