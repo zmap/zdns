@@ -39,6 +39,7 @@ type DmarcLookupModule struct {
 	re *regexp.Regexp
 }
 
+// CLIInit initializes the DMARC lookup module
 func (dmarcMod *DmarcLookupModule) CLIInit(gc *cli.CLIConf, rc *core.ResolverConfig, flags *pflag.FlagSet) error {
 	dmarcMod.re = regexp.MustCompile(dmarcPrefixRegexp)
 	dmarcMod.BasicLookupModule.DNSType = dns.TypeTXT

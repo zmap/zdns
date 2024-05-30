@@ -40,6 +40,7 @@ func init() {
 	cli.RegisterLookupModule("BINDVERSION", b)
 }
 
+// CLIInit initializes the BindVersion lookup module
 func (bindVersionMod *BindVersionLookupModule) CLIInit(gc *cli.CLIConf, rc *core.ResolverConfig, flags *pflag.FlagSet) error {
 	return bindVersionMod.BasicLookupModule.CLIInit(gc, rc, flags)
 }

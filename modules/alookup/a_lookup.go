@@ -32,6 +32,7 @@ func init() {
 	cli.RegisterLookupModule("ALOOKUP", al)
 }
 
+// CLIInit initializes the ALookupModule with the given parameters, used to call ALOOKUP from the command line
 func (aMod *ALookupModule) CLIInit(gc *cli.CLIConf, resolverConfig *core.ResolverConfig, f *pflag.FlagSet) error {
 	ipv4Lookup, err := f.GetBool("ipv4-lookup")
 	if err != nil {
@@ -49,6 +50,7 @@ func (aMod *ALookupModule) CLIInit(gc *cli.CLIConf, resolverConfig *core.Resolve
 	return nil
 }
 
+// Init initializes the ALookupModule with the given parameters, used to call ALOOKUP programmatically
 func (aMod *ALookupModule) Init(ipv4Lookup bool, ipv6Lookup bool) {
 	aMod.IPv4Lookup = ipv4Lookup || !ipv6Lookup
 	aMod.IPv6Lookup = ipv6Lookup

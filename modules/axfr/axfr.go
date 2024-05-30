@@ -128,6 +128,7 @@ func (axfrMod *AxfrLookupModule) Help() string {
 	return ""
 }
 
+// CLIInit initializes the AxfrLookupModule with the given parameters, used to call AXFR from the command line
 func (axfrMod *AxfrLookupModule) CLIInit(gc *cli.CLIConf, rc *core.ResolverConfig, flags *pflag.FlagSet) error {
 	if gc == nil {
 		return errors.New("CLIConfig is nil")

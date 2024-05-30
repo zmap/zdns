@@ -39,6 +39,7 @@ type SpfLookupModule struct {
 	re *regexp.Regexp
 }
 
+// CLIInit initializes the SPF lookup module
 func (spfMod *SpfLookupModule) CLIInit(gc *cli.CLIConf, rc *core.ResolverConfig, flags *pflag.FlagSet) error {
 	spfMod.re = regexp.MustCompile(spfPrefixRegexp)
 	spfMod.BasicLookupModule.DNSType = dns.TypeTXT
