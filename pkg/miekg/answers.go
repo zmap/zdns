@@ -57,6 +57,13 @@ type CERTAnswer struct {
 	Certificate string `json:"certificate" groups:"short,normal,long,trace"`
 }
 
+type CSYNCAnswer struct {
+    Answer
+    Serial     uint32 `json:"serial" groups:"short,normal,long,trace"`
+    Flags      uint16 `json:"flags" groups:"short,normal,long,trace"`
+    TypeBitMap string `json:"type_bit_map" groups:"short,normal,long,trace"`
+}
+
 type DNSKEYAnswer struct {
 	Answer
 	Flags     uint16 `json:"flags" groups:"short,normal,long,trace"`
@@ -766,6 +773,13 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Protocol:  cAns.Protocol,
 			Algorithm: cAns.Algorithm,
 			PublicKey: cAns.PublicKey,
+		}
+	case *dns.CSYNC:
+		return CSYNCAnswer{
+			Answer:     makeBaseAnswer(&cAns.Hdr, ""),
+			Serial:     cAns.Serial,
+			Flags:      cAns.Flags,
+			TypeBitMap: makeBitString(cAns.TypeBitMap),
 		}
 	case *dns.AFSDB:
 		return AFSDBAnswer{
