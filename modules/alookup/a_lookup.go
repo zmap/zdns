@@ -18,7 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"github.com/zmap/zdns/cli"
-	"github.com/zmap/zdns/core"
+	"github.com/zmap/zdns/zdns"
 )
 
 type ALookupModule struct {
@@ -33,7 +33,7 @@ func init() {
 }
 
 // CLIInit initializes the ALookupModule with the given parameters, used to call ALOOKUP from the command line
-func (aMod *ALookupModule) CLIInit(gc *cli.CLIConf, resolverConfig *core.ResolverConfig, f *pflag.FlagSet) error {
+func (aMod *ALookupModule) CLIInit(gc *cli.CLIConf, resolverConfig *zdns.ResolverConfig, f *pflag.FlagSet) error {
 	ipv4Lookup, err := f.GetBool("ipv4-lookup")
 	if err != nil {
 		panic(err)
@@ -56,8 +56,8 @@ func (aMod *ALookupModule) Init(ipv4Lookup bool, ipv6Lookup bool) {
 	aMod.IPv6Lookup = ipv6Lookup
 }
 
-func (aMod *ALookupModule) Lookup(r *core.Resolver, lookupName, nameServer string) (interface{}, core.Trace, core.Status, error) {
-	ipResult, trace, status, err := r.DoTargetedLookup(lookupName, nameServer, core.GetIPVersionMode(aMod.IPv4Lookup, aMod.IPv6Lookup), aMod.baseModule.IsIterative)
+func (aMod *ALookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+	ipResult, trace, status, err := r.DoTargetedLookup(lookupName, nameServer, zdns.GetIPVersionMode(aMod.IPv4Lookup, aMod.IPv6Lookup), aMod.baseModule.IsIterative)
 	return ipResult, trace, status, err
 }
 

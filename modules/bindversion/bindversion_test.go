@@ -18,36 +18,36 @@ import (
 	"testing"
 
 	"github.com/zmap/dns"
-	"github.com/zmap/zdns/core"
+	"github.com/zmap/zdns/zdns"
 	"gotest.tools/v3/assert"
 )
 
 type QueryRecord struct {
-	q          core.Question
+	q          zdns.Question
 	NameServer string
 }
 
-var mockResults map[string]*core.SingleQueryResult
+var mockResults map[string]*zdns.SingleQueryResult
 var queries []QueryRecord
 
 // DoSingleDstServerLookup(r *Resolver, q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error)
 type MockLookup struct{}
 
-func (ml MockLookup) DoSingleDstServerLookup(r *core.Resolver, question core.Question, nameServer string, isIterative bool) (*core.SingleQueryResult, core.Trace, core.Status, error) {
+func (ml MockLookup) DoSingleDstServerLookup(r *zdns.Resolver, question zdns.Question, nameServer string, isIterative bool) (*zdns.SingleQueryResult, zdns.Trace, zdns.Status, error) {
 	queries = append(queries, QueryRecord{q: question, NameServer: nameServer})
 	if res, ok := mockResults[question.Name]; ok {
-		return res, nil, core.STATUS_NOERROR, nil
+		return res, nil, zdns.STATUS_NOERROR, nil
 	} else {
-		return &core.SingleQueryResult{}, nil, core.STATUS_NO_ANSWER, nil
+		return &zdns.SingleQueryResult{}, nil, zdns.STATUS_NO_ANSWER, nil
 	}
 }
 
-func InitTest(t *testing.T) *core.Resolver {
-	mockResults = make(map[string]*core.SingleQueryResult)
-	rc := core.ResolverConfig{
+func InitTest(t *testing.T) *zdns.Resolver {
+	mockResults = make(map[string]*zdns.SingleQueryResult)
+	rc := zdns.ResolverConfig{
 		ExternalNameServers: []string{"127.0.0.1"},
 		LookupClient:        MockLookup{}}
-	r, err := core.InitResolver(&rc)
+	r, err := zdns.InitResolver(&rc)
 	assert.NilError(t, err)
 
 	return r
@@ -55,9 +55,9 @@ func InitTest(t *testing.T) *core.Resolver {
 
 func TestBindVersionLookup_Valid_1(t *testing.T) {
 	resolver := InitTest(t)
-	mockResults["VERSION.BIND"] = &core.SingleQueryResult{
+	mockResults["VERSION.BIND"] = &zdns.SingleQueryResult{
 		Answers: []interface{}{
-			core.Answer{Name: "VERSION.BIND", Answer: "Nominum Vantio 5.4.1.0", Class: "CHAOS"}},
+			zdns.Answer{Name: "VERSION.BIND", Answer: "Nominum Vantio 5.4.1.0", Class: "CHAOS"}},
 	}
 	bvModule := BindVersionLookupModule{}
 	res, _, status, _ := bvModule.Lookup(resolver, "", "1.2.3.4")
@@ -66,13 +66,13 @@ func TestBindVersionLookup_Valid_1(t *testing.T) {
 	assert.Equal(t, queries[0].q.Name, "VERSION.BIND")
 	assert.Equal(t, queries[0].NameServer, "1.2.3.4")
 
-	assert.Equal(t, core.STATUS_NOERROR, status)
+	assert.Equal(t, zdns.STATUS_NOERROR, status)
 	assert.Equal(t, res.(Result).BindVersion, "Nominum Vantio 5.4.1.0")
 }
 
 func TestBindVersionLookup_NotValid_1(t *testing.T) {
 	resolver := InitTest(t)
-	mockResults["VERSION.BIND"] = &core.SingleQueryResult{
+	mockResults["VERSION.BIND"] = &zdns.SingleQueryResult{
 		Answers: []interface{}{},
 	}
 	bvModule := BindVersionLookupModule{}
@@ -82,6 +82,6 @@ func TestBindVersionLookup_NotValid_1(t *testing.T) {
 	assert.Equal(t, queries[0].q.Name, "VERSION.BIND")
 	assert.Equal(t, queries[0].NameServer, "1.2.3.4")
 
-	assert.Equal(t, core.STATUS_NO_RECORD, status)
+	assert.Equal(t, zdns.STATUS_NO_RECORD, status)
 	assert.Equal(t, res.(Result).BindVersion, "")
 }

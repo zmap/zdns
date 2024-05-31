@@ -18,7 +18,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/cli"
-	"github.com/zmap/zdns/core"
+	"github.com/zmap/zdns/zdns"
 	"regexp"
 )
 
@@ -40,20 +40,20 @@ type DmarcLookupModule struct {
 }
 
 // CLIInit initializes the DMARC lookup module
-func (dmarcMod *DmarcLookupModule) CLIInit(gc *cli.CLIConf, rc *core.ResolverConfig, flags *pflag.FlagSet) error {
+func (dmarcMod *DmarcLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
 	dmarcMod.re = regexp.MustCompile(dmarcPrefixRegexp)
 	dmarcMod.BasicLookupModule.DNSType = dns.TypeTXT
 	dmarcMod.BasicLookupModule.DNSClass = dns.ClassINET
 	return dmarcMod.BasicLookupModule.CLIInit(gc, rc, flags)
 }
 
-func (dmarcMod *DmarcLookupModule) Lookup(r *core.Resolver, lookupName, nameServer string) (interface{}, core.Trace, core.Status, error) {
+func (dmarcMod *DmarcLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	innerRes, trace, status, err := dmarcMod.BasicLookupModule.Lookup(r, lookupName, nameServer)
-	castedInnerRes, ok := innerRes.(*core.SingleQueryResult)
+	castedInnerRes, ok := innerRes.(*zdns.SingleQueryResult)
 	if !ok {
 		return nil, trace, status, errors.New("lookup didn't return a single query result type")
 	}
-	resString, resStatus, err := core.CheckTxtRecords(castedInnerRes, status, dmarcMod.re, err)
+	resString, resStatus, err := zdns.CheckTxtRecords(castedInnerRes, status, dmarcMod.re, err)
 	res := Result{Dmarc: resString}
 	return res, trace, resStatus, err
 }

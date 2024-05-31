@@ -16,14 +16,14 @@ package cli
 import (
 	"fmt"
 	"github.com/spf13/pflag"
-	"github.com/zmap/zdns/core"
+	"github.com/zmap/zdns/zdns"
 
 	"github.com/zmap/dns"
 )
 
 type LookupModule interface {
-	CLIInit(gc *CLIConf, rc *core.ResolverConfig, flags *pflag.FlagSet) error
-	Lookup(resolver *core.Resolver, lookupName, nameServer string) (interface{}, core.Trace, core.Status, error)
+	CLIInit(gc *CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error
+	Lookup(resolver *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)
 	Help() string
 }
 
@@ -117,7 +117,7 @@ type BasicLookupModule struct {
 	DNSClass             uint16
 }
 
-func (lm *BasicLookupModule) CLIInit(gc *CLIConf, rc *core.ResolverConfig, flags *pflag.FlagSet) error {
+func (lm *BasicLookupModule) CLIInit(gc *CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
 	lm.IsIterative = rc.IsIterative
 	lm.LookupAllNameServers = rc.LookupAllNameServers
 	return nil
@@ -127,14 +127,14 @@ func (lm *BasicLookupModule) Help() string {
 	return ""
 }
 
-func (lm *BasicLookupModule) Lookup(resolver *core.Resolver, lookupName, nameServer string) (interface{}, core.Trace, core.Status, error) {
+func (lm *BasicLookupModule) Lookup(resolver *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	if lm.LookupAllNameServers {
-		return resolver.LookupAllNameservers(&core.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass}, nameServer)
+		return resolver.LookupAllNameservers(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass}, nameServer)
 	}
 	if lm.IsIterative {
-		return resolver.IterativeLookup(&core.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass})
+		return resolver.IterativeLookup(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass})
 	}
-	return resolver.ExternalLookup(&core.Question{Type: lm.DNSType, Class: lm.DNSClass, Name: lookupName}, nameServer)
+	return resolver.ExternalLookup(&zdns.Question{Type: lm.DNSType, Class: lm.DNSClass, Name: lookupName}, nameServer)
 }
 
 func GetLookupModule(name string) (LookupModule, error) {

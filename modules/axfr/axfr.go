@@ -26,7 +26,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/zmap/dns"
-	"github.com/zmap/zdns/core"
+	"github.com/zmap/zdns/zdns"
 )
 
 type AxfrLookupModule struct {
@@ -39,7 +39,7 @@ type AxfrLookupModule struct {
 
 type AXFRServerResult struct {
 	Server  string `json:"server" groups:"short,normal,long,trace"`
-	Status  core.Status
+	Status  zdns.Status
 	Error   string        `json:"error,omitempty" groups:"short,normal,long,trace"`
 	Records []interface{} `json:"records,omitempty" groups:"short,normal,long,trace"`
 }
@@ -67,11 +67,11 @@ func (axfrMod *AxfrLookupModule) doAXFR(name, server string) AXFRServerResult {
 	// check if the server address is blacklisted and if so, exclude
 	if axfrMod.Blacklist != nil {
 		if blacklisted, err := axfrMod.Blacklist.IsBlacklisted(server); err != nil {
-			retv.Status = core.STATUS_ERROR
+			retv.Status = zdns.STATUS_ERROR
 			retv.Error = "blacklist-error"
 			return retv
 		} else if blacklisted {
-			retv.Status = core.STATUS_ERROR
+			retv.Status = zdns.STATUS_ERROR
 			retv.Error = "blacklisted"
 			return retv
 		}
@@ -79,19 +79,19 @@ func (axfrMod *AxfrLookupModule) doAXFR(name, server string) AXFRServerResult {
 	m := new(dns.Msg)
 	m.SetAxfr(dotName(name))
 	if a, err := axfrMod.In(m, net.JoinHostPort(server, "53")); err != nil {
-		retv.Status = core.STATUS_ERROR
+		retv.Status = zdns.STATUS_ERROR
 		retv.Error = err.Error()
 		return retv
 	} else {
 		for ex := range a {
 			if ex.Error != nil {
-				retv.Status = core.STATUS_ERROR
+				retv.Status = zdns.STATUS_ERROR
 				retv.Error = ex.Error.Error()
 				return retv
 			} else {
-				retv.Status = core.STATUS_NOERROR
+				retv.Status = zdns.STATUS_NOERROR
 				for _, rr := range ex.RR {
-					ans := core.ParseAnswer(rr)
+					ans := zdns.ParseAnswer(rr)
 					retv.Records = append(retv.Records, ans)
 				}
 			}
@@ -100,16 +100,16 @@ func (axfrMod *AxfrLookupModule) doAXFR(name, server string) AXFRServerResult {
 	return retv
 }
 
-func (axfrMod *AxfrLookupModule) Lookup(resolver *core.Resolver, name, nameServer string) (interface{}, core.Trace, core.Status, error) {
+func (axfrMod *AxfrLookupModule) Lookup(resolver *zdns.Resolver, name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	var retv AXFRResult
 	if nameServer == "" {
 		parsedNS, trace, status, err := axfrMod.NSModule.Lookup(resolver, name, nameServer)
-		if status != core.STATUS_NOERROR {
+		if status != zdns.STATUS_NOERROR {
 			return nil, trace, status, err
 		}
-		castedNS, ok := parsedNS.(*core.NSResult)
+		castedNS, ok := parsedNS.(*zdns.NSResult)
 		if !ok {
-			return nil, trace, status, errors.New("failed to cast parsedNS to core.NSResult")
+			return nil, trace, status, errors.New("failed to cast parsedNS to zdns.NSResult")
 		}
 		for _, server := range castedNS.Servers {
 			if len(server.IPv4Addresses) > 0 {
@@ -119,7 +119,7 @@ func (axfrMod *AxfrLookupModule) Lookup(resolver *core.Resolver, name, nameServe
 	} else {
 		retv.Servers = append(retv.Servers, axfrMod.doAXFR(name, nameServer))
 	}
-	return retv, nil, core.STATUS_NOERROR, nil
+	return retv, nil, zdns.STATUS_NOERROR, nil
 }
 
 // Command-line Help Documentation. This is the descriptive text what is
@@ -129,7 +129,7 @@ func (axfrMod *AxfrLookupModule) Help() string {
 }
 
 // CLIInit initializes the AxfrLookupModule with the given parameters, used to call AXFR from the command line
-func (axfrMod *AxfrLookupModule) CLIInit(gc *cli.CLIConf, rc *core.ResolverConfig, flags *pflag.FlagSet) error {
+func (axfrMod *AxfrLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
 	if gc == nil {
 		return errors.New("CLIConfig is nil")
 	}

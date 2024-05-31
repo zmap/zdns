@@ -23,9 +23,9 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/cli/iohandlers"
-	"github.com/zmap/zdns/core"
 	blacklist "github.com/zmap/zdns/internal/safe_blacklist"
 	"github.com/zmap/zdns/internal/util"
+	"github.com/zmap/zdns/zdns"
 	"net"
 	"os"
 	"runtime"
@@ -37,7 +37,7 @@ import (
 
 type routineMetadata struct {
 	Names  int
-	Status map[core.Status]int
+	Status map[zdns.Status]int
 }
 
 type Metadata struct {
@@ -108,7 +108,7 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 		// if we're doing recursive resolution, figure out default OS name servers
 		// otherwise, use the set of 13 root name servers
 		if gc.IterativeResolution {
-			gc.NameServers = core.RootServers[:]
+			gc.NameServers = zdns.RootServers[:]
 		} else {
 			ns, err := GetDNSServers(gc.ConfigFilePath)
 			if err != nil {
@@ -266,8 +266,8 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 	return gc
 }
 
-func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *core.ResolverConfig {
-	config := core.NewResolverConfig()
+func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverConfig {
+	config := zdns.NewResolverConfig()
 	useIPv4, err := flags.GetBool("ipv4-lookup")
 	if err != nil {
 		log.Fatal("Unable to parse ipv4 flag: ", err)
@@ -276,8 +276,8 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *core.ResolverCon
 	if err != nil {
 		log.Fatal("Unable to parse ipv6 flag: ", err)
 	}
-	config.IPVersionMode = core.GetIPVersionMode(useIPv4, useIPv6)
-	config.TransportMode = core.GetTransportMode(gc.UDPOnly, gc.TCPOnly)
+	config.IPVersionMode = zdns.GetIPVersionMode(useIPv4, useIPv6)
+	config.TransportMode = zdns.GetTransportMode(gc.UDPOnly, gc.TCPOnly)
 
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
@@ -292,7 +292,7 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *core.ResolverCon
 	if gc.ClientSubnet != nil {
 		config.EdnsOptions = append(config.EdnsOptions, gc.ClientSubnet)
 	}
-	config.Cache = new(core.Cache)
+	config.Cache = new(zdns.Cache)
 	config.Cache.Init(gc.CacheSize)
 	config.Retries = gc.Retries
 	config.MaxDepth = gc.MaxDepth
@@ -414,19 +414,19 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 }
 
 // doLookupWorker is a single worker thread that processes lookups from the input channel. It calls wg.Done when it is finished.
-func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *core.ResolverConfig, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
+func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
 	defer wg.Done()
-	resolver, err := core.InitResolver(rc)
+	resolver, err := zdns.InitResolver(rc)
 	if err != nil {
 		return fmt.Errorf("could not init resolver: %w", err)
 	}
 	var metadata routineMetadata
-	metadata.Status = make(map[core.Status]int)
+	metadata.Status = make(map[zdns.Status]int)
 	for genericInput := range input {
-		var res core.Result
+		var res zdns.Result
 		var innerRes interface{}
-		var trace core.Trace
-		var status core.Status
+		var trace zdns.Trace
+		var status zdns.Status
 		var err error
 		line := genericInput.(string)
 		var changed bool
@@ -459,7 +459,7 @@ func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *core.ResolverConfig, i
 		innerRes, trace, status, err = lookup.Lookup(resolver, lookupName, nameServer)
 
 		res.Timestamp = time.Now().Format(gc.TimeFormat)
-		if status != core.STATUS_NO_OUTPUT {
+		if status != zdns.STATUS_NO_OUTPUT {
 			res.Status = string(status)
 			res.Data = innerRes
 			res.Trace = trace

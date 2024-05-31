@@ -18,7 +18,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/zmap/zdns/cli"
-	"github.com/zmap/zdns/core"
+	"github.com/zmap/zdns/zdns"
 )
 
 func init() {
@@ -31,11 +31,11 @@ type NSLookupModule struct {
 	IPv4Lookup bool
 	IPv6Lookup bool
 	// used for mocking
-	testingLookup func(r *core.Resolver, lookupName string, nameServer string) (interface{}, core.Trace, core.Status, error)
+	testingLookup func(r *zdns.Resolver, lookupName string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)
 }
 
 // CLIInit initializes the NSLookupModule with the given parameters, used to call NSLookup from the command line
-func (nsMod *NSLookupModule) CLIInit(gc *cli.CLIConf, resolverConf *core.ResolverConfig, f *pflag.FlagSet) error {
+func (nsMod *NSLookupModule) CLIInit(gc *cli.CLIConf, resolverConf *zdns.ResolverConfig, f *pflag.FlagSet) error {
 	ipv4Lookup, err := f.GetBool("ipv4-lookup")
 	if err != nil {
 		panic(err)
@@ -59,7 +59,7 @@ func (nsMod *NSLookupModule) Init(ipv4Lookup, ipv6Lookup bool) {
 	nsMod.IPv6Lookup = ipv6Lookup
 }
 
-func (nsMod *NSLookupModule) Lookup(r *core.Resolver, lookupName string, nameServer string) (interface{}, core.Trace, core.Status, error) {
+func (nsMod *NSLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	if nsMod.testingLookup != nil {
 		// used for mocking
 		return nsMod.testingLookup(r, lookupName, nameServer)
@@ -70,7 +70,7 @@ func (nsMod *NSLookupModule) Lookup(r *core.Resolver, lookupName string, nameSer
 
 	res, trace, status, err := r.DoNSLookup(lookupName, nameServer, nsMod.IsIterative)
 	if trace == nil {
-		trace = core.Trace{}
+		trace = zdns.Trace{}
 	}
 	return res, trace, status, err
 }
@@ -80,6 +80,6 @@ func (nsMod *NSLookupModule) Help() string {
 	return ""
 }
 
-func (nsMod *NSLookupModule) WithTestingLookup(f func(r *core.Resolver, lookupName string, nameServer string) (interface{}, core.Trace, core.Status, error)) {
+func (nsMod *NSLookupModule) WithTestingLookup(f func(r *zdns.Resolver, lookupName string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)) {
 	nsMod.testingLookup = f
 }

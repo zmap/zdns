@@ -22,8 +22,8 @@ import (
 	"sync"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/zmap/zdns/core"
 	"github.com/zmap/zdns/internal/cachehash"
+	"github.com/zmap/zdns/zdns"
 )
 
 type CachedAddresses struct {
@@ -60,7 +60,7 @@ type MXLookupModule struct {
 }
 
 // CLIInit initializes the MXLookupModule with the given parameters, used to call MXLookup from the command line
-func (mxMod *MXLookupModule) CLIInit(gc *cli.CLIConf, rc *core.ResolverConfig, f *pflag.FlagSet) error {
+func (mxMod *MXLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig, f *pflag.FlagSet) error {
 	ipv4Lookup, err := f.GetBool("ipv4-lookup")
 	if err != nil {
 		panic(err)
@@ -99,18 +99,18 @@ func (mxMod *MXLookupModule) Init(ipv4Lookup, ipv6Lookup bool, mxCacheSize int) 
 	mxMod.CacheHash.Init(mxCacheSize)
 }
 
-func (mxMod *MXLookupModule) lookupIPs(r *core.Resolver, name, nameServer string, ipMode core.IPVersionMode) (CachedAddresses, core.Trace) {
+func (mxMod *MXLookupModule) lookupIPs(r *zdns.Resolver, name, nameServer string, ipMode zdns.IPVersionMode) (CachedAddresses, zdns.Trace) {
 	mxMod.CHmu.Lock()
 	// TODO - Phillip this comment V is present in the original code and has been there since 2017 IIRC, so ask Zakir what to do
 	// XXX this should be changed to a miekglookup
 	res, found := mxMod.CacheHash.Get(name)
 	mxMod.CHmu.Unlock()
 	if found {
-		return res.(CachedAddresses), core.Trace{}
+		return res.(CachedAddresses), zdns.Trace{}
 	}
 	retv := CachedAddresses{}
 	result, trace, status, _ := r.DoTargetedLookup(name, nameServer, ipMode, mxMod.IsIterative)
-	if status == core.STATUS_NOERROR && result != nil {
+	if status == zdns.STATUS_NOERROR && result != nil {
 		retv.IPv4Addresses = result.IPv4Addresses
 		retv.IPv6Addresses = result.IPv6Addresses
 	}
@@ -120,24 +120,24 @@ func (mxMod *MXLookupModule) lookupIPs(r *core.Resolver, name, nameServer string
 	return retv, trace
 }
 
-func (mxMod *MXLookupModule) Lookup(r *core.Resolver, lookupName, nameServer string) (interface{}, core.Trace, core.Status, error) {
-	ipMode := core.GetIPVersionMode(mxMod.IPv4Lookup, mxMod.IPv6Lookup)
+func (mxMod *MXLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+	ipMode := zdns.GetIPVersionMode(mxMod.IPv4Lookup, mxMod.IPv6Lookup)
 	retv := MXResult{Servers: []MXRecord{}}
-	var res *core.SingleQueryResult
-	var trace core.Trace
-	var status core.Status
+	var res *zdns.SingleQueryResult
+	var trace zdns.Trace
+	var status zdns.Status
 	var err error
 	if mxMod.BasicLookupModule.IsIterative {
-		res, trace, status, err = r.IterativeLookup(&core.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET})
+		res, trace, status, err = r.IterativeLookup(&zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET})
 	} else {
-		res, trace, status, err = r.ExternalLookup(&core.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET}, nameServer)
+		res, trace, status, err = r.ExternalLookup(&zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET}, nameServer)
 	}
-	if status != core.STATUS_NOERROR || err != nil {
+	if status != zdns.STATUS_NOERROR || err != nil {
 		return nil, trace, status, err
 	}
 
 	for _, ans := range res.Answers {
-		if mxAns, ok := ans.(core.PrefAnswer); ok {
+		if mxAns, ok := ans.(zdns.PrefAnswer); ok {
 			lookupName = strings.TrimSuffix(mxAns.Answer.Answer, ".")
 			rec := MXRecord{TTL: mxAns.Ttl, Type: mxAns.Type, Class: mxAns.Class, Name: lookupName, Preference: mxAns.Preference}
 			ips, secondTrace := mxMod.lookupIPs(r, lookupName, nameServer, ipMode)
@@ -147,7 +147,7 @@ func (mxMod *MXLookupModule) Lookup(r *core.Resolver, lookupName, nameServer str
 			trace = append(trace, secondTrace...)
 		}
 	}
-	return &retv, trace, core.STATUS_NOERROR, nil
+	return &retv, trace, zdns.STATUS_NOERROR, nil
 }
 
 // Help returns the module's help string

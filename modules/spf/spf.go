@@ -18,7 +18,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/cli"
-	"github.com/zmap/zdns/core"
+	"github.com/zmap/zdns/zdns"
 	"regexp"
 )
 
@@ -40,20 +40,20 @@ type SpfLookupModule struct {
 }
 
 // CLIInit initializes the SPF lookup module
-func (spfMod *SpfLookupModule) CLIInit(gc *cli.CLIConf, rc *core.ResolverConfig, flags *pflag.FlagSet) error {
+func (spfMod *SpfLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
 	spfMod.re = regexp.MustCompile(spfPrefixRegexp)
 	spfMod.BasicLookupModule.DNSType = dns.TypeTXT
 	spfMod.BasicLookupModule.DNSClass = dns.ClassINET
 	return spfMod.BasicLookupModule.CLIInit(gc, rc, flags)
 }
 
-func (spfMod *SpfLookupModule) Lookup(r *core.Resolver, name, resolver string) (interface{}, core.Trace, core.Status, error) {
+func (spfMod *SpfLookupModule) Lookup(r *zdns.Resolver, name, resolver string) (interface{}, zdns.Trace, zdns.Status, error) {
 	innerRes, trace, status, err := spfMod.BasicLookupModule.Lookup(r, name, resolver)
-	castedInnerRes, ok := innerRes.(*core.SingleQueryResult)
+	castedInnerRes, ok := innerRes.(*zdns.SingleQueryResult)
 	if !ok {
 		return nil, trace, status, errors.New("lookup didn't return a single query result type")
 	}
-	resString, resStatus, err := core.CheckTxtRecords(castedInnerRes, status, spfMod.re, err)
+	resString, resStatus, err := zdns.CheckTxtRecords(castedInnerRes, status, spfMod.re, err)
 	res := Result{Spf: resString}
 	return res, trace, resStatus, err
 }
