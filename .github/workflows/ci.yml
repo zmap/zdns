@@ -12,14 +12,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Check for ZDNS License Header
         run: |
-          export NO_HEADERS_FOUND=$(grep -RiL --include="*.go" "ZDNS Copyright .* Regents of the University of Michigan" ./)
-          if test -n "$NO_HEADERS_FOUND"; then
-            echo 'FOUND .go FILES WITHOUT HEADERS.'
-            echo "$NO_HEADERS_FOUND"
-            exit 1
-          else
-            echo 'All .go files in repo have an appropriate header'
-          fi
+          ./.github/workflows/check_license.sh
   # This tests runs both unit tests and integration tests that validate that ZDNS can pull many DNS record types against
   # our controlled domain
   build-and-test:
