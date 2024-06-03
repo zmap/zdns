@@ -19,6 +19,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/zmap/dns"
+
 	"github.com/zmap/zdns/src/internal/cachehash"
 )
 

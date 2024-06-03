@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+
 	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/internal/safe_blacklist"
 	"github.com/zmap/zdns/src/modules/nslookup"
@@ -27,6 +28,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/zmap/dns"
+
 	"github.com/zmap/zdns/src/zdns"
 )
 

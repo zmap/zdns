@@ -30,6 +30,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
+
 	"github.com/zmap/zdns/src/cli/iohandlers"
 	blacklist "github.com/zmap/zdns/src/internal/safe_blacklist"
 	"github.com/zmap/zdns/src/internal/util"

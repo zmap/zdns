@@ -20,11 +20,13 @@ import (
 	"testing"
 
 	"github.com/spf13/pflag"
+
 	"github.com/zmap/zdns/src/cli"
 
 	"github.com/zmap/dns"
-	"github.com/zmap/zdns/src/zdns"
 	"gotest.tools/v3/assert"
+
+	"github.com/zmap/zdns/src/zdns"
 )
 
 // Map from IPv4 address of server to DNS records

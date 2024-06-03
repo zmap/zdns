@@ -23,6 +23,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
+
 	blacklist "github.com/zmap/zdns/src/internal/safe_blacklist"
 	"github.com/zmap/zdns/src/internal/util"
 )

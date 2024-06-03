@@ -17,6 +17,7 @@ package nslookup
 import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+
 	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/zdns"
 )

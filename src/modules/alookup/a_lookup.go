@@ -17,6 +17,7 @@ package alookup
 import (
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
+
 	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/zdns"
 )

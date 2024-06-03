@@ -20,9 +20,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
+
 	"github.com/zmap/zdns/src/cli"
 
 	log "github.com/sirupsen/logrus"
+
 	"github.com/zmap/zdns/src/internal/cachehash"
 	"github.com/zmap/zdns/src/zdns"
 )
