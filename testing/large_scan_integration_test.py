@@ -76,6 +76,6 @@ def verify_output(stdout):
             f"Actual: {actual_ips}")
 
 
-std_out, std_err = run_zdns(["A", "--iterative"])
+std_out, std_err = run_zdns(["A", "--iterative", "--threads", "100"])
 verify_output(std_out)
 print("All tests passed")
