@@ -14,16 +14,16 @@
 package main
 
 import (
-	"github.com/zmap/zdns/cli"
+	"github.com/zmap/zdns/src/cli"
 	// the order of these imports is important, as the modules are registered in the init() functions.
 	// Import modules after the basic cmd pkg
-	_ "github.com/zmap/zdns/modules/alookup"
-	_ "github.com/zmap/zdns/modules/axfr"
-	_ "github.com/zmap/zdns/modules/bindversion"
-	_ "github.com/zmap/zdns/modules/dmarc"
-	_ "github.com/zmap/zdns/modules/mxlookup"
-	_ "github.com/zmap/zdns/modules/nslookup"
-	_ "github.com/zmap/zdns/modules/spf"
+	_ "github.com/zmap/zdns/src/modules/alookup"
+	_ "github.com/zmap/zdns/src/modules/axfr"
+	_ "github.com/zmap/zdns/src/modules/bindversion"
+	_ "github.com/zmap/zdns/src/modules/dmarc"
+	_ "github.com/zmap/zdns/src/modules/mxlookup"
+	_ "github.com/zmap/zdns/src/modules/nslookup"
+	_ "github.com/zmap/zdns/src/modules/spf"
 )
 
 func main() {
