@@ -808,12 +808,12 @@ class Tests(unittest.TestCase):
         # In this test, we just check for few specific records
         # in the AXFR fetch for zonetransfer.me because the
         # records can change over time and we want to minimise
-        # having to update resources/axfr.json
+        # having to update ./axfr.json
         c = "axfr"
         name = "zonetransfer.me"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
-        f = open("resources/axfr.json")
+        f = open("testing/axfr.json")
         axfr_answer = json.load(f)
         self.assertEqualAxfrLookup(res["data"]["servers"][0]["records"], axfr_answer["data"]["servers"][0]["records"])
         f.close()
