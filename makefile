@@ -1,7 +1,7 @@
 all: zdns
 
 zdns:
-	go build
+	go build -o zdns
 
 clean:
 	rm -f zdns

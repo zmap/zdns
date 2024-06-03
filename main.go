@@ -1,5 +1,5 @@
 /*
- * ZDNS Copyright 2016 Regents of the University of Michigan
+ * ZDNS Copyright 2024 Regents of the University of Michigan
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -14,17 +14,18 @@
 package main
 
 import (
-	"github.com/zmap/zdns/cmd"
-	_ "github.com/zmap/zdns/pkg/alookup"
-	_ "github.com/zmap/zdns/pkg/axfr"
-	_ "github.com/zmap/zdns/pkg/bindversion"
-	_ "github.com/zmap/zdns/pkg/dmarc"
-	_ "github.com/zmap/zdns/pkg/miekg"
-	_ "github.com/zmap/zdns/pkg/mxlookup"
-	_ "github.com/zmap/zdns/pkg/nslookup"
-	_ "github.com/zmap/zdns/pkg/spf"
+	"github.com/zmap/zdns/src/cli"
+	// the order of these imports is important, as the modules are registered in the init() functions.
+	// Import modules after the basic cmd pkg
+	_ "github.com/zmap/zdns/src/modules/alookup"
+	_ "github.com/zmap/zdns/src/modules/axfr"
+	_ "github.com/zmap/zdns/src/modules/bindversion"
+	_ "github.com/zmap/zdns/src/modules/dmarc"
+	_ "github.com/zmap/zdns/src/modules/mxlookup"
+	_ "github.com/zmap/zdns/src/modules/nslookup"
+	_ "github.com/zmap/zdns/src/modules/spf"
 )
 
 func main() {
-	cmd.Execute()
+	cli.Execute()
 }

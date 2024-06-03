@@ -47,7 +47,7 @@ package. Its functionality is described below.
 
 ZDNS provides several types of modules:
 
-- *Raw DNS modules* provide the raw DNS reponse from the server similar to dig,
+- *Raw DNS modules* provide the raw DNS response from the server similar to dig,
   but in JSON. There is a module for (nearly) every type of DNS record
 
 - *Lookup modules* provide more helpful responses when multiple queries are
