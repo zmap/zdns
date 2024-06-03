@@ -2,20 +2,19 @@
 import json
 import subprocess
 
-ZDNS_EXECUTABLE = "./zdns"
-EXPECTED_TEST_FILE = "./testing/data.jsonl"
 
-expected_test_data = []
+ZDNS_EXECUTABLE = "./zdns"
+EXPECTED_TEST_FILE = "./testing/large_scan_integration/expected_output.jsonl"
+
 expected_test_data_lookup_domain_to_IPs = {}
 
-# read in jsonl file data.jsonl, excluding zone field
+# read in jsonl file expected_output.jsonl, excluding zone field
 with open(EXPECTED_TEST_FILE, 'r') as f:
     for line in f:
         data = json.loads(line)
         # don't need zone info for this, that was just for uploading the DNS records to Google Cloud
         if 'zone' in data:
             del data['zone']
-        expected_test_data.append(data)
         ip_set = set()
         for ip in data['IPs']:
             ip_set.add(ip)
@@ -24,7 +23,7 @@ with open(EXPECTED_TEST_FILE, 'r') as f:
 
 
 def run_zdns(flags, executable=ZDNS_EXECUTABLE):
-    input_domains = [data['domain'] for data in expected_test_data]
+    input_domains = [domain for domain in expected_test_data_lookup_domain_to_IPs.keys()]
     # pipe the input domains into a call to zdns
     # return the output of zdns
     # Convert the list of domains to a single string, with each domain on a new line
