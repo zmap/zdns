@@ -16,14 +16,15 @@ package zdns
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	"github.com/zmap/dns"
-	blacklist "github.com/zmap/zdns/src/internal/safe_blacklist"
-	"github.com/zmap/zdns/src/internal/util"
 	"math/rand"
 	"net"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
+	"github.com/zmap/dns"
+	blacklist "github.com/zmap/zdns/src/internal/safe_blacklist"
+	"github.com/zmap/zdns/src/internal/util"
 )
 
 const (

@@ -15,14 +15,15 @@ package cli
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"github.com/zmap/dns"
-	"github.com/zmap/zdns/src/internal/util"
 	"net"
 	"os"
 	"strings"
 	"sync"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"github.com/zmap/dns"
+	"github.com/zmap/zdns/src/internal/util"
 )
 
 type InputHandler interface {

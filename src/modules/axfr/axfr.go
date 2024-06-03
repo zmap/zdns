@@ -15,12 +15,13 @@
 package axfr
 
 import (
+	"net"
+	"strings"
+
 	"github.com/pkg/errors"
 	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/internal/safe_blacklist"
 	"github.com/zmap/zdns/src/modules/nslookup"
-	"net"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"

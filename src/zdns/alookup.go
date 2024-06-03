@@ -14,9 +14,10 @@
 package zdns
 
 import (
+	"strings"
+
 	"github.com/pkg/errors"
 	"github.com/zmap/dns"
-	"strings"
 )
 
 // DoTargetedLookup performs a lookup of the given domain name against the given nameserver, looking up both IPv4 and IPv6 addresses

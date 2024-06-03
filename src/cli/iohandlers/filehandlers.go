@@ -16,9 +16,10 @@ package iohandlers
 
 import (
 	"bufio"
-	"github.com/zmap/zdns/src/internal/util"
 	"os"
 	"sync"
+
+	"github.com/zmap/zdns/src/internal/util"
 
 	log "github.com/sirupsen/logrus"
 )

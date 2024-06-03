@@ -17,12 +17,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	"github.com/zmap/dns"
 	"net"
 	"regexp"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
+	"github.com/zmap/dns"
 )
 
 // GetDNSServers returns a list of DNS servers from a file, or an error if one occurs

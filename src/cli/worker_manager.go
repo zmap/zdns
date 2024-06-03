@@ -17,6 +17,14 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"net"
+	"os"
+	"runtime"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/hashicorp/go-version"
 	"github.com/liip/sheriff"
 	log "github.com/sirupsen/logrus"
@@ -26,13 +34,6 @@ import (
 	blacklist "github.com/zmap/zdns/src/internal/safe_blacklist"
 	"github.com/zmap/zdns/src/internal/util"
 	"github.com/zmap/zdns/src/zdns"
-	"net"
-	"os"
-	"runtime"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
 )
 
 type routineMetadata struct {

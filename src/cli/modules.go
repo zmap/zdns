@@ -15,6 +15,7 @@ package cli
 
 import (
 	"fmt"
+
 	"github.com/spf13/pflag"
 	"github.com/zmap/zdns/src/zdns"
 

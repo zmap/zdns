@@ -15,11 +15,12 @@ package spf
 
 import (
 	"errors"
+	"regexp"
+
 	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/zdns"
-	"regexp"
 )
 
 const spfPrefixRegexp = "(?i)^v=spf1"

@@ -14,12 +14,13 @@
 package mxlookup
 
 import (
+	"strings"
+	"sync"
+
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
 	"github.com/zmap/zdns/src/cli"
-	"strings"
-	"sync"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zdns/src/internal/cachehash"
