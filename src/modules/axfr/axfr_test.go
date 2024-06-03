@@ -16,13 +16,13 @@ package axfr
 
 import (
 	"github.com/spf13/pflag"
-	"github.com/zmap/zdns/cli"
+	"github.com/zmap/zdns/src/cli"
 	"net"
 	"reflect"
 	"testing"
 
 	"github.com/zmap/dns"
-	"github.com/zmap/zdns/zdns"
+	"github.com/zmap/zdns/src/zdns"
 	"gotest.tools/v3/assert"
 )
 
