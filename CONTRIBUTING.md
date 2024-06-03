@@ -5,6 +5,11 @@ We welcome any contributions to ZDNS. Please feel free to open an issue or a pul
 ## Development Pre-requisites
  - Python3 
  - Go v1.20 or later
+ - golangci-lint
+ - staticcheck
+
+##### @Phillip TODO
+GO thru process of setting up dev environment on a docker container to get the exact steps needed to get the dev environment setup.
 
 ## PR Guidelines
 Please ensure:

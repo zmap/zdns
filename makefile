@@ -17,8 +17,11 @@ integration-tests: zdns
 	python3 testing/large_scan_integration/large_scan_integration_tests.py
 
 lint:
-	goimports -d ./
+	goimports -w -local "github.com/zmap/zdns" ./
+	gofmt -s -w ./
 	golangci-lint run
+	go vet ./...
+	staticcheck ./...
 
 license-check:
 	./.github/workflows/check_license.sh

@@ -55,3 +55,33 @@ jobs:
           sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
           python --version
           ./testing/large_scan_integration/large_scan_integration_tests.py
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.20'
+      - name: Lint
+        # While goimports is run by make lint, it won't fail the build if there are issues. This will.
+        run: |
+          make zdns
+          output=$(goimports -d -local "github.com/zmap/zdns" ./)
+          if [ -n "$output" ]; then
+            echo "goimports found issues:"
+            echo "$output"
+            exit 1
+          else
+            echo "No issues found by goimports."
+          fi
+          output=$gofmt -s .)
+            if [ -n "$output" ]; then
+                echo "gofmt found issues:"
+                echo "$output"
+                exit 1
+            else
+                echo "No issues found by gofmt."
+            fi
+          make lint
