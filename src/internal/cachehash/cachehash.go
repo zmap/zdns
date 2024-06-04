@@ -101,7 +101,7 @@ func (c *CacheHash) Get(k interface{}) (interface{}, bool) {
 		kv := e.Value.(keyValue)
 		return kv.Value, ok
 	}
-	return nil, ok
+	return nil, false
 }
 
 func (c *CacheHash) GetNoMove(k interface{}) (interface{}, bool) {
@@ -109,7 +109,7 @@ func (c *CacheHash) GetNoMove(k interface{}) (interface{}, bool) {
 	if ok {
 		return e.Value.(keyValue).Value, ok
 	}
-	return nil, ok
+	return nil, false
 }
 
 func (c *CacheHash) Has(k interface{}) bool {
