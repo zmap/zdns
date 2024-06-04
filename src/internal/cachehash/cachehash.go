@@ -55,7 +55,7 @@ func (c *CacheHash) Eject() {
 	c.len--
 }
 
-func (c *CacheHash) Add(k interface{}, v interface{}) bool {
+func (c *CacheHash) Upsert(k interface{}, v interface{}) bool {
 	e, ok := c.h[k]
 	if ok {
 		kv := e.Value.(keyValue)

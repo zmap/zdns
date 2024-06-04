@@ -23,7 +23,7 @@ import (
 func TestAddOne(t *testing.T) {
 	ch := new(CacheHash)
 	ch.Init(5)
-	ch.Add("key1", "value1")
+	ch.Upsert("key1", "value1")
 	if ch.Len() != 1 {
 		t.Error("unable to add any elements")
 	}
@@ -39,8 +39,8 @@ func TestAddOne(t *testing.T) {
 func TestFirstLastSetProperly(t *testing.T) {
 	ch := new(CacheHash)
 	ch.Init(5)
-	ch.Add("key1", "value1")
-	ch.Add("key2", "value2")
+	ch.Upsert("key1", "value1")
+	ch.Upsert("key2", "value2")
 	if ch.Len() != 2 {
 		t.Error("unable to add multiple elements")
 	}
@@ -55,9 +55,9 @@ func TestFirstLastSetProperly(t *testing.T) {
 func TestDelete(t *testing.T) {
 	ch := new(CacheHash)
 	ch.Init(5)
-	ch.Add("key1", "value1")
-	ch.Add("key2", "value2")
-	ch.Add("key3", "value3")
+	ch.Upsert("key1", "value1")
+	ch.Upsert("key2", "value2")
+	ch.Upsert("key3", "value3")
 	if ch.Len() != 3 {
 		t.Error("unable to add multiple elements")
 	}
@@ -84,8 +84,8 @@ func TestDelete(t *testing.T) {
 func TestMoveFront(t *testing.T) {
 	ch := new(CacheHash)
 	ch.Init(5)
-	ch.Add("key1", "value1")
-	ch.Add("key2", "value2")
+	ch.Upsert("key1", "value1")
+	ch.Upsert("key2", "value2")
 	ch.Get("key1")
 	if k, v := ch.First(); k != "key1" || v != "value1" {
 		t.Error("first and last not set on add")
@@ -98,9 +98,9 @@ func TestMoveFront(t *testing.T) {
 func TestEject(t *testing.T) {
 	ch := new(CacheHash)
 	ch.Init(2)
-	ch.Add("key1", "value1")
-	ch.Add("key2", "value2")
-	ch.Add("key3", "value3")
+	ch.Upsert("key1", "value1")
+	ch.Upsert("key2", "value2")
+	ch.Upsert("key3", "value3")
 	if ch.Len() != 2 {
 		t.Error("length not respected")
 	}
@@ -115,15 +115,15 @@ func TestEject(t *testing.T) {
 	}
 }
 
-func TestAddExistingBumpsToFront(t *testing.T) {
+func TestUpsertExistingBumpsToFront(t *testing.T) {
 	ch := new(CacheHash)
 	ch.Init(5)
 	firstValueKey1 := "value1"
 	secondValueKey1 := "newValue1"
-	ch.Add("key1", firstValueKey1)
-	ch.Add("key2", "value2")
-	ch.Add("key3", "value3")
-	ch.Add("key1", secondValueKey1)
+	ch.Upsert("key1", firstValueKey1)
+	ch.Upsert("key2", "value2")
+	ch.Upsert("key3", "value3")
+	ch.Upsert("key1", secondValueKey1)
 	k, v := ch.First()
 	assert.Equal(t, "key1", k, "key1 should be bumped to front since it was just added")
 	assert.Equal(t, secondValueKey1, v, "add existing should update value")
