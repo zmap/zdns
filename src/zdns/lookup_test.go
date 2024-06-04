@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/stretchr/testify/assert"
 
 	"github.com/zmap/dns"
@@ -385,11 +387,11 @@ func TestParseEdnsAnswerNsid1(t *testing.T) {
 	}
 	res := ParseAnswer(rr)
 	ednsAnswer, ok := res.(EDNSAnswer)
-	assert.Equal(t, ok, true, "Failed to parse OPT record")
-	assert.Equal(t, ednsAnswer.Version, uint8(0), "Unexpected EDNS Version. Expected %v, got %v", 0, ednsAnswer.Version)
-	assert.Equal(t, ednsAnswer.UDPSize, uint16(1232), "Unexpected EDNS UDP Size. Expected %v, got %v", 0, ednsAnswer.UDPSize)
-	assert.Equal(t, ednsAnswer.Flags, "", "Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
-	assert.Equal(t, ednsAnswer.NSID.Nsid, "test_nsid", "Unexpected NSID string. Expected %v, got %v", "test_nsid", ednsAnswer.NSID.Nsid)
+	assert.True(t, ok, "Failed to parse OPT record")
+	assert.Equal(t, uint8(0), ednsAnswer.Version, "Unexpected EDNS Version. Expected %v, got %v", 0, ednsAnswer.Version)
+	assert.Equal(t, uint16(1232), ednsAnswer.UDPSize, "Unexpected EDNS UDP Size. Expected %v, got %v", 0, ednsAnswer.UDPSize)
+	assert.Empty(t, ednsAnswer.Flags, "Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
+	assert.Equal(t, "test_nsid", ednsAnswer.NSID.Nsid, "Unexpected NSID string. Expected %v, got %v", "test_nsid", ednsAnswer.NSID.Nsid)
 }
 
 func TestParseEdnsAnswerNsid2(t *testing.T) {
@@ -399,11 +401,11 @@ func TestParseEdnsAnswerNsid2(t *testing.T) {
 	}
 	res := ParseAnswer(rr)
 	ednsAnswer, ok := res.(EDNSAnswer)
-	assert.Equal(t, ok, true, "Failed to parse OPT record")
-	assert.Equal(t, ednsAnswer.Version, uint8(0), "Unexpected EDNS Version. Expected %v, got %v", 0, ednsAnswer.Version)
-	assert.Equal(t, ednsAnswer.UDPSize, uint16(1232), "Unexpected EDNS UDP Size. Expected %v, got %v", 0, ednsAnswer.UDPSize)
-	assert.Equal(t, ednsAnswer.Flags, "", "Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
-	assert.Equal(t, ednsAnswer.NSID, (*Edns0NSID)(nil), "Unexpected NSID string. Expected %v, got %v", nil, ednsAnswer.NSID)
+	assert.True(t, ok, "Failed to parse OPT record")
+	assert.Equal(t, uint8(0), ednsAnswer.Version, "Unexpected EDNS Version. Expected %v, got %v", 0, ednsAnswer.Version)
+	assert.Equal(t, uint16(1232), ednsAnswer.UDPSize, "Unexpected EDNS UDP Size. Expected %v, got %v", 0, ednsAnswer.UDPSize)
+	assert.Empty(t, ednsAnswer.Flags, "Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
+	assert.Nil(t, ednsAnswer.NSID, "Unexpected NSID string. Expected %v, got %v", nil, ednsAnswer.NSID)
 }
 
 func TestParseEdnsAnswerNoEdns(t *testing.T) {
@@ -413,13 +415,12 @@ func TestParseEdnsAnswerNoEdns(t *testing.T) {
 	}
 	res := ParseAnswer(rr)
 	ednsAnswer, ok := res.(EDNSAnswer)
-	assert.Equal(t, ok, true, "Failed to parse OPT record")
-	assert.Equal(t, ednsAnswer.Version, uint8(0), "Unexpected EDNS Version. Expected %v, got %v", 0, ednsAnswer.Version)
-	assert.Equal(t, ednsAnswer.UDPSize, uint16(1232), "Unexpected EDNS UDP Size. Expected %v, got %v", 0, ednsAnswer.UDPSize)
-	assert.Equal(t, ednsAnswer.Flags, "", "Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
-	assert.Equal(t, ednsAnswer.NSID, (*Edns0NSID)(nil), "Unexpected NSID string. Expected %v, got %v", nil, ednsAnswer.NSID)
-	assert.Equal(t, len(ednsAnswer.EDE), 0, "Expected no EDE error code, got %v", len(ednsAnswer.EDE))
-
+	assert.True(t, ok, "Failed to parse OPT record")
+	assert.Equal(t, uint8(0), ednsAnswer.Version, "Unexpected EDNS Version. Expected %v, got %v", 0, ednsAnswer.Version)
+	assert.Equal(t, uint16(1232), ednsAnswer.UDPSize, "Unexpected EDNS UDP Size. Expected %v, got %v", 0, ednsAnswer.UDPSize)
+	assert.Empty(t, ednsAnswer.Flags, "Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
+	assert.Nil(t, ednsAnswer.NSID, "Unexpected NSID string. Expected %v, got %v", nil, ednsAnswer.NSID)
+	assert.Empty(t, ednsAnswer.EDE, "Expected no EDE error code, got %v", ednsAnswer.EDE)
 }
 
 func TestParseEdnsAnswerEDE1(t *testing.T) {
@@ -429,13 +430,13 @@ func TestParseEdnsAnswerEDE1(t *testing.T) {
 	}
 	res := ParseAnswer(rr)
 	ednsAnswer, ok := res.(EDNSAnswer)
-	assert.Equal(t, ok, true, "Failed to parse OPT record")
-	assert.Equal(t, ednsAnswer.Version, uint8(0), "Unexpected EDNS Version. Expected %v, got %v", 0, ednsAnswer.Version)
-	assert.Equal(t, ednsAnswer.UDPSize, uint16(1232), "Unexpected EDNS UDP Size. Expected %v, got %v", 0, ednsAnswer.UDPSize)
-	assert.Equal(t, ednsAnswer.Flags, "", "Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
-	assert.Equal(t, len(ednsAnswer.EDE), 1, "Expected only one EDE error code, got %v", len(ednsAnswer.EDE))
-	assert.Equal(t, ednsAnswer.EDE[0].InfoCode, uint16(65535), "Unexpected EDE info code. Expected %v, got %v", 65535, ednsAnswer.EDE[0].InfoCode)
-	assert.Equal(t, ednsAnswer.EDE[0].ExtraText, "testing", "Unexpected EDE extra text. Expected %v, got %v", "testing", ednsAnswer.EDE[0].ExtraText)
+	assert.True(t, ok, "Failed to parse OPT record")
+	assert.Equal(t, uint8(0), ednsAnswer.Version, "Unexpected EDNS Version. Expected %v, got %v", 0, ednsAnswer.Version)
+	assert.Equal(t, uint16(1232), ednsAnswer.UDPSize, "Unexpected EDNS UDP Size. Expected %v, got %v", 0, ednsAnswer.UDPSize)
+	assert.Empty(t, ednsAnswer.Flags, "Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
+	assert.Len(t, ednsAnswer.EDE, 1, "Expected only one EDE error code, got %v", len(ednsAnswer.EDE))
+	assert.Equal(t, uint16(65535), ednsAnswer.EDE[0].InfoCode, "Unexpected EDE info code. Expected %v, got %v", 65535, ednsAnswer.EDE[0].InfoCode)
+	assert.Equal(t, "testing", ednsAnswer.EDE[0].ExtraText, "Unexpected EDE extra text. Expected %v, got %v", "testing", ednsAnswer.EDE[0].ExtraText)
 }
 
 func TestParseEdnsAnswerEDE2(t *testing.T) {
@@ -447,15 +448,15 @@ func TestParseEdnsAnswerEDE2(t *testing.T) {
 	}
 	res := ParseAnswer(rr)
 	ednsAnswer, ok := res.(EDNSAnswer)
-	assert.Equal(t, ok, true, "Failed to parse OPT record")
-	assert.Equal(t, ednsAnswer.Version, uint8(0), "Unexpected EDNS Version. Expected %v, got %v", 0, ednsAnswer.Version)
-	assert.Equal(t, ednsAnswer.UDPSize, uint16(1232), "Unexpected EDNS UDP Size. Expected %v, got %v", 0, ednsAnswer.UDPSize)
-	assert.Equal(t, ednsAnswer.Flags, "", "Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
-	assert.Equal(t, len(ednsAnswer.EDE), 2, "Expected only one EDE error code, got %v", len(ednsAnswer.EDE))
-	assert.Equal(t, ednsAnswer.EDE[0].InfoCode, uint16(65535), "Unexpected EDE info code. Expected %v, got %v", 65535, ednsAnswer.EDE[0].InfoCode)
-	assert.Equal(t, ednsAnswer.EDE[0].ExtraText, "testing1", "Unexpected EDE extra text. Expected %v, got %v", "testing1", ednsAnswer.EDE[1].ExtraText)
-	assert.Equal(t, ednsAnswer.EDE[1].InfoCode, uint16(65534), "Unexpected EDE info code. Expected %v, got %v", 655354, ednsAnswer.EDE[0].InfoCode)
-	assert.Equal(t, ednsAnswer.EDE[01].ExtraText, "testing2", "Unexpected EDE extra text. Expected %v, got %v", "testing2", ednsAnswer.EDE[1].ExtraText)
+	assert.True(t, ok, "Failed to parse OPT record")
+	assert.Equal(t, uint8(0), ednsAnswer.Version, "Unexpected EDNS Version. Expected %v, got %v", 0, ednsAnswer.Version)
+	assert.Equal(t, uint16(1232), ednsAnswer.UDPSize, "Unexpected EDNS UDP Size. Expected %v, got %v", 0, ednsAnswer.UDPSize)
+	assert.Empty(t, ednsAnswer.Flags, "Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
+	assert.Len(t, ednsAnswer.EDE, 2, "Expected only one EDE error code, got %v", len(ednsAnswer.EDE))
+	assert.Equal(t, uint16(65535), ednsAnswer.EDE[0].InfoCode, "Unexpected EDE info code. Expected %v, got %v", 65535, ednsAnswer.EDE[0].InfoCode)
+	assert.Equal(t, "testing1", ednsAnswer.EDE[0].ExtraText, "Unexpected EDE extra text. Expected %v, got %v", "testing1", ednsAnswer.EDE[1].ExtraText)
+	assert.Equal(t, uint16(65534), ednsAnswer.EDE[1].InfoCode, "Unexpected EDE info code. Expected %v, got %v", 655354, ednsAnswer.EDE[0].InfoCode)
+	assert.Equal(t, "testing2", ednsAnswer.EDE[01].ExtraText, "Unexpected EDE extra text. Expected %v, got %v", "testing2", ednsAnswer.EDE[1].ExtraText)
 }
 
 func TestParseEdnsAnswerClientSubnet1(t *testing.T) {
@@ -472,14 +473,14 @@ func TestParseEdnsAnswerClientSubnet1(t *testing.T) {
 		}}
 	res := ParseAnswer(rr)
 	ednsAnswer, ok := res.(EDNSAnswer)
-	assert.Equal(t, ok, true, "Failed to parse OPT record")
-	assert.Equal(t, ednsAnswer.Version, uint8(0), "Unexpected EDNS Version. Expected %v, got %v", 0, ednsAnswer.Version)
-	assert.Equal(t, ednsAnswer.UDPSize, uint16(1232), "Unexpected EDNS UDP Size. Expected %v, got %v", 0, ednsAnswer.UDPSize)
-	assert.Equal(t, ednsAnswer.Flags, "", "Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
-	assert.Equal(t, ednsAnswer.ClientSubnet.SourceScope, uint8(20), "Unexpected source scope. Expected %v, got %v", 20, ednsAnswer.ClientSubnet.SourceScope)
-	assert.Equal(t, ednsAnswer.ClientSubnet.SourceNetmask, uint8(24), "Unexpected source netmask. Expected %v, got %v", 24, ednsAnswer.ClientSubnet.SourceNetmask)
-	assert.Equal(t, ednsAnswer.ClientSubnet.Family, uint16(1), "Unexpected family. Expected %v, got %v", 1, ednsAnswer.ClientSubnet.Family)
-	assert.Equal(t, ednsAnswer.ClientSubnet.Address, "1.2.3.4", "Unexpected address. Expected %v, got %v", "1.2.3.4", ednsAnswer.ClientSubnet.Address)
+	assert.True(t, ok, "Failed to parse OPT record")
+	assert.Equal(t, uint8(0), ednsAnswer.Version, "Unexpected EDNS Version. Expected %v, got %v", 0, ednsAnswer.Version)
+	assert.Equal(t, uint16(1232), ednsAnswer.UDPSize, "Unexpected EDNS UDP Size. Expected %v, got %v", 0, ednsAnswer.UDPSize)
+	assert.Empty(t, ednsAnswer.Flags, "Unexpected EDNS Flags. Expected %v, got %v", 0, ednsAnswer.Flags)
+	assert.Equal(t, uint8(20), ednsAnswer.ClientSubnet.SourceScope, "Unexpected source scope. Expected %v, got %v", 20, ednsAnswer.ClientSubnet.SourceScope)
+	assert.Equal(t, uint8(24), ednsAnswer.ClientSubnet.SourceNetmask, "Unexpected source netmask. Expected %v, got %v", 24, ednsAnswer.ClientSubnet.SourceNetmask)
+	assert.Equal(t, uint16(1), ednsAnswer.ClientSubnet.Family, "Unexpected family. Expected %v, got %v", 1, ednsAnswer.ClientSubnet.Family)
+	assert.Equal(t, "1.2.3.4", ednsAnswer.ClientSubnet.Address, "Unexpected address. Expected %v, got %v", "1.2.3.4", ednsAnswer.ClientSubnet.Address)
 }
 
 func verifyAnswer(t *testing.T, answer interface{}, original dns.RR, expectedAnswer interface{}) {
@@ -526,7 +527,7 @@ func TestLookup_DoTxtLookup_1(t *testing.T) {
 	}
 
 	resultString, err := FindTxtRecord(input, testRegexp)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "asdfasdfasdf", resultString)
 }
 
@@ -554,7 +555,7 @@ func TestLookup_DoTxtLookup_2(t *testing.T) {
 	}
 
 	resultString, err := FindTxtRecord(input, testRegexp)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "google-site-verification=A2WZWCNQHrGV_TWwKh7KHY90UY0SHZo_rnyMJoDaG0", resultString)
 }
 
@@ -581,8 +582,8 @@ func TestLookup_DoTxtLookup_3(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 	resultString, err := FindTxtRecord(input, testRegexp)
-	assert.Error(t, err, "no such TXT record found")
-	assert.True(t, resultString == "")
+	require.Error(t, err, "no such TXT record found")
+	assert.Empty(t, resultString)
 }
 
 func TestLookup_DoTxtLookup_4(t *testing.T) {
@@ -591,8 +592,8 @@ func TestLookup_DoTxtLookup_4(t *testing.T) {
 		Answers: []interface{}{},
 	}
 	resultString, err := FindTxtRecord(input, testRegexp)
-	assert.Error(t, err, "no such TXT record found")
-	assert.True(t, resultString == "")
+	require.Error(t, err, "no such TXT record found")
+	assert.Empty(t, resultString)
 }
 
 func TestLookup_DoTxtLookup_5(t *testing.T) {
@@ -607,7 +608,7 @@ func TestLookup_DoTxtLookup_5(t *testing.T) {
 		}},
 	}
 	resultString, err := FindTxtRecord(input, testRegexp)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "google-site-verification=A2WZWCNQHrGV_TWwKh7KHY90UY0SHZo_rnyMJoDaG0s", resultString)
 }
 
@@ -619,7 +620,7 @@ func TestLookup_DoTxtLookup_5(t *testing.T) {
 func TestOneA(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -647,7 +648,7 @@ func TestOneA(t *testing.T) {
 func TestTwoA(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -682,7 +683,7 @@ func TestTwoA(t *testing.T) {
 func TestQuadAWithoutFlag(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -718,7 +719,7 @@ func TestQuadAWithoutFlag(t *testing.T) {
 func TestOnlyQuadA(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -748,7 +749,7 @@ func TestOnlyQuadA(t *testing.T) {
 func TestAandQuadA(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -784,7 +785,7 @@ func TestAandQuadA(t *testing.T) {
 func TestTwoQuadA(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -821,7 +822,7 @@ func TestTwoQuadA(t *testing.T) {
 func TestNoResults(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -843,7 +844,7 @@ func TestNoResults(t *testing.T) {
 func TestCname(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "cname.example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -889,7 +890,7 @@ func TestCname(t *testing.T) {
 func TestQuadAWithCname(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "cname.example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -924,7 +925,7 @@ func TestQuadAWithCname(t *testing.T) {
 func TestUnexpectedMxOnly(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -958,7 +959,7 @@ func TestUnexpectedMxOnly(t *testing.T) {
 func TestMxAndAdditionals(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -1000,7 +1001,7 @@ func TestMxAndAdditionals(t *testing.T) {
 func TestMismatchIpType(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -1034,7 +1035,7 @@ func TestMismatchIpType(t *testing.T) {
 func TestCnameLoops(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "cname1.example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -1086,7 +1087,7 @@ func TestCnameLoops(t *testing.T) {
 func TestExtendedRecursion(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
 	// Create a CNAME chain of length > 10
@@ -1124,7 +1125,7 @@ func TestExtendedRecursion(t *testing.T) {
 func TestEmptyNonTerminal(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "leaf.intermediate.example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -1169,7 +1170,7 @@ func TestEmptyNonTerminal(t *testing.T) {
 func TestNXDomain(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
 	res, _, status, _ := resolver.DoTargetedLookup("nonexistent.example.com", ns1, IPv4OrIPv6, false)
 	if status != STATUS_NXDOMAIN {
@@ -1183,7 +1184,7 @@ func TestNXDomain(t *testing.T) {
 func TestAandQuadADedup(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "cname1.example.com"
 	domain2 := "cname2.example.com"
@@ -1281,7 +1282,7 @@ func TestAandQuadADedup(t *testing.T) {
 func TestServFail(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -1318,7 +1319,7 @@ func TestNsAInAdditional(t *testing.T) {
 	config := InitTest(t)
 	config.IPVersionMode = IPv4Only
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -1361,7 +1362,7 @@ func TestTwoNSInAdditional(t *testing.T) {
 	config := InitTest(t)
 	config.IPVersionMode = IPv4Only
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -1422,7 +1423,7 @@ func TestAandQuadAInAdditional(t *testing.T) {
 	config := InitTest(t)
 	config.IPVersionMode = IPv4OrIPv6
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -1472,7 +1473,7 @@ func TestNsMismatchIpType(t *testing.T) {
 	config := InitTest(t)
 	config.IPVersionMode = IPv4OrIPv6
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -1522,7 +1523,7 @@ func TestAandQuadALookup(t *testing.T) {
 	config := InitTest(t)
 	config.IPVersionMode = IPv4OrIPv6
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -1583,19 +1584,19 @@ func TestAandQuadALookup(t *testing.T) {
 func TestNsNXDomain(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
 
 	_, _, status, _ := resolver.DoNSLookup("nonexistentexample.com", ns1, false)
 
-	assert.Equal(t, status, STATUS_NXDOMAIN)
+	assert.Equal(t, STATUS_NXDOMAIN, status)
 }
 
 func TestNsServFail(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -1605,16 +1606,15 @@ func TestNsServFail(t *testing.T) {
 	protocolStatus[domain_ns_1] = STATUS_SERVFAIL
 
 	res, _, status, _ := resolver.DoNSLookup("example.com", ns1, false)
-	serversLength := len(res.Servers)
 
 	assert.Equal(t, status, protocolStatus[domain_ns_1])
-	assert.Equal(t, serversLength, 0)
+	assert.Empty(t, res.Servers)
 }
 
 func TestErrorInTargetedLookup(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
@@ -1639,7 +1639,7 @@ func TestErrorInTargetedLookup(t *testing.T) {
 	protocolStatus[domain_ns_1] = STATUS_ERROR
 
 	res, _, status, _ := resolver.DoNSLookup("example.com", ns1, false)
-	assert.Equal(t, len(res.Servers), 0)
+	assert.Empty(t, len(res.Servers), 0)
 	assert.Equal(t, status, protocolStatus[domain_ns_1])
 }
 
@@ -1648,7 +1648,7 @@ func TestAllNsLookupOneNs(t *testing.T) {
 	config := InitTest(t)
 	config.IPVersionMode = IPv4OrIPv6
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
 	domain1 := "example.com"
@@ -1745,7 +1745,7 @@ func TestAllNsLookupOneNs(t *testing.T) {
 	}
 
 	results, _, _, err := resolver.LookupAllNameservers(&q, ns1)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	verifyCombinedResult(t, results.Results, expectedRes)
 }
 
@@ -1755,7 +1755,7 @@ func TestAllNsLookupOneNsMultipleIps(t *testing.T) {
 	config := InitTest(t)
 	config.IPVersionMode = IPv4Only
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
 	domain1 := "example.com"
@@ -1869,7 +1869,7 @@ func TestAllNsLookupOneNsMultipleIps(t *testing.T) {
 	}
 
 	results, _, _, err := resolver.LookupAllNameservers(&q, ns1)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	verifyCombinedResult(t, results.Results, expectedRes)
 }
 
@@ -1878,7 +1878,7 @@ func TestAllNsLookupTwoNs(t *testing.T) {
 	config := InitTest(t)
 	config.IPVersionMode = IPv4Only
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
 	domain1 := "example.com"
@@ -1984,7 +1984,7 @@ func TestAllNsLookupTwoNs(t *testing.T) {
 	}
 
 	results, _, _, err := resolver.LookupAllNameservers(&q, ns1)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	verifyCombinedResult(t, results.Results, expectedRes)
 }
 
@@ -1994,7 +1994,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 	config := InitTest(t)
 	config.IPVersionMode = IPv4Only
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
 	domain1 := "example.com"
@@ -2086,7 +2086,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 	}
 
 	results, _, _, err := resolver.LookupAllNameservers(&q, ns1)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	verifyCombinedResult(t, results.Results, expectedRes)
 }
 
@@ -2094,7 +2094,7 @@ func TestAllNsLookupNXDomain(t *testing.T) {
 	config := InitTest(t)
 	config.IPVersionMode = IPv4Only
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
 	q := Question{
@@ -2105,16 +2105,16 @@ func TestAllNsLookupNXDomain(t *testing.T) {
 
 	res, _, status, err := resolver.LookupAllNameservers(&q, ns1)
 
-	assert.Equal(t, status, STATUS_NXDOMAIN)
+	assert.Equal(t, STATUS_NXDOMAIN, status)
 	assert.Nil(t, res)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestAllNsLookupServFail(t *testing.T) {
 	config := InitTest(t)
 	config.IPVersionMode = IPv4Only
 	resolver, err := InitResolver(config)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
 	domain1 := "example.com"
@@ -2130,9 +2130,9 @@ func TestAllNsLookupServFail(t *testing.T) {
 	}
 	res, _, status, err := resolver.LookupAllNameservers(&q, ns1)
 
-	assert.Equal(t, status, STATUS_SERVFAIL)
+	assert.Equal(t, STATUS_SERVFAIL, status)
 	assert.Nil(t, res)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func verifyNsResult(t *testing.T, servers []NSRecord, expectedServersMap map[string]IPResult) {

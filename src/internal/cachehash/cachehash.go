@@ -16,8 +16,9 @@ package cachehash
 
 import (
 	"container/list"
-	log "github.com/sirupsen/logrus"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type CacheHash struct {
