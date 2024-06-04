@@ -55,6 +55,11 @@ func (c *CacheHash) Eject() {
 	c.len--
 }
 
+// Upsert inserts a new key-value pair into the cache.
+// If the key already exists, the value is updated and the key is moved to the front of the list.
+// If the key does not exist in the cache, the key-value pair is added to the front of the list.
+// If the cache is full, the oldest key-value pair is removed.
+// Returns whether the key already existed in the cache.
 func (c *CacheHash) Upsert(k interface{}, v interface{}) bool {
 	e, ok := c.h[k]
 	if ok {
