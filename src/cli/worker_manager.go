@@ -348,15 +348,15 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 
 	// Use handlers to populate the input and output/results channel
 	go func() {
-		err := inHandler.FeedChannel(inChan, &routineWG)
-		if err != nil {
-			log.Fatal(fmt.Sprintf("could not feed input channel: %v", err))
+		inErr := inHandler.FeedChannel(inChan, &routineWG)
+		if inErr != nil {
+			log.Fatal(fmt.Sprintf("could not feed input channel: %v", inErr))
 		}
 	}()
 	go func() {
-		err := outHandler.WriteResults(outChan, &routineWG)
-		if err != nil {
-			log.Fatal(fmt.Sprintf("could not write output results from output channel: %v", err))
+		outErr := outHandler.WriteResults(outChan, &routineWG)
+		if outErr != nil {
+			log.Fatal(fmt.Sprintf("could not write output results from output channel: %v", outErr))
 		}
 	}()
 	routineWG.Add(2)
@@ -367,12 +367,13 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 	startTime := time.Now().Format(gc.TimeFormat)
 	// create shared cache for all threads to share
 	for i := 0; i < gc.Threads; i++ {
-		go func() {
-			err := doLookupWorker(&gc, lookupModule, resolverConfig, inChan, outChan, metaChan, &lookupWG)
-			if err != nil {
-				log.Fatal("could not start lookup worker: ", err)
+		i := i
+		go func(threadID int) {
+			initWorkerErr := doLookupWorker(&gc, lookupModule, resolverConfig, inChan, outChan, metaChan, &lookupWG)
+			if initWorkerErr != nil {
+				log.Fatalf("could not start lookup worker #%d: %v", i, initWorkerErr)
 			}
-		}()
+		}(i)
 	}
 	lookupWG.Wait()
 	close(outChan)
@@ -476,9 +477,12 @@ func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, i
 				ApiVersion: v,
 			}
 			data, err := sheriff.Marshal(o, res)
+			if err != nil {
+				log.Fatalf("unable to marshal result to JSON: %v", err)
+			}
 			jsonRes, err := json.Marshal(data)
 			if err != nil {
-				log.Fatal("Unable to marshal JSON result", err)
+				log.Fatalf("unable to marshal JSON result: %v", err)
 			}
 			output <- string(jsonRes)
 		}

@@ -20,8 +20,6 @@ lint:
 	goimports -w -local "github.com/zmap/zdns" ./
 	gofmt -s -w ./
 	golangci-lint run
-	go vet ./...
-	staticcheck ./...
 
 license-check:
 	./.github/workflows/check_license.sh
