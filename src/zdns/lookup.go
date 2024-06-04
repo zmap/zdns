@@ -408,7 +408,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 	}
 	for i, elem := range result.Authorities {
 		r.verboseLog(depth+1, "Trying Authority: ", elem)
-		ns, ns_status, _, newTrace := r.extractAuthority(ctx, elem, layer, depth, result, trace)
+		ns, ns_status, newLayer, newTrace := r.extractAuthority(ctx, elem, layer, depth, result, trace)
 		r.verboseLog((depth + 1), "Output from extract authorities: ", ns)
 		if ns_status == STATUS_ITER_TIMEOUT {
 			r.verboseLog((depth + 2), "--> Hit iterative timeout: ")
@@ -441,7 +441,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 				}
 			}
 		}
-		iterateResult, newTrace, status, err := r.iterativeLookup(ctx, q, ns, depth+1, layer, newTrace)
+		iterateResult, newTrace, status, err := r.iterativeLookup(ctx, q, ns, depth+1, newLayer, newTrace)
 		if isStatusAnswer(status) {
 			r.verboseLog((depth + 1), "--> Auth Resolution success: ", status)
 			return iterateResult, newTrace, status, err
