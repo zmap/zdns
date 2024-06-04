@@ -16,6 +16,7 @@ package cachehash
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -112,4 +113,22 @@ func TestEject(t *testing.T) {
 	if v, ok := ch.Get("key1"); ok != false || v != nil {
 		t.Error("Ejected element not removed from hash")
 	}
+}
+
+func TestAddExistingBumpsToFront(t *testing.T) {
+	ch := new(CacheHash)
+	ch.Init(5)
+	firstValueKey1 := "value1"
+	secondValueKey1 := "newValue1"
+	ch.Add("key1", firstValueKey1)
+	ch.Add("key2", "value2")
+	ch.Add("key3", "value3")
+	ch.Add("key1", secondValueKey1)
+	k, v := ch.First()
+	assert.Equal(t, "key1", k, "key1 should be bumped to front since it was just added")
+	assert.Equal(t, secondValueKey1, v, "add existing should update value")
+
+	k, v = ch.Last()
+	assert.Equal(t, "key2", k, "key2 should be last")
+	assert.Equal(t, "value2", v, "key2 should have value: value2")
 }
