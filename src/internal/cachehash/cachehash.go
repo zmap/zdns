@@ -58,22 +58,20 @@ func (c *CacheHash) Eject() {
 func (c *CacheHash) Upsert(k interface{}, v interface{}) bool {
 	e, ok := c.h[k]
 	if ok {
-		kv := e.Value.(keyValue)
-		kv.Key = k
-		kv.Value = v
+		e.Value = v
 		c.l.MoveToFront(e)
-	} else {
-		if c.len >= c.maxLen {
-			c.Eject()
-		}
-		var kv keyValue
-		kv.Key = k
-		kv.Value = v
-		e = c.l.PushFront(kv)
-		c.len++
-		c.h[k] = e
+		return true
 	}
-	return ok
+	if c.len >= c.maxLen {
+		c.Eject()
+	}
+	var kv keyValue
+	kv.Key = k
+	kv.Value = v
+	e = c.l.PushFront(kv)
+	c.len++
+	c.h[k] = e
+	return false
 }
 
 func (c *CacheHash) First() (interface{}, interface{}) {
