@@ -118,15 +118,13 @@ func TestEject(t *testing.T) {
 func TestUpsertExistingBumpsToFront(t *testing.T) {
 	ch := new(CacheHash)
 	ch.Init(5)
-	firstValueKey1 := "value1"
-	secondValueKey1 := "newValue1"
-	ch.Upsert("key1", firstValueKey1)
+	ch.Upsert("key1", "value1")
 	ch.Upsert("key2", "value2")
 	ch.Upsert("key3", "value3")
-	ch.Upsert("key1", secondValueKey1)
+	ch.Upsert("key1", "newValue1")
 	k, v := ch.First()
 	assert.Equal(t, "key1", k, "key1 should be bumped to front since it was just added")
-	assert.Equal(t, secondValueKey1, v, "add existing should update value")
+	assert.Equal(t, "newValue1", v, "add existing should update value")
 
 	k, v = ch.Last()
 	assert.Equal(t, "key2", k, "key2 should be last")
