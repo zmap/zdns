@@ -331,7 +331,7 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 	//	- process until inChan closes, then wg.done()
 	// Once we processing threads have all finished, wait until the
 	// output and metadata threads have completed
-	inChan := make(chan interface{})
+	inChan := make(chan string)
 	outChan := make(chan string)
 	metaChan := make(chan routineMetadata, gc.Threads)
 	var routineWG sync.WaitGroup
@@ -419,7 +419,7 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 }
 
 // doLookupWorker is a single worker thread that processes lookups from the input channel. It calls wg.Done when it is finished.
-func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
+func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, input <-chan string, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	resolver, err := zdns.InitResolver(rc)
 	if err != nil {
@@ -427,13 +427,12 @@ func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, i
 	}
 	var metadata routineMetadata
 	metadata.Status = make(map[zdns.Status]int)
-	for genericInput := range input {
+	for line := range input {
 		var res zdns.Result
 		var innerRes interface{}
 		var trace zdns.Trace
 		var status zdns.Status
 		var err error
-		line := genericInput.(string)
 		var changed bool
 		var lookupName string
 		rawName := ""

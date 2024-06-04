@@ -16,6 +16,7 @@ package cachehash
 
 import (
 	"container/list"
+	log "github.com/sirupsen/logrus"
 	"sync"
 )
 
@@ -43,10 +44,14 @@ func (c *CacheHash) Init(maxLen int) {
 
 func (c *CacheHash) Eject() {
 	if c.len == 0 {
+		// nothing to eject
 		return
 	}
 	e := c.l.Back()
-	kv := e.Value.(keyValue)
+	kv, ok := e.Value.(keyValue)
+	if !ok {
+		log.Panic("CacheHash: Eject: invalid list element value type")
+	}
 	if c.ejectCB != nil {
 		c.ejectCB(kv.Key, kv.Value)
 	}
@@ -55,25 +60,32 @@ func (c *CacheHash) Eject() {
 	c.len--
 }
 
+// Add adds a key-value pair to the cache.
+// If the key already exists, the value is updated and the element is moved to the front of the list.
+// Returns true if the key already existed in the cache, false otherwise.
 func (c *CacheHash) Add(k interface{}, v interface{}) bool {
-	e, ok := c.h[k]
-	if ok {
-		kv := e.Value.(keyValue)
+	e, elemFound := c.h[k]
+	if elemFound {
+		kv, ok := e.Value.(keyValue)
+		if !ok {
+			log.Panic("CacheHash: Add: invalid list element value type")
+		}
 		kv.Key = k
 		kv.Value = v
 		c.l.MoveToFront(e)
-	} else {
-		if c.len >= c.maxLen {
-			c.Eject()
-		}
-		var kv keyValue
-		kv.Key = k
-		kv.Value = v
-		e = c.l.PushFront(kv)
-		c.len++
-		c.h[k] = e
+		return true
 	}
-	return ok
+	if c.len >= c.maxLen {
+		// cache is full, eject the least-used element
+		c.Eject()
+	}
+	var kv keyValue
+	kv.Key = k
+	kv.Value = v
+	e = c.l.PushFront(kv)
+	c.len++
+	c.h[k] = e
+	return false
 }
 
 func (c *CacheHash) First() (interface{}, interface{}) {
@@ -81,7 +93,10 @@ func (c *CacheHash) First() (interface{}, interface{}) {
 		return nil, nil
 	}
 	e := c.l.Front()
-	kv := e.Value.(keyValue)
+	kv, ok := e.Value.(keyValue)
+	if !ok {
+		log.Panic("CacheHash: First: invalid list element value type")
+	}
 	return kv.Key, kv.Value
 }
 
@@ -90,26 +105,36 @@ func (c *CacheHash) Last() (interface{}, interface{}) {
 		return nil, nil
 	}
 	e := c.l.Back()
-	kv := e.Value.(keyValue)
+	kv, ok := e.Value.(keyValue)
+	if !ok {
+		log.Panic("CacheHash: Last: invalid list element value type")
+	}
 	return kv.Key, kv.Value
 }
 
 func (c *CacheHash) Get(k interface{}) (interface{}, bool) {
 	e, ok := c.h[k]
-	if ok {
-		c.l.MoveToFront(e)
-		kv := e.Value.(keyValue)
-		return kv.Value, ok
+	if !ok {
+		return nil, false
 	}
-	return nil, false
+	c.l.MoveToFront(e)
+	kv, ok := e.Value.(keyValue)
+	if !ok {
+		log.Panic("CacheHash: Get: invalid list element value type")
+	}
+	return kv.Value, true
 }
 
 func (c *CacheHash) GetNoMove(k interface{}) (interface{}, bool) {
 	e, ok := c.h[k]
-	if ok {
-		return e.Value.(keyValue).Value, ok
+	if !ok {
+		return nil, false
 	}
-	return nil, false
+	kv, ok := e.Value.(keyValue)
+	if !ok {
+		log.Panic("CacheHash: GetNoMove: invalid list element value type")
+	}
+	return kv.Value, true
 }
 
 func (c *CacheHash) Has(k interface{}) bool {
@@ -122,7 +147,10 @@ func (c *CacheHash) Delete(k interface{}) (interface{}, bool) {
 	if !ok {
 		return nil, false
 	}
-	kv := e.Value.(keyValue)
+	kv, ok := e.Value.(keyValue)
+	if !ok {
+		log.Panic("CacheHash: Delete: invalid list element value type")
+	}
 	delete(c.h, k)
 	c.l.Remove(e)
 	c.len--

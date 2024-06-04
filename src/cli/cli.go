@@ -28,7 +28,7 @@ import (
 )
 
 type InputHandler interface {
-	FeedChannel(in chan<- interface{}, wg *sync.WaitGroup) error
+	FeedChannel(in chan<- string, wg *sync.WaitGroup) error
 }
 type OutputHandler interface {
 	WriteResults(results <-chan string, wg *sync.WaitGroup) error

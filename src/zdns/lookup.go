@@ -15,12 +15,13 @@ package zdns
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
@@ -227,6 +228,10 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 	}
 
 	nameServerIP, _, err := net.SplitHostPort(nameServer)
+	if err != nil {
+		var r SingleQueryResult
+		return r, isCached, STATUS_ERROR, 0, errors.Wrapf(err, "could not split nameserver %s to get IP", nameServer)
+	}
 	// Stop if we hit a nameserver we don't want to hit
 	if r.blacklist != nil {
 		if blacklisted, err := r.blacklist.IsBlacklisted(nameServerIP); err != nil {

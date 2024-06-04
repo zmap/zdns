@@ -36,7 +36,7 @@ func NewFileInputHandler(filepath string) *FileInputHandler {
 	}
 }
 
-func (h *FileInputHandler) FeedChannel(in chan<- interface{}, wg *sync.WaitGroup) error {
+func (h *FileInputHandler) FeedChannel(in chan<- string, wg *sync.WaitGroup) error {
 	defer close(in)
 	defer (*wg).Done()
 
