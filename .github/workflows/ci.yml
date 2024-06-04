@@ -76,7 +76,7 @@ jobs:
           else
             echo "No issues found by goimports."
           fi
-          output=$gofmt -s .)
+          output=$(gofmt -s .)
             if [ -n "$output" ]; then
                 echo "gofmt found issues:"
                 echo "$output"
