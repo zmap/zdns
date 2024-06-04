@@ -55,6 +55,14 @@ jobs:
           sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
           python --version
           ./testing/large_scan_integration/large_scan_integration_tests.py
+  golangci-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+    # This job runs the official golangci-lint action, which is a wrapper around the golangci-lint tool. It has performance
+    # optimizations that make it faster than running golangci-lint directly.
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -64,10 +72,10 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.20'
-      - name: Lint
+      - name: Other lint
         # While goimports is run by make lint, it won't fail the build if there are issues. This will.
         run: |
-          make zdns
+          go install golang.org/x/tools/cmd/goimports@latest
           output=$(goimports -d -local "github.com/zmap/zdns" ./)
           if [ -n "$output" ]; then
             echo "goimports found issues:"
@@ -84,4 +92,5 @@ jobs:
             else
                 echo "No issues found by gofmt."
             fi
-          make lint
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6.0.1
