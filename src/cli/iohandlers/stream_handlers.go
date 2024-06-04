@@ -19,6 +19,8 @@ import (
 	"io"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -59,7 +61,10 @@ func NewStreamOutputHandler(w io.Writer) *StreamOutputHandler {
 func (h *StreamOutputHandler) WriteResults(results <-chan string, wg *sync.WaitGroup) error {
 	defer (*wg).Done()
 	for n := range results {
-		io.WriteString(h.writer, n+"\n")
+		_, err := io.WriteString(h.writer, n+"\n")
+		if err != nil {
+			return errors.Wrap(err, "unable to write to output stream")
+		}
 	}
 	return nil
 }
