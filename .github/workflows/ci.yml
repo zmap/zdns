@@ -55,14 +55,6 @@ jobs:
           sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
           python --version
           ./testing/large_scan_integration/large_scan_integration_tests.py
-  golangci-lint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-    # This job runs the official golangci-lint action, which is a wrapper around the golangci-lint tool. It has performance
-    # optimizations that make it faster than running golangci-lint directly.
-
   lint:
     runs-on: ubuntu-latest
     steps:
