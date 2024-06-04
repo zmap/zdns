@@ -478,21 +478,21 @@ func makeEDNSAnswer(cAns *dns.OPT) EDNSAnswer {
 	}
 
 	for _, o := range cAns.Option {
-		switch o.(type) {
+		switch opt := o.(type) {
 		case *dns.EDNS0_LLQ: //OPT 1
 			optRes.LLQ = &Edns0LLQ{
-				Code:      o.(*dns.EDNS0_LLQ).Code,
-				Version:   o.(*dns.EDNS0_LLQ).Version,
-				Opcode:    o.(*dns.EDNS0_LLQ).Opcode,
-				Error:     o.(*dns.EDNS0_LLQ).Error,
-				Id:        o.(*dns.EDNS0_LLQ).Id,
-				LeaseLife: o.(*dns.EDNS0_LLQ).LeaseLife,
+				Code:      opt.Code,
+				Version:   opt.Version,
+				Opcode:    opt.Opcode,
+				Error:     opt.Error,
+				Id:        opt.Id,
+				LeaseLife: opt.LeaseLife,
 			}
 		case *dns.EDNS0_UL: // OPT 2
 			optRes.UL = &Edns0UL{
-				Code:     o.(*dns.EDNS0_UL).Code,
-				Lease:    o.(*dns.EDNS0_UL).Lease,
-				KeyLease: o.(*dns.EDNS0_UL).KeyLease,
+				Code:     opt.Code,
+				Lease:    opt.Lease,
+				KeyLease: opt.KeyLease,
 			}
 		case *dns.EDNS0_NSID: //OPT 3
 			hexDecoded, err := hex.DecodeString(o.(*dns.EDNS0_NSID).Nsid)
@@ -502,46 +502,46 @@ func makeEDNSAnswer(cAns *dns.OPT) EDNSAnswer {
 			optRes.NSID = &Edns0NSID{Nsid: string(hexDecoded)}
 		case *dns.EDNS0_DAU: //OPT 5
 			optRes.DAU = &Edns0DAU{
-				Code:    o.(*dns.EDNS0_DAU).Code,
-				AlgCode: o.(*dns.EDNS0_DAU).String(),
+				Code:    opt.Code,
+				AlgCode: opt.String(),
 			}
 		case *dns.EDNS0_DHU: //OPT 6
 			optRes.DHU = &Edns0DHU{
-				Code:    o.(*dns.EDNS0_DHU).Code,
-				AlgCode: o.(*dns.EDNS0_DHU).String(),
+				Code:    opt.Code,
+				AlgCode: opt.String(),
 			}
 		case *dns.EDNS0_N3U: //OPT 7
 			optRes.N3U = &Edns0N3U{
-				Code:    o.(*dns.EDNS0_N3U).Code,
-				AlgCode: o.(*dns.EDNS0_N3U).String(),
+				Code:    opt.Code,
+				AlgCode: opt.String(),
 			}
 		case *dns.EDNS0_SUBNET: //OPT 8
 			optRes.ClientSubnet = &Edns0ClientSubnet{
-				SourceScope:   o.(*dns.EDNS0_SUBNET).SourceScope,
-				Family:        o.(*dns.EDNS0_SUBNET).Family,
-				Address:       o.(*dns.EDNS0_SUBNET).Address.String(),
-				SourceNetmask: o.(*dns.EDNS0_SUBNET).SourceNetmask,
+				SourceScope:   opt.SourceScope,
+				Family:        opt.Family,
+				Address:       opt.Address.String(),
+				SourceNetmask: opt.SourceNetmask,
 			}
 		case *dns.EDNS0_EXPIRE: //OPT 9
 			optRes.Expire = &Edns0Expire{
-				Code:   o.(*dns.EDNS0_EXPIRE).Code,
-				Expire: o.(*dns.EDNS0_EXPIRE).Expire,
+				Code:   opt.Code,
+				Expire: opt.Expire,
 			}
 		case *dns.EDNS0_COOKIE: //OPT 11
 			optRes.Cookie = &Edns0Cookie{Cookie: o.(*dns.EDNS0_COOKIE).Cookie}
 		case *dns.EDNS0_TCP_KEEPALIVE: //OPT 11
 			optRes.TcpKeepalive = &Edns0TCPKeepalive{
-				Code:    o.(*dns.EDNS0_TCP_KEEPALIVE).Code,
-				Timeout: o.(*dns.EDNS0_TCP_KEEPALIVE).Timeout,
-				Length:  o.(*dns.EDNS0_TCP_KEEPALIVE).Length, // deprecated, always equal to 0, keeping it here for a better readability
+				Code:    opt.Code,
+				Timeout: opt.Timeout,
+				Length:  opt.Length, // deprecated, always equal to 0, keeping it here for a better readability
 			}
 		case *dns.EDNS0_PADDING: //OPT 12
 			optRes.Padding = &Edns0Padding{Padding: o.(*dns.EDNS0_PADDING).String()}
 		case *dns.EDNS0_EDE: //OPT 15
 			optRes.EDE = append(optRes.EDE, &Edns0Ede{
-				InfoCode:      o.(*dns.EDNS0_EDE).InfoCode,
-				ErrorCodeText: dns.ExtendedErrorCodeToString[o.(*dns.EDNS0_EDE).InfoCode],
-				ExtraText:     o.(*dns.EDNS0_EDE).ExtraText,
+				InfoCode:      opt.InfoCode,
+				ErrorCodeText: dns.ExtendedErrorCodeToString[opt.InfoCode],
+				ExtraText:     opt.ExtraText,
 			})
 		}
 	}
