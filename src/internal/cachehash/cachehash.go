@@ -119,7 +119,7 @@ func (c *CacheHash) Has(k interface{}) bool {
 
 func (c *CacheHash) Delete(k interface{}) (interface{}, bool) {
 	e, ok := c.h[k]
-	if ok != true {
+	if !ok {
 		return nil, false
 	}
 	kv := e.Value.(keyValue)

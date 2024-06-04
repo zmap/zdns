@@ -68,14 +68,15 @@ func (s *Cache) AddCachedAnswer(answer interface{}, depth int) {
 	defer s.IterativeCache.Unlock(q)
 	// don't bother to move this to the top of the linked list. we're going
 	// to add this record back in momentarily and that will take care of this
+	ca := CachedResult{}
+	ca.Answers = make(map[interface{}]TimedAnswer)
 	i, ok := s.IterativeCache.GetNoMove(q)
-	ca, ok := i.(CachedResult)
-	if !ok && i != nil {
-		panic("unable to cast cached result")
-	}
-	if !ok {
-		ca = CachedResult{}
-		ca.Answers = make(map[interface{}]TimedAnswer)
+	if ok {
+		// record found, check type on interface
+		ca, ok = i.(CachedResult)
+		if !ok {
+			panic("unable to cast cached result")
+		}
 	}
 	// we have an existing record. Let's add this answer to it.
 	ta := TimedAnswer{
@@ -154,7 +155,7 @@ func (s *Cache) CacheUpdate(layer string, result SingleQueryResult, depth int) {
 	for _, a := range result.Authorities {
 		s.SafeAddCachedAnswer(a, layer, "authority", depth)
 	}
-	if result.Flags.Authoritative == true {
+	if result.Flags.Authoritative {
 		for _, a := range result.Answers {
 			s.SafeAddCachedAnswer(a, layer, "answer", depth)
 		}
