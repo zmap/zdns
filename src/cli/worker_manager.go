@@ -439,7 +439,7 @@ func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, i
 		nameServer := ""
 		var rank int
 		var entryMetadata string
-		if gc.AlexaFormat == true {
+		if gc.AlexaFormat {
 			rawName, rank = parseAlexa(line)
 			res.AlexaRank = rank
 		} else if gc.MetadataFormat {

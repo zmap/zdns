@@ -182,7 +182,7 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer s
 	if status != STATUS_NOERROR {
 		r.verboseLog((depth + 1), "-> error occurred during lookup")
 		return result, trace, status, err
-	} else if len(result.Answers) != 0 || result.Flags.Authoritative == true {
+	} else if len(result.Answers) != 0 || result.Flags.Authoritative {
 		if len(result.Answers) != 0 {
 			r.verboseLog((depth + 1), "-> answers found")
 			if len(result.Authorities) > 0 {
