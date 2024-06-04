@@ -322,7 +322,10 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 	if err != nil {
 		log.Fatal("could not get lookup module: ", err)
 	}
-	lookupModule.CLIInit(&gc, resolverConfig, flags)
+	err = lookupModule.CLIInit(&gc, resolverConfig, flags)
+	if err != nil {
+		log.Fatalf("could not initialize lookup module (type: %s): %v", gc.Module, err)
+	}
 	// DoLookup:
 	//	- n threads that do processing from in and place results in out
 	//	- process until inChan closes, then wg.done()

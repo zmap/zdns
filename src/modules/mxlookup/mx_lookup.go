@@ -66,15 +66,15 @@ type MXLookupModule struct {
 func (mxMod *MXLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig, f *pflag.FlagSet) error {
 	ipv4Lookup, err := f.GetBool("ipv4-lookup")
 	if err != nil {
-		panic(err)
+		return errors.Wrap(err, "failed to get ipv4-lookup flag")
 	}
 	ipv6Lookup, err := f.GetBool("ipv6-lookup")
 	if err != nil {
-		panic(err)
+		return errors.Wrap(err, "failed to get ipv6-lookup flag")
 	}
 	mxCacheSize, err := f.GetInt("mx-cache-size")
 	if err != nil {
-		panic(err)
+		return errors.Wrap(err, "failed to get mx-cache-size flag")
 	}
 	if !ipv4Lookup && !ipv6Lookup {
 		// need to use one of the two
