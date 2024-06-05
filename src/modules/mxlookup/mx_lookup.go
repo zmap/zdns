@@ -18,10 +18,9 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
-	log "github.com/sirupsen/logrus"
-
 
 	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/internal/cachehash"

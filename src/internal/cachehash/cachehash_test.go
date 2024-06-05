@@ -16,8 +16,9 @@ package cachehash
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestAddOne(t *testing.T) {
@@ -172,6 +173,7 @@ func TestGetNoMove(t *testing.T) {
 
 	v, found := ch.GetNoMove("key1")
 	assert.True(t, found, "key1 should be found")
+	assert.Equal(t, "value1", v, "value1 should be returned")
 
 	k, v = ch.First()
 	assert.Equal(t, "key2", k, "First key should still be key2 post GetNoMove")
