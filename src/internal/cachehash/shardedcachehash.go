@@ -43,7 +43,7 @@ func (c *ShardedCacheHash) getShard(k interface{}) *CacheHash {
 }
 
 func (c *ShardedCacheHash) Add(k interface{}, v interface{}) bool {
-	return c.getShard(k).Add(k, v)
+	return c.getShard(k).Upsert(k, v)
 }
 
 func (c *ShardedCacheHash) Get(k interface{}) (interface{}, bool) {
