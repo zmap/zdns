@@ -177,8 +177,6 @@ func handleStatus(status *Status, err error) (*Status, error) {
 		return status, nil
 	case STATUS_ILLEGAL_INPUT:
 		return status, nil
-	case STATUS_TEMPORARY:
-		return status, nil
 	default:
 		var s *Status
 		return s, nil
