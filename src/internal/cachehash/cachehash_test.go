@@ -130,3 +130,50 @@ func TestUpsertExistingBumpsToFront(t *testing.T) {
 	assert.Equal(t, "key2", k, "key2 should be last")
 	assert.Equal(t, "value2", v, "key2 should have value: value2")
 }
+
+func TestUpsertWithFullCache(t *testing.T) {
+	ch := new(CacheHash)
+	ch.Init(2)
+	ch.Upsert("key1", "value1")
+	ch.Upsert("key2", "value2")
+
+	k, v := ch.First()
+	assert.Equal(t, "key2", k, "First key should be key2")
+	assert.Equal(t, "value2", v, "First value should be value2")
+
+	k, v = ch.Last()
+	assert.Equal(t, "key1", k, "Last key should be key1")
+	assert.Equal(t, "value1", v, "Last value should be value1")
+
+	ch.Upsert("key3", "value3")
+
+	assert.Len(t, ch.h, 2, "Cache should have 2 elements, since it is full and one was evicted")
+
+	k, v = ch.First()
+	assert.Equal(t, "key3", k, "First key should be key3")
+	assert.Equal(t, "value3", v, "First value should be value3")
+
+	// key1 should have been evicted since it was the oldest, and key2 should still be in the cache
+	k, v = ch.Last()
+	assert.Equal(t, "key2", k, "Last key should be key2")
+	assert.Equal(t, "value2", v, "Last value should be value2")
+}
+
+func TestGetNoMove(t *testing.T) {
+	ch := new(CacheHash)
+	ch.Init(5)
+	ch.Upsert("key1", "value1")
+	ch.Upsert("key2", "value2")
+	ch.GetNoMove("key1")
+
+	k, v := ch.First()
+	assert.Equal(t, "key2", k, "First key should be key2")
+	assert.Equal(t, "value2", v, "First value should be value2")
+
+	v, found := ch.GetNoMove("key1")
+	assert.True(t, found, "key1 should be found")
+
+	k, v = ch.First()
+	assert.Equal(t, "key2", k, "First key should still be key2 post GetNoMove")
+	assert.Equal(t, "value2", v, "First value should be value2")
+}
