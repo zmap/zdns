@@ -19,7 +19,8 @@ import (
 	"sync"
 )
 
-// CacheHash is an LRU cache implemented with a hash map and a doubly linked list.
+// CacheHash is an LRU cache implemented with a hash map and a doubly linked list. The list stores key-value pairs
+// in the order they were accessed, with the most recently accessed key-value pair at the front of the list.
 // This allows for O(1) insertions, deletions, and lookups and ensures the most recently accesssed elements are
 // persisted in the cache.
 type CacheHash struct {
@@ -45,7 +46,7 @@ func (c *CacheHash) Init(maxLen int) {
 	c.maxLen = maxLen
 }
 
-// Eject removes the oldest key-value pair from the cache.
+// Eject removes the least-recently used key-value pair from the cache.
 func (c *CacheHash) Eject() {
 	if c.len == 0 {
 		return
@@ -108,6 +109,7 @@ func (c *CacheHash) Last() (k interface{}, v interface{}) {
 }
 
 // Get returns the value associated with the key and whether the key was found in the cache.
+// It also moves it to the front of the list.
 // v is nil if the key was not found.
 func (c *CacheHash) Get(k interface{}) (v interface{}, found bool) {
 	e, ok := c.h[k]
