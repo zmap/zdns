@@ -297,7 +297,7 @@ func (r *Resolver) retryingLookup(q Question, nameServer string, recursive bool)
 
 	for i := 0; i <= r.retries; i++ {
 		result, status, err := wireLookup(r.udpClient, r.tcpClient, r.conn, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
-		if (status != STATUS_TIMEOUT && status != STATUS_TEMPORARY) || i == r.retries {
+		if status != STATUS_TIMEOUT || i == r.retries {
 			return result, status, (i + 1), err
 		}
 		if r.udpClient != nil {
@@ -353,8 +353,6 @@ func wireLookup(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question, na
 		if nerr, ok := err.(net.Error); ok {
 			if nerr.Timeout() {
 				return res, STATUS_TIMEOUT, nil
-			} else if nerr.Temporary() {
-				return res, STATUS_TEMPORARY, err
 			}
 		}
 		return res, STATUS_ERROR, err

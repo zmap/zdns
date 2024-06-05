@@ -84,7 +84,7 @@ func (s *Cache) AddCachedAnswer(answer interface{}, depth int) {
 		ExpiresAt: expiresAt}
 	ca.Answers[a] = ta
 	s.IterativeCache.Add(q, ca)
-	s.VerboseLog(depth+1, "Add cached answer ", q, " ", ca)
+	s.VerboseLog(depth+1, "Upsert cached answer ", q, " ", ca)
 }
 
 func (s *Cache) GetCachedResult(q Question, isAuthCheck bool, depth int) (SingleQueryResult, bool) {

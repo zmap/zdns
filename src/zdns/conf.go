@@ -38,7 +38,6 @@ const (
 	STATUS_FORMERR   Status = "FORMERR" // Format Error
 	STATUS_SERVFAIL  Status = "SERVFAIL"
 	STATUS_NXDOMAIN  Status = "NXDOMAIN"
-	STATUS_NOTIMP    Status = "NOT_IMPL"
 	STATUS_REFUSED   Status = "REFUSED"
 	STATUS_TRUNCATED Status = "TRUNCATED"
 
@@ -51,9 +50,7 @@ const (
 	STATUS_ILLEGAL_INPUT Status = "ILLEGAL_INPUT"
 	STATUS_TIMEOUT       Status = "TIMEOUT"
 	STATUS_ITER_TIMEOUT  Status = "ITERATIVE_TIMEOUT"
-	STATUS_TEMPORARY     Status = "TEMPORARY"
 	STATUS_NOAUTH        Status = "NOAUTH"
-	STATUS_NODATA        Status = "NODATA"
 )
 
 var RootServers = [...]string{

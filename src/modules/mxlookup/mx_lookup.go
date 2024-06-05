@@ -20,11 +20,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
-
-	"github.com/zmap/zdns/src/cli"
-
 	log "github.com/sirupsen/logrus"
 
+
+	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/internal/cachehash"
 	"github.com/zmap/zdns/src/zdns"
 )
@@ -118,7 +117,7 @@ func (mxMod *MXLookupModule) lookupIPs(r *zdns.Resolver, name, nameServer string
 		retv.IPv6Addresses = result.IPv6Addresses
 	}
 	mxMod.CHmu.Lock()
-	mxMod.CacheHash.Add(name, retv)
+	mxMod.CacheHash.Upsert(name, retv)
 	mxMod.CHmu.Unlock()
 	return retv, trace
 }
