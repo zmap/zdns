@@ -21,9 +21,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/zmap/zdns/src/internal/util"
-
 	log "github.com/sirupsen/logrus"
+
+	"github.com/zmap/zdns/src/internal/util"
 )
 
 type FileInputHandler struct {

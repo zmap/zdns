@@ -75,7 +75,7 @@ func (s *Cache) AddCachedAnswer(answer interface{}, depth int) {
 		// record found, check type on interface
 		ca, ok = i.(CachedResult)
 		if !ok {
-			panic("unable to cast cached result")
+			log.Panic("unable to cast cached result")
 		}
 	}
 	// we have an existing record. Let's add this answer to it.
@@ -102,7 +102,7 @@ func (s *Cache) GetCachedResult(q Question, isAuthCheck bool, depth int) (Single
 	retv.Additional = make([]interface{}, 0)
 	cachedRes, ok := unres.(CachedResult)
 	if !ok {
-		panic("bad cache entry")
+		log.Panic("unable to cast cached result")
 	}
 	// great we have a result. let's go through the entries and build
 	// and build a result. In the process, throw away anything that's expired

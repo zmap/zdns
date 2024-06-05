@@ -20,12 +20,10 @@ import (
 	"testing"
 
 	"github.com/spf13/pflag"
-
-	"github.com/zmap/zdns/src/cli"
-
 	"github.com/zmap/dns"
 	"gotest.tools/v3/assert"
 
+	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/zdns"
 )
 

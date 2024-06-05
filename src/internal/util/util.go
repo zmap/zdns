@@ -64,7 +64,7 @@ func BindFlags(cmd *cobra.Command, v *viper.Viper, envPrefix string) {
 			envVarSuffix := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
 			err := v.BindEnv(f.Name, fmt.Sprintf("%s_%s", envPrefix, envVarSuffix))
 			if err != nil {
-				log.Fatal("Failed to bind environment variable to flag: ", err)
+				log.Fatal("failed to bind environment variable to flag: ", err)
 			}
 		}
 
@@ -73,7 +73,7 @@ func BindFlags(cmd *cobra.Command, v *viper.Viper, envPrefix string) {
 			val := v.Get(f.Name)
 			err := cmd.Flags().Set(f.Name, fmt.Sprintf("%v", val))
 			if err != nil {
-				log.Fatalf("Failed to set flag (%s) value: %v", f.Name, err)
+				log.Fatalf("failed to set flag (%s) value: %v", f.Name, err)
 			}
 		}
 	})
