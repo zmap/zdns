@@ -15,8 +15,10 @@
 package nslookup
 
 import (
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+
 	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/zdns"
 )
@@ -38,17 +40,20 @@ type NSLookupModule struct {
 func (nsMod *NSLookupModule) CLIInit(gc *cli.CLIConf, resolverConf *zdns.ResolverConfig, f *pflag.FlagSet) error {
 	ipv4Lookup, err := f.GetBool("ipv4-lookup")
 	if err != nil {
-		panic(err)
+		return errors.Wrap(err, "failed to get ipv4-lookup flag")
 	}
 	ipv6Lookup, err := f.GetBool("ipv6-lookup")
 	if err != nil {
-		panic(err)
+		return errors.Wrap(err, "failed to get ipv6-lookup flag")
 	}
 	if !ipv4Lookup && !ipv6Lookup {
 		log.Debug("NSModule: No IP version specified, defaulting to IPv4")
 		ipv4Lookup = true
 	}
-	nsMod.BasicLookupModule.CLIInit(gc, resolverConf, f)
+	err = nsMod.BasicLookupModule.CLIInit(gc, resolverConf, f)
+	if err != nil {
+		return errors.Wrap(err, "failed to initialize basic lookup module")
+	}
 	nsMod.Init(ipv4Lookup, ipv6Lookup)
 	return nil
 }

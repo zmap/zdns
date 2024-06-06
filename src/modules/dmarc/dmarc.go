@@ -15,11 +15,13 @@ package dmarc
 
 import (
 	"errors"
+	"regexp"
+
 	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
+
 	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/zdns"
-	"regexp"
 )
 
 const dmarcPrefixRegexp = "^[vV][\x09\x20]*=[\x09\x20]*DMARC1[\x09\x20]*;[\x09\x20]*"

@@ -15,14 +15,16 @@ package zdns
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	"github.com/zmap/dns"
 	"net"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
+
+	log "github.com/sirupsen/logrus"
+	"github.com/zmap/dns"
 )
 
 // GetDNSServers returns a list of DNS servers from a file, or an error if one occurs
@@ -180,7 +182,7 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer s
 	if status != STATUS_NOERROR {
 		r.verboseLog((depth + 1), "-> error occurred during lookup")
 		return result, trace, status, err
-	} else if len(result.Answers) != 0 || result.Flags.Authoritative == true {
+	} else if len(result.Answers) != 0 || result.Flags.Authoritative {
 		if len(result.Answers) != 0 {
 			r.verboseLog((depth + 1), "-> answers found")
 			if len(result.Authorities) > 0 {
@@ -226,11 +228,15 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 	}
 
 	nameServerIP, _, err := net.SplitHostPort(nameServer)
+	if err != nil {
+		var r SingleQueryResult
+		return r, isCached, STATUS_ERROR, 0, errors.Wrapf(err, "could not split nameserver %s to get IP", nameServer)
+	}
 	// Stop if we hit a nameserver we don't want to hit
 	if r.blacklist != nil {
-		if blacklisted, err := r.blacklist.IsBlacklisted(nameServerIP); err != nil {
+		if blacklisted, isBlacklistedErr := r.blacklist.IsBlacklisted(nameServerIP); isBlacklistedErr != nil {
 			var r SingleQueryResult
-			return r, isCached, STATUS_ERROR, 0, err
+			return r, isCached, STATUS_ERROR, 0, errors.Wrapf(isBlacklistedErr, "could not check blacklist for nameserver IP: %s", nameServerIP)
 		} else if blacklisted {
 			var r SingleQueryResult
 			return r, isCached, STATUS_BLACKLIST, 0, nil
@@ -400,12 +406,12 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 	}
 	for i, elem := range result.Authorities {
 		r.verboseLog(depth+1, "Trying Authority: ", elem)
-		ns, ns_status, layer, trace := r.extractAuthority(ctx, elem, layer, depth, result, trace)
+		ns, ns_status, newLayer, newTrace := r.extractAuthority(ctx, elem, layer, depth, result, trace)
 		r.verboseLog((depth + 1), "Output from extract authorities: ", ns)
 		if ns_status == STATUS_ITER_TIMEOUT {
 			r.verboseLog((depth + 2), "--> Hit iterative timeout: ")
 			var r SingleQueryResult
-			return r, trace, STATUS_ITER_TIMEOUT, nil
+			return r, newTrace, STATUS_ITER_TIMEOUT, nil
 		}
 		if ns_status != STATUS_NOERROR {
 			var err error
@@ -415,7 +421,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 				if i+1 == len(result.Authorities) {
 					r.verboseLog((depth + 2), "--> Auth find Failed. Unknown error. No more authorities to try, terminating: ", ns_status)
 					var r SingleQueryResult
-					return r, trace, ns_status, err
+					return r, newTrace, ns_status, err
 				} else {
 					r.verboseLog((depth + 2), "--> Auth find Failed. Unknown error. Continue: ", ns_status)
 					continue
@@ -426,24 +432,24 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 				if i+1 == len(result.Authorities) {
 					// We don't allow the continue fall through in order to report the last auth falure code, not STATUS_EROR
 					r.verboseLog((depth + 2), "--> Final auth find non-success. Last auth. Terminating: ", ns_status)
-					return localResult, trace, *new_status, err
+					return localResult, newTrace, *new_status, err
 				} else {
 					r.verboseLog((depth + 2), "--> Auth find non-success. Trying next: ", ns_status)
 					continue
 				}
 			}
 		}
-		iterateResult, trace, status, err := r.iterativeLookup(ctx, q, ns, depth+1, layer, trace)
+		iterateResult, newTrace, status, err := r.iterativeLookup(ctx, q, ns, depth+1, newLayer, newTrace)
 		if isStatusAnswer(status) {
 			r.verboseLog((depth + 1), "--> Auth Resolution success: ", status)
-			return iterateResult, trace, status, err
+			return iterateResult, newTrace, status, err
 		} else if i+1 < len(result.Authorities) {
 			r.verboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed: ", status, ". Will try next authority")
 			continue
 		} else {
 			// We don't allow the continue fall through in order to report the last auth falure code, not STATUS_EROR
 			r.verboseLog((depth + 2), "--> Iterative resolution of ", q.Name, " at ", ns, " Failed. Last auth. Terminating: ", status)
-			return iterateResult, trace, status, err
+			return iterateResult, newTrace, status, err
 		}
 	}
 	panic("should not be able to reach here")

@@ -19,6 +19,8 @@ import (
 	"net"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -60,13 +62,19 @@ func BindFlags(cmd *cobra.Command, v *viper.Viper, envPrefix string) {
 		// keys with underscores, e.g. --alexa to ZDNS_ALEXA
 		if strings.Contains(f.Name, "-") {
 			envVarSuffix := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
-			v.BindEnv(f.Name, fmt.Sprintf("%s_%s", envPrefix, envVarSuffix))
+			err := v.BindEnv(f.Name, fmt.Sprintf("%s_%s", envPrefix, envVarSuffix))
+			if err != nil {
+				log.Fatal("failed to bind environment variable to flag: ", err)
+			}
 		}
 
 		// Apply the viper config value to the flag when the flag is not set and viper has a value
 		if !f.Changed && v.IsSet(f.Name) {
 			val := v.Get(f.Name)
-			cmd.Flags().Set(f.Name, fmt.Sprintf("%v", val))
+			err := cmd.Flags().Set(f.Name, fmt.Sprintf("%v", val))
+			if err != nil {
+				log.Fatalf("failed to set flag (%s) value: %v", f.Name, err)
+			}
 		}
 	})
 }

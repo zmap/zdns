@@ -15,7 +15,9 @@ package cli
 
 import (
 	"fmt"
+
 	"github.com/spf13/pflag"
+
 	"github.com/zmap/zdns/src/zdns"
 
 	"github.com/zmap/dns"
@@ -147,7 +149,7 @@ func GetLookupModule(name string) (LookupModule, error) {
 
 func GetValidLookups() []string {
 	var lookups []string
-	for lookup, _ := range moduleToLookupModule {
+	for lookup := range moduleToLookupModule {
 		lookups = append(lookups, lookup)
 	}
 	return lookups

@@ -17,6 +17,8 @@ package cachehash
 import (
 	"container/list"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // CacheHash is an LRU cache implemented with a hash map and a doubly linked list. The list stores key-value pairs
@@ -49,10 +51,14 @@ func (c *CacheHash) Init(maxLen int) {
 // Eject removes the least-recently used key-value pair from the cache.
 func (c *CacheHash) Eject() {
 	if c.len == 0 {
+		// nothing to eject
 		return
 	}
 	e := c.l.Back()
-	kv := e.Value.(keyValue)
+	kv, ok := e.Value.(keyValue)
+	if !ok {
+		log.Panic("CacheHash: Eject: invalid list element value type")
+	}
 	if c.ejectCB != nil {
 		c.ejectCB(kv.Key, kv.Value)
 	}
@@ -66,10 +72,10 @@ func (c *CacheHash) Eject() {
 // If the key does not exist in the cache, the key-value pair is added to the front of the list.
 // Returns whether the key already existed in the cache.
 func (c *CacheHash) Upsert(k interface{}, v interface{}) bool {
-	e, ok := c.h[k]
 	var updatedKV keyValue
 	updatedKV.Key = k
 	updatedKV.Value = v
+	e, ok := c.h[k]
 	if ok {
 		// update value to have the new value
 		e.Value = updatedKV
@@ -93,7 +99,10 @@ func (c *CacheHash) First() (k interface{}, v interface{}) {
 		return nil, nil
 	}
 	e := c.l.Front()
-	kv := e.Value.(keyValue)
+	kv, ok := e.Value.(keyValue)
+	if !ok {
+		log.Panic("CacheHash: First: invalid list element value type")
+	}
 	return kv.Key, kv.Value
 }
 
@@ -104,7 +113,10 @@ func (c *CacheHash) Last() (k interface{}, v interface{}) {
 		return nil, nil
 	}
 	e := c.l.Back()
-	kv := e.Value.(keyValue)
+	kv, ok := e.Value.(keyValue)
+	if !ok {
+		log.Panic("CacheHash: Last: invalid list element value type")
+	}
 	return kv.Key, kv.Value
 }
 
@@ -113,21 +125,28 @@ func (c *CacheHash) Last() (k interface{}, v interface{}) {
 // v is nil if the key was not found.
 func (c *CacheHash) Get(k interface{}) (v interface{}, found bool) {
 	e, ok := c.h[k]
-	if ok {
-		c.l.MoveToFront(e)
-		kv := e.Value.(keyValue)
-		return kv.Value, true
+	if !ok {
+		return nil, false
 	}
-	return nil, false
+	c.l.MoveToFront(e)
+	kv, ok := e.Value.(keyValue)
+	if !ok {
+		log.Panic("CacheHash: Get: invalid list element value type")
+	}
+	return kv.Value, true
 }
 
 // GetNoMove returns the value associated with the key and whether the key was found in the cache.
 func (c *CacheHash) GetNoMove(k interface{}) (v interface{}, found bool) {
 	e, ok := c.h[k]
-	if ok {
-		return e.Value.(keyValue).Value, true
+	if !ok {
+		return nil, false
 	}
-	return nil, false
+	kv, ok := e.Value.(keyValue)
+	if !ok {
+		log.Panic("CacheHash: GetNoMove: invalid list element value type")
+	}
+	return kv.Value, true
 }
 
 // Has returns whether the key is in the cache.
@@ -140,10 +159,13 @@ func (c *CacheHash) Has(k interface{}) bool {
 // v is nil if the key was not found.
 func (c *CacheHash) Delete(k interface{}) (v interface{}, found bool) {
 	e, ok := c.h[k]
-	if ok != true {
+	if !ok {
 		return nil, false
 	}
-	kv := e.Value.(keyValue)
+	kv, ok := e.Value.(keyValue)
+	if !ok {
+		log.Panic("CacheHash: Delete: invalid list element value type")
+	}
 	delete(c.h, k)
 	c.l.Remove(e)
 	c.len--

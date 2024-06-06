@@ -14,8 +14,9 @@
 package safe_blacklist
 
 import (
-	"github.com/zmap/go-iptree/blacklist"
 	"sync"
+
+	"github.com/zmap/go-iptree/blacklist"
 )
 
 // SafeBlacklist is a thread-safe wrapper around the blacklist package

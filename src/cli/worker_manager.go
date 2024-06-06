@@ -17,15 +17,6 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"github.com/hashicorp/go-version"
-	"github.com/liip/sheriff"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
-	"github.com/zmap/dns"
-	"github.com/zmap/zdns/src/cli/iohandlers"
-	blacklist "github.com/zmap/zdns/src/internal/safe_blacklist"
-	"github.com/zmap/zdns/src/internal/util"
-	"github.com/zmap/zdns/src/zdns"
 	"net"
 	"os"
 	"runtime"
@@ -33,6 +24,17 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/hashicorp/go-version"
+	"github.com/liip/sheriff"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
+	"github.com/zmap/dns"
+
+	"github.com/zmap/zdns/src/cli/iohandlers"
+	blacklist "github.com/zmap/zdns/src/internal/safe_blacklist"
+	"github.com/zmap/zdns/src/internal/util"
+	"github.com/zmap/zdns/src/zdns"
 )
 
 type routineMetadata struct {
@@ -320,13 +322,16 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 	if err != nil {
 		log.Fatal("could not get lookup module: ", err)
 	}
-	lookupModule.CLIInit(&gc, resolverConfig, flags)
+	err = lookupModule.CLIInit(&gc, resolverConfig, flags)
+	if err != nil {
+		log.Fatalf("could not initialize lookup module (type: %s): %v", gc.Module, err)
+	}
 	// DoLookup:
 	//	- n threads that do processing from in and place results in out
 	//	- process until inChan closes, then wg.done()
 	// Once we processing threads have all finished, wait until the
 	// output and metadata threads have completed
-	inChan := make(chan interface{})
+	inChan := make(chan string)
 	outChan := make(chan string)
 	metaChan := make(chan routineMetadata, gc.Threads)
 	var routineWG sync.WaitGroup
@@ -343,15 +348,15 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 
 	// Use handlers to populate the input and output/results channel
 	go func() {
-		err := inHandler.FeedChannel(inChan, &routineWG)
-		if err != nil {
-			log.Fatal(fmt.Sprintf("could not feed input channel: %v", err))
+		inErr := inHandler.FeedChannel(inChan, &routineWG)
+		if inErr != nil {
+			log.Fatal(fmt.Sprintf("could not feed input channel: %v", inErr))
 		}
 	}()
 	go func() {
-		err := outHandler.WriteResults(outChan, &routineWG)
-		if err != nil {
-			log.Fatal(fmt.Sprintf("could not write output results from output channel: %v", err))
+		outErr := outHandler.WriteResults(outChan, &routineWG)
+		if outErr != nil {
+			log.Fatal(fmt.Sprintf("could not write output results from output channel: %v", outErr))
 		}
 	}()
 	routineWG.Add(2)
@@ -362,12 +367,13 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 	startTime := time.Now().Format(gc.TimeFormat)
 	// create shared cache for all threads to share
 	for i := 0; i < gc.Threads; i++ {
-		go func() {
-			err := doLookupWorker(&gc, lookupModule, resolverConfig, inChan, outChan, metaChan, &lookupWG)
-			if err != nil {
-				log.Fatal("could not start lookup worker: ", err)
+		i := i
+		go func(threadID int) {
+			initWorkerErr := doLookupWorker(&gc, lookupModule, resolverConfig, inChan, outChan, metaChan, &lookupWG)
+			if initWorkerErr != nil {
+				log.Fatalf("could not start lookup worker #%d: %v", i, initWorkerErr)
 			}
-		}()
+		}(i)
 	}
 	lookupWG.Wait()
 	close(outChan)
@@ -414,7 +420,7 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 }
 
 // doLookupWorker is a single worker thread that processes lookups from the input channel. It calls wg.Done when it is finished.
-func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, input <-chan interface{}, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
+func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, input <-chan string, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	resolver, err := zdns.InitResolver(rc)
 	if err != nil {
@@ -422,20 +428,19 @@ func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, i
 	}
 	var metadata routineMetadata
 	metadata.Status = make(map[zdns.Status]int)
-	for genericInput := range input {
+	for line := range input {
 		var res zdns.Result
 		var innerRes interface{}
 		var trace zdns.Trace
 		var status zdns.Status
 		var err error
-		line := genericInput.(string)
 		var changed bool
 		var lookupName string
 		rawName := ""
 		nameServer := ""
 		var rank int
 		var entryMetadata string
-		if gc.AlexaFormat == true {
+		if gc.AlexaFormat {
 			rawName, rank = parseAlexa(line)
 			res.AlexaRank = rank
 		} else if gc.MetadataFormat {
@@ -472,9 +477,12 @@ func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, i
 				ApiVersion: v,
 			}
 			data, err := sheriff.Marshal(o, res)
+			if err != nil {
+				log.Fatalf("unable to marshal result to JSON: %v", err)
+			}
 			jsonRes, err := json.Marshal(data)
 			if err != nil {
-				log.Fatal("Unable to marshal JSON result", err)
+				log.Fatalf("unable to marshal JSON result: %v", err)
 			}
 			output <- string(jsonRes)
 		}

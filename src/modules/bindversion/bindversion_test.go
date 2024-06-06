@@ -18,8 +18,9 @@ import (
 	"testing"
 
 	"github.com/zmap/dns"
-	"github.com/zmap/zdns/src/zdns"
 	"gotest.tools/v3/assert"
+
+	"github.com/zmap/zdns/src/zdns"
 )
 
 type QueryRecord struct {

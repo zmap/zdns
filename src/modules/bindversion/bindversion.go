@@ -17,6 +17,7 @@ package bindversion
 import (
 	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
+
 	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/zdns"
 )

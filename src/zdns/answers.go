@@ -256,9 +256,9 @@ type TALINKAnswer struct {
 
 type URIAnswer struct {
 	Answer
-	Priority uint16 `json:"previous_name" groups:"short,normal,long,trace"`
-	Weight   uint16 `json:"previous_name" groups:"short,normal,long,trace"`
-	Target   string `json:"previous_name" groups:"short,normal,long,trace"`
+	Priority uint16 `json:"priority" groups:"short,normal,long,trace"`
+	Weight   uint16 `json:"weight" groups:"short,normal,long,trace"`
+	Target   string `json:"target" groups:"short,normal,long,trace"`
 }
 
 // copy-paste from zmap/dns/types.go >>>>>
@@ -290,70 +290,6 @@ type URIAnswer struct {
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-const (
-	escapedByteSmall = "" +
-		`\000\001\002\003\004\005\006\007\008\009` +
-		`\010\011\012\013\014\015\016\017\018\019` +
-		`\020\021\022\023\024\025\026\027\028\029` +
-		`\030\031`
-	escapedByteLarge = `\127\128\129` +
-		`\130\131\132\133\134\135\136\137\138\139` +
-		`\140\141\142\143\144\145\146\147\148\149` +
-		`\150\151\152\153\154\155\156\157\158\159` +
-		`\160\161\162\163\164\165\166\167\168\169` +
-		`\170\171\172\173\174\175\176\177\178\179` +
-		`\180\181\182\183\184\185\186\187\188\189` +
-		`\190\191\192\193\194\195\196\197\198\199` +
-		`\200\201\202\203\204\205\206\207\208\209` +
-		`\210\211\212\213\214\215\216\217\218\219` +
-		`\220\221\222\223\224\225\226\227\228\229` +
-		`\230\231\232\233\234\235\236\237\238\239` +
-		`\240\241\242\243\244\245\246\247\248\249` +
-		`\250\251\252\253\254\255`
-)
-
-func escapeByte(b byte) string {
-	if b < ' ' {
-		return escapedByteSmall[b*4 : b*4+4]
-	}
-
-	b -= '~' + 1
-	// The cast here is needed as b*4 may overflow byte.
-	return escapedByteLarge[int(b)*4 : int(b)*4+4]
-}
-
-func isDigit(b byte) bool { return b >= '0' && b <= '9' }
-
-func dddToByte(s []byte) byte {
-	_ = s[2] // bounds check hint to compiler; see golang.org/issue/14808
-	return (s[0]-'0')*100 + (s[1]-'0')*10 + (s[2] - '0')
-}
-
-func dddStringToByte(s string) byte {
-	_ = s[2] // bounds check hint to compiler; see golang.org/issue/14808
-	return (s[0]-'0')*100 + (s[1]-'0')*10 + (s[2] - '0')
-}
-
-func nextByte(s string, offset int) (byte, int) {
-	if offset >= len(s) {
-		return 0, 0
-	}
-	if s[offset] != '\\' {
-		// not an escape sequence
-		return s[offset], 1
-	}
-	switch len(s) - offset {
-	case 1: // dangling escape
-		return 0, 0
-	case 2, 3: // too short to be \ddd
-	default: // maybe \ddd
-		if isDigit(s[offset+1]) && isDigit(s[offset+2]) && isDigit(s[offset+3]) {
-			return dddStringToByte(s[offset+1:]), 4
-		}
-	}
-	// not \ddd, just an RFC 1035 "quoted" character
-	return s[offset+1], 2
-}
 func euiToString(eui uint64, bits int) (hex string) {
 	switch bits {
 	case 64:
@@ -366,33 +302,6 @@ func euiToString(eui uint64, bits int) (hex string) {
 			"-" + hex[8:10] + "-" + hex[10:12]
 	}
 	return
-}
-
-func sprintTxtOctet(s string) string {
-	var dst strings.Builder
-	dst.Grow(2 + len(s))
-	dst.WriteByte('"')
-	for i := 0; i < len(s); {
-		if i+1 < len(s) && s[i] == '\\' && s[i+1] == '.' {
-			dst.WriteString(s[i : i+2])
-			i += 2
-			continue
-		}
-		b, n := nextByte(s, i)
-		switch {
-		case n == 0:
-			i++ // dangling back slash
-		case b == '.':
-			dst.WriteByte('.')
-		case b < ' ' || b > '~':
-			dst.WriteString(escapeByte(b))
-		default:
-			dst.WriteByte(b)
-		}
-		i += n
-	}
-	dst.WriteByte('"')
-	return dst.String()
 }
 
 // <<<<< END GOOGLE CODE
@@ -478,21 +387,21 @@ func makeEDNSAnswer(cAns *dns.OPT) EDNSAnswer {
 	}
 
 	for _, o := range cAns.Option {
-		switch o.(type) {
+		switch opt := o.(type) {
 		case *dns.EDNS0_LLQ: //OPT 1
 			optRes.LLQ = &Edns0LLQ{
-				Code:      o.(*dns.EDNS0_LLQ).Code,
-				Version:   o.(*dns.EDNS0_LLQ).Version,
-				Opcode:    o.(*dns.EDNS0_LLQ).Opcode,
-				Error:     o.(*dns.EDNS0_LLQ).Error,
-				Id:        o.(*dns.EDNS0_LLQ).Id,
-				LeaseLife: o.(*dns.EDNS0_LLQ).LeaseLife,
+				Code:      opt.Code,
+				Version:   opt.Version,
+				Opcode:    opt.Opcode,
+				Error:     opt.Error,
+				Id:        opt.Id,
+				LeaseLife: opt.LeaseLife,
 			}
 		case *dns.EDNS0_UL: // OPT 2
 			optRes.UL = &Edns0UL{
-				Code:     o.(*dns.EDNS0_UL).Code,
-				Lease:    o.(*dns.EDNS0_UL).Lease,
-				KeyLease: o.(*dns.EDNS0_UL).KeyLease,
+				Code:     opt.Code,
+				Lease:    opt.Lease,
+				KeyLease: opt.KeyLease,
 			}
 		case *dns.EDNS0_NSID: //OPT 3
 			hexDecoded, err := hex.DecodeString(o.(*dns.EDNS0_NSID).Nsid)
@@ -502,46 +411,46 @@ func makeEDNSAnswer(cAns *dns.OPT) EDNSAnswer {
 			optRes.NSID = &Edns0NSID{Nsid: string(hexDecoded)}
 		case *dns.EDNS0_DAU: //OPT 5
 			optRes.DAU = &Edns0DAU{
-				Code:    o.(*dns.EDNS0_DAU).Code,
-				AlgCode: o.(*dns.EDNS0_DAU).String(),
+				Code:    opt.Code,
+				AlgCode: opt.String(),
 			}
 		case *dns.EDNS0_DHU: //OPT 6
 			optRes.DHU = &Edns0DHU{
-				Code:    o.(*dns.EDNS0_DHU).Code,
-				AlgCode: o.(*dns.EDNS0_DHU).String(),
+				Code:    opt.Code,
+				AlgCode: opt.String(),
 			}
 		case *dns.EDNS0_N3U: //OPT 7
 			optRes.N3U = &Edns0N3U{
-				Code:    o.(*dns.EDNS0_N3U).Code,
-				AlgCode: o.(*dns.EDNS0_N3U).String(),
+				Code:    opt.Code,
+				AlgCode: opt.String(),
 			}
 		case *dns.EDNS0_SUBNET: //OPT 8
 			optRes.ClientSubnet = &Edns0ClientSubnet{
-				SourceScope:   o.(*dns.EDNS0_SUBNET).SourceScope,
-				Family:        o.(*dns.EDNS0_SUBNET).Family,
-				Address:       o.(*dns.EDNS0_SUBNET).Address.String(),
-				SourceNetmask: o.(*dns.EDNS0_SUBNET).SourceNetmask,
+				SourceScope:   opt.SourceScope,
+				Family:        opt.Family,
+				Address:       opt.Address.String(),
+				SourceNetmask: opt.SourceNetmask,
 			}
 		case *dns.EDNS0_EXPIRE: //OPT 9
 			optRes.Expire = &Edns0Expire{
-				Code:   o.(*dns.EDNS0_EXPIRE).Code,
-				Expire: o.(*dns.EDNS0_EXPIRE).Expire,
+				Code:   opt.Code,
+				Expire: opt.Expire,
 			}
 		case *dns.EDNS0_COOKIE: //OPT 11
 			optRes.Cookie = &Edns0Cookie{Cookie: o.(*dns.EDNS0_COOKIE).Cookie}
 		case *dns.EDNS0_TCP_KEEPALIVE: //OPT 11
 			optRes.TcpKeepalive = &Edns0TCPKeepalive{
-				Code:    o.(*dns.EDNS0_TCP_KEEPALIVE).Code,
-				Timeout: o.(*dns.EDNS0_TCP_KEEPALIVE).Timeout,
-				Length:  o.(*dns.EDNS0_TCP_KEEPALIVE).Length, // deprecated, always equal to 0, keeping it here for a better readability
+				Code:    opt.Code,
+				Timeout: opt.Timeout,
+				Length:  opt.Length, // deprecated, always equal to 0, keeping it here for a better readability
 			}
 		case *dns.EDNS0_PADDING: //OPT 12
 			optRes.Padding = &Edns0Padding{Padding: o.(*dns.EDNS0_PADDING).String()}
 		case *dns.EDNS0_EDE: //OPT 15
 			optRes.EDE = append(optRes.EDE, &Edns0Ede{
-				InfoCode:      o.(*dns.EDNS0_EDE).InfoCode,
-				ErrorCodeText: dns.ExtendedErrorCodeToString[o.(*dns.EDNS0_EDE).InfoCode],
-				ExtraText:     o.(*dns.EDNS0_EDE).ExtraText,
+				InfoCode:      opt.InfoCode,
+				ErrorCodeText: dns.ExtendedErrorCodeToString[opt.InfoCode],
+				ExtraText:     opt.ExtraText,
 			})
 		}
 	}

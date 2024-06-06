@@ -17,6 +17,7 @@ package alookup
 import (
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
+
 	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/zdns"
 )
@@ -36,11 +37,11 @@ func init() {
 func (aMod *ALookupModule) CLIInit(gc *cli.CLIConf, resolverConfig *zdns.ResolverConfig, f *pflag.FlagSet) error {
 	ipv4Lookup, err := f.GetBool("ipv4-lookup")
 	if err != nil {
-		panic(err)
+		return errors.Wrap(err, "failed to get ipv4-lookup flag")
 	}
 	ipv6Lookup, err := f.GetBool("ipv6-lookup")
 	if err != nil {
-		panic(err)
+		return errors.Wrap(err, "failed to get ipv6-lookup flag")
 	}
 	aMod.Init(ipv4Lookup, ipv6Lookup)
 	err = aMod.baseModule.CLIInit(gc, resolverConfig, f)

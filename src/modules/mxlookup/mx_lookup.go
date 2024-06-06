@@ -14,16 +14,15 @@
 package mxlookup
 
 import (
-	"github.com/pkg/errors"
-	"github.com/spf13/pflag"
-	"github.com/zmap/dns"
 	"strings"
 	"sync"
 
-	"github.com/zmap/zdns/src/cli"
-
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
+	"github.com/zmap/dns"
 
+	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/internal/cachehash"
 	"github.com/zmap/zdns/src/zdns"
 )
@@ -65,15 +64,15 @@ type MXLookupModule struct {
 func (mxMod *MXLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig, f *pflag.FlagSet) error {
 	ipv4Lookup, err := f.GetBool("ipv4-lookup")
 	if err != nil {
-		panic(err)
+		return errors.Wrap(err, "failed to get ipv4-lookup flag")
 	}
 	ipv6Lookup, err := f.GetBool("ipv6-lookup")
 	if err != nil {
-		panic(err)
+		return errors.Wrap(err, "failed to get ipv6-lookup flag")
 	}
 	mxCacheSize, err := f.GetInt("mx-cache-size")
 	if err != nil {
-		panic(err)
+		return errors.Wrap(err, "failed to get mx-cache-size flag")
 	}
 	if !ipv4Lookup && !ipv6Lookup {
 		// need to use one of the two

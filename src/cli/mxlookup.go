@@ -14,9 +14,11 @@
 package cli
 
 import (
-	"github.com/spf13/viper"
-	"github.com/zmap/zdns/src/internal/util"
 	"strings"
+
+	"github.com/spf13/viper"
+
+	"github.com/zmap/zdns/src/internal/util"
 
 	"github.com/spf13/cobra"
 )

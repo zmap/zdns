@@ -12,15 +12,18 @@
  * permissions and limitations under the License.
  */
 
-package cli
+package iohandlers
 
 import (
 	"bufio"
-	"github.com/zmap/zdns/src/internal/util"
 	"os"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	log "github.com/sirupsen/logrus"
+
+	"github.com/zmap/zdns/src/internal/util"
 )
 
 type FileInputHandler struct {
@@ -33,7 +36,7 @@ func NewFileInputHandler(filepath string) *FileInputHandler {
 	}
 }
 
-func (h *FileInputHandler) FeedChannel(in chan<- interface{}, wg *sync.WaitGroup) error {
+func (h *FileInputHandler) FeedChannel(in chan<- string, wg *sync.WaitGroup) error {
 	defer close(in)
 	defer (*wg).Done()
 
@@ -79,10 +82,18 @@ func (h *FileOutputHandler) WriteResults(results <-chan string, wg *sync.WaitGro
 		if err != nil {
 			log.Fatalf("unable to open output file: %v", err)
 		}
-		defer f.Close()
+		defer func(f *os.File) {
+			err := f.Close()
+			if err != nil {
+				log.Fatalf("unable to close output file: %v", err)
+			}
+		}(f)
 	}
 	for n := range results {
-		f.WriteString(n + "\n")
+		_, err := f.WriteString(n + "\n")
+		if err != nil {
+			return errors.Wrap(err, "unable to write to output file")
+		}
 	}
 	return nil
 }
