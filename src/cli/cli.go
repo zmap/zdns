@@ -27,6 +27,10 @@ import (
 	"github.com/zmap/zdns/src/internal/util"
 )
 
+const (
+	zdnsCLIVersion = "1.1.0"
+)
+
 type InputHandler interface {
 	FeedChannel(in chan<- string, wg *sync.WaitGroup) error
 }
@@ -106,6 +110,7 @@ ZDNS also includes its own recursive resolution and a cache to further optimize 
 		GC.Module = strings.ToUpper(args[0])
 		Run(GC, cmd.Flags())
 	},
+	Version: zdnsCLIVersion,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
