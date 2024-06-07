@@ -1,0 +1,40 @@
+name: Update Version
+# This workflow is triggered when a new tag is pushed with the pattern vX.X.X
+# This requires that when drafting a release of ZDNS, it is first tagged, this workflow runs, and the tag is assigned
+# a release.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*' # Trigger the workflow for tags following the pattern vX.X.X
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
+
+      - name: Extract tag version
+        id: extract_version
+        run: echo "::set-output name=VERSION::${GITHUB_REF/refs\/tags\/v/}"
+
+      - name: Update zdnsCLIVersion
+        run: |
+          VERSION=$(echo "${{ steps.extract_version.outputs.VERSION }}")
+          sed -i "s/^zdnsCLIVersion = \".*\"/zdnsCLIVersion = \"${VERSION}\"/" src/cli/cli.go
+
+      - name: Commit changes
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add src/cli/cli.go
+          git commit -m "Update zdnsCLIVersion to ${{ steps.extract_version.outputs.VERSION }}"
+          git tag -f ${{ github.ref }}
+          git push origin --force --tags
