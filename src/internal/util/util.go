@@ -16,12 +16,12 @@ package util
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"net"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/pkg/errors"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
