@@ -49,6 +49,7 @@ linters:
     - staticcheck # is a go vet on steroids, applying a ton of static analysis checks
     - typecheck # like the front-end of a Go compiler, parses and type-checks Go code
     - unused # checks for unused constants, variables, functions and types
+    - fatcontext # detects nested contexts in loops
 
 issues:
   # Maximum count of issues with the same text.
