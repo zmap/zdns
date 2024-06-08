@@ -65,10 +65,10 @@ func (r *Resolver) DoTargetedLookup(name, nameServer string, ipMode IPVersionMod
 		} else if lookupIPv6 && !SafeStatus(ipv6status) {
 			return nil, combinedTrace, ipv6status, nil
 		} else {
-			return &res, combinedTrace, STATUS_NOERROR, nil
+			return &res, combinedTrace, StatusNoError, nil
 		}
 	}
-	return &res, combinedTrace, STATUS_NOERROR, nil
+	return &res, combinedTrace, StatusNoError, nil
 }
 
 // recursiveIPLookup helper fn that recursively follows both A/AAAA records and CNAME records to find IP addresses
@@ -76,10 +76,10 @@ func (r *Resolver) DoTargetedLookup(name, nameServer string, ipMode IPVersionMod
 func recursiveIPLookup(r *Resolver, name, nameServer string, dnsType uint16, candidateSet map[string][]Answer, cnameSet map[string][]Answer, origName string, depth int, isIterative bool) ([]string, Trace, Status, error) {
 	// avoid infinite loops
 	if name == origName && depth != 0 {
-		return nil, make(Trace, 0), STATUS_ERROR, errors.New("infinite redirection loop")
+		return nil, make(Trace, 0), StatusError, errors.New("infinite redirection loop")
 	}
 	if depth > 10 {
-		return nil, make(Trace, 0), STATUS_ERROR, errors.New("max recursion depth reached")
+		return nil, make(Trace, 0), StatusError, errors.New("max recursion depth reached")
 	}
 	// check if the record is already in our cache. if not, perform normal A lookup and
 	// see what comes back. Then iterate over results and if needed, perform further lookups
@@ -95,7 +95,7 @@ func recursiveIPLookup(r *Resolver, name, nameServer string, dnsType uint16, can
 			result, trace, status, err = r.ExternalLookup(&Question{Name: name, Type: dnsType, Class: dns.ClassINET}, nameServer)
 		}
 
-		if status != STATUS_NOERROR || err != nil {
+		if status != StatusNoError || err != nil {
 			return nil, trace, status, err
 		}
 
@@ -109,7 +109,7 @@ func recursiveIPLookup(r *Resolver, name, nameServer string, dnsType uint16, can
 		for _, answer := range res {
 			ips = append(ips, answer.Answer)
 		}
-		return ips, trace, STATUS_NOERROR, nil
+		return ips, trace, StatusNoError, nil
 	} else if res, ok = cnameSet[name]; ok && len(res) > 0 {
 		// we have a CNAME and need to further recurse to find IPs
 		shortName := strings.ToLower(strings.TrimSuffix(res[0].Answer, "."))
@@ -117,11 +117,11 @@ func recursiveIPLookup(r *Resolver, name, nameServer string, dnsType uint16, can
 		trace = append(trace, secondTrace...)
 		return res, trace, status, err
 	} else if res, ok = garbage[name]; ok && len(res) > 0 {
-		return nil, trace, STATUS_ERROR, errors.New("unexpected record type received")
+		return nil, trace, StatusError, errors.New("unexpected record type received")
 	} else {
 		// we have no data whatsoever about this name. return an empty recordset to the user
 		var ips []string
-		return ips, trace, STATUS_NOERROR, nil
+		return ips, trace, StatusNoError, nil
 	}
 }
 

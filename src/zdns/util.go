@@ -32,7 +32,7 @@ func TranslateMiekgErrorCode(err int) Status {
 }
 
 func isStatusAnswer(s Status) bool {
-	if s == STATUS_NOERROR || s == STATUS_NXDOMAIN {
+	if s == StatusNoError || s == StatusNXDomain {
 		return true
 	}
 	return false
@@ -99,11 +99,11 @@ func checkGlue(server string, result SingleQueryResult) (SingleQueryResult, Stat
 			retv.Answers = make([]interface{}, 0)
 			retv.Additional = make([]interface{}, 0)
 			retv.Answers = append(retv.Answers, ans)
-			return retv, STATUS_NOERROR
+			return retv, StatusNoError
 		}
 	}
 	var r SingleQueryResult
-	return r, STATUS_ERROR
+	return r, StatusError
 }
 
 func makeVerbosePrefix(depth int) string {
@@ -112,7 +112,7 @@ func makeVerbosePrefix(depth int) string {
 
 // Check whether the status is safe
 func SafeStatus(status Status) bool {
-	return status == STATUS_NOERROR
+	return status == StatusNoError
 }
 
 // Verify that A record is indeed IPv4 and AAAA is IPv6
@@ -155,27 +155,27 @@ func TranslateDNSErrorCode(err int) Status {
 // Iterative Timeout
 func handleStatus(status *Status, err error) (*Status, error) {
 	switch *status {
-	case STATUS_ITER_TIMEOUT:
+	case StatusIterTimeout:
 		return status, err
-	case STATUS_NXDOMAIN:
+	case StatusNXDomain:
 		return status, nil
-	case STATUS_SERVFAIL:
+	case StatusServFail:
 		return status, nil
-	case STATUS_REFUSED:
+	case StatusRefused:
 		return status, nil
-	case STATUS_AUTHFAIL:
+	case StatusAuthFail:
 		return status, nil
-	case STATUS_NO_RECORD:
+	case StatusNoRecord:
 		return status, nil
-	case STATUS_BLACKLIST:
+	case StatusBlacklist:
 		return status, nil
-	case STATUS_NO_OUTPUT:
+	case StatusNoOutput:
 		return status, nil
-	case STATUS_NO_ANSWER:
+	case StatusNoAnswer:
 		return status, nil
-	case STATUS_TRUNCATED:
+	case StatusTruncated:
 		return status, nil
-	case STATUS_ILLEGAL_INPUT:
+	case StatusIllegalInput:
 		return status, nil
 	default:
 		var s *Status

@@ -42,13 +42,13 @@ type MockLookupClient struct{}
 func (mc MockLookupClient) DoSingleDstServerLookup(r *Resolver, q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
 	curDomainNs := domainNS{domain: q.Name, ns: nameServer}
 	if res, ok := mockResults[curDomainNs]; ok {
-		var status = STATUS_NOERROR
+		var status = StatusNoError
 		if protStatus, ok := protocolStatus[curDomainNs]; ok {
 			status = protStatus
 		}
 		return &res, nil, status, nil
 	} else {
-		return &SingleQueryResult{}, nil, STATUS_NXDOMAIN, nil
+		return &SingleQueryResult{}, nil, StatusNXDomain, nil
 	}
 }
 
@@ -947,7 +947,7 @@ func TestUnexpectedMxOnly(t *testing.T) {
 
 	res, _, status, _ := resolver.DoTargetedLookup("example.com", ns1, IPv4OrIPv6, false)
 
-	if status != STATUS_ERROR {
+	if status != StatusError {
 		t.Errorf("Expected ERROR status, got %v", status)
 	} else if res != nil {
 		t.Errorf("Expected no results, got %v", res)
@@ -1023,7 +1023,7 @@ func TestMismatchIpType(t *testing.T) {
 
 	res, _, status, _ := resolver.DoTargetedLookup("example.com", ns1, IPv4OrIPv6, false)
 
-	if status != STATUS_ERROR {
+	if status != StatusError {
 		t.Errorf("Expected ERROR status, got %v", status)
 	} else if res != nil {
 		t.Errorf("Expected no results, got %v", res)
@@ -1075,7 +1075,7 @@ func TestCnameLoops(t *testing.T) {
 
 	res, _, status, _ := resolver.DoTargetedLookup("cname1.example.com", ns1, IPv4OrIPv6, false)
 
-	if status != STATUS_ERROR {
+	if status != StatusError {
 		t.Errorf("Expected ERROR status, got %v", status)
 	} else if res != nil {
 		t.Errorf("Expected no results, got %v", res)
@@ -1113,7 +1113,7 @@ func TestExtendedRecursion(t *testing.T) {
 
 	res, _, status, _ := resolver.DoTargetedLookup("cname1.example.com", ns1, IPv4OrIPv6, false)
 
-	if status != STATUS_ERROR {
+	if status != StatusError {
 		t.Errorf("Expected ERROR status, got %v", status)
 	} else if res != nil {
 		t.Errorf("Expected no results, got %v", res)
@@ -1173,8 +1173,8 @@ func TestNXDomain(t *testing.T) {
 	require.NoError(t, err)
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
 	res, _, status, _ := resolver.DoTargetedLookup("nonexistent.example.com", ns1, IPv4OrIPv6, false)
-	if status != STATUS_NXDOMAIN {
-		t.Errorf("Expected STATUS_NXDOMAIN status, got %v", status)
+	if status != StatusNXDomain {
+		t.Errorf("Expected StatusNXDomain status, got %v", status)
 	} else if res != nil {
 		t.Errorf("Expected no results, got %v", res)
 	}
@@ -1290,7 +1290,7 @@ func TestServFail(t *testing.T) {
 
 	mockResults[domainNS1] = SingleQueryResult{}
 	name := "example.com"
-	protocolStatus[domainNS1] = STATUS_SERVFAIL
+	protocolStatus[domainNS1] = StatusServFail
 
 	res, _, finalStatus, _ := resolver.DoTargetedLookup(name, ns1, IPv4OrIPv6, false)
 
@@ -1590,7 +1590,7 @@ func TestNsNXDomain(t *testing.T) {
 
 	_, _, status, _ := resolver.DoNSLookup("nonexistentexample.com", ns1, false)
 
-	assert.Equal(t, STATUS_NXDOMAIN, status)
+	assert.Equal(t, StatusNXDomain, status)
 }
 
 func TestNsServFail(t *testing.T) {
@@ -1603,7 +1603,7 @@ func TestNsServFail(t *testing.T) {
 	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
 	mockResults[domainNS1] = SingleQueryResult{}
-	protocolStatus[domainNS1] = STATUS_SERVFAIL
+	protocolStatus[domainNS1] = StatusServFail
 
 	res, _, status, _ := resolver.DoNSLookup("example.com", ns1, false)
 
@@ -1636,7 +1636,7 @@ func TestErrorInTargetedLookup(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 
-	protocolStatus[domainNS1] = STATUS_ERROR
+	protocolStatus[domainNS1] = StatusError
 
 	res, _, status, _ := resolver.DoNSLookup("example.com", ns1, false)
 	assert.Empty(t, len(res.Servers), 0)
@@ -1729,12 +1729,12 @@ func TestAllNsLookupOneNs(t *testing.T) {
 	expectedRes := []ExtendedResult{
 		{
 			Nameserver: nsDomain1,
-			Status:     STATUS_NOERROR,
+			Status:     StatusNoError,
 			Res:        mockResults[domainNS2],
 		},
 		{
 			Nameserver: nsDomain1,
-			Status:     STATUS_NOERROR,
+			Status:     StatusNoError,
 			Res:        mockResults[domainNS3],
 		},
 	}
@@ -1852,12 +1852,12 @@ func TestAllNsLookupOneNsMultipleIps(t *testing.T) {
 	expectedRes := []ExtendedResult{
 		{
 			Nameserver: nsDomain1,
-			Status:     STATUS_NOERROR,
+			Status:     StatusNoError,
 			Res:        mockResults[domainNS2],
 		},
 		{
 			Nameserver: nsDomain1,
-			Status:     STATUS_NOERROR,
+			Status:     StatusNoError,
 			Res:        mockResults[domainNS3],
 		},
 	}
@@ -1967,12 +1967,12 @@ func TestAllNsLookupTwoNs(t *testing.T) {
 	expectedRes := []ExtendedResult{
 		{
 			Nameserver: nsDomain1,
-			Status:     STATUS_NOERROR,
+			Status:     StatusNoError,
 			Res:        mockResults[domainNS2],
 		},
 		{
 			Nameserver: nsDomain2,
-			Status:     STATUS_NOERROR,
+			Status:     StatusNoError,
 			Res:        mockResults[domainNS3],
 		},
 	}
@@ -2063,18 +2063,18 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 
 	ns3 := net.JoinHostPort(ipv4_2, "53")
 	domainNS3 := domainNS{domain: domain1, ns: ns3}
-	protocolStatus[domainNS3] = STATUS_SERVFAIL
+	protocolStatus[domainNS3] = StatusServFail
 	mockResults[domainNS3] = SingleQueryResult{}
 
 	expectedRes := []ExtendedResult{
 		{
 			Nameserver: nsDomain1,
-			Status:     STATUS_NOERROR,
+			Status:     StatusNoError,
 			Res:        mockResults[domainNS2],
 		},
 		{
 			Nameserver: nsDomain1,
-			Status:     STATUS_SERVFAIL,
+			Status:     StatusServFail,
 			Res:        mockResults[domainNS3],
 		},
 	}
@@ -2105,7 +2105,7 @@ func TestAllNsLookupNXDomain(t *testing.T) {
 
 	res, _, status, err := resolver.LookupAllNameservers(&q, ns1)
 
-	assert.Equal(t, STATUS_NXDOMAIN, status)
+	assert.Equal(t, StatusNXDomain, status)
 	assert.Nil(t, res)
 	require.NoError(t, err)
 }
@@ -2120,7 +2120,7 @@ func TestAllNsLookupServFail(t *testing.T) {
 	domain1 := "example.com"
 	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	protocolStatus[domainNS1] = STATUS_SERVFAIL
+	protocolStatus[domainNS1] = StatusServFail
 	mockResults[domainNS1] = SingleQueryResult{}
 
 	q := Question{
@@ -2130,7 +2130,7 @@ func TestAllNsLookupServFail(t *testing.T) {
 	}
 	res, _, status, err := resolver.LookupAllNameservers(&q, ns1)
 
-	assert.Equal(t, STATUS_SERVFAIL, status)
+	assert.Equal(t, StatusServFail, status)
 	assert.Nil(t, res)
 	require.NoError(t, err)
 }

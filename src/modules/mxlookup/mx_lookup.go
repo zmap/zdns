@@ -111,7 +111,7 @@ func (mxMod *MXLookupModule) lookupIPs(r *zdns.Resolver, name, nameServer string
 	}
 	retv := CachedAddresses{}
 	result, trace, status, _ := r.DoTargetedLookup(name, nameServer, ipMode, mxMod.IsIterative)
-	if status == zdns.STATUS_NOERROR && result != nil {
+	if status == zdns.StatusNoError && result != nil {
 		retv.IPv4Addresses = result.IPv4Addresses
 		retv.IPv6Addresses = result.IPv6Addresses
 	}
@@ -133,7 +133,7 @@ func (mxMod *MXLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer str
 	} else {
 		res, trace, status, err = r.ExternalLookup(&zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET}, nameServer)
 	}
-	if status != zdns.STATUS_NOERROR || err != nil {
+	if status != zdns.StatusNoError || err != nil {
 		return nil, trace, status, err
 	}
 
@@ -148,7 +148,7 @@ func (mxMod *MXLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer str
 			trace = append(trace, secondTrace...)
 		}
 	}
-	return &retv, trace, zdns.STATUS_NOERROR, nil
+	return &retv, trace, zdns.StatusNoError, nil
 }
 
 // Help returns the module's help string

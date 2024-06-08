@@ -61,7 +61,7 @@ func (r *Resolver) DoNSLookup(lookupName, nameServer string, isIterative bool) (
 	}
 
 	var retv NSResult
-	if status != STATUS_NOERROR || err != nil {
+	if status != StatusNoError || err != nil {
 		return &retv, trace, status, err
 	}
 	ipv4s := make(map[string][]string)
@@ -130,5 +130,5 @@ func (r *Resolver) DoNSLookup(lookupName, nameServer string, isIterative bool) (
 
 		retv.Servers = append(retv.Servers, rec)
 	}
-	return &retv, trace, STATUS_NOERROR, nil
+	return &retv, trace, StatusNoError, nil
 }

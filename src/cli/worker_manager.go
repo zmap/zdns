@@ -464,7 +464,7 @@ func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, i
 		innerRes, trace, status, err = lookup.Lookup(resolver, lookupName, nameServer)
 
 		res.Timestamp = time.Now().Format(gc.TimeFormat)
-		if status != zdns.STATUS_NO_OUTPUT {
+		if status != zdns.StatusNoOutput {
 			res.Status = string(status)
 			res.Data = innerRes
 			res.Trace = trace
