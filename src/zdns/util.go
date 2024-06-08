@@ -72,7 +72,7 @@ func nextAuthority(name, layer string) (string, error) {
 	}
 
 	if !strings.HasSuffix(name, layer) {
-		return "", errors.New("Server did not provide appropriate resolvers to continue recursion")
+		return "", errors.New("server did not provide appropriate resolvers to continue recursion")
 	}
 
 	// Limit the search space to the prefix of the string that isnt layer

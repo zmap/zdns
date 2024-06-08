@@ -22,7 +22,7 @@ import (
 
 // DoTargetedLookup performs a lookup of the given domain name against the given nameserver, looking up both IPv4 and IPv6 addresses
 // Will follow CNAME records as well as A/AAAA records to get IP addresses
-func (resolver *Resolver) DoTargetedLookup(name, nameServer string, ipMode IPVersionMode, isIterative bool) (*IPResult, Trace, Status, error) {
+func (r *Resolver) DoTargetedLookup(name, nameServer string, ipMode IPVersionMode, isIterative bool) (*IPResult, Trace, Status, error) {
 	lookupIPv4 := ipMode == IPv4Only || ipMode == IPv4OrIPv6
 	lookupIPv6 := ipMode == IPv6Only || ipMode == IPv4OrIPv6
 	name = strings.ToLower(name)
@@ -37,7 +37,7 @@ func (resolver *Resolver) DoTargetedLookup(name, nameServer string, ipMode IPVer
 	var ipv6status Status
 
 	if lookupIPv4 {
-		ipv4, ipv4Trace, ipv4status, _ = recursiveIPLookup(resolver, name, nameServer, dns.TypeA, candidateSet, cnameSet, name, 0, isIterative)
+		ipv4, ipv4Trace, ipv4status, _ = recursiveIPLookup(r, name, nameServer, dns.TypeA, candidateSet, cnameSet, name, 0, isIterative)
 		if len(ipv4) > 0 {
 			ipv4 = Unique(ipv4)
 			res.IPv4Addresses = make([]string, len(ipv4))
@@ -47,7 +47,7 @@ func (resolver *Resolver) DoTargetedLookup(name, nameServer string, ipMode IPVer
 	candidateSet = map[string][]Answer{}
 	cnameSet = map[string][]Answer{}
 	if lookupIPv6 {
-		ipv6, ipv6Trace, ipv6status, _ = recursiveIPLookup(resolver, name, nameServer, dns.TypeAAAA, candidateSet, cnameSet, name, 0, isIterative)
+		ipv6, ipv6Trace, ipv6status, _ = recursiveIPLookup(r, name, nameServer, dns.TypeAAAA, candidateSet, cnameSet, name, 0, isIterative)
 		if len(ipv6) > 0 {
 			ipv6 = Unique(ipv6)
 			res.IPv6Addresses = make([]string, len(ipv6))
