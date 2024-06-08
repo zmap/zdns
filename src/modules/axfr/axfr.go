@@ -21,7 +21,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/zmap/zdns/src/cli"
-	"github.com/zmap/zdns/src/internal/safe_blacklist"
+	"github.com/zmap/zdns/src/internal/safeblacklist"
 	"github.com/zmap/zdns/src/modules/nslookup"
 
 	log "github.com/sirupsen/logrus"
@@ -36,7 +36,7 @@ type AxfrLookupModule struct {
 	cli.BasicLookupModule
 	NSModule      nslookup.NSLookupModule
 	BlacklistPath string
-	Blacklist     *safe_blacklist.SafeBlacklist
+	Blacklist     *safeblacklist.SafeBlacklist
 	dns.Transfer
 }
 
@@ -151,7 +151,7 @@ func (axfrMod *AxfrLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfi
 		return errors.Wrap(err, "failed to get blacklist-file flag")
 	}
 	if axfrMod.BlacklistPath != "" {
-		axfrMod.Blacklist = safe_blacklist.New()
+		axfrMod.Blacklist = safeblacklist.New()
 		if err = axfrMod.Blacklist.ParseFromFile(axfrMod.BlacklistPath); err != nil {
 			return errors.Wrap(err, "failed to parse blacklist")
 		}

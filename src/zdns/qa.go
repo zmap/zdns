@@ -36,8 +36,8 @@ type Trace []TraceStep
 
 type TraceStep struct {
 	Result     SingleQueryResult `json:"results" groups:"trace"`
-	DnsType    uint16            `json:"type" groups:"trace"`
-	DnsClass   uint16            `json:"class" groups:"trace"`
+	DNSType    uint16            `json:"type" groups:"trace"`
+	DNSClass   uint16            `json:"class" groups:"trace"`
 	Name       string            `json:"name" groups:"trace"`
 	NameServer string            `json:"name_server" groups:"trace"`
 	Depth      int               `json:"depth" groups:"trace"`

@@ -93,7 +93,7 @@ func (r *Resolver) DoNSLookup(lookupName, nameServer string, isIterative bool) (
 		var rec NSRecord
 		rec.Type = a.Type
 		rec.Name = strings.TrimSuffix(a.Answer, ".")
-		rec.TTL = a.Ttl
+		rec.TTL = a.TTL
 
 		var findIpv4 = false
 		var findIpv6 = false

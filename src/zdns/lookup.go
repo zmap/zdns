@@ -99,8 +99,8 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 	}
 	var t TraceStep
 	t.Result = res
-	t.DnsType = q.Type
-	t.DnsClass = q.Class
+	t.DNSType = q.Type
+	t.DNSClass = q.Class
 	t.Name = q.Name
 	t.NameServer = nameServer
 	t.Layer = q.Name
@@ -169,8 +169,8 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer s
 	if status == StatusNoError {
 		var t TraceStep
 		t.Result = result
-		t.DnsType = q.Type
-		t.DnsClass = q.Class
+		t.DNSType = q.Type
+		t.DNSClass = q.Class
 		t.Name = q.Name
 		t.NameServer = nameServer
 		t.Layer = layer
@@ -406,24 +406,24 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 	}
 	for i, elem := range result.Authorities {
 		r.verboseLog(depth+1, "Trying Authority: ", elem)
-		ns, ns_status, newLayer, newTrace := r.extractAuthority(ctx, elem, layer, depth, result, trace)
+		ns, nsStatus, newLayer, newTrace := r.extractAuthority(ctx, elem, layer, depth, result, trace)
 		r.verboseLog((depth + 1), "Output from extract authorities: ", ns)
-		if ns_status == StatusIterTimeout {
+		if nsStatus == StatusIterTimeout {
 			r.verboseLog((depth + 2), "--> Hit iterative timeout: ")
 			var r SingleQueryResult
 			return r, newTrace, StatusIterTimeout, nil
 		}
-		if ns_status != StatusNoError {
+		if nsStatus != StatusNoError {
 			var err error
-			new_status, err := handleStatus(&ns_status, err)
+			newStatus, err := handleStatus(&nsStatus, err)
 			// default case we continue
-			if new_status == nil && err == nil {
+			if newStatus == nil && err == nil {
 				if i+1 == len(result.Authorities) {
-					r.verboseLog((depth + 2), "--> Auth find Failed. Unknown error. No more authorities to try, terminating: ", ns_status)
+					r.verboseLog((depth + 2), "--> Auth find Failed. Unknown error. No more authorities to try, terminating: ", nsStatus)
 					var r SingleQueryResult
-					return r, newTrace, ns_status, err
+					return r, newTrace, nsStatus, err
 				} else {
-					r.verboseLog((depth + 2), "--> Auth find Failed. Unknown error. Continue: ", ns_status)
+					r.verboseLog((depth + 2), "--> Auth find Failed. Unknown error. Continue: ", nsStatus)
 					continue
 				}
 			} else {
@@ -431,10 +431,10 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 				var localResult SingleQueryResult
 				if i+1 == len(result.Authorities) {
 					// We don't allow the continue fall through in order to report the last auth falure code, not STATUS_EROR
-					r.verboseLog((depth + 2), "--> Final auth find non-success. Last auth. Terminating: ", ns_status)
-					return localResult, newTrace, *new_status, err
+					r.verboseLog((depth + 2), "--> Final auth find non-success. Last auth. Terminating: ", nsStatus)
+					return localResult, newTrace, *newStatus, err
 				} else {
-					r.verboseLog((depth + 2), "--> Auth find non-success. Trying next: ", ns_status)
+					r.verboseLog((depth + 2), "--> Auth find non-success. Trying next: ", nsStatus)
 					continue
 				}
 			}
@@ -487,13 +487,13 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 	}
 	if status == StatusNoError {
 		// XXX we don't actually check the question here
-		for _, inner_a := range res.Answers {
-			inner_ans, ok := inner_a.(Answer)
+		for _, innerA := range res.Answers {
+			innerAns, ok := innerA.(Answer)
 			if !ok {
 				continue
 			}
-			if inner_ans.Type == "A" {
-				server := strings.TrimSuffix(inner_ans.Answer, ".") + ":53"
+			if innerAns.Type == "A" {
+				server := strings.TrimSuffix(innerAns.Answer, ".") + ":53"
 				return server, StatusNoError, layer, trace
 			}
 		}

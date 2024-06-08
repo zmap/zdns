@@ -140,7 +140,7 @@ func (mxMod *MXLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer str
 	for _, ans := range res.Answers {
 		if mxAns, ok := ans.(zdns.PrefAnswer); ok {
 			lookupName = strings.TrimSuffix(mxAns.Answer.Answer, ".")
-			rec := MXRecord{TTL: mxAns.Ttl, Type: mxAns.Type, Class: mxAns.Class, Name: lookupName, Preference: mxAns.Preference}
+			rec := MXRecord{TTL: mxAns.TTL, Type: mxAns.Type, Class: mxAns.Class, Name: lookupName, Preference: mxAns.Preference}
 			ips, secondTrace := mxMod.lookupIPs(r, lookupName, nameServer, ipMode)
 			rec.IPv4Addresses = ips.IPv4Addresses
 			rec.IPv6Addresses = ips.IPv6Addresses

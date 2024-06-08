@@ -514,7 +514,7 @@ func TestLookup_DoTxtLookup_1(t *testing.T) {
 	testRegexp := regexp.MustCompile(".*")
 	input := &SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "TXT",
 			Class:  "IN",
 			Name:   "example.com",
@@ -536,13 +536,13 @@ func TestLookup_DoTxtLookup_2(t *testing.T) {
 	input := &SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "TXT",
 				Class:  "IN",
 				Name:   "example.com",
 				Answer: "testing TXT prefix: hello world!",
 			}, Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "TXT",
 				Class:  "IN",
 				Name:   "example.com",
@@ -564,13 +564,13 @@ func TestLookup_DoTxtLookup_3(t *testing.T) {
 	input := &SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "TXT",
 				Class:  "IN",
 				Name:   "example.com",
 				Answer: "testing TXT prefix: hello world!",
 			}, Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "TXT",
 				Class:  "IN",
 				Name:   "example.com",
@@ -600,7 +600,7 @@ func TestLookup_DoTxtLookup_5(t *testing.T) {
 	testRegexp := regexp.MustCompile("")
 	input := &SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "TXT",
 			Class:  "IN",
 			Name:   "example.com",
@@ -628,7 +628,7 @@ func TestOneA(t *testing.T) {
 
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   domain1 + ".",
@@ -656,14 +656,14 @@ func TestTwoA(t *testing.T) {
 
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   domain1 + ".",
 			Answer: "192.0.2.1",
 		},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "example.com",
@@ -691,14 +691,14 @@ func TestQuadAWithoutFlag(t *testing.T) {
 
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   domain1 + ".",
 			Answer: "192.0.2.1",
 		},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "example.com",
@@ -727,7 +727,7 @@ func TestOnlyQuadA(t *testing.T) {
 
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "AAAA",
 			Class:  "IN",
 			Name:   "example.com",
@@ -757,14 +757,14 @@ func TestAandQuadA(t *testing.T) {
 
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   "example.com",
 			Answer: "192.0.2.1",
 		},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "example.com",
@@ -793,14 +793,14 @@ func TestTwoQuadA(t *testing.T) {
 
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "AAAA",
 			Class:  "IN",
 			Name:   "example.com",
 			Answer: "2001:db8::1",
 		},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "example.com",
@@ -852,7 +852,7 @@ func TestCname(t *testing.T) {
 
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "CNAME",
 			Class:  "IN",
 			Name:   "cname.example.com",
@@ -870,7 +870,7 @@ func TestCname(t *testing.T) {
 
 	mockResults[domainNS2] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   "example.com",
@@ -898,14 +898,14 @@ func TestQuadAWithCname(t *testing.T) {
 
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "AAAA",
 			Class:  "IN",
 			Name:   "cname.example.com",
 			Answer: "2001:db8::3",
 		},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "CNAME",
 				Class:  "IN",
 				Name:   "cname.example.com",
@@ -933,7 +933,7 @@ func TestUnexpectedMxOnly(t *testing.T) {
 
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "MX",
 			Class:  "IN",
 			Name:   "example.com",
@@ -967,21 +967,21 @@ func TestMxAndAdditionals(t *testing.T) {
 
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "MX",
 			Class:  "IN",
 			Name:   "example.com",
 			Answer: "mail.example.com.",
 		}},
 		Additional: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   "example.com",
 			Answer: "192.0.2.3",
 		},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "example.com",
@@ -1009,7 +1009,7 @@ func TestMismatchIpType(t *testing.T) {
 
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   "example.com",
@@ -1043,7 +1043,7 @@ func TestCnameLoops(t *testing.T) {
 
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "CNAME",
 			Class:  "IN",
 			Name:   "cname1.example.com.",
@@ -1061,7 +1061,7 @@ func TestCnameLoops(t *testing.T) {
 
 	mockResults[domainNS2] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "CNAME",
 			Class:  "IN",
 			Name:   "cname2.example.com.",
@@ -1092,13 +1092,13 @@ func TestExtendedRecursion(t *testing.T) {
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
 	// Create a CNAME chain of length > 10
 	for i := 1; i < 12; i++ {
-		domainNS := domainNS{
+		domainNSRecord := domainNS{
 			domain: "cname" + strconv.Itoa(i) + ".example.com",
 			ns:     ns1,
 		}
-		mockResults[domainNS] = SingleQueryResult{
+		mockResults[domainNSRecord] = SingleQueryResult{
 			Answers: []interface{}{Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "CNAME",
 				Class:  "IN",
 				Name:   "cname" + strconv.Itoa(i) + ".example.com",
@@ -1133,7 +1133,7 @@ func TestEmptyNonTerminal(t *testing.T) {
 
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   "leaf.intermediate.example.com.",
@@ -1196,25 +1196,25 @@ func TestAandQuadADedup(t *testing.T) {
 
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "CNAME",
 			Class:  "IN",
 			Name:   domain1,
 			Answer: domain2 + ".",
 		}, Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "CNAME",
 			Class:  "IN",
 			Name:   domain2,
 			Answer: domain3 + ".",
 		}, Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   domain3,
 			Answer: "192.0.2.1",
 		}, Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "AAAA",
 			Class:  "IN",
 			Name:   domain3,
@@ -1228,19 +1228,19 @@ func TestAandQuadADedup(t *testing.T) {
 
 	mockResults[domainNS2] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "CNAME",
 			Class:  "IN",
 			Name:   domain2,
 			Answer: domain3 + ".",
 		}, Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   domain3,
 			Answer: "192.0.2.1",
 		}, Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "AAAA",
 			Class:  "IN",
 			Name:   domain3,
@@ -1254,13 +1254,13 @@ func TestAandQuadADedup(t *testing.T) {
 
 	mockResults[domainNS3] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   domain3,
 			Answer: "192.0.2.1",
 		}, Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "AAAA",
 			Class:  "IN",
 			Name:   domain3,
@@ -1328,7 +1328,7 @@ func TestNsAInAdditional(t *testing.T) {
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1337,7 +1337,7 @@ func TestNsAInAdditional(t *testing.T) {
 		},
 		Additional: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "ns1.example.com.",
@@ -1371,14 +1371,14 @@ func TestTwoNSInAdditional(t *testing.T) {
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
 				Answer: "ns1.example.com.",
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1387,14 +1387,14 @@ func TestTwoNSInAdditional(t *testing.T) {
 		},
 		Additional: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "ns1.example.com.",
 				Answer: "192.0.2.3",
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "ns2.example.com.",
@@ -1432,7 +1432,7 @@ func TestAandQuadAInAdditional(t *testing.T) {
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1441,14 +1441,14 @@ func TestAandQuadAInAdditional(t *testing.T) {
 		},
 		Additional: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "ns1.example.com.",
 				Answer: "192.0.2.3",
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "ns1.example.com.",
@@ -1482,7 +1482,7 @@ func TestNsMismatchIpType(t *testing.T) {
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1491,14 +1491,14 @@ func TestNsMismatchIpType(t *testing.T) {
 		},
 		Additional: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "ns1.example.com.",
 				Answer: "192.0.2.3",
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "ns1.example.com.",
@@ -1532,7 +1532,7 @@ func TestAandQuadALookup(t *testing.T) {
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1552,14 +1552,14 @@ func TestAandQuadALookup(t *testing.T) {
 	mockResults[domainNS2] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "ns1.example.com.",
 				Answer: "192.0.2.3",
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "ns1.example.com.",
@@ -1623,7 +1623,7 @@ func TestErrorInTargetedLookup(t *testing.T) {
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1660,7 +1660,7 @@ func TestAllNsLookupOneNs(t *testing.T) {
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1669,14 +1669,14 @@ func TestAllNsLookupOneNs(t *testing.T) {
 		},
 		Additional: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   nsDomain1 + ".",
 				Answer: ipv4_1,
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   nsDomain1 + ".",
@@ -1694,7 +1694,7 @@ func TestAllNsLookupOneNs(t *testing.T) {
 	mockResults[domainNS2] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1713,7 +1713,7 @@ func TestAllNsLookupOneNs(t *testing.T) {
 	mockResults[domainNS3] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1767,7 +1767,7 @@ func TestAllNsLookupOneNsMultipleIps(t *testing.T) {
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1776,14 +1776,14 @@ func TestAllNsLookupOneNsMultipleIps(t *testing.T) {
 		},
 		Additional: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   nsDomain1 + ".",
 				Answer: ipv4_1,
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   nsDomain1 + ".",
@@ -1802,14 +1802,14 @@ func TestAllNsLookupOneNsMultipleIps(t *testing.T) {
 	mockResults[domainNS2] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "example.com.",
 				Answer: ipv4_3,
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1829,14 +1829,14 @@ func TestAllNsLookupOneNsMultipleIps(t *testing.T) {
 	mockResults[domainNS3] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "example.com.",
 				Answer: ipv4_4,
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1891,14 +1891,14 @@ func TestAllNsLookupTwoNs(t *testing.T) {
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
 				Answer: nsDomain1 + ".",
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1907,14 +1907,14 @@ func TestAllNsLookupTwoNs(t *testing.T) {
 		},
 		Additional: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   nsDomain1 + ".",
 				Answer: ipv4_1,
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   nsDomain2 + ".",
@@ -1932,7 +1932,7 @@ func TestAllNsLookupTwoNs(t *testing.T) {
 	mockResults[domainNS2] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1951,7 +1951,7 @@ func TestAllNsLookupTwoNs(t *testing.T) {
 	mockResults[domainNS3] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -2006,7 +2006,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com",
@@ -2015,14 +2015,14 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 		},
 		Additional: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   nsDomain1 + ".",
 				Answer: ipv4_1,
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   nsDomain1 + ".",
@@ -2041,14 +2041,14 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 	mockResults[domainNS2] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "example.com.",
 				Answer: ipv4_3,
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "example.com.",
