@@ -19,7 +19,6 @@ import (
 	"net"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -92,7 +91,7 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 		return &result, trace, status, err
 	}
 
-	res, status, try, err := r.retryingLookup(q, nameServer, true)
+	res, status, try, err := r.retryingLookup(context.Background(), q, nameServer, true)
 	if err != nil {
 		return &res, nil, status, fmt.Errorf("could not perform retrying lookup for name %v: %w", q.Name, err)
 
@@ -268,7 +267,10 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 	}
 
 	// Alright, we're not sure what to do, go to the wire.
-	result, status, try, err := r.retryingLookup(q, nameServer, false)
+	result, status, try, err := r.retryingLookup(ctx, q, nameServer, false)
+	if status == STATUS_ITER_TIMEOUT {
+		r.verboseLog(depth+2, "ITERATIVE_TIMEOUT ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
+	}
 
 	r.cache.CacheUpdate(layer, result, depth+2)
 	return result, isCached, status, try, err
@@ -276,35 +278,20 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 
 // retryingLookup wraps around wireLookup to perform a DNS lookup with retries
 // Returns the result, status, number of tries, and error
-func (r *Resolver) retryingLookup(q Question, nameServer string, recursive bool) (SingleQueryResult, Status, int, error) {
+func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer string, recursive bool) (SingleQueryResult, Status, int, error) {
 	r.verboseLog(1, "****WIRE LOOKUP*** ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
-
-	var origTimeout time.Duration
-	if r.udpClient != nil {
-		origTimeout = r.udpClient.Timeout
-	} else {
-		origTimeout = r.tcpClient.Timeout
-	}
-	defer func() {
-		// set timeout values back to original
-		if r.udpClient != nil {
-			r.udpClient.Timeout = origTimeout
-		}
-		if r.tcpClient != nil {
-			r.tcpClient.Timeout = origTimeout
-		}
-	}()
-
 	for i := 0; i <= r.retries; i++ {
 		result, status, err := wireLookup(r.udpClient, r.tcpClient, r.conn, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
 		if status != STATUS_TIMEOUT || i == r.retries {
-			return result, status, (i + 1), err
+			return result, status, i + 1, err
 		}
-		if r.udpClient != nil {
-			r.udpClient.Timeout = 2 * r.udpClient.Timeout
-		}
-		if r.tcpClient != nil {
-			r.tcpClient.Timeout = 2 * r.tcpClient.Timeout
+		// Check if the overall iterative timeout has been reached
+		select {
+		case <-ctx.Done():
+			var r SingleQueryResult
+			return r, STATUS_ITER_TIMEOUT, i + 1, nil
+		default:
+			// Timeout not reached, continue
 		}
 	}
 	return SingleQueryResult{}, "", 0, errors.New("retry loop didn't exit properly")
