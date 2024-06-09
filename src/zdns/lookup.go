@@ -77,11 +77,20 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 
 	if q.Type == dns.TypePTR {
 		var err error
-		q.Name, err = dns.ReverseAddr(q.Name)
+		var qname string
+		qname, err = dns.ReverseAddr(q.Name)
 		if err != nil {
-			return nil, nil, STATUS_ILLEGAL_INPUT, err
+			// might be an actual DNS name instead of an IP address
+			// if that looks likely, use it as is
+			if (len(q.Name) > 0) && !strings.Contains(q.Name, ":") &&
+				!strings.Contains("1234567890", string(q.Name[len(q.Name)-1:])) {
+				qname = q.Name + "."
+			} else {
+				return nil, nil, STATUS_ILLEGAL_INPUT, err
+			}
 		}
-		q.Name = q.Name[:len(q.Name)-1]
+		// remove trailing "." added by dns.ReverseAddr
+		q.Name = qname[:len(qname)-1]
 	}
 	if isIterative {
 		r.verboseLog(0, "MIEKG-IN: iterative lookup for ", q.Name, " (", q.Type, ")")
