@@ -21,9 +21,10 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
+
+	"github.com/zmap/zdns/src/internal/util"
 )
 
 // GetDNSServers returns a list of DNS servers from a file, or an error if one occurs
@@ -82,7 +83,7 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 		}
 		q.Name = q.Name[:len(q.Name)-1]
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), r.iterativeTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	defer cancel()
 	if isIterative {
 		r.verboseLog(0, "MIEKG-IN: iterative lookup for ", q.Name, " (", q.Type, ")")
@@ -93,7 +94,6 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 	res, status, try, err := r.retryingLookup(ctx, q, nameServer, true)
 	if err != nil {
 		return &res, nil, status, fmt.Errorf("could not perform retrying lookup for name %v: %w", q.Name, err)
-
 	}
 	var t TraceStep
 	t.Result = res
@@ -154,7 +154,6 @@ func (r *Resolver) LookupAllNameservers(q *Question, nameServer string) (*Combin
 
 func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer string,
 	depth int, layer string, trace Trace) (SingleQueryResult, Trace, Status, error) {
-	//
 	if log.GetLevel() == log.DebugLevel {
 		r.verboseLog(depth, "iterative lookup for ", q.Name, " (", q.Type, ") against ", nameServer, " layer ", layer)
 	}
@@ -163,7 +162,10 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer s
 		r.verboseLog(depth+1, "-> Max recursion depth reached")
 		return result, trace, StatusError, errors.New("max recursion depth reached")
 	}
-	result, isCached, status, try, err := r.cachedRetryingLookup(ctx, q, nameServer, layer, depth)
+	// create iteration context for this iteration step
+	iterationStepCtx, cancel := context.WithTimeout(ctx, r.iterativeTimeout)
+	defer cancel()
+	result, isCached, status, try, err := r.cachedRetryingLookup(iterationStepCtx, q, nameServer, layer, depth)
 	if status == StatusNoError {
 		var t TraceStep
 		t.Result = result
@@ -176,6 +178,13 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer s
 		t.Cached = isCached
 		t.Try = try
 		trace = append(trace, t)
+	}
+	if status == StatusTimeout && util.HasCtxExpired(&iterationStepCtx) && !util.HasCtxExpired(&ctx) {
+		// ctx's have a deadline of the minimum of their deadline and their parent's
+		// retryingLookup doesn't disambiguate of whether the timeout was caused by the iteration timeout or the global timeout
+		// we'll disambiguate here by checking if the iteration context has expired but the global context hasn't
+		r.verboseLog(depth+2, "ITERATIVE_TIMEOUT ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
+		status = StatusIterTimeout
 	}
 	if status != StatusNoError {
 		r.verboseLog((depth + 1), "-> error occurred during lookup")
@@ -209,15 +218,6 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 	isCached = false
 	r.verboseLog(depth+1, "Cached retrying lookup. Name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
 
-	// Check if the timeout has been reached
-	select {
-	case <-ctx.Done():
-		r.verboseLog(depth+2, "ITERATIVE_TIMEOUT ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
-		var r SingleQueryResult
-		return r, isCached, StatusIterTimeout, 0, nil
-	default:
-		// Timeout not reached, continue
-	}
 	// First, we check the answer
 	cachedResult, ok := r.cache.GetCachedResult(q, false, depth+1)
 	if ok {
@@ -267,9 +267,6 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 
 	// Alright, we're not sure what to do, go to the wire.
 	result, status, try, err := r.retryingLookup(ctx, q, nameServer, false)
-	if status == StatusIterTimeout {
-		r.verboseLog(depth+2, "ITERATIVE_TIMEOUT ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
-	}
 
 	r.cache.CacheUpdate(layer, result, depth+2)
 	return result, isCached, status, try, err
@@ -280,18 +277,16 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer string, recursive bool) (SingleQueryResult, Status, int, error) {
 	r.verboseLog(1, "****WIRE LOOKUP*** ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
 	for i := 0; i <= r.retries; i++ {
+		// check context before going into wireLookup
+		if util.HasCtxExpired(&ctx) {
+			var r SingleQueryResult
+			return r, StatusTimeout, i + 1, nil
+		}
 		result, status, err := wireLookup(ctx, r.udpClient, r.tcpClient, r.conn, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
 		if status != StatusTimeout || i == r.retries {
 			return result, status, i + 1, err
 		}
-		// Check if the overall iterative timeout has been reached
-		select {
-		case <-ctx.Done():
-			var r SingleQueryResult
-			return r, StatusIterTimeout, i + 1, nil
-		default:
-			// Timeout not reached, continue
-		}
+
 	}
 	return SingleQueryResult{}, "", 0, errors.New("retry loop didn't exit properly")
 }

@@ -121,6 +121,7 @@ type BasicLookupModule struct {
 
 func (lm *BasicLookupModule) CLIInit(gc *CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
 	lm.LookupAllNameServers = rc.LookupAllNameServers
+	lm.IsIterative = gc.IterativeResolution
 	return nil
 }
 

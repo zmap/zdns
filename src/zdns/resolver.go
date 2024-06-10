@@ -65,8 +65,8 @@ type ResolverConfig struct {
 	IPVersionMode        IPVersionMode
 	ShouldRecycleSockets bool
 
-	IterativeTimeout     time.Duration
-	Timeout              time.Duration // timeout for the network conns
+	IterativeTimeout     time.Duration // applicable to iterative queries only, timeout for a single iteration step
+	Timeout              time.Duration // timeout for the resolution of a single name
 	MaxDepth             int
 	ExternalNameServers  []string // name servers used for external lookups
 	LookupAllNameServers bool     // perform the lookup via all the nameservers for the domain
@@ -165,10 +165,6 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	} else {
 		c = new(Cache)
 		c.Init(defaultCacheSize)
-	}
-	if config.IterativeTimeout > config.Timeout {
-		log.Warn("iterative timeout is greater than the timeout, iterative timeout will be set to the timeout")
-		config.IterativeTimeout = config.Timeout
 	}
 	// copy relevent all values from config to resolver
 	r := &Resolver{
