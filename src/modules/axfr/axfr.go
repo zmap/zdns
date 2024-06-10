@@ -21,7 +21,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/zmap/zdns/src/cli"
-	"github.com/zmap/zdns/src/internal/safe_blacklist"
+	"github.com/zmap/zdns/src/internal/safeblacklist"
 	"github.com/zmap/zdns/src/modules/nslookup"
 
 	log "github.com/sirupsen/logrus"
@@ -36,7 +36,7 @@ type AxfrLookupModule struct {
 	cli.BasicLookupModule
 	NSModule      nslookup.NSLookupModule
 	BlacklistPath string
-	Blacklist     *safe_blacklist.SafeBlacklist
+	Blacklist     *safeblacklist.SafeBlacklist
 	dns.Transfer
 }
 
@@ -70,11 +70,11 @@ func (axfrMod *AxfrLookupModule) doAXFR(name, server string) AXFRServerResult {
 	// check if the server address is blacklisted and if so, exclude
 	if axfrMod.Blacklist != nil {
 		if blacklisted, err := axfrMod.Blacklist.IsBlacklisted(server); err != nil {
-			retv.Status = zdns.STATUS_ERROR
+			retv.Status = zdns.StatusError
 			retv.Error = "blacklist-error"
 			return retv
 		} else if blacklisted {
-			retv.Status = zdns.STATUS_ERROR
+			retv.Status = zdns.StatusError
 			retv.Error = "blacklisted"
 			return retv
 		}
@@ -82,17 +82,17 @@ func (axfrMod *AxfrLookupModule) doAXFR(name, server string) AXFRServerResult {
 	m := new(dns.Msg)
 	m.SetAxfr(dotName(name))
 	if a, err := axfrMod.In(m, net.JoinHostPort(server, "53")); err != nil {
-		retv.Status = zdns.STATUS_ERROR
+		retv.Status = zdns.StatusError
 		retv.Error = err.Error()
 		return retv
 	} else {
 		for ex := range a {
 			if ex.Error != nil {
-				retv.Status = zdns.STATUS_ERROR
+				retv.Status = zdns.StatusError
 				retv.Error = ex.Error.Error()
 				return retv
 			} else {
-				retv.Status = zdns.STATUS_NOERROR
+				retv.Status = zdns.StatusNoError
 				for _, rr := range ex.RR {
 					ans := zdns.ParseAnswer(rr)
 					retv.Records = append(retv.Records, ans)
@@ -107,7 +107,7 @@ func (axfrMod *AxfrLookupModule) Lookup(resolver *zdns.Resolver, name, nameServe
 	var retv AXFRResult
 	if nameServer == "" {
 		parsedNS, trace, status, err := axfrMod.NSModule.Lookup(resolver, name, nameServer)
-		if status != zdns.STATUS_NOERROR {
+		if status != zdns.StatusNoError {
 			return nil, trace, status, err
 		}
 		castedNS, ok := parsedNS.(*zdns.NSResult)
@@ -122,7 +122,7 @@ func (axfrMod *AxfrLookupModule) Lookup(resolver *zdns.Resolver, name, nameServe
 	} else {
 		retv.Servers = append(retv.Servers, axfrMod.doAXFR(name, nameServer))
 	}
-	return retv, nil, zdns.STATUS_NOERROR, nil
+	return retv, nil, zdns.StatusNoError, nil
 }
 
 // Command-line Help Documentation. This is the descriptive text what is
@@ -151,7 +151,7 @@ func (axfrMod *AxfrLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfi
 		return errors.Wrap(err, "failed to get blacklist-file flag")
 	}
 	if axfrMod.BlacklistPath != "" {
-		axfrMod.Blacklist = safe_blacklist.New()
+		axfrMod.Blacklist = safeblacklist.New()
 		if err = axfrMod.Blacklist.ParseFromFile(axfrMod.BlacklistPath); err != nil {
 			return errors.Wrap(err, "failed to parse blacklist")
 		}

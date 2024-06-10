@@ -25,7 +25,7 @@ import (
 )
 
 type Answer struct {
-	Ttl     uint32 `json:"ttl" groups:"ttl,normal,long,trace"`
+	TTL     uint32 `json:"ttl" groups:"ttl,normal,long,trace"`
 	Type    string `json:"type,omitempty" groups:"short,normal,long,trace"`
 	RrType  uint16 `json:"-"`
 	Class   string `json:"class,omitempty" groups:"short,normal,long,trace"`
@@ -89,8 +89,8 @@ type GPOSAnswer struct {
 
 type HINFOAnswer struct {
 	Answer
-	Cpu string `json:"cpu" groups:"short,normal,long,trace"`
-	Os  string `json:"os" groups:"short,normal,long,trace"`
+	CPU string `json:"cpu" groups:"short,normal,long,trace"`
+	OS  string `json:"os" groups:"short,normal,long,trace"`
 }
 
 type HIPAnswer struct {
@@ -172,7 +172,7 @@ type RRSIGAnswer struct {
 	TypeCovered uint16 `json:"type_covered" groups:"short,normal,long,trace"`
 	Algorithm   uint8  `json:"algorithm" groups:"short,normal,long,trace"`
 	Labels      uint8  `json:"labels" groups:"short,normal,long,trace"`
-	OriginalTtl uint32 `json:"original_ttl" groups:"short,normal,long,trace"`
+	OriginalTTL uint32 `json:"original_ttl" groups:"short,normal,long,trace"`
 	Expiration  string `json:"expiration" groups:"short,normal,long,trace"`
 	Inception   string `json:"inception" groups:"short,normal,long,trace"`
 	KeyTag      uint16 `json:"keytag" groups:"short,normal,long,trace"`
@@ -320,7 +320,7 @@ func makeBitString(bm []uint16) string {
 
 func makeBaseAnswer(hdr *dns.RR_Header, answer string) Answer {
 	return Answer{
-		Ttl:     hdr.Ttl,
+		TTL:     hdr.Ttl,
 		Type:    dns.Type(hdr.Rrtype).String(),
 		RrType:  hdr.Rrtype,
 		Class:   dns.Class(hdr.Class).String(),
@@ -394,7 +394,7 @@ func makeEDNSAnswer(cAns *dns.OPT) EDNSAnswer {
 				Version:   opt.Version,
 				Opcode:    opt.Opcode,
 				Error:     opt.Error,
-				Id:        opt.Id,
+				ID:        opt.Id,
 				LeaseLife: opt.LeaseLife,
 			}
 		case *dns.EDNS0_UL: // OPT 2
@@ -439,7 +439,7 @@ func makeEDNSAnswer(cAns *dns.OPT) EDNSAnswer {
 		case *dns.EDNS0_COOKIE: //OPT 11
 			optRes.Cookie = &Edns0Cookie{Cookie: o.(*dns.EDNS0_COOKIE).Cookie}
 		case *dns.EDNS0_TCP_KEEPALIVE: //OPT 11
-			optRes.TcpKeepalive = &Edns0TCPKeepalive{
+			optRes.TCPKeepalive = &Edns0TCPKeepalive{
 				Code:    opt.Code,
 				Timeout: opt.Timeout,
 				Length:  opt.Length, // deprecated, always equal to 0, keeping it here for a better readability
@@ -549,7 +549,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 			TypeCovered: cAns.TypeCovered,
 			Algorithm:   cAns.Algorithm,
 			Labels:      cAns.Labels,
-			OriginalTtl: cAns.OrigTtl,
+			OriginalTTL: cAns.OrigTtl,
 			Expiration:  dns.TimeToString(cAns.Expiration),
 			Inception:   dns.TimeToString(cAns.Inception),
 			KeyTag:      cAns.KeyTag,
@@ -630,7 +630,7 @@ func ParseAnswer(ans dns.RR) interface{} {
 			TypeCovered: cAns.TypeCovered,
 			Algorithm:   cAns.Algorithm,
 			Labels:      cAns.Labels,
-			OriginalTtl: cAns.OrigTtl,
+			OriginalTTL: cAns.OrigTtl,
 			Expiration:  dns.TimeToString(cAns.Expiration),
 			Inception:   dns.TimeToString(cAns.Inception),
 			KeyTag:      cAns.KeyTag,
@@ -640,8 +640,8 @@ func ParseAnswer(ans dns.RR) interface{} {
 	case *dns.HINFO:
 		return HINFOAnswer{
 			Answer: makeBaseAnswer(&cAns.Hdr, ""),
-			Cpu:    cAns.Cpu,
-			Os:     cAns.Os,
+			CPU:    cAns.Cpu,
+			OS:     cAns.Os,
 		}
 	case *dns.MINFO:
 		return MINFOAnswer{
