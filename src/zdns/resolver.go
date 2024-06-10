@@ -65,7 +65,6 @@ type ResolverConfig struct {
 	IPVersionMode        IPVersionMode
 	ShouldRecycleSockets bool
 
-	IsIterative          bool
 	IterativeTimeout     time.Duration
 	Timeout              time.Duration // timeout for the network conns
 	MaxDepth             int
@@ -166,6 +165,10 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	} else {
 		c = new(Cache)
 		c.Init(defaultCacheSize)
+	}
+	if config.IterativeTimeout > config.Timeout {
+		log.Warn("iterative timeout is greater than the timeout, iterative timeout will be set to the timeout")
+		config.IterativeTimeout = config.Timeout
 	}
 	// copy relevent all values from config to resolver
 	r := &Resolver{
