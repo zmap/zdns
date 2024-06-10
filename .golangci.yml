@@ -50,6 +50,8 @@ linters:
     - typecheck # like the front-end of a Go compiler, parses and type-checks Go code
     - unused # checks for unused constants, variables, functions and types
     - fatcontext # detects nested contexts in loops
+    - prealloc # suggests to preallocate slices
+    - perfsprint # avoid using fmt.Sprintf if a faster alternative exists
 
 issues:
   # Maximum count of issues with the same text.
