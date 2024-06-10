@@ -37,9 +37,9 @@ type MockLookup struct{}
 func (ml MockLookup) DoSingleDstServerLookup(r *zdns.Resolver, question zdns.Question, nameServer string, isIterative bool) (*zdns.SingleQueryResult, zdns.Trace, zdns.Status, error) {
 	queries = append(queries, QueryRecord{q: question, NameServer: nameServer})
 	if res, ok := mockResults[question.Name]; ok {
-		return res, nil, zdns.STATUS_NOERROR, nil
+		return res, nil, zdns.StatusNoError, nil
 	} else {
-		return &zdns.SingleQueryResult{}, nil, zdns.STATUS_NO_ANSWER, nil
+		return &zdns.SingleQueryResult{}, nil, zdns.StatusNoAnswer, nil
 	}
 }
 
@@ -67,7 +67,7 @@ func TestBindVersionLookup_Valid_1(t *testing.T) {
 	assert.Equal(t, queries[0].q.Name, "VERSION.BIND")
 	assert.Equal(t, queries[0].NameServer, "1.2.3.4")
 
-	assert.Equal(t, zdns.STATUS_NOERROR, status)
+	assert.Equal(t, zdns.StatusNoError, status)
 	assert.Equal(t, res.(Result).BindVersion, "Nominum Vantio 5.4.1.0")
 }
 
@@ -83,6 +83,6 @@ func TestBindVersionLookup_NotValid_1(t *testing.T) {
 	assert.Equal(t, queries[0].q.Name, "VERSION.BIND")
 	assert.Equal(t, queries[0].NameServer, "1.2.3.4")
 
-	assert.Equal(t, zdns.STATUS_NO_RECORD, status)
+	assert.Equal(t, zdns.StatusNoRecord, status)
 	assert.Equal(t, res.(Result).BindVersion, "")
 }
