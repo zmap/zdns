@@ -11,7 +11,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0
-	github.com/zmap/dns v1.1.59-zdns-0
+	github.com/zmap/dns v1.1.59-zdns-4
 	github.com/zmap/go-iptree v0.0.0-20210731043055-d4e632617837
 	gotest.tools/v3 v3.5.1
 )
