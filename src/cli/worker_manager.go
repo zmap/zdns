@@ -281,6 +281,10 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 	config.IPVersionMode = zdns.GetIPVersionMode(useIPv4, useIPv6)
 	config.TransportMode = zdns.GetTransportMode(gc.UDPOnly, gc.TCPOnly)
 
+	if gc.IterationTimeout > gc.Timeout {
+		log.Warn("iteration timeout must be less than or equal to timeout. Overriding with timeout value.")
+		gc.IterationTimeout = gc.Timeout
+	}
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
 	// copy nameservers to resolver config
