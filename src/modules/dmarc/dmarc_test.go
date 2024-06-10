@@ -36,9 +36,9 @@ type MockLookup struct{}
 func (ml MockLookup) DoSingleDstServerLookup(r *zdns.Resolver, question zdns.Question, nameServer string, isIterative bool) (*zdns.SingleQueryResult, zdns.Trace, zdns.Status, error) {
 	queries = append(queries, QueryRecord{question, nameServer})
 	if res, ok := mockResults[question.Name]; ok {
-		return res, nil, zdns.STATUS_NOERROR, nil
+		return res, nil, zdns.StatusNoError, nil
 	} else {
-		return &zdns.SingleQueryResult{}, nil, zdns.STATUS_NO_ANSWER, nil
+		return &zdns.SingleQueryResult{}, nil, zdns.StatusNoAnswer, nil
 	}
 }
 
@@ -69,7 +69,7 @@ func TestDmarcLookup_Valid_1(t *testing.T) {
 	assert.Equal(t, queries[0].Name, "_dmarc.zdns-testing.com")
 	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
 
-	assert.Equal(t, zdns.STATUS_NOERROR, status)
+	assert.Equal(t, zdns.StatusNoError, status)
 	assert.Equal(t, res.(Result).Dmarc, "v=DMARC1; p=none; rua=mailto:postmaster@censys.io")
 }
 
@@ -90,7 +90,7 @@ func TestDmarcLookup_Valid_2(t *testing.T) {
 	assert.Equal(t, queries[0].Name, "_dmarc.zdns-testing.com")
 	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
 
-	assert.Equal(t, zdns.STATUS_NOERROR, status)
+	assert.Equal(t, zdns.StatusNoError, status)
 	assert.Equal(t, res.(Result).Dmarc, "V=DMARC1; p=none; rua=mailto:postmaster@censys.io")
 }
 
@@ -111,7 +111,7 @@ func TestDmarcLookup_Valid_3(t *testing.T) {
 	assert.Equal(t, queries[0].Name, "_dmarc.zdns-testing.com")
 	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
 
-	assert.Equal(t, zdns.STATUS_NOERROR, status)
+	assert.Equal(t, zdns.StatusNoError, status)
 	assert.Equal(t, res.(Result).Dmarc, "v\t\t\t=\t\t  DMARC1\t\t; p=none; rua=mailto:postmaster@censys.io")
 }
 
@@ -132,7 +132,7 @@ func TestDmarcLookup_NotValid_1(t *testing.T) {
 	assert.Equal(t, queries[0].Name, "_dmarc.zdns-testing.com")
 	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
 
-	assert.Equal(t, zdns.STATUS_NO_RECORD, status)
+	assert.Equal(t, zdns.StatusNoRecord, status)
 	assert.Equal(t, res.(Result).Dmarc, "")
 }
 
@@ -153,7 +153,7 @@ func TestDmarcLookup_NotValid_2(t *testing.T) {
 	assert.Equal(t, queries[0].Name, "_dmarc.zdns-testing.com")
 	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
 
-	assert.Equal(t, zdns.STATUS_NO_RECORD, status)
+	assert.Equal(t, zdns.StatusNoRecord, status)
 	assert.Equal(t, res.(Result).Dmarc, "")
 }
 
@@ -174,6 +174,6 @@ func TestDmarcLookup_NotValid_3(t *testing.T) {
 	assert.Equal(t, queries[0].Name, "_dmarc.zdns-testing.com")
 	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
 
-	assert.Equal(t, zdns.STATUS_NO_RECORD, status)
+	assert.Equal(t, zdns.StatusNoRecord, status)
 	assert.Equal(t, res.(Result).Dmarc, "")
 }
