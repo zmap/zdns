@@ -36,9 +36,9 @@ type MockLookup struct{}
 func (ml MockLookup) DoSingleDstServerLookup(r *zdns.Resolver, question zdns.Question, nameServer string, isIterative bool) (*zdns.SingleQueryResult, zdns.Trace, zdns.Status, error) {
 	queries = append(queries, QueryRecord{question, nameServer})
 	if res, ok := mockResults[question.Name]; ok {
-		return res, nil, zdns.STATUS_NOERROR, nil
+		return res, nil, zdns.StatusNoError, nil
 	} else {
-		return &zdns.SingleQueryResult{}, nil, zdns.STATUS_NO_ANSWER, nil
+		return &zdns.SingleQueryResult{}, nil, zdns.StatusNoAnswer, nil
 	}
 }
 
@@ -70,7 +70,7 @@ func TestLookup_DoTxtLookup_Valid_1(t *testing.T) {
 	assert.Equal(t, queries[0].Name, "google.com")
 	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
 
-	assert.Equal(t, zdns.STATUS_NOERROR, status)
+	assert.Equal(t, zdns.StatusNoError, status)
 	assert.Equal(t, res.(Result).Spf, "v=spf1 mx include:_spf.google.com -all")
 }
 
@@ -90,7 +90,7 @@ func TestLookup_DoTxtLookup_Valid_2(t *testing.T) {
 	assert.Equal(t, queries[0].Name, "google.com")
 	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
 
-	assert.Equal(t, zdns.STATUS_NOERROR, status)
+	assert.Equal(t, zdns.StatusNoError, status)
 	assert.Equal(t, res.(Result).Spf, "V=SpF1 mx include:_spf.google.com -all")
 }
 
@@ -110,7 +110,7 @@ func TestLookup_DoTxtLookup_NotValid_1(t *testing.T) {
 	assert.Equal(t, queries[0].Name, "google.com")
 	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
 
-	assert.Equal(t, zdns.STATUS_NO_RECORD, status)
+	assert.Equal(t, zdns.StatusNoRecord, status)
 	assert.Equal(t, res.(Result).Spf, "")
 }
 
@@ -130,7 +130,7 @@ func TestLookup_DoTxtLookup_NotValid_2(t *testing.T) {
 	assert.Equal(t, queries[0].Name, "google.com")
 	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
 
-	assert.Equal(t, zdns.STATUS_NO_RECORD, status)
+	assert.Equal(t, zdns.StatusNoRecord, status)
 	assert.Equal(t, res.(Result).Spf, "")
 }
 
@@ -145,6 +145,6 @@ func TestLookup_DoTxtLookup_NoTXT(t *testing.T) {
 	assert.Equal(t, queries[0].Name, "example.com")
 	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
 
-	assert.Equal(t, zdns.STATUS_NO_ANSWER, status)
+	assert.Equal(t, zdns.StatusNoAnswer, status)
 	assert.Equal(t, res.(Result).Spf, "")
 }

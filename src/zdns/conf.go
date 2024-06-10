@@ -34,23 +34,23 @@ type Status string
 
 const (
 	// Standardized RCODE
-	STATUS_NOERROR   Status = "NOERROR" // No Error
-	STATUS_FORMERR   Status = "FORMERR" // Format Error
-	STATUS_SERVFAIL  Status = "SERVFAIL"
-	STATUS_NXDOMAIN  Status = "NXDOMAIN"
-	STATUS_REFUSED   Status = "REFUSED"
-	STATUS_TRUNCATED Status = "TRUNCATED"
+	StatusNoError   Status = "NOERROR" // No Error
+	StatusFormErr   Status = "FORMERR" // Format Error
+	StatusServFail  Status = "SERVFAIL"
+	StatusNXDomain  Status = "NXDOMAIN"
+	StatusRefused   Status = "REFUSED"
+	StatusTruncated Status = "TRUNCATED"
 
-	STATUS_ERROR         Status = "ERROR"
-	STATUS_AUTHFAIL      Status = "AUTHFAIL"
-	STATUS_NO_RECORD     Status = "NORECORD"
-	STATUS_BLACKLIST     Status = "BLACKLIST"
-	STATUS_NO_OUTPUT     Status = "NO_OUTPUT"
-	STATUS_NO_ANSWER     Status = "NO_ANSWER"
-	STATUS_ILLEGAL_INPUT Status = "ILLEGAL_INPUT"
-	STATUS_TIMEOUT       Status = "TIMEOUT"
-	STATUS_ITER_TIMEOUT  Status = "ITERATIVE_TIMEOUT"
-	STATUS_NOAUTH        Status = "NOAUTH"
+	StatusError        Status = "ERROR"
+	StatusAuthFail     Status = "AUTHFAIL"
+	StatusNoRecord     Status = "NORECORD"
+	StatusBlacklist    Status = "BLACKLIST"
+	StatusNoOutput     Status = "NO_OUTPUT"
+	StatusNoAnswer     Status = "NO_ANSWER"
+	StatusIllegalInput Status = "ILLEGAL_INPUT"
+	StatusTimeout      Status = "TIMEOUT"
+	StatusIterTimeout  Status = "ITERATIVE_TIMEOUT"
+	StatusNoAuth       Status = "NOAUTH"
 )
 
 var RootServers = [...]string{
