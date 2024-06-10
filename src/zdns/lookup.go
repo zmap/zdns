@@ -82,16 +82,15 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 		}
 		q.Name = q.Name[:len(q.Name)-1]
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), r.iterativeTimeout)
+	defer cancel()
 	if isIterative {
 		r.verboseLog(0, "MIEKG-IN: iterative lookup for ", q.Name, " (", q.Type, ")")
-		ctx, cancel := context.WithTimeout(context.Background(), r.iterativeTimeout)
-		defer cancel()
 		result, trace, status, err := r.iterativeLookup(ctx, q, nameServer, 1, ".", make(Trace, 0))
 		r.verboseLog(0, "MIEKG-OUT: iterative lookup for ", q.Name, " (", q.Type, "): status: ", status, " , err: ", err)
 		return &result, trace, status, err
 	}
-
-	res, status, try, err := r.retryingLookup(context.Background(), q, nameServer, true)
+	res, status, try, err := r.retryingLookup(ctx, q, nameServer, true)
 	if err != nil {
 		return &res, nil, status, fmt.Errorf("could not perform retrying lookup for name %v: %w", q.Name, err)
 
@@ -281,7 +280,7 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer string, recursive bool) (SingleQueryResult, Status, int, error) {
 	r.verboseLog(1, "****WIRE LOOKUP*** ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
 	for i := 0; i <= r.retries; i++ {
-		result, status, err := wireLookup(r.udpClient, r.tcpClient, r.conn, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
+		result, status, err := wireLookup(ctx, r.udpClient, r.tcpClient, r.conn, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
 		if status != StatusTimeout || i == r.retries {
 			return result, status, i + 1, err
 		}
@@ -299,7 +298,7 @@ func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer st
 
 // wireLookup performs a DNS lookup on-the-wire with the given parameters
 // Attempts a UDP lookup first, then falls back to TCP if necessary (if the UDP response encounters an error or is truncated)
-func wireLookup(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question, nameServer string, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (SingleQueryResult, Status, error) {
+func wireLookup(ctx context.Context, udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question, nameServer string, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (SingleQueryResult, Status, error) {
 	res := SingleQueryResult{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 	res.Resolver = nameServer
 
@@ -320,21 +319,21 @@ func wireLookup(udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question, na
 		res.Protocol = "udp"
 		if conn != nil {
 			dst, _ := net.ResolveUDPAddr("udp", nameServer)
-			r, _, err = udp.ExchangeWithConnTo(m, conn, dst)
+			r, _, err = udp.ExchangeWithConnToContext(ctx, m, conn, dst)
 		} else {
-			r, _, err = udp.Exchange(m, nameServer)
+			r, _, err = udp.ExchangeContext(ctx, m, nameServer)
 		}
 		// if record comes back truncated, but we have a TCP connection, try again with that
 		if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
 			if tcp != nil {
-				return wireLookup(nil, tcp, conn, q, nameServer, recursive, ednsOptions, dnssec, checkingDisabled)
+				return wireLookup(ctx, nil, tcp, conn, q, nameServer, recursive, ednsOptions, dnssec, checkingDisabled)
 			} else {
 				return res, StatusTruncated, err
 			}
 		}
 	} else {
 		res.Protocol = "tcp"
-		r, _, err = tcp.Exchange(m, nameServer)
+		r, _, err = tcp.ExchangeContext(ctx, m, nameServer)
 	}
 	if err != nil || r == nil {
 		if nerr, ok := err.(net.Error); ok {
