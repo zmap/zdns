@@ -159,7 +159,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&GC.LocalIfaceString, "local-interface", "", "local interface to use")
 	rootCmd.PersistentFlags().StringVar(&GC.ConfigFilePath, "conf-file", "/etc/resolv.conf", "config file for DNS servers")
 	rootCmd.PersistentFlags().IntVar(&GC.Timeout, "timeout", 15, "timeout for resolving a single name, in seconds")
-	rootCmd.PersistentFlags().IntVar(&GC.IterationTimeout, "iteration-timeout", 4, "timeout for a single iterative step (querying a single nameserver), in seconds")
+	rootCmd.PersistentFlags().IntVar(&GC.IterationTimeout, "iteration-timeout", 4, "timeout for a single iterative step, in seconds. Only applicable with --iterative")
 	rootCmd.PersistentFlags().StringVar(&GC.ClassString, "class", "INET", "DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY.")
 	rootCmd.PersistentFlags().BoolVar(&GC.UseNanoseconds, "nanoseconds", false, "Use nanosecond resolution timestamps")
 	rootCmd.PersistentFlags().StringVar(&GC.ClientSubnetString, "client-subnet", "", "Client subnet in CIDR format for EDNS0.")
