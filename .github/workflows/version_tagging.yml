@@ -1,0 +1,55 @@
+name: Release on Demand
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semantic version for the release, ex: "v1.2.3"'
+        required: true
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create release branch
+        id: create_branch
+        run: |
+          VERSION=${{ github.event.inputs.version }}
+          BRANCH_NAME="release/${VERSION}"
+          git checkout -b ${BRANCH_NAME}
+          echo "Branch name is ${BRANCH_NAME}"
+
+      - name: Update version in cli.go
+        run: |
+          VERSION=${{ github.event.inputs.version }}
+          sed 's/\tzdnsCLIVersion = \".*\"/\tzdnsCLIVersion = \"${VERSION}\"/g' src/cli/cli.go
+
+      - name: Commit changes
+        run: |
+          VERSION=${{ github.event.inputs.version }}
+          git add src/cli/cli.go
+          git commit -m "Update version to ${VERSION} in src/cli/cli.go"
+
+      - name: Push branch
+        run: |
+          VERSION=${{ github.event.inputs.version }}
+          BRANCH_NAME="release/${VERSION}"
+          git push origin ${BRANCH_NAME}
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: "release/${{ github.event.inputs.version }}"
+          title: "Release ${VERSION}"
+          body: "This PR updates the version to ${VERSION}. Be sure to tag the release once this PR is merged."
+          base: main
