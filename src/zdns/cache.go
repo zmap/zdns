@@ -63,7 +63,7 @@ func (s *Cache) AddCachedAnswer(answer interface{}, depth int) {
 	if !(q.Type == dns.TypeA || q.Type == dns.TypeAAAA || q.Type == dns.TypeNS || q.Type == dns.TypeDNAME || q.Type == dns.TypeCNAME) {
 		return
 	}
-	expiresAt := time.Now().Add(time.Duration(a.Ttl) * time.Second)
+	expiresAt := time.Now().Add(time.Duration(a.TTL) * time.Second)
 	s.IterativeCache.Lock(q)
 	defer s.IterativeCache.Unlock(q)
 	// don't bother to move this to the top of the linked list. we're going
