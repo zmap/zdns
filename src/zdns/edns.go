@@ -22,7 +22,7 @@ type Edns0LLQ struct {
 	Version   uint16 `json:"version" groups:"short,normal,long,trace"`
 	Opcode    uint16 `json:"opcode" groups:"short,normal,long,trace"`
 	Error     uint16 `json:"error" groups:"short,normal,long,trace"`
-	Id        uint64 `json:"id" groups:"short,normal,long,trace"`
+	ID        uint64 `json:"id" groups:"short,normal,long,trace"`
 	LeaseLife uint32 `json:"lease_life" groups:"short,normal,long,trace"`
 }
 
@@ -108,7 +108,7 @@ type EDNSAnswer struct {
 	ClientSubnet *Edns0ClientSubnet `json:"csubnet,omitempty" groups:"short,normal,long,trace"`
 	Expire       *Edns0Expire       `json:"expire,omitempty" groups:"short,normal,long,trace"`        //not implemented
 	Cookie       *Edns0Cookie       `json:"cookie,omitempty" groups:"short,normal,long,trace"`        //not implemented
-	TcpKeepalive *Edns0TCPKeepalive `json:"tcp_keepalive,omitempty" groups:"short,normal,long,trace"` //not implemented
+	TCPKeepalive *Edns0TCPKeepalive `json:"tcp_keepalive,omitempty" groups:"short,normal,long,trace"` //not implemented
 	Padding      *Edns0Padding      `json:"padding,omitempty" groups:"short,normal,long,trace"`       //not implemented
 	EDE          []*Edns0Ede        `json:"ede,omitempty" groups:"short,normal,long,trace"`
 }

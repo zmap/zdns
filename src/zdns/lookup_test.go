@@ -42,13 +42,13 @@ type MockLookupClient struct{}
 func (mc MockLookupClient) DoSingleDstServerLookup(r *Resolver, q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
 	curDomainNs := domainNS{domain: q.Name, ns: nameServer}
 	if res, ok := mockResults[curDomainNs]; ok {
-		var status = STATUS_NOERROR
+		var status = StatusNoError
 		if protStatus, ok := protocolStatus[curDomainNs]; ok {
 			status = protStatus
 		}
 		return &res, nil, status, nil
 	} else {
-		return &SingleQueryResult{}, nil, STATUS_NXDOMAIN, nil
+		return &SingleQueryResult{}, nil, StatusNXDomain, nil
 	}
 }
 
@@ -514,7 +514,7 @@ func TestLookup_DoTxtLookup_1(t *testing.T) {
 	testRegexp := regexp.MustCompile(".*")
 	input := &SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "TXT",
 			Class:  "IN",
 			Name:   "example.com",
@@ -536,13 +536,13 @@ func TestLookup_DoTxtLookup_2(t *testing.T) {
 	input := &SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "TXT",
 				Class:  "IN",
 				Name:   "example.com",
 				Answer: "testing TXT prefix: hello world!",
 			}, Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "TXT",
 				Class:  "IN",
 				Name:   "example.com",
@@ -564,13 +564,13 @@ func TestLookup_DoTxtLookup_3(t *testing.T) {
 	input := &SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "TXT",
 				Class:  "IN",
 				Name:   "example.com",
 				Answer: "testing TXT prefix: hello world!",
 			}, Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "TXT",
 				Class:  "IN",
 				Name:   "example.com",
@@ -600,7 +600,7 @@ func TestLookup_DoTxtLookup_5(t *testing.T) {
 	testRegexp := regexp.MustCompile("")
 	input := &SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "TXT",
 			Class:  "IN",
 			Name:   "example.com",
@@ -624,11 +624,11 @@ func TestOneA(t *testing.T) {
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   domain1 + ".",
@@ -652,18 +652,18 @@ func TestTwoA(t *testing.T) {
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   domain1 + ".",
 			Answer: "192.0.2.1",
 		},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "example.com",
@@ -687,18 +687,18 @@ func TestQuadAWithoutFlag(t *testing.T) {
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   domain1 + ".",
 			Answer: "192.0.2.1",
 		},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "example.com",
@@ -723,11 +723,11 @@ func TestOnlyQuadA(t *testing.T) {
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "AAAA",
 			Class:  "IN",
 			Name:   "example.com",
@@ -753,18 +753,18 @@ func TestAandQuadA(t *testing.T) {
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   "example.com",
 			Answer: "192.0.2.1",
 		},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "example.com",
@@ -789,18 +789,18 @@ func TestTwoQuadA(t *testing.T) {
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "AAAA",
 			Class:  "IN",
 			Name:   "example.com",
 			Answer: "2001:db8::1",
 		},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "example.com",
@@ -826,9 +826,9 @@ func TestNoResults(t *testing.T) {
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers:     nil,
 		Additional:  nil,
 		Authorities: nil,
@@ -848,11 +848,11 @@ func TestCname(t *testing.T) {
 
 	domain1 := "cname.example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "CNAME",
 			Class:  "IN",
 			Name:   "cname.example.com",
@@ -866,11 +866,11 @@ func TestCname(t *testing.T) {
 
 	dom2 := "example.com"
 
-	domain_ns_2 := domainNS{domain: dom2, ns: ns1}
+	domainNS2 := domainNS{domain: dom2, ns: ns1}
 
-	mockResults[domain_ns_2] = SingleQueryResult{
+	mockResults[domainNS2] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   "example.com",
@@ -894,18 +894,18 @@ func TestQuadAWithCname(t *testing.T) {
 
 	domain1 := "cname.example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "AAAA",
 			Class:  "IN",
 			Name:   "cname.example.com",
 			Answer: "2001:db8::3",
 		},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "CNAME",
 				Class:  "IN",
 				Name:   "cname.example.com",
@@ -929,11 +929,11 @@ func TestUnexpectedMxOnly(t *testing.T) {
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "MX",
 			Class:  "IN",
 			Name:   "example.com",
@@ -947,7 +947,7 @@ func TestUnexpectedMxOnly(t *testing.T) {
 
 	res, _, status, _ := resolver.DoTargetedLookup("example.com", ns1, IPv4OrIPv6, false)
 
-	if status != STATUS_ERROR {
+	if status != StatusError {
 		t.Errorf("Expected ERROR status, got %v", status)
 	} else if res != nil {
 		t.Errorf("Expected no results, got %v", res)
@@ -963,25 +963,25 @@ func TestMxAndAdditionals(t *testing.T) {
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "MX",
 			Class:  "IN",
 			Name:   "example.com",
 			Answer: "mail.example.com.",
 		}},
 		Additional: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   "example.com",
 			Answer: "192.0.2.3",
 		},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "example.com",
@@ -1005,11 +1005,11 @@ func TestMismatchIpType(t *testing.T) {
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   "example.com",
@@ -1023,7 +1023,7 @@ func TestMismatchIpType(t *testing.T) {
 
 	res, _, status, _ := resolver.DoTargetedLookup("example.com", ns1, IPv4OrIPv6, false)
 
-	if status != STATUS_ERROR {
+	if status != StatusError {
 		t.Errorf("Expected ERROR status, got %v", status)
 	} else if res != nil {
 		t.Errorf("Expected no results, got %v", res)
@@ -1039,11 +1039,11 @@ func TestCnameLoops(t *testing.T) {
 
 	domain1 := "cname1.example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "CNAME",
 			Class:  "IN",
 			Name:   "cname1.example.com.",
@@ -1057,11 +1057,11 @@ func TestCnameLoops(t *testing.T) {
 
 	dom2 := "cname2.example.com"
 
-	domain_ns_2 := domainNS{domain: dom2, ns: ns1}
+	domainNS2 := domainNS{domain: dom2, ns: ns1}
 
-	mockResults[domain_ns_2] = SingleQueryResult{
+	mockResults[domainNS2] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "CNAME",
 			Class:  "IN",
 			Name:   "cname2.example.com.",
@@ -1075,7 +1075,7 @@ func TestCnameLoops(t *testing.T) {
 
 	res, _, status, _ := resolver.DoTargetedLookup("cname1.example.com", ns1, IPv4OrIPv6, false)
 
-	if status != STATUS_ERROR {
+	if status != StatusError {
 		t.Errorf("Expected ERROR status, got %v", status)
 	} else if res != nil {
 		t.Errorf("Expected no results, got %v", res)
@@ -1092,13 +1092,13 @@ func TestExtendedRecursion(t *testing.T) {
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
 	// Create a CNAME chain of length > 10
 	for i := 1; i < 12; i++ {
-		domain_ns := domainNS{
+		domainNSRecord := domainNS{
 			domain: "cname" + strconv.Itoa(i) + ".example.com",
 			ns:     ns1,
 		}
-		mockResults[domain_ns] = SingleQueryResult{
+		mockResults[domainNSRecord] = SingleQueryResult{
 			Answers: []interface{}{Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "CNAME",
 				Class:  "IN",
 				Name:   "cname" + strconv.Itoa(i) + ".example.com",
@@ -1113,7 +1113,7 @@ func TestExtendedRecursion(t *testing.T) {
 
 	res, _, status, _ := resolver.DoTargetedLookup("cname1.example.com", ns1, IPv4OrIPv6, false)
 
-	if status != STATUS_ERROR {
+	if status != StatusError {
 		t.Errorf("Expected ERROR status, got %v", status)
 	} else if res != nil {
 		t.Errorf("Expected no results, got %v", res)
@@ -1129,11 +1129,11 @@ func TestEmptyNonTerminal(t *testing.T) {
 
 	domain1 := "leaf.intermediate.example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   "leaf.intermediate.example.com.",
@@ -1147,9 +1147,9 @@ func TestEmptyNonTerminal(t *testing.T) {
 
 	dom2 := "intermediate.example.com"
 
-	domain_ns_2 := domainNS{domain: dom2, ns: ns1}
+	domainNS2 := domainNS{domain: dom2, ns: ns1}
 
-	mockResults[domain_ns_2] = SingleQueryResult{
+	mockResults[domainNS2] = SingleQueryResult{
 		Answers:     nil,
 		Additional:  nil,
 		Authorities: nil,
@@ -1173,8 +1173,8 @@ func TestNXDomain(t *testing.T) {
 	require.NoError(t, err)
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
 	res, _, status, _ := resolver.DoTargetedLookup("nonexistent.example.com", ns1, IPv4OrIPv6, false)
-	if status != STATUS_NXDOMAIN {
-		t.Errorf("Expected STATUS_NXDOMAIN status, got %v", status)
+	if status != StatusNXDomain {
+		t.Errorf("Expected StatusNXDomain status, got %v", status)
 	} else if res != nil {
 		t.Errorf("Expected no results, got %v", res)
 	}
@@ -1190,31 +1190,31 @@ func TestAandQuadADedup(t *testing.T) {
 	domain2 := "cname2.example.com"
 	domain3 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
-	domain_ns_2 := domainNS{domain: domain2, ns: ns1}
-	domain_ns_3 := domainNS{domain: domain3, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
+	domainNS2 := domainNS{domain: domain2, ns: ns1}
+	domainNS3 := domainNS{domain: domain3, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "CNAME",
 			Class:  "IN",
 			Name:   domain1,
 			Answer: domain2 + ".",
 		}, Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "CNAME",
 			Class:  "IN",
 			Name:   domain2,
 			Answer: domain3 + ".",
 		}, Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   domain3,
 			Answer: "192.0.2.1",
 		}, Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "AAAA",
 			Class:  "IN",
 			Name:   domain3,
@@ -1226,21 +1226,21 @@ func TestAandQuadADedup(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 
-	mockResults[domain_ns_2] = SingleQueryResult{
+	mockResults[domainNS2] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "CNAME",
 			Class:  "IN",
 			Name:   domain2,
 			Answer: domain3 + ".",
 		}, Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   domain3,
 			Answer: "192.0.2.1",
 		}, Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "AAAA",
 			Class:  "IN",
 			Name:   domain3,
@@ -1252,15 +1252,15 @@ func TestAandQuadADedup(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 
-	mockResults[domain_ns_3] = SingleQueryResult{
+	mockResults[domainNS3] = SingleQueryResult{
 		Answers: []interface{}{Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
 			Name:   domain3,
 			Answer: "192.0.2.1",
 		}, Answer{
-			Ttl:    3600,
+			TTL:    3600,
 			Type:   "AAAA",
 			Class:  "IN",
 			Name:   domain3,
@@ -1286,16 +1286,16 @@ func TestServFail(t *testing.T) {
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{}
+	mockResults[domainNS1] = SingleQueryResult{}
 	name := "example.com"
-	protocolStatus[domain_ns_1] = STATUS_SERVFAIL
+	protocolStatus[domainNS1] = StatusServFail
 
-	res, _, final_status, _ := resolver.DoTargetedLookup(name, ns1, IPv4OrIPv6, false)
+	res, _, finalStatus, _ := resolver.DoTargetedLookup(name, ns1, IPv4OrIPv6, false)
 
-	if final_status != protocolStatus[domain_ns_1] {
-		t.Errorf("Expected %v status, got %v", protocolStatus, final_status)
+	if finalStatus != protocolStatus[domainNS1] {
+		t.Errorf("Expected %v status, got %v", protocolStatus, finalStatus)
 	} else if res != nil {
 		t.Errorf("Expected no results, got %v", res)
 	}
@@ -1323,12 +1323,12 @@ func TestNsAInAdditional(t *testing.T) {
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1337,7 +1337,7 @@ func TestNsAInAdditional(t *testing.T) {
 		},
 		Additional: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "ns1.example.com.",
@@ -1366,19 +1366,19 @@ func TestTwoNSInAdditional(t *testing.T) {
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
 				Answer: "ns1.example.com.",
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1387,14 +1387,14 @@ func TestTwoNSInAdditional(t *testing.T) {
 		},
 		Additional: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "ns1.example.com.",
 				Answer: "192.0.2.3",
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "ns2.example.com.",
@@ -1427,12 +1427,12 @@ func TestAandQuadAInAdditional(t *testing.T) {
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1441,14 +1441,14 @@ func TestAandQuadAInAdditional(t *testing.T) {
 		},
 		Additional: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "ns1.example.com.",
 				Answer: "192.0.2.3",
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "ns1.example.com.",
@@ -1477,12 +1477,12 @@ func TestNsMismatchIpType(t *testing.T) {
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1491,14 +1491,14 @@ func TestNsMismatchIpType(t *testing.T) {
 		},
 		Additional: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "ns1.example.com.",
 				Answer: "192.0.2.3",
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "ns1.example.com.",
@@ -1527,12 +1527,12 @@ func TestAandQuadALookup(t *testing.T) {
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1547,19 +1547,19 @@ func TestAandQuadALookup(t *testing.T) {
 
 	dom2 := "ns1.example.com"
 
-	domain_ns_2 := domainNS{domain: dom2, ns: ns1}
+	domainNS2 := domainNS{domain: dom2, ns: ns1}
 
-	mockResults[domain_ns_2] = SingleQueryResult{
+	mockResults[domainNS2] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "ns1.example.com.",
 				Answer: "192.0.2.3",
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "ns1.example.com.",
@@ -1590,7 +1590,7 @@ func TestNsNXDomain(t *testing.T) {
 
 	_, _, status, _ := resolver.DoNSLookup("nonexistentexample.com", ns1, false)
 
-	assert.Equal(t, STATUS_NXDOMAIN, status)
+	assert.Equal(t, StatusNXDomain, status)
 }
 
 func TestNsServFail(t *testing.T) {
@@ -1600,14 +1600,14 @@ func TestNsServFail(t *testing.T) {
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{}
-	protocolStatus[domain_ns_1] = STATUS_SERVFAIL
+	mockResults[domainNS1] = SingleQueryResult{}
+	protocolStatus[domainNS1] = StatusServFail
 
 	res, _, status, _ := resolver.DoNSLookup("example.com", ns1, false)
 
-	assert.Equal(t, status, protocolStatus[domain_ns_1])
+	assert.Equal(t, status, protocolStatus[domainNS1])
 	assert.Empty(t, res.Servers)
 }
 
@@ -1618,12 +1618,12 @@ func TestErrorInTargetedLookup(t *testing.T) {
 
 	domain1 := "example.com"
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	mockResults[domain_ns_1] = SingleQueryResult{
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1636,11 +1636,11 @@ func TestErrorInTargetedLookup(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 
-	protocolStatus[domain_ns_1] = STATUS_ERROR
+	protocolStatus[domainNS1] = StatusError
 
 	res, _, status, _ := resolver.DoNSLookup("example.com", ns1, false)
 	assert.Empty(t, len(res.Servers), 0)
-	assert.Equal(t, status, protocolStatus[domain_ns_1])
+	assert.Equal(t, status, protocolStatus[domainNS1])
 }
 
 // Test One NS with one IP with only ipv4-lookup
@@ -1652,34 +1652,34 @@ func TestAllNsLookupOneNs(t *testing.T) {
 
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
 	domain1 := "example.com"
-	ns_domain1 := "ns1.example.com"
+	nsDomain1 := "ns1.example.com"
 	ipv4_1 := "192.0.2.1"
 	ipv6_1 := "2001:db8::3"
 
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
-	mockResults[domain_ns_1] = SingleQueryResult{
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
-				Answer: ns_domain1 + ".",
+				Answer: nsDomain1 + ".",
 			},
 		},
 		Additional: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
-				Name:   ns_domain1 + ".",
+				Name:   nsDomain1 + ".",
 				Answer: ipv4_1,
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
-				Name:   ns_domain1 + ".",
+				Name:   nsDomain1 + ".",
 				Answer: ipv6_1,
 			},
 		},
@@ -1689,12 +1689,12 @@ func TestAllNsLookupOneNs(t *testing.T) {
 	}
 
 	ns2 := net.JoinHostPort(ipv4_1, "53")
-	domain_ns_2 := domainNS{domain: domain1, ns: ns2}
+	domainNS2 := domainNS{domain: domain1, ns: ns2}
 	ipv4_2 := "192.0.2.1"
-	mockResults[domain_ns_2] = SingleQueryResult{
+	mockResults[domainNS2] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1708,12 +1708,12 @@ func TestAllNsLookupOneNs(t *testing.T) {
 	}
 
 	ns3 := net.JoinHostPort(ipv6_1, "53")
-	domain_ns_3 := domainNS{domain: domain1, ns: ns3}
+	domainNS3 := domainNS{domain: domain1, ns: ns3}
 	ipv4_3 := "192.0.2.2"
-	mockResults[domain_ns_3] = SingleQueryResult{
+	mockResults[domainNS3] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1728,14 +1728,14 @@ func TestAllNsLookupOneNs(t *testing.T) {
 
 	expectedRes := []ExtendedResult{
 		{
-			Nameserver: ns_domain1,
-			Status:     STATUS_NOERROR,
-			Res:        mockResults[domain_ns_2],
+			Nameserver: nsDomain1,
+			Status:     StatusNoError,
+			Res:        mockResults[domainNS2],
 		},
 		{
-			Nameserver: ns_domain1,
-			Status:     STATUS_NOERROR,
-			Res:        mockResults[domain_ns_3],
+			Nameserver: nsDomain1,
+			Status:     StatusNoError,
+			Res:        mockResults[domainNS3],
 		},
 	}
 	q := Question{
@@ -1759,34 +1759,34 @@ func TestAllNsLookupOneNsMultipleIps(t *testing.T) {
 
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
 	domain1 := "example.com"
-	ns_domain1 := "ns1.example.com"
+	nsDomain1 := "ns1.example.com"
 	ipv4_1 := "192.0.2.1"
 	ipv4_2 := "192.0.2.2"
 
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
-	mockResults[domain_ns_1] = SingleQueryResult{
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
-				Answer: ns_domain1 + ".",
+				Answer: nsDomain1 + ".",
 			},
 		},
 		Additional: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
-				Name:   ns_domain1 + ".",
+				Name:   nsDomain1 + ".",
 				Answer: ipv4_1,
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
-				Name:   ns_domain1 + ".",
+				Name:   nsDomain1 + ".",
 				Answer: ipv4_2,
 			},
 		},
@@ -1796,20 +1796,20 @@ func TestAllNsLookupOneNsMultipleIps(t *testing.T) {
 	}
 
 	ns2 := net.JoinHostPort(ipv4_1, "53")
-	domain_ns_2 := domainNS{domain: domain1, ns: ns2}
+	domainNS2 := domainNS{domain: domain1, ns: ns2}
 	ipv4_3 := "192.0.2.3"
 	ipv6_1 := "2001:db8::1"
-	mockResults[domain_ns_2] = SingleQueryResult{
+	mockResults[domainNS2] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "example.com.",
 				Answer: ipv4_3,
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1823,20 +1823,20 @@ func TestAllNsLookupOneNsMultipleIps(t *testing.T) {
 	}
 
 	ns3 := net.JoinHostPort(ipv4_2, "53")
-	domain_ns_3 := domainNS{domain: domain1, ns: ns3}
+	domainNS3 := domainNS{domain: domain1, ns: ns3}
 	ipv4_4 := "192.0.2.4"
 	ipv6_2 := "2001:db8::2"
-	mockResults[domain_ns_3] = SingleQueryResult{
+	mockResults[domainNS3] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "example.com.",
 				Answer: ipv4_4,
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1851,14 +1851,14 @@ func TestAllNsLookupOneNsMultipleIps(t *testing.T) {
 
 	expectedRes := []ExtendedResult{
 		{
-			Nameserver: ns_domain1,
-			Status:     STATUS_NOERROR,
-			Res:        mockResults[domain_ns_2],
+			Nameserver: nsDomain1,
+			Status:     StatusNoError,
+			Res:        mockResults[domainNS2],
 		},
 		{
-			Nameserver: ns_domain1,
-			Status:     STATUS_NOERROR,
-			Res:        mockResults[domain_ns_3],
+			Nameserver: nsDomain1,
+			Status:     StatusNoError,
+			Res:        mockResults[domainNS3],
 		},
 	}
 
@@ -1882,42 +1882,42 @@ func TestAllNsLookupTwoNs(t *testing.T) {
 
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
 	domain1 := "example.com"
-	ns_domain1 := "ns1.example.com"
-	ns_domain2 := "ns2.example.com"
+	nsDomain1 := "ns1.example.com"
+	nsDomain2 := "ns2.example.com"
 	ipv4_1 := "192.0.2.1"
 	ipv4_2 := "192.0.2.2"
 
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
-	mockResults[domain_ns_1] = SingleQueryResult{
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
-				Answer: ns_domain1 + ".",
+				Answer: nsDomain1 + ".",
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com.",
-				Answer: ns_domain2 + ".",
+				Answer: nsDomain2 + ".",
 			},
 		},
 		Additional: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
-				Name:   ns_domain1 + ".",
+				Name:   nsDomain1 + ".",
 				Answer: ipv4_1,
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
-				Name:   ns_domain2 + ".",
+				Name:   nsDomain2 + ".",
 				Answer: ipv4_2,
 			},
 		},
@@ -1927,12 +1927,12 @@ func TestAllNsLookupTwoNs(t *testing.T) {
 	}
 
 	ns2 := net.JoinHostPort(ipv4_1, "53")
-	domain_ns_2 := domainNS{domain: domain1, ns: ns2}
+	domainNS2 := domainNS{domain: domain1, ns: ns2}
 	ipv4_3 := "192.0.2.3"
-	mockResults[domain_ns_2] = SingleQueryResult{
+	mockResults[domainNS2] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1946,12 +1946,12 @@ func TestAllNsLookupTwoNs(t *testing.T) {
 	}
 
 	ns3 := net.JoinHostPort(ipv4_2, "53")
-	domain_ns_3 := domainNS{domain: domain1, ns: ns3}
+	domainNS3 := domainNS{domain: domain1, ns: ns3}
 	ipv4_4 := "192.0.2.4"
-	mockResults[domain_ns_3] = SingleQueryResult{
+	mockResults[domainNS3] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -1966,14 +1966,14 @@ func TestAllNsLookupTwoNs(t *testing.T) {
 
 	expectedRes := []ExtendedResult{
 		{
-			Nameserver: ns_domain1,
-			Status:     STATUS_NOERROR,
-			Res:        mockResults[domain_ns_2],
+			Nameserver: nsDomain1,
+			Status:     StatusNoError,
+			Res:        mockResults[domainNS2],
 		},
 		{
-			Nameserver: ns_domain2,
-			Status:     STATUS_NOERROR,
-			Res:        mockResults[domain_ns_3],
+			Nameserver: nsDomain2,
+			Status:     StatusNoError,
+			Res:        mockResults[domainNS3],
 		},
 	}
 
@@ -1998,34 +1998,34 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
 	domain1 := "example.com"
-	ns_domain1 := "ns1.example.com"
+	nsDomain1 := "ns1.example.com"
 	ipv4_1 := "192.0.2.1"
 	ipv4_2 := "192.0.2.2"
 
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
-	mockResults[domain_ns_1] = SingleQueryResult{
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
+	mockResults[domainNS1] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "NS",
 				Class:  "IN",
 				Name:   "example.com",
-				Answer: ns_domain1 + ".",
+				Answer: nsDomain1 + ".",
 			},
 		},
 		Additional: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
-				Name:   ns_domain1 + ".",
+				Name:   nsDomain1 + ".",
 				Answer: ipv4_1,
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
-				Name:   ns_domain1 + ".",
+				Name:   nsDomain1 + ".",
 				Answer: ipv4_2,
 			},
 		},
@@ -2035,20 +2035,20 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 	}
 
 	ns2 := net.JoinHostPort(ipv4_1, "53")
-	domain_ns_2 := domainNS{domain: domain1, ns: ns2}
+	domainNS2 := domainNS{domain: domain1, ns: ns2}
 	ipv4_3 := "192.0.2.3"
 	ipv6_1 := "2001:db8::1"
-	mockResults[domain_ns_2] = SingleQueryResult{
+	mockResults[domainNS2] = SingleQueryResult{
 		Answers: []interface{}{
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "A",
 				Class:  "IN",
 				Name:   "example.com.",
 				Answer: ipv4_3,
 			},
 			Answer{
-				Ttl:    3600,
+				TTL:    3600,
 				Type:   "AAAA",
 				Class:  "IN",
 				Name:   "example.com.",
@@ -2062,20 +2062,20 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 	}
 
 	ns3 := net.JoinHostPort(ipv4_2, "53")
-	domain_ns_3 := domainNS{domain: domain1, ns: ns3}
-	protocolStatus[domain_ns_3] = STATUS_SERVFAIL
-	mockResults[domain_ns_3] = SingleQueryResult{}
+	domainNS3 := domainNS{domain: domain1, ns: ns3}
+	protocolStatus[domainNS3] = StatusServFail
+	mockResults[domainNS3] = SingleQueryResult{}
 
 	expectedRes := []ExtendedResult{
 		{
-			Nameserver: ns_domain1,
-			Status:     STATUS_NOERROR,
-			Res:        mockResults[domain_ns_2],
+			Nameserver: nsDomain1,
+			Status:     StatusNoError,
+			Res:        mockResults[domainNS2],
 		},
 		{
-			Nameserver: ns_domain1,
-			Status:     STATUS_SERVFAIL,
-			Res:        mockResults[domain_ns_3],
+			Nameserver: nsDomain1,
+			Status:     StatusServFail,
+			Res:        mockResults[domainNS3],
 		},
 	}
 
@@ -2105,7 +2105,7 @@ func TestAllNsLookupNXDomain(t *testing.T) {
 
 	res, _, status, err := resolver.LookupAllNameservers(&q, ns1)
 
-	assert.Equal(t, STATUS_NXDOMAIN, status)
+	assert.Equal(t, StatusNXDomain, status)
 	assert.Nil(t, res)
 	require.NoError(t, err)
 }
@@ -2118,10 +2118,10 @@ func TestAllNsLookupServFail(t *testing.T) {
 
 	ns1 := net.JoinHostPort(config.ExternalNameServers[0], "53")
 	domain1 := "example.com"
-	domain_ns_1 := domainNS{domain: domain1, ns: ns1}
+	domainNS1 := domainNS{domain: domain1, ns: ns1}
 
-	protocolStatus[domain_ns_1] = STATUS_SERVFAIL
-	mockResults[domain_ns_1] = SingleQueryResult{}
+	protocolStatus[domainNS1] = StatusServFail
+	mockResults[domainNS1] = SingleQueryResult{}
 
 	q := Question{
 		Type:  dns.TypeNS,
@@ -2130,7 +2130,7 @@ func TestAllNsLookupServFail(t *testing.T) {
 	}
 	res, _, status, err := resolver.LookupAllNameservers(&q, ns1)
 
-	assert.Equal(t, STATUS_SERVFAIL, status)
+	assert.Equal(t, StatusServFail, status)
 	assert.Nil(t, res)
 	require.NoError(t, err)
 }
