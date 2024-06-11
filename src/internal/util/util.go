@@ -15,6 +15,7 @@
 package util
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"regexp"
@@ -90,4 +91,14 @@ func GetDefaultResolvers() []string {
 func IsStringValidDomainName(domain string) bool {
 	var domainRegex = regexp.MustCompile(`^(?i)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*\.[a-z]{2,}$`)
 	return domainRegex.MatchString(domain)
+}
+
+// HasCtxExpired checks if the context has expired. Common function used in various places.
+func HasCtxExpired(ctx *context.Context) bool {
+	select {
+	case <-(*ctx).Done():
+		return true
+	default:
+		return false
+	}
 }

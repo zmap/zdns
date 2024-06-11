@@ -65,9 +65,8 @@ type ResolverConfig struct {
 	IPVersionMode        IPVersionMode
 	ShouldRecycleSockets bool
 
-	IsIterative          bool
-	IterativeTimeout     time.Duration
-	Timeout              time.Duration // timeout for the network conns
+	IterativeTimeout     time.Duration // applicable to iterative queries only, timeout for a single iteration step
+	Timeout              time.Duration // timeout for the resolution of a single name
 	MaxDepth             int
 	ExternalNameServers  []string // name servers used for external lookups
 	LookupAllNameServers bool     // perform the lookup via all the nameservers for the domain
