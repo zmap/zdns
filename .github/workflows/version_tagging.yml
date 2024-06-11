@@ -31,7 +31,7 @@ jobs:
       - name: Update version in cli.go
         run: |
           VERSION=${{ github.event.inputs.version }}
-          sed -i "s/^zdnsCLIVersion = \".*\"/zdnsCLIVersion = \"${VERSION}\"/" src/cli/cli.go
+          sed 's/\tzdnsCLIVersion = \".*\"/\tzdnsCLIVersion = \"${VERSION}\"/g' src/cli/cli.go
 
       - name: Commit changes
         run: |
