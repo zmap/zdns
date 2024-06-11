@@ -51,6 +51,7 @@ type Metadata struct {
 	Timeout     int            `json:"timeout"`
 	Retries     int            `json:"retries"`
 	Conf        *CLIConf       `json:"conf"`
+	ZDNSVersion string         `json:"zdns_version"`
 }
 
 func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
@@ -540,6 +541,7 @@ func makeName(name, prefix, nameOverride string) (string, bool) {
 
 func aggregateMetadata(c <-chan routineMetadata) Metadata {
 	var meta Metadata
+	meta.ZDNSVersion = zdnsCLIVersion
 	meta.Status = make(map[string]int)
 	for m := range c {
 		meta.Names += m.Names
