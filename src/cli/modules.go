@@ -148,7 +148,7 @@ func GetLookupModule(name string) (LookupModule, error) {
 }
 
 func GetValidLookups() []string {
-	var lookups []string
+	lookups := make([]string, 0, len(moduleToLookupModule))
 	for lookup := range moduleToLookupModule {
 		lookups = append(lookups, lookup)
 	}
