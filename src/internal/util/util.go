@@ -15,6 +15,7 @@
 package util
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
@@ -83,4 +84,14 @@ func BindFlags(cmd *cobra.Command, v *viper.Viper, envPrefix string) {
 // getDefaultResolvers returns a slice of default DNS resolvers to be used when no system resolvers could be discovered.
 func GetDefaultResolvers() []string {
 	return []string{"8.8.8.8:53", "8.8.4.4:53", "1.1.1.1:53", "1.0.0.1:53"}
+}
+
+// HasCtxExpired checks if the context has expired. Common function used in various places.
+func HasCtxExpired(ctx *context.Context) bool {
+	select {
+	case <-(*ctx).Done():
+		return true
+	default:
+		return false
+	}
 }
