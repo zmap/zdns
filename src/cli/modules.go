@@ -16,11 +16,12 @@ package cli
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 
-	"github.com/zmap/zdns/src/zdns"
-
 	"github.com/zmap/dns"
+
+	"github.com/zmap/zdns/src/zdns"
 )
 
 type LookupModule interface {
@@ -121,10 +122,10 @@ type BasicLookupModule struct {
 
 func (lm *BasicLookupModule) CLIInit(gc *CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
 	if gc == nil {
-		return fmt.Errorf("CLIConf cannot be nil")
+		return errors.New("CLIConf cannot be nil")
 	}
 	if rc == nil {
-		return fmt.Errorf("ResolverConfig cannot be nil")
+		return errors.New("ResolverConfig cannot be nil")
 	}
 	lm.LookupAllNameServers = rc.LookupAllNameServers
 	lm.IsIterative = gc.IterativeResolution
