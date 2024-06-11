@@ -77,11 +77,17 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 
 	if q.Type == dns.TypePTR {
 		var err error
-		q.Name, err = dns.ReverseAddr(q.Name)
-		if err != nil {
+		var qname string
+		qname, err = dns.ReverseAddr(q.Name)
+		// might be an actual DNS name instead of an IP address
+		// if that looks likely, use it as is
+		if err != nil && !util.IsStringValidDomainName(q.Name) {
 			return nil, nil, StatusIllegalInput, err
+			// q.Name is a valid domain name, we can continue
+		} else {
+			// remove trailing "." added by dns.ReverseAddr
+			q.Name = qname[:len(qname)-1]
 		}
-		q.Name = q.Name[:len(q.Name)-1]
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	defer cancel()

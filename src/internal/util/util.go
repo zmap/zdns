@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -84,6 +85,12 @@ func BindFlags(cmd *cobra.Command, v *viper.Viper, envPrefix string) {
 // getDefaultResolvers returns a slice of default DNS resolvers to be used when no system resolvers could be discovered.
 func GetDefaultResolvers() []string {
 	return []string{"8.8.8.8:53", "8.8.4.4:53", "1.1.1.1:53", "1.0.0.1:53"}
+}
+
+// IsStringValidDomainName checks if the given string is a valid domain name using regex
+func IsStringValidDomainName(domain string) bool {
+	var domainRegex = regexp.MustCompile(`^(?i)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*\.[a-z]{2,}$`)
+	return domainRegex.MatchString(domain)
 }
 
 // HasCtxExpired checks if the context has expired. Common function used in various places.
