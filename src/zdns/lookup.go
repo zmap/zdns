@@ -33,7 +33,7 @@ func GetDNSServers(path string) ([]string, error) {
 	if err != nil {
 		return []string{}, fmt.Errorf("error reading DNS config file: %w", err)
 	}
-	var servers []string
+	servers := make([]string, 0, len(c.Servers))
 	for _, s := range c.Servers {
 		if s[0:1] != "[" && strings.Contains(s, ":") {
 			s = "[" + s + "]"

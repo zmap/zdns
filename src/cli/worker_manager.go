@@ -112,7 +112,7 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 		if gc.IterativeResolution {
 			gc.NameServers = zdns.RootServers[:]
 		} else {
-			ns, err := GetDNSServers(gc.ConfigFilePath)
+			ns, err := zdns.GetDNSServers(gc.ConfigFilePath)
 			if err != nil {
 				ns = util.GetDefaultResolvers()
 				log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(ns, ", "))
@@ -490,22 +490,6 @@ func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, i
 	}
 	metaChan <- metadata
 	return nil
-}
-
-func GetDNSServers(path string) ([]string, error) {
-	c, err := dns.ClientConfigFromFile(path)
-	if err != nil {
-		return []string{}, err
-	}
-	var servers []string
-	for _, s := range c.Servers {
-		if s[0:1] != "[" && strings.Contains(s, ":") {
-			s = "[" + s + "]"
-		}
-		full := strings.Join([]string{s, c.Port}, ":")
-		servers = append(servers, full)
-	}
-	return servers, nil
 }
 
 func parseAlexa(line string) (string, int) {

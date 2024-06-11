@@ -20,6 +20,8 @@ import (
 	"net"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -42,7 +44,7 @@ func AddDefaultPortToDNSServerName(inAddr string) (string, error) {
 	// Validate the host part as an IP address.
 	ip := net.ParseIP(host)
 	if ip == nil {
-		return "", fmt.Errorf("invalid IP address")
+		return "", errors.New("invalid IP address")
 	}
 
 	// If the original input does not have a port, specify port 53
