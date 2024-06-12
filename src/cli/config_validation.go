@@ -19,6 +19,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
 	"net"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -28,6 +29,7 @@ import (
 )
 
 const (
+	loopbackAddrSubnet = "127.0.0.0/8"
 	loopbackAddrString = "127.0.0.1"
 )
 
@@ -177,11 +179,22 @@ func validateNameServers(gc *CLIConf) error {
 	// Potentially, a name-server could be listed multiple times by either the user or in the OS's respective /etc/resolv.conf
 	// De-dupe
 	gc.NameServers = util.RemoveDuplicates(gc.NameServers)
+	network, err := netip.ParsePrefix(loopbackAddrSubnet)
+	if err != nil {
+		return errors.New("could not parse loopback subnet")
+	}
 
-	if util.Contains(gc.NameServers, loopbackAddrString) {
-		gc.UsingLoopbackNameServer = true
-	} else {
-		gc.UsingLoopbackNameServer = false
+	// Check if any of the name servers are in the loopback subnet
+	gc.UsingLoopbackNameServer = false
+	for _, ns := range gc.NameServers {
+		ip, err := netip.ParseAddr(ns)
+		if err != nil {
+			panic(err)
+		}
+		if nsInLoopback := network.Contains(ip); nsInLoopback {
+			gc.UsingLoopbackNameServer = true
+			break
+		}
 	}
 
 	if gc.UsingLoopbackNameServer && len(gc.NameServers) > 1 {
