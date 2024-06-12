@@ -93,6 +93,7 @@ func validateNetworkingConfig(gc *CLIConf) error {
 			}
 		}
 	}
+	log.Infof("using local address(es): %v", gc.LocalAddrs)
 	return nil
 }
 
