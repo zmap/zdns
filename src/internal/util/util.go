@@ -114,3 +114,15 @@ func Contains[T comparable](slice []T, entity T) bool {
 	}
 	return false
 }
+
+func RemoveDuplicates[T comparable](slice []T) []T {
+	lookup := make(map[T]struct{}, len(slice)) // prealloc for performance
+	result := make([]T, 0, len(slice))
+	for _, v := range slice {
+		if _, ok := lookup[v]; !ok {
+			lookup[v] = struct{}{}
+			result = append(result, v)
+		}
+	}
+	return result
+}
