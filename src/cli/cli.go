@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	zdnsCLIVersion = "1.1.0"
+	zdnsCLIVersion = "v.7.6.7"
 )
 
 type InputHandler interface {
