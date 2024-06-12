@@ -193,7 +193,7 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 		if gc.LocalAddrSpecified {
 			log.Fatal("Both --local-addr and --local-interface specified.")
 		} else {
-			li, err := net.InterfaceByName(gc.LocalAddrString)
+			li, err := net.InterfaceByName(gc.LocalIfaceString)
 			if err != nil {
 				log.Fatal("Invalid local interface specified: ", err)
 			}
@@ -205,7 +205,7 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 				gc.LocalAddrs = append(gc.LocalAddrs, la.(*net.IPNet).IP)
 				gc.LocalAddrSpecified = true
 			}
-			log.Info("using local interface: ", gc.LocalAddrString)
+			log.Info("using local interface: ", gc.LocalIfaceString)
 		}
 	}
 	if !gc.LocalAddrSpecified {
