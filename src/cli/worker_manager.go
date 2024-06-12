@@ -17,7 +17,6 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 	"runtime"
 	"strconv"
@@ -149,77 +148,11 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 		gc.NameServers = ns
 	}
 
-	if gc.ClientSubnetString != "" {
-		parts := strings.Split(gc.ClientSubnetString, "/")
-		if len(parts) != 2 {
-			log.Fatalf("Client subnet should be in CIDR format: %s", gc.ClientSubnetString)
-		}
-		ip := net.ParseIP(parts[0])
-		if ip == nil {
-			log.Fatalf("Client subnet invalid: %s", gc.ClientSubnetString)
-		}
-		netmask, err := strconv.Atoi(parts[1])
-		if err != nil {
-			log.Fatalf("Client subnet netmask invalid: %s", gc.ClientSubnetString)
-		}
-		if netmask > 24 || netmask < 8 {
-			log.Fatalf("Client subnet netmask must be in 8..24: %s", gc.ClientSubnetString)
-		}
-		gc.ClientSubnet = new(dns.EDNS0_SUBNET)
-		gc.ClientSubnet.Code = dns.EDNS0SUBNET
-		if ip.To4() == nil {
-			gc.ClientSubnet.Family = 2
-		} else {
-			gc.ClientSubnet.Family = 1
-		}
-		gc.ClientSubnet.SourceNetmask = uint8(netmask)
-		gc.ClientSubnet.Address = ip
+	err := validateNetworkingConfig(gc)
+	if err != nil {
+		log.Fatalf("could not validate network portion of CLI config: %v", err)
 	}
 
-	if GC.LocalAddrString != "" {
-		for _, la := range strings.Split(GC.LocalAddrString, ",") {
-			ip := net.ParseIP(la)
-			if ip != nil {
-				gc.LocalAddrs = append(gc.LocalAddrs, ip)
-			} else {
-				log.Fatal("Invalid argument for --local-addr (", la, "). Must be a comma-separated list of valid IP addresses.")
-			}
-		}
-		log.Info("using local address: ", GC.LocalAddrString)
-		gc.LocalAddrSpecified = true
-	}
-
-	if gc.LocalIfaceString != "" {
-		if gc.LocalAddrSpecified {
-			log.Fatal("Both --local-addr and --local-interface specified.")
-		} else {
-			li, err := net.InterfaceByName(gc.LocalIfaceString)
-			if err != nil {
-				log.Fatal("Invalid local interface specified: ", err)
-			}
-			addrs, err := li.Addrs()
-			if err != nil {
-				log.Fatal("Unable to detect addresses of local interface: ", err)
-			}
-			for _, la := range addrs {
-				gc.LocalAddrs = append(gc.LocalAddrs, la.(*net.IPNet).IP)
-				gc.LocalAddrSpecified = true
-			}
-			log.Info("using local interface: ", gc.LocalIfaceString)
-		}
-	}
-	if !gc.LocalAddrSpecified {
-		// Find local address for use in unbound UDP sockets
-		if conn, err := net.Dial("udp", "8.8.8.8:53"); err != nil {
-			log.Fatal("Unable to find default IP address: ", err)
-		} else {
-			gc.LocalAddrs = append(gc.LocalAddrs, conn.LocalAddr().(*net.UDPAddr).IP)
-			err := conn.Close()
-			if err != nil {
-				log.Warn("Unable to close test connection to Google Public DNS: ", err)
-			}
-		}
-	}
 	if gc.UseNanoseconds {
 		gc.TimeFormat = time.RFC3339Nano
 	} else {
