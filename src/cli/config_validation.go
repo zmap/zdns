@@ -187,9 +187,9 @@ func validateNameServers(gc *CLIConf) error {
 	// Check if any of the name servers are in the loopback subnet
 	gc.UsingLoopbackNameServer = false
 	for _, ns := range gc.NameServers {
-		ip, err := netip.ParseAddr(ns)
+		ip, err := netip.ParseAddr(strings.Split(ns, ":")[0])
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("could not parse nameserver: %s", ns)
 		}
 		if nsInLoopback := network.Contains(ip); nsInLoopback {
 			gc.UsingLoopbackNameServer = true
