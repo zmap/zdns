@@ -19,8 +19,12 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
 	"net"
+	"os"
 	"strconv"
 	"strings"
+
+	"github.com/zmap/zdns/src/internal/util"
+	"github.com/zmap/zdns/src/zdns"
 )
 
 const (
@@ -28,6 +32,16 @@ const (
 )
 
 func validateNetworkingConfig(gc *CLIConf) error {
+	// mutually exclusive CLI options
+	if gc.LocalIfaceString != "" && gc.LocalAddrString != "" {
+		return errors.New("both --local-addr and --local-interface specified.")
+	}
+
+	// Note: we rely on the value of gc.UsingLoopbackNameServer set here, so this must be called first before other validation
+	if err := validateNameServers(gc); err != nil {
+		return errors.Wrap(err, "could not validate name servers")
+	}
+
 	if err := validateClientSubnetString(gc); err != nil {
 		return errors.Wrap(err, "could not validate client subnet")
 	}
@@ -46,23 +60,25 @@ func validateNetworkingConfig(gc *CLIConf) error {
 	}
 
 	if gc.LocalIfaceString != "" {
-		if gc.LocalAddrSpecified {
-			return errors.New("both --local-addr and --local-interface specified.")
-		} else {
-			li, err := net.InterfaceByName(gc.LocalIfaceString)
-			if err != nil {
-				return fmt.Errorf("invalid local interface specified: %v", err)
-			}
-			addrs, err := li.Addrs()
-			if err != nil {
-				return fmt.Errorf("unable to detect addresses of local interface: %v", err)
-			}
-			for _, la := range addrs {
-				gc.LocalAddrs = append(gc.LocalAddrs, la.(*net.IPNet).IP)
-				gc.LocalAddrSpecified = true
-			}
-			log.Info("using local interface: ", gc.LocalIfaceString)
+		li, err := net.InterfaceByName(gc.LocalIfaceString)
+		if err != nil {
+			return fmt.Errorf("invalid local interface specified: %v", err)
 		}
+		addrs, err := li.Addrs()
+		if err != nil {
+			return fmt.Errorf("unable to detect addresses of local interface: %v", err)
+		}
+		for _, la := range addrs {
+			gc.LocalAddrs = append(gc.LocalAddrs, la.(*net.IPNet).IP)
+			gc.LocalAddrSpecified = true
+		}
+		log.Info("using local interface: ", gc.LocalIfaceString)
+	}
+
+	if gc.UsingLoopbackNameServer && !gc.LocalAddrSpecified {
+		// set local addr as loopback if we're using the loopback name server
+		gc.LocalAddrs = []net.IP{net.ParseIP(loopbackAddrString)}
+		gc.LocalAddrSpecified = true
 	}
 
 	if !gc.LocalAddrSpecified {
@@ -110,22 +126,65 @@ func validateClientSubnetString(gc *CLIConf) error {
 	return nil
 }
 
-/*
-	// Check for using a localhost resolver, since we must use a localhost IP when sending on the loopback interface
-	usingLoopbackNameServer := util.Contains[string](gc.NameServers, loopbackAddrString)
-
-	localAddrIsLoopback := util.Contains[string](gc.l)
-
-	if gc.LocalAddrSpecified && usingLoopbackNameServer && !localAddrIsLoopback {
-		return fmt.Errorf("must use")
+func validateNameServers(gc *CLIConf) error {
+	if gc.LookupAllNameServers && gc.NameServersString != "" {
+		log.Fatal("Name servers cannot be specified in --all-nameservers mode.")
 	}
-	if !gc.LocalAddrSpecified && usingLoopbackNameServer {
-		loopbackAddr := net.ParseIP(loopbackAddrString)
-		gc.LocalAddrs = []net.IP{loopbackAddr}
-		gc.LocalAddrSpecified = true
-		if nonLoopbackNameServers > 0 {
-			log.Warn("using the loopback address to resolve along with a non-loopback address is not recommended")
+
+	if gc.NameServersString == "" {
+		// if we're doing recursive resolution, figure out default OS name servers
+		// otherwise, use the set of 13 root name servers
+		if gc.IterativeResolution {
+			gc.NameServers = zdns.RootServers[:]
+		} else {
+			ns, err := zdns.GetDNSServers(gc.ConfigFilePath)
+			if err != nil {
+				ns = util.GetDefaultResolvers()
+				log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(ns, ", "))
+			}
+			gc.NameServers = ns
 		}
+		log.Info("No name servers specified. will use: ", strings.Join(gc.NameServers, ", "))
+	} else {
+		if gc.NameServerMode {
+			log.Fatal("name servers cannot be specified on command line in --name-server-mode")
+		}
+		var ns []string
+		if (gc.NameServersString)[0] == '@' {
+			filepath := (gc.NameServersString)[1:]
+			f, err := os.ReadFile(filepath)
+			if err != nil {
+				log.Fatalf("Unable to read file (%s): %s", filepath, err.Error())
+			}
+			if len(f) == 0 {
+				log.Fatalf("Empty file (%s)", filepath)
+			}
+			ns = strings.Split(strings.Trim(string(f), "\n"), "\n")
+		} else {
+			ns = strings.Split(gc.NameServersString, ",")
+		}
+		for i, s := range ns {
+			nsWithPort, err := util.AddDefaultPortToDNSServerName(s)
+			if err != nil {
+				log.Fatalf("unable to parse name server: %s", s)
+			}
+			ns[i] = nsWithPort
+		}
+		gc.NameServers = ns
 	}
 
-*/
+	// Potentially, a name-server could be listed multiple times by either the user or in the OS's respective /etc/resolv.conf
+	// De-dupe
+	gc.NameServers = util.RemoveDuplicates(gc.NameServers)
+
+	if util.Contains(gc.NameServers, loopbackAddrString) {
+		gc.UsingLoopbackNameServer = true
+	} else {
+		gc.UsingLoopbackNameServer = false
+	}
+
+	if gc.UsingLoopbackNameServer && len(gc.NameServers) > 1 {
+		return fmt.Errorf("cannot use a loopback nameserver with non-loopback nameservers (%v). Please specify with --name-servers", gc.NameServers)
+	}
+	return nil
+}

@@ -100,54 +100,6 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 		log.Fatal("Unknown record class specified. Valid valued are INET (default), CSNET, CHAOS, HESIOD, NONE, ANY")
 	}
 
-	if gc.LookupAllNameServers {
-		if gc.NameServersString != "" {
-			log.Fatal("Name servers cannot be specified in --all-nameservers mode.")
-		}
-	}
-
-	if gc.NameServersString == "" {
-		// if we're doing recursive resolution, figure out default OS name servers
-		// otherwise, use the set of 13 root name servers
-		if gc.IterativeResolution {
-			gc.NameServers = zdns.RootServers[:]
-		} else {
-			ns, err := zdns.GetDNSServers(gc.ConfigFilePath)
-			if err != nil {
-				ns = util.GetDefaultResolvers()
-				log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(ns, ", "))
-			}
-			gc.NameServers = ns
-		}
-		log.Info("No name servers specified. will use: ", strings.Join(gc.NameServers, ", "))
-	} else {
-		if gc.NameServerMode {
-			log.Fatal("name servers cannot be specified on command line in --name-server-mode")
-		}
-		var ns []string
-		if (gc.NameServersString)[0] == '@' {
-			filepath := (gc.NameServersString)[1:]
-			f, err := os.ReadFile(filepath)
-			if err != nil {
-				log.Fatalf("Unable to read file (%s): %s", filepath, err.Error())
-			}
-			if len(f) == 0 {
-				log.Fatalf("Empty file (%s)", filepath)
-			}
-			ns = strings.Split(strings.Trim(string(f), "\n"), "\n")
-		} else {
-			ns = strings.Split(gc.NameServersString, ",")
-		}
-		for i, s := range ns {
-			nsWithPort, err := util.AddDefaultPortToDNSServerName(s)
-			if err != nil {
-				log.Fatalf("unable to parse name server: %s", s)
-			}
-			ns[i] = nsWithPort
-		}
-		gc.NameServers = ns
-	}
-
 	err := validateNetworkingConfig(gc)
 	if err != nil {
 		log.Fatalf("could not validate network portion of CLI config: %v", err)
