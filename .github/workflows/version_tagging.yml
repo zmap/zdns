@@ -26,6 +26,7 @@ jobs:
         run: |
           VERSION=${{ github.event.inputs.version }}
           BRANCH_NAME="release/${VERSION}"
+          git pull
           git checkout main
           git checkout -b ${BRANCH_NAME}
           echo "Branch name is ${BRANCH_NAME}"
