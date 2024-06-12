@@ -26,6 +26,7 @@ jobs:
         run: |
           VERSION=${{ github.event.inputs.version }}
           BRANCH_NAME="release/${VERSION}"
+          git checkout main
           git checkout -b ${BRANCH_NAME}
           echo "Branch name is ${BRANCH_NAME}"
 
@@ -50,8 +51,8 @@ jobs:
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-#          branch: "release/${{ github.event.inputs.version }}"
+          branch: "release/${{ github.event.inputs.version }}"
           title: "Release ${VERSION}"
           body: "This PR updates the version to ${VERSION}. Be sure to tag the release once this PR is merged."
-#          base: main
+          base: main
           reviewers: ZDNS Maintainers
