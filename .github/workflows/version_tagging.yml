@@ -25,7 +25,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: "update-code-for-/${{ github.event.inputs.version }}"
           title: "Updates version in code to ${{ github.event.inputs.version }}"
-          body: "This PR updates the version to ${{VERSION}}. Be sure to tag the release once this PR is merged."
+          body: "This PR updates the version to ${{github.event.inputs.version}}. Be sure to tag the release once this PR is merged."
           base: main
           reviewers: ZDNS Maintainers
           commit-message: "Update version to ${VERSION} in src/cli/cli.go"
