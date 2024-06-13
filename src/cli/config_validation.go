@@ -15,14 +15,15 @@ package cli
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
-	"github.com/zmap/dns"
 	"net"
 	"net/netip"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
+	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/src/internal/util"
 	"github.com/zmap/zdns/src/zdns"
@@ -199,7 +200,7 @@ func validateNameServers(gc *CLIConf) error {
 	}
 
 	if gc.UsingLoopbackNameServer && len(gc.NameServers) > numberOfLoopbackNameServers {
-		return fmt.Errorf("cannot use a loopback nameserver with non-loopback nameservers (%v). Please specify with --name-servers", gc.NameServers)
+		return fmt.Errorf("cannot use a loopback nameserver with non-loopback nameservers (%v). Please specify with --name-servers one or the other", gc.NameServers)
 	}
 	return nil
 }
