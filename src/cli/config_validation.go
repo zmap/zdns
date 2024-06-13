@@ -67,6 +67,12 @@ func validateNetworkingConfig(gc *CLIConf) error {
 		if err != nil {
 			return fmt.Errorf("invalid local interface specified: %v", err)
 		}
+		isIfaceLoopback := li.Flags&net.FlagLoopback != 0
+		// if we're using the loopback nameserver, make sure we're using the loopback interface
+		// Vice-versa for a non-loopback nameserver
+		if isIfaceLoopback != gc.UsingLoopbackNameServer {
+			return fmt.Errorf("cannot mix loopback/non-loopback nameservers (%v) and interface (%s)", gc.NameServers, gc.LocalIfaceString)
+		}
 		addrs, err := li.Addrs()
 		if err != nil {
 			return fmt.Errorf("unable to detect addresses of local interface: %v", err)

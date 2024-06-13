@@ -14,6 +14,8 @@
 package cli
 
 import (
+	log "github.com/sirupsen/logrus"
+	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -68,5 +70,53 @@ func TestValidateNetworkingConfig(t *testing.T) {
 		}
 		err := validateNetworkingConfig(gc)
 		require.NotNil(t, err, "Expected an error but got nil")
+	})
+	t.Run("Loopback interface and nameserver mismatch", func(t *testing.T) {
+		// get both a loopback and non-loopback interface
+		ifaces, err := net.Interfaces()
+		require.Nil(t, err, "Expected no error but got %v", err)
+		var nonLoopbackIface string
+		var loopbackIface string
+		for _, iface := range ifaces {
+			if iface.Flags&net.FlagLoopback == 0 {
+				nonLoopbackIface = iface.Name
+			} else {
+				loopbackIface = iface.Name
+			}
+		}
+		log.Infof("using non-loopback interface: %s", nonLoopbackIface)
+		log.Infof("using loopback interface: %s", loopbackIface)
+		t.Run("loopback interface with non-loopback nameserver", func(t *testing.T) {
+			gc := &CLIConf{
+				NameServersString: "1.1.1.1",
+				LocalIfaceString:  loopbackIface,
+			}
+			err = validateNetworkingConfig(gc)
+			require.NotNil(t, err, "Expected an error but got nil")
+		})
+		t.Run("non-loopback interface with loopback nameserver", func(t *testing.T) {
+			gc := &CLIConf{
+				NameServersString: "127.0.0.1",
+				LocalIfaceString:  nonLoopbackIface,
+			}
+			err = validateNetworkingConfig(gc)
+			require.NotNil(t, err, "Expected an error but got nil")
+		})
+		t.Run("loopback interface with loopback nameserver", func(t *testing.T) {
+			gc := &CLIConf{
+				NameServersString: "127.0.0.53",
+				LocalIfaceString:  loopbackIface,
+			}
+			err = validateNetworkingConfig(gc)
+			require.Nil(t, err, "Expected no error but got %v", err)
+		})
+		t.Run("non-loopback interface with non-loopback nameserver", func(t *testing.T) {
+			gc := &CLIConf{
+				NameServersString: "1.1.1.1",
+				LocalIfaceString:  nonLoopbackIface,
+			}
+			err = validateNetworkingConfig(gc)
+			require.Nil(t, err, "Expected no error but got %v", err)
+		})
 	})
 }
