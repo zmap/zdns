@@ -78,10 +78,11 @@ func validateNetworkingConfig(gc *CLIConf) error {
 			return fmt.Errorf("unable to detect addresses of local interface: %v", err)
 		}
 		for _, la := range addrs {
-			// skip IPv6 addresses
-			ip := net.ParseIP(la.String())
+			// strip off the network mask
+			cleanedIP := strings.Split(la.String(), "/")[0]
+			ip := net.ParseIP(cleanedIP)
 			if ip == nil {
-				log.Warnf("unable to parse IP address %s from interface: %s", la.String(), gc.LocalIfaceString)
+				log.Warnf("unable to parse IP address %s from interface: %s", cleanedIP, gc.LocalIfaceString)
 				continue
 			}
 			if ip.To4() == nil {
@@ -89,7 +90,7 @@ func validateNetworkingConfig(gc *CLIConf) error {
 				log.Infof("interface %s has IPv6 address %s, skipping since unsupported", gc.LocalIfaceString, ip.String())
 				continue
 			}
-			gc.LocalAddrs = append(gc.LocalAddrs, la.(*net.IPNet).IP)
+			gc.LocalAddrs = append(gc.LocalAddrs, ip)
 			gc.LocalAddrSpecified = true
 		}
 		log.Info("using local interface: ", gc.LocalIfaceString)
