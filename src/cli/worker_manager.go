@@ -102,7 +102,7 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 
 	err := validateNetworkingConfig(gc)
 	if err != nil {
-		log.Fatalf("could not validate network portion of CLI config: %v", err)
+		log.Fatalf("networking config did not pass validation: %v", err)
 	}
 
 	if gc.UseNanoseconds {

@@ -188,7 +188,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		checkingDisabledBit: config.CheckingDisabledBit,
 	}
 	log.SetLevel(r.logLevel)
-	if len(r.localAddr) == 0 {
+	if len(config.LocalAddrs) == 0 {
 		// localAddr not set, so we need to find the default IP address
 		conn, err := net.Dial("udp", googleDNSResolverAddr)
 		if err != nil {
@@ -242,7 +242,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	r.maxDepth = config.MaxDepth
 	// use the set of 13 root name servers
 	r.rootNameServers = RootServers[:]
-	if r.externalNameServers == nil || len(r.externalNameServers) == 0 {
+	if len(r.externalNameServers) == 0 {
 		// client did not specify name servers, so use the default from the OS
 		ns, err := GetDNSServers(defaultNameServerConfigFile)
 		if err != nil {

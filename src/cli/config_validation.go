@@ -41,11 +41,11 @@ func validateNetworkingConfig(gc *CLIConf) error {
 
 	// Note: we rely on the value of gc.UsingLoopbackNameServer set here, so this must be called first before other validation
 	if err := validateNameServers(gc); err != nil {
-		return errors.Wrap(err, "could not validate name servers")
+		return errors.Wrap(err, "name servers did not pass validation")
 	}
 
 	if err := validateClientSubnetString(gc); err != nil {
-		return errors.Wrap(err, "could not validate client subnet")
+		return errors.Wrap(err, "client subnet did not pass validation")
 	}
 
 	if GC.LocalAddrString != "" {
@@ -186,6 +186,7 @@ func validateNameServers(gc *CLIConf) error {
 
 	// Check if any of the name servers are in the loopback subnet
 	gc.UsingLoopbackNameServer = false
+	numberOfLoopbackNameServers := 0
 	for _, ns := range gc.NameServers {
 		ip, err := netip.ParseAddr(strings.Split(ns, ":")[0])
 		if err != nil {
@@ -193,11 +194,11 @@ func validateNameServers(gc *CLIConf) error {
 		}
 		if nsInLoopback := network.Contains(ip); nsInLoopback {
 			gc.UsingLoopbackNameServer = true
-			break
+			numberOfLoopbackNameServers++
 		}
 	}
 
-	if gc.UsingLoopbackNameServer && len(gc.NameServers) > 1 {
+	if gc.UsingLoopbackNameServer && len(gc.NameServers) > numberOfLoopbackNameServers {
 		return fmt.Errorf("cannot use a loopback nameserver with non-loopback nameservers (%v). Please specify with --name-servers", gc.NameServers)
 	}
 	return nil
