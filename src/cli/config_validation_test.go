@@ -14,9 +14,10 @@
 package cli
 
 import (
-	log "github.com/sirupsen/logrus"
 	"net"
 	"testing"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/stretchr/testify/require"
 )
