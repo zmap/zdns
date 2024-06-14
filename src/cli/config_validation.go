@@ -37,7 +37,7 @@ const (
 func validateNetworkingConfig(gc *CLIConf) error {
 	// mutually exclusive CLI options
 	if gc.LocalIfaceString != "" && gc.LocalAddrString != "" {
-		return errors.New("both --local-addr and --local-interface specified.")
+		return errors.New("--local-addr and --local-interface cannot both be specified")
 	}
 
 	// Note: we rely on the value of gc.UsingLoopbackNameServer set here, so this must be called first before other validation
