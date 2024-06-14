@@ -1,7 +1,7 @@
 ---
-name: Bug report
-about: Create a report to help us improve
-title: "[BUG] Placeholder title"
+name: Bug Report
+about: Create a bug report to help us improve ZDNS
+title: "[Bug] Placeholder title"
 labels: bug
 assignees: phillip-stephens
 
