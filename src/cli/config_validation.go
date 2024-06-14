@@ -103,7 +103,7 @@ func validateNetworkingConfig(gc *CLIConf) error {
 	}
 
 	if !gc.LocalAddrSpecified {
-		// Find local address for use in unbound UDP sockets
+		// Find non-loopback local address for use in unbound UDP sockets
 		if conn, err := net.Dial("udp", "8.8.8.8:53"); err != nil {
 			return fmt.Errorf("unable to find default IP address: %v", err)
 		} else {
