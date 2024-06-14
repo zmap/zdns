@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Create a feature request to help us expand ZDNS' functionality
+about: Create a feature request to help us expand ZDNS's functionality
 title: "[Feature Request] Placeholder title"
 labels: feature-request
 assignees: phillip-stephens
@@ -8,14 +8,13 @@ assignees: phillip-stephens
 ---
 
 **Describe the feature requested**
-A clear description of the feature you would like to see added to ZDNS.
+Please Describe The Problem To Be Solved (Replace This Text: Please present a concise description of the problem to be addressed by this feature request.
+Please be clear what parts of the problem are considered to be in-scope and out-of-scope.)
 
 
 **Additional context**
 Add any other context about the problem here.
 
-Please Describe The Problem To Be Solved (Replace This Text: Please present a concise description of the problem to be addressed by this feature request.
-Please be clear what parts of the problem are considered to be in-scope and out-of-scope.)
 
 **Solution**
 (Optional): Suggest A Solution (Replace This Text: A concise description of your preferred solution. Things to address include:
