@@ -150,7 +150,7 @@ func validateClientSubnetString(gc *CLIConf) error {
 
 func validateNameServers(gc *CLIConf) error {
 	if gc.LookupAllNameServers && gc.NameServersString != "" {
-		log.Fatal("Name servers cannot be specified in --all-nameservers mode.")
+		log.Fatal("name servers cannot be specified in --all-nameservers mode.")
 	}
 
 	if gc.NameServersString == "" {
