@@ -64,20 +64,12 @@ class Tests(unittest.TestCase):
         os.rm(f)
         return c, [json.loads(l.rstrip()) for l in o]
 
-    ROOT_A = set([
-        "1.2.3.4",
-        "2.3.4.5",
-        "3.4.5.6",
-    ])
+    ROOT_A = {"1.2.3.4", "2.3.4.5", "3.4.5.6"}
 
     ROOT_A_ANSWERS = [{"type": "A", "class": "IN", "answer": x,
                        "name": "zdns-testing.com"} for x in ROOT_A]
 
-    ROOT_AAAA = set([
-        "fd5a:3bce:8713::1",
-        "fde6:9bb3:dbd6::2",
-        "fdb3:ac76:a577::3"
-    ])
+    ROOT_AAAA = {"fd5a:3bce:8713::1", "fde6:9bb3:dbd6::2", "fdb3:ac76:a577::3"}
 
     ROOT_AAAA_ANSWERS = [{"type": "AAAA", "class": "IN", "answer": x,
                           "name": "zdns-testing.com"} for x in ROOT_AAAA]
