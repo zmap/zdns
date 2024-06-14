@@ -5,7 +5,7 @@ import subprocess
 import json
 import unittest
 import tempfile
-# import datetime
+import datetime
 from dateutil import parser
 from ipaddress import ip_address
 
