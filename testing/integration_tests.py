@@ -5,7 +5,8 @@ import subprocess
 import json
 import unittest
 import tempfile
-import datetime
+# import datetime
+from dateutil import parser
 from ipaddress import ip_address
 
 
@@ -961,7 +962,7 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         assert "timestamp" in res
-        date = datetime.datetime.strptime(res["timestamp"], "%Y-%m-%dT%H:%M:%S.%f%z")
+        date = parser.parse(res["timestamp"])
         self.assertTrue(date.microsecond != 0)
         # microseconds should be non-zero since we called with --nanoseconds. There is a chance it happens to be 0,
         # but it is very unlikely. (1 in 1,000,000). Python's datetime.date's smallest unit of time is microseconds,
