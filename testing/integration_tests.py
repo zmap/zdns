@@ -5,13 +5,13 @@ import subprocess
 import json
 import unittest
 import tempfile
+import datetime
 from ipaddress import ip_address
 
 
 def recursiveSort(obj):
-
     def listSort(l):
-        assert(type(l) == type(list()))
+        assert (type(l) == type(list()))
         new_list = []
         for item in l:
             item = recursiveSort(item)
@@ -22,7 +22,7 @@ def recursiveSort(obj):
             return sorted(new_list)
 
     def dictSort(d):
-        assert(type(d) == type(dict()))
+        assert (type(d) == type(dict()))
         for key in d:
             d[key] = recursiveSort(d[key])
         return d
@@ -37,7 +37,6 @@ def recursiveSort(obj):
 
 
 class Tests(unittest.TestCase):
-
     maxDiff = None
     ZDNS_EXECUTABLE = "./zdns"
 
@@ -55,7 +54,7 @@ class Tests(unittest.TestCase):
 
     def run_zdns_multiline(self, flags, names, executable=ZDNS_EXECUTABLE):
         d = tempfile.mkdtemp
-        f = "/".join([d,"temp"])
+        f = "/".join([d, "temp"])
         with open(f) as fd:
             for name in names:
                 fd.writeline(name)
@@ -71,8 +70,8 @@ class Tests(unittest.TestCase):
         "3.4.5.6",
     ])
 
-    ROOT_A_ANSWERS = [{"type":"A", "class":"IN", "answer":x,
-        "name":"zdns-testing.com"} for x in ROOT_A]
+    ROOT_A_ANSWERS = [{"type": "A", "class": "IN", "answer": x,
+                       "name": "zdns-testing.com"} for x in ROOT_A]
 
     ROOT_AAAA = set([
         "fd5a:3bce:8713::1",
@@ -80,24 +79,24 @@ class Tests(unittest.TestCase):
         "fdb3:ac76:a577::3"
     ])
 
-    ROOT_AAAA_ANSWERS = [{"type":"AAAA", "class":"IN", "answer":x,
-        "name":"zdns-testing.com"} for x in ROOT_AAAA]
+    ROOT_AAAA_ANSWERS = [{"type": "AAAA", "class": "IN", "answer": x,
+                          "name": "zdns-testing.com"} for x in ROOT_AAAA]
 
     MX_SERVERS = [
-            {"answer":"mx1.zdns-testing.com.", "preference":1, "type":"MX", "class":"IN", 'name':'zdns-testing.com'},
-            {"answer":"mx2.zdns-testing.com.", "preference":5, "type":"MX", "class":"IN", 'name':'zdns-testing.com'},
-            {"answer":"mx1.censys.io.", "preference":10, "type":"MX", "class":"IN", 'name':'zdns-testing.com'},
+        {"answer": "mx1.zdns-testing.com.", "preference": 1, "type": "MX", "class": "IN", 'name': 'zdns-testing.com'},
+        {"answer": "mx2.zdns-testing.com.", "preference": 5, "type": "MX", "class": "IN", 'name': 'zdns-testing.com'},
+        {"answer": "mx1.censys.io.", "preference": 10, "type": "MX", "class": "IN", 'name': 'zdns-testing.com'},
     ]
 
     NS_SERVERS = [
-            {"type": "NS", "class": "IN", "name": "zdns-testing.com",
-                "answer": "ns-cloud-c2.googledomains.com."},
-            {"type": "NS", "class": "IN", "name": "zdns-testing.com",
-                "answer": "ns-cloud-c3.googledomains.com."},
-            {"type": "NS", "class": "IN", "name": "zdns-testing.com",
-                "answer": "ns-cloud-c1.googledomains.com."},
-            {"type": "NS", "class": "IN", "name": "zdns-testing.com",
-                "answer": "ns-cloud-c4.googledomains.com."},
+        {"type": "NS", "class": "IN", "name": "zdns-testing.com",
+         "answer": "ns-cloud-c2.googledomains.com."},
+        {"type": "NS", "class": "IN", "name": "zdns-testing.com",
+         "answer": "ns-cloud-c3.googledomains.com."},
+        {"type": "NS", "class": "IN", "name": "zdns-testing.com",
+         "answer": "ns-cloud-c1.googledomains.com."},
+        {"type": "NS", "class": "IN", "name": "zdns-testing.com",
+         "answer": "ns-cloud-c4.googledomains.com."},
     ]
 
     NXDOMAIN_ANSWER = {
@@ -107,14 +106,14 @@ class Tests(unittest.TestCase):
     }
 
     MX_LOOKUP_ANSWER = {
-        "name":   "zdns-testing.com",
-        "class":  "IN",
+        "name": "zdns-testing.com",
+        "class": "IN",
         "status": "NOERROR",
         "data": {
             "exchanges": [
                 {
-                    "name":  "mx1.zdns-testing.com",
-                    "type":  "MX",
+                    "name": "mx1.zdns-testing.com",
+                    "type": "MX",
                     "class": "IN",
                     "preference": 1,
                     "ipv4_addresses": [
@@ -128,8 +127,8 @@ class Tests(unittest.TestCase):
 
                 },
                 {
-                    "name":  "mx2.zdns-testing.com",
-                    "type":  "MX",
+                    "name": "mx2.zdns-testing.com",
+                    "type": "MX",
                     "class": "IN",
                     "preference": 5,
                     "ipv4_addresses": [
@@ -137,8 +136,8 @@ class Tests(unittest.TestCase):
                     ],
                 },
                 {
-                    "name":  "mx1.censys.io",
-                    "type":  "MX",
+                    "name": "mx1.censys.io",
+                    "type": "MX",
                     "class": "IN",
                     "preference": 10,
                 }
@@ -232,213 +231,213 @@ class Tests(unittest.TestCase):
         del server["ipv4_addresses"]
 
     PTR_LOOKUP_GOOGLE_PUB = [
-      {
-        "type":"PTR",
-        "class":"IN",
-        "name":"8.8.8.8.in-addr.arpa",
-        "answer":"dns.google."
-      }
+        {
+            "type": "PTR",
+            "class": "IN",
+            "name": "8.8.8.8.in-addr.arpa",
+            "answer": "dns.google."
+        }
     ]
 
     CAA_RECORD = [
-      {
-        "type": "CAA",
-        "class": "IN",
-        "name": "zdns-testing.com",
-        "tag": "issue",
-        "value": "letsencrypt.org",
-        "flag": 0
-      }
+        {
+            "type": "CAA",
+            "class": "IN",
+            "name": "zdns-testing.com",
+            "tag": "issue",
+            "value": "letsencrypt.org",
+            "flag": 0
+        }
     ]
 
     TXT_RECORD = [
-      {
-        "type": "TXT",
-        "class": "IN",
-        "name": "test_txt.zdns-testing.com",
-        "answer": "Hello World!"
-      }
+        {
+            "type": "TXT",
+            "class": "IN",
+            "name": "test_txt.zdns-testing.com",
+            "answer": "Hello World!"
+        }
     ]
 
     UDP_TRUNCATED_LARGE_TXT = {
-      "name": "large-text.zdns-testing.com",
-      "class": "IN",
-      "status": "TRUNCATED",
-      "timestamp": "2019-12-18T14:41:23-05:00",
-      "data": {
-        "answers": [],
-        "additionals": [],
-        "authorities": [],
-        "protocol": "udp",
-        "flags": {
-          "response": False,
-          "opcode": 0,
-          "authoritative": False,
-          "truncated": False,
-          "recursion_desired": False,
-          "recursion_available": False,
-          "authenticated": False,
-          "checking_disabled": False,
-          "error_code": 0
+        "name": "large-text.zdns-testing.com",
+        "class": "IN",
+        "status": "TRUNCATED",
+        "timestamp": "2019-12-18T14:41:23-05:00",
+        "data": {
+            "answers": [],
+            "additionals": [],
+            "authorities": [],
+            "protocol": "udp",
+            "flags": {
+                "response": False,
+                "opcode": 0,
+                "authoritative": False,
+                "truncated": False,
+                "recursion_desired": False,
+                "recursion_available": False,
+                "authenticated": False,
+                "checking_disabled": False,
+                "error_code": 0
+            }
         }
-      }
     }
 
     TCP_LARGE_TXT_ANSWERS = [
-      {
-        "type": "TXT",
-        "class": "IN",
-        "name": "large-text.zdns-testing.com",
-        "answer": "surveys, informed by our own experiences conducting a long-term research survey over the past year."
-      },
-      {
-        "type": "TXT",
-        "class": "IN",
-        "name": "large-text.zdns-testing.com",
-        "answer": "and explore the security implications of high speed Internet-scale network surveys, both offensive and defensive. "
-      },
-      {
-        "type": "TXT",
-        "class": "IN",
-        "name": "large-text.zdns-testing.com",
-        "answer": "in under 45 minutes from user space on a single machine, approaching the theoretical maximum speed of gigabit Ethernet."
-      },
-      {
-        "type": "TXT",
-        "class": "IN",
-        "name": "large-text.zdns-testing.com",
-        "answer": "We introduce ZMap, a modular, open-source network scanner specifically architected to perform Internet-wide scans and capable of surveying the entire IPv4 address space"
-      },
-      {
-        "type": "TXT",
-        "class": "IN",
-        "name": "large-text.zdns-testing.com",
-        "answer": "Internet-wide network scanning has numerous security applications, including exposing new vulnerabilities and tracking the adoption of defensive mechanisms, but probing the entire public address space with existing tools is both difficult and slow."
-      },
-      {
-        "type": "TXT",
-        "class": "IN",
-        "name": "large-text.zdns-testing.com",
-        "answer": "We also discuss best practices for good Internet citizenship when performing Internet-wide"
-      },
-      {
-        "type": "TXT",
-        "class": "IN",
-        "name": "large-text.zdns-testing.com",
-        "answer": "We present the scanner architecture, experimentally characterize its performance and accuracy, "
-      },
-      {
-        "type": "TXT",
-        "class": "IN",
-        "name": "large-text.zdns-testing.com",
-        "answer": "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-      },
-      {
-        "type": "TXT",
-        "class": "IN",
-        "name": "large-text.zdns-testing.com",
-        "answer": "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo."
-      },
-      {
-        "type": "TXT",
-        "class": "IN",
-        "name": "large-text.zdns-testing.com",
-        "answer": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
-      },
-      {
-        "type": "TXT",
-        "class": "IN",
-        "name": "large-text.zdns-testing.com",
-        "answer": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt."
-      },
-      {
-        "type": "TXT",
-        "class": "IN",
-        "name": "large-text.zdns-testing.com",
-        "answer": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
-      },
-      {
-        "type": "TXT",
-        "class": "IN",
-        "name": "large-text.zdns-testing.com",
-        "answer": "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur."
-      },
-      {
-        "type": "TXT",
-        "class": "IN",
-        "name": "large-text.zdns-testing.com",
-        "answer": "Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem."
-      },
+        {
+            "type": "TXT",
+            "class": "IN",
+            "name": "large-text.zdns-testing.com",
+            "answer": "surveys, informed by our own experiences conducting a long-term research survey over the past year."
+        },
+        {
+            "type": "TXT",
+            "class": "IN",
+            "name": "large-text.zdns-testing.com",
+            "answer": "and explore the security implications of high speed Internet-scale network surveys, both offensive and defensive. "
+        },
+        {
+            "type": "TXT",
+            "class": "IN",
+            "name": "large-text.zdns-testing.com",
+            "answer": "in under 45 minutes from user space on a single machine, approaching the theoretical maximum speed of gigabit Ethernet."
+        },
+        {
+            "type": "TXT",
+            "class": "IN",
+            "name": "large-text.zdns-testing.com",
+            "answer": "We introduce ZMap, a modular, open-source network scanner specifically architected to perform Internet-wide scans and capable of surveying the entire IPv4 address space"
+        },
+        {
+            "type": "TXT",
+            "class": "IN",
+            "name": "large-text.zdns-testing.com",
+            "answer": "Internet-wide network scanning has numerous security applications, including exposing new vulnerabilities and tracking the adoption of defensive mechanisms, but probing the entire public address space with existing tools is both difficult and slow."
+        },
+        {
+            "type": "TXT",
+            "class": "IN",
+            "name": "large-text.zdns-testing.com",
+            "answer": "We also discuss best practices for good Internet citizenship when performing Internet-wide"
+        },
+        {
+            "type": "TXT",
+            "class": "IN",
+            "name": "large-text.zdns-testing.com",
+            "answer": "We present the scanner architecture, experimentally characterize its performance and accuracy, "
+        },
+        {
+            "type": "TXT",
+            "class": "IN",
+            "name": "large-text.zdns-testing.com",
+            "answer": "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
+        },
+        {
+            "type": "TXT",
+            "class": "IN",
+            "name": "large-text.zdns-testing.com",
+            "answer": "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo."
+        },
+        {
+            "type": "TXT",
+            "class": "IN",
+            "name": "large-text.zdns-testing.com",
+            "answer": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+        },
+        {
+            "type": "TXT",
+            "class": "IN",
+            "name": "large-text.zdns-testing.com",
+            "answer": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt."
+        },
+        {
+            "type": "TXT",
+            "class": "IN",
+            "name": "large-text.zdns-testing.com",
+            "answer": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+        },
+        {
+            "type": "TXT",
+            "class": "IN",
+            "name": "large-text.zdns-testing.com",
+            "answer": "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur."
+        },
+        {
+            "type": "TXT",
+            "class": "IN",
+            "name": "large-text.zdns-testing.com",
+            "answer": "Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem."
+        },
     ]
 
     WWW_CNAME_ANSWERS = [
-      {
-        "type": "CNAME",
-        "class": "IN",
-        "name": "www.zdns-testing.com",
-        "answer": "zdns-testing.com."
-      }
+        {
+            "type": "CNAME",
+            "class": "IN",
+            "name": "www.zdns-testing.com",
+            "answer": "zdns-testing.com."
+        }
     ]
 
     DMARC_ANSWER = {
-      "data": {
-        "dmarc": "v=DMARC1; p=none; rua=mailto:postmaster@censys.io"
-      }
+        "data": {
+            "dmarc": "v=DMARC1; p=none; rua=mailto:postmaster@censys.io"
+        }
     }
 
     SPF_ANSWER = {
-      "data": {
-        "spf": "v=spf1 mx include:_spf.google.com -all"
-      }
+        "data": {
+            "spf": "v=spf1 mx include:_spf.google.com -all"
+        }
     }
 
     SOA_ANSWERS = [
-      {
-        "type": "SOA",
-        "class": "IN",
-        "name": "zdns-testing.com",
-        "ns": "ns-cloud-c1.googledomains.com",
-        "mbox": "cloud-dns-hostmaster.google.com",
-        "serial": 2,
-        "refresh": 21600,
-        "retry": 3600,
-        "expire": 259200,
-        "min_ttl": 300
+        {
+            "type": "SOA",
+            "class": "IN",
+            "name": "zdns-testing.com",
+            "ns": "ns-cloud-c1.googledomains.com",
+            "mbox": "cloud-dns-hostmaster.google.com",
+            "serial": 2,
+            "refresh": 21600,
+            "retry": 3600,
+            "expire": 259200,
+            "min_ttl": 300
 
-      }
+        }
     ]
 
     SRV_ANSWERS = [
-      {
-        "type": "SRV",
-        "class": "IN",
-        "name": "_sip._udp.sip.voice.google.com",
-        "port": 5060,
-        "priority": 10,
-        "target": "sip-anycast-1.voice.google.com.",
-        "weight": 1
-      },
-      {
-        "type": "SRV",
-        "class": "IN",
-        "name": "_sip._udp.sip.voice.google.com",
-        "port": 5060,
-        "priority": 20,
-        "target": "sip-anycast-2.voice.google.com.",
-        "weight": 1
-      }
+        {
+            "type": "SRV",
+            "class": "IN",
+            "name": "_sip._udp.sip.voice.google.com",
+            "port": 5060,
+            "priority": 10,
+            "target": "sip-anycast-1.voice.google.com.",
+            "weight": 1
+        },
+        {
+            "type": "SRV",
+            "class": "IN",
+            "name": "_sip._udp.sip.voice.google.com",
+            "port": 5060,
+            "priority": 20,
+            "target": "sip-anycast-2.voice.google.com.",
+            "weight": 1
+        }
     ]
 
     TLSA_ANSWERS = [
-      {
-        "type": "TLSA",
-        "class": "IN",
-        "name": "_25._tcp.mail.ietf.org",
-        "cert_usage": 3,
-        "selector": 1,
-        "matching_type": 1,
-        "certificate": "0c72ac70b745ac19998811b131d662c9ac69dbdbe7cb23e5b514b56664c5d3d6"
-      }
+        {
+            "type": "TLSA",
+            "class": "IN",
+            "name": "_25._tcp.mail.ietf.org",
+            "cert_usage": 3,
+            "selector": 1,
+            "matching_type": 1,
+            "certificate": "0c72ac70b745ac19998811b131d662c9ac69dbdbe7cb23e5b514b56664c5d3d6"
+        }
     ]
 
     ECS_MAPPINGS = {
@@ -460,7 +459,8 @@ class Tests(unittest.TestCase):
         a = sorted(res["data"]["answers"], key=lambda x: x[key])
         b = sorted(correct, key=lambda x: x[key])
         helptext = "%s\nExpected:\n%s\n\nActual:\n%s" % (cmd,
-                json.dumps(b,indent=4), json.dumps(a,indent=4))
+                                                         json.dumps(b, indent=4), json.dumps(a, indent=4))
+
         def _lowercase(obj):
             """ Make dictionary lowercase """
             if isinstance(obj, dict):
@@ -469,6 +469,7 @@ class Tests(unittest.TestCase):
                         obj[k] = v.lower()
                     else:
                         _lowercase(v)
+
         _lowercase(a)
         _lowercase(b)
         self.assertEqual(a, b, helptext)
@@ -516,7 +517,7 @@ class Tests(unittest.TestCase):
             if json_obj == obj:
                 return True
         return False
-    
+
     def assertEqualAxfrLookup(self, records, correct_records):
         for record in list(records):
             try:
@@ -525,7 +526,7 @@ class Tests(unittest.TestCase):
                 pass
             try:
                 del record["min_ttl"]
-            except: 
+            except:
                 pass
             try:
                 del record["expire"]
@@ -544,7 +545,6 @@ class Tests(unittest.TestCase):
                 records.remove(record)
         for expected_record in correct_records:
             self.assertEqual(self.check_json_in_list(expected_record, records), True)
-                
 
     def test_a(self):
         c = "A"
@@ -704,7 +704,7 @@ class Tests(unittest.TestCase):
         name = "www.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
-        self.assertEqualNSLookup(res, self.NS_LOOKUP_WWW_ZDNS_TESTING)  
+        self.assertEqualNSLookup(res, self.NS_LOOKUP_WWW_ZDNS_TESTING)
 
     def test_ns_lookup_iterative(self):
         c = "nslookup --ipv4-lookup --ipv6-lookup --iterative"
@@ -718,21 +718,21 @@ class Tests(unittest.TestCase):
         name = "www.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
-        self.assertEqualNSLookup(res, self.NS_LOOKUP_IPV4_WWW_ZDNS_TESTING)  
+        self.assertEqualNSLookup(res, self.NS_LOOKUP_IPV4_WWW_ZDNS_TESTING)
 
     def test_ns_lookup_ipv4(self):
         c = "nslookup --ipv4-lookup"
         name = "www.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
-        self.assertEqualNSLookup(res, self.NS_LOOKUP_IPV4_WWW_ZDNS_TESTING)    
+        self.assertEqualNSLookup(res, self.NS_LOOKUP_IPV4_WWW_ZDNS_TESTING)
 
     def test_ns_lookup_ipv6(self):
         c = "nslookup --ipv6-lookup"
         name = "www.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
-        self.assertEqualNSLookup(res, self.NS_LOOKUP_IPV6_WWW_ZDNS_TESTING)    
+        self.assertEqualNSLookup(res, self.NS_LOOKUP_IPV6_WWW_ZDNS_TESTING)
 
     def test_spf_lookup(self):
         c = "spf"
@@ -847,7 +847,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(res["data"]["protocol"], "udp")
 
     def test_too_big_txt_tcp(self):
-        c = "TXT --tcp-only --name-servers=8.8.8.8:53" # Azure DNS does not provide results.
+        c = "TXT --tcp-only --name-servers=8.8.8.8:53"  # Azure DNS does not provide results.
         name = "large-text.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
         self.assertEqualAnswers(res, self.TCP_LARGE_TXT_ANSWERS, cmd, key="answer")
@@ -897,7 +897,7 @@ class Tests(unittest.TestCase):
             self.assertEqual(int(netmask), res["data"]['additionals'][0]['csubnet']["source_netmask"])
             self.assertEqual(family, res["data"]['additionals'][0]['csubnet']['family'])
             self.assertTrue("source_scope" in res["data"]['additionals'][0]['csubnet'])
-            correct = [{"type":"A", "class":"IN", "answer": ip_addr, "name":"ecs-geo.zdns-testing.com"}]
+            correct = [{"type": "A", "class": "IN", "answer": ip_addr, "name": "ecs-geo.zdns-testing.com"}]
             self.assertEqualAnswers(res, correct, cmd)
 
     def test_edns0_nsid(self):
@@ -953,6 +953,28 @@ class Tests(unittest.TestCase):
         name = "dnssec-failed.org"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
- 
+
+    def test_timetamps(self):
+        c = "A"
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        assert "timestamp" in res
+        date = datetime.datetime.strptime(res["timestamp"], "%Y-%m-%dT%H:%M:%S%z")
+        self.assertTrue(date.microsecond == 0)  # microseconds should be 0 since we didn't call with --nanoseconds
+
+    def test_timetamps_nanoseconds(self):
+        c = "A --nanoseconds"
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        assert "timestamp" in res
+        date = datetime.datetime.strptime(res["timestamp"], "%Y-%m-%dT%H:%M:%S.%f%z")
+        self.assertTrue(date.microsecond != 0)
+        # microseconds should be non-zero since we called with --nanoseconds. There is a chance it happens to be 0,
+        # but it is very unlikely. (1 in 1,000,000). Python's datetime.date's smallest unit of time is microseconds,
+        # so that's why we're using this in place of nanoseconds. It should not affect the test's validity.
+
+
 if __name__ == "__main__":
     unittest.main()
