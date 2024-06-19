@@ -68,7 +68,9 @@ func validateNetworkingConfig(gc *CLIConf) error {
 		if err != nil {
 			return fmt.Errorf("invalid local interface specified: %v", err)
 		}
-		isIfaceLoopback := li.Flags&net.FlagLoopback != 0
+		// net.FlagLoopback is a bitmask, so we need to check if the loopback flag is set
+		ifaceLoopbackFlag := li.Flags & net.FlagLoopback
+		isIfaceLoopback := ifaceLoopbackFlag != 0
 		// if we're using the loopback nameserver, make sure we're using the loopback interface
 		// Vice-versa for a non-loopback nameserver
 		if isIfaceLoopback != gc.UsingLoopbackNameServer {
