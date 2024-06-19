@@ -30,6 +30,7 @@ import (
 )
 
 const (
+	// TODO - we'll need to update this when we add IPv6 support
 	loopbackAddrSubnet = "127.0.0.0/8"
 	loopbackAddrString = "127.0.0.1"
 )
