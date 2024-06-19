@@ -35,6 +35,7 @@ jobs:
           sudo rm /etc/resolv.conf
           sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
           python --version
+          pip install -r testing/requirements.txt
           ./testing/integration_tests.py
   build-and-large-scan-test:
     runs-on: ubuntu-latest
