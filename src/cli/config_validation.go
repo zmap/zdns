@@ -82,11 +82,9 @@ func validateNetworkingConfig(gc *CLIConf) error {
 		}
 		for _, la := range addrs {
 			// strip off the network mask
-			cleanedIP := strings.Split(la.String(), "/")[0]
-			ip := net.ParseIP(cleanedIP)
-			if ip == nil {
-				log.Warnf("unable to parse IP address %s from interface: %s", cleanedIP, gc.LocalIfaceString)
-				continue
+			ip, _, err := net.ParseCIDR(la.String())
+			if err != nil {
+				return fmt.Errorf("unable to parse IP address from interface %s: %v", gc.LocalIfaceString, err)
 			}
 			if ip.To4() == nil {
 				// skip IPv6 addresses
