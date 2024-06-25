@@ -1,9 +1,10 @@
 package main
 
 import (
+	"sync"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
-	"sync"
 
 	"github.com/zmap/zdns/src/zdns"
 )
