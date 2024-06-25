@@ -29,7 +29,6 @@ func main() {
 
 	log.Warn("\n\n This lookup just used the Cloudflare recursive resolver, let's run our own recursion.")
 	// Iterative Lookups start at the root nameservers and follow the chain of referrals to the authoritative nameservers.
-	// For performance, the resolver will populate the cache with the IPs of the root and TLD nameservers.
 	result, trace, status, err := resolver.IterativeLookup(&zdns.Question{Name: domain, Type: dns.TypeA, Class: dns.ClassINET})
 	if err != nil {
 		log.Fatal("Error looking up domain: ", err)
