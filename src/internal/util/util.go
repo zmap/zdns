@@ -102,3 +102,27 @@ func HasCtxExpired(ctx *context.Context) bool {
 		return false
 	}
 }
+
+// Contains checks if a value is in a slice.
+// Performance note: if you're going to be making multiple calls to Contains, it is much more performant to create a
+// map of the slice to get O(1) lookups. This is for one-off lookups.
+func Contains[T comparable](slice []T, entity T) bool {
+	for _, v := range slice {
+		if v == entity {
+			return true
+		}
+	}
+	return false
+}
+
+func RemoveDuplicates[T comparable](slice []T) []T {
+	lookup := make(map[T]struct{}, len(slice)) // prealloc for performance
+	result := make([]T, 0, len(slice))
+	for _, v := range slice {
+		if _, ok := lookup[v]; !ok {
+			lookup[v] = struct{}{}
+			result = append(result, v)
+		}
+	}
+	return result
+}

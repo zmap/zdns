@@ -59,22 +59,23 @@ type CLIConf struct {
 	IncludeInOutput string
 	OutputGroups    []string
 
-	MaxDepth             int
-	CacheSize            int
-	GoMaxProcs           int
-	Verbosity            int
-	TimeFormat           string
-	NameServers          []string
-	LookupAllNameServers bool
-	TCPOnly              bool
-	UDPOnly              bool
-	RecycleSockets       bool
-	LocalAddrSpecified   bool
-	LocalAddrs           []net.IP
-	ClientSubnet         *dns.EDNS0_SUBNET
-	UseNSID              bool
-	Dnssec               bool
-	CheckingDisabled     bool
+	MaxDepth                int
+	CacheSize               int
+	GoMaxProcs              int
+	Verbosity               int
+	TimeFormat              string
+	NameServers             []string
+	UsingLoopbackNameServer bool // whether we're using the loopback address as a name-server
+	LookupAllNameServers    bool
+	TCPOnly                 bool
+	UDPOnly                 bool
+	RecycleSockets          bool
+	LocalAddrSpecified      bool
+	LocalAddrs              []net.IP
+	ClientSubnet            *dns.EDNS0_SUBNET
+	UseNSID                 bool
+	Dnssec                  bool
+	CheckingDisabled        bool
 
 	InputFilePath     string
 	OutputFilePath    string

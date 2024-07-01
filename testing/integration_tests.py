@@ -875,7 +875,7 @@ class Tests(unittest.TestCase):
     def test_local_addr_interface_warning(self):
         c = "A --local-addr 192.168.1.5 --local-interface en0"
         name = "zdns-testing.com"
-        self.run_zdns_check_failure(c, name, "Both --local-addr and --local-interface specified.")
+        self.run_zdns_check_failure(c, name, "--local-addr and --local-interface cannot both be specified")
 
     def test_edns0_client_subnet(self):
         name = "ecs-geo.zdns-testing.com"

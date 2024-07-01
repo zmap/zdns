@@ -17,7 +17,6 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 	"runtime"
 	"strconv"
@@ -101,125 +100,11 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 		log.Fatal("Unknown record class specified. Valid valued are INET (default), CSNET, CHAOS, HESIOD, NONE, ANY")
 	}
 
-	if gc.LookupAllNameServers {
-		if gc.NameServersString != "" {
-			log.Fatal("Name servers cannot be specified in --all-nameservers mode.")
-		}
+	err := validateNetworkingConfig(gc)
+	if err != nil {
+		log.Fatalf("networking config did not pass validation: %v", err)
 	}
 
-	if gc.NameServersString == "" {
-		// if we're doing recursive resolution, figure out default OS name servers
-		// otherwise, use the set of 13 root name servers
-		if gc.IterativeResolution {
-			gc.NameServers = zdns.RootServers[:]
-		} else {
-			ns, err := zdns.GetDNSServers(gc.ConfigFilePath)
-			if err != nil {
-				ns = util.GetDefaultResolvers()
-				log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(ns, ", "))
-			}
-			gc.NameServers = ns
-		}
-		log.Info("No name servers specified. will use: ", strings.Join(gc.NameServers, ", "))
-	} else {
-		if gc.NameServerMode {
-			log.Fatal("name servers cannot be specified on command line in --name-server-mode")
-		}
-		var ns []string
-		if (gc.NameServersString)[0] == '@' {
-			filepath := (gc.NameServersString)[1:]
-			f, err := os.ReadFile(filepath)
-			if err != nil {
-				log.Fatalf("Unable to read file (%s): %s", filepath, err.Error())
-			}
-			if len(f) == 0 {
-				log.Fatalf("Empty file (%s)", filepath)
-			}
-			ns = strings.Split(strings.Trim(string(f), "\n"), "\n")
-		} else {
-			ns = strings.Split(gc.NameServersString, ",")
-		}
-		for i, s := range ns {
-			nsWithPort, err := util.AddDefaultPortToDNSServerName(s)
-			if err != nil {
-				log.Fatalf("unable to parse name server: %s", s)
-			}
-			ns[i] = nsWithPort
-		}
-		gc.NameServers = ns
-	}
-
-	if gc.ClientSubnetString != "" {
-		parts := strings.Split(gc.ClientSubnetString, "/")
-		if len(parts) != 2 {
-			log.Fatalf("Client subnet should be in CIDR format: %s", gc.ClientSubnetString)
-		}
-		ip := net.ParseIP(parts[0])
-		if ip == nil {
-			log.Fatalf("Client subnet invalid: %s", gc.ClientSubnetString)
-		}
-		netmask, err := strconv.Atoi(parts[1])
-		if err != nil {
-			log.Fatalf("Client subnet netmask invalid: %s", gc.ClientSubnetString)
-		}
-		if netmask > 24 || netmask < 8 {
-			log.Fatalf("Client subnet netmask must be in 8..24: %s", gc.ClientSubnetString)
-		}
-		gc.ClientSubnet = new(dns.EDNS0_SUBNET)
-		gc.ClientSubnet.Code = dns.EDNS0SUBNET
-		if ip.To4() == nil {
-			gc.ClientSubnet.Family = 2
-		} else {
-			gc.ClientSubnet.Family = 1
-		}
-		gc.ClientSubnet.SourceNetmask = uint8(netmask)
-		gc.ClientSubnet.Address = ip
-	}
-
-	if GC.LocalAddrString != "" {
-		for _, la := range strings.Split(GC.LocalAddrString, ",") {
-			ip := net.ParseIP(la)
-			if ip != nil {
-				gc.LocalAddrs = append(gc.LocalAddrs, ip)
-			} else {
-				log.Fatal("Invalid argument for --local-addr (", la, "). Must be a comma-separated list of valid IP addresses.")
-			}
-		}
-		log.Info("using local address: ", GC.LocalAddrString)
-		gc.LocalAddrSpecified = true
-	}
-
-	if gc.LocalIfaceString != "" {
-		if gc.LocalAddrSpecified {
-			log.Fatal("Both --local-addr and --local-interface specified.")
-		} else {
-			li, err := net.InterfaceByName(gc.LocalAddrString)
-			if err != nil {
-				log.Fatal("Invalid local interface specified: ", err)
-			}
-			addrs, err := li.Addrs()
-			if err != nil {
-				log.Fatal("Unable to detect addresses of local interface: ", err)
-			}
-			for _, la := range addrs {
-				gc.LocalAddrs = append(gc.LocalAddrs, la.(*net.IPNet).IP)
-				gc.LocalAddrSpecified = true
-			}
-			log.Info("using local interface: ", gc.LocalAddrString)
-		}
-	}
-	if !gc.LocalAddrSpecified {
-		// Find local address for use in unbound UDP sockets
-		if conn, err := net.Dial("udp", "8.8.8.8:53"); err != nil {
-			log.Fatal("Unable to find default IP address: ", err)
-		} else {
-			gc.LocalAddrs = append(gc.LocalAddrs, conn.LocalAddr().(*net.UDPAddr).IP)
-			err := conn.Close()
-			if err != nil {
-				log.Warn("Unable to close test connection to Google Public DNS: ", err)
-			}
-		}
-	}
 	if gc.UseNanoseconds {
 		gc.TimeFormat = time.RFC3339Nano
 	} else {
