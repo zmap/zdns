@@ -255,8 +255,9 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	return r, nil
 }
 
-// ExternalLookup performs a single lookup of a DNS question, q,  against an external name server, dstServer. If dstServer is not
-// specified (ie. is an empty string), a random external name server will be used from the resolver's list of external name servers.
+// ExternalLookup performs a single lookup of a DNS question, q,  against an external name server.
+// dstServer, (ex: '1.1.1.1:53') can be set to over-ride the nameservers defined in the ResolverConfig.
+// If dstServer is not  specified (ie. is an empty string), a random external name server will be used from the resolver's list of external name servers.
 // Thread-safety note: It is UNSAFE to use the same Resolver object to perform multiple lookups concurrently. If you need to perform
 // multiple lookups concurrently, create a new Resolver object for each concurrent lookup.
 // Returns the result of the lookup, the trace of the lookup (what each nameserver along the lookup returned), the
