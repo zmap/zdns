@@ -72,3 +72,74 @@ func TestIsStringValidDomainName(t *testing.T) {
 		})
 	}
 }
+
+func TestContains(t *testing.T) {
+	tests := []struct {
+		name     string
+		slice    []int
+		entity   int
+		expected bool
+	}{
+		{
+			name:     "Entity in slice",
+			slice:    []int{1, 2, 3, 4, 5},
+			entity:   3,
+			expected: true,
+		},
+		{
+			name:     "Entity not in slice",
+			slice:    []int{1, 2, 3, 4, 5},
+			entity:   6,
+			expected: false,
+		},
+		{
+			name:     "Empty slice",
+			slice:    []int{},
+			entity:   1,
+			expected: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := Contains(test.slice, test.entity)
+			require.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestRemoveDuplicates(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []int
+		expected []int
+	}{
+		{
+			name:     "No duplicates",
+			input:    []int{1, 2, 3, 4, 5},
+			expected: []int{1, 2, 3, 4, 5},
+		},
+		{
+			name:     "All duplicates",
+			input:    []int{1, 1, 1, 1, 1},
+			expected: []int{1},
+		},
+		{
+			name:     "Some duplicates",
+			input:    []int{1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5},
+			expected: []int{1, 2, 3, 4, 5},
+		},
+		{
+			name:     "Empty slice",
+			input:    []int{},
+			expected: []int{},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := RemoveDuplicates(test.input)
+			require.Equal(t, test.expected, result)
+		})
+	}
+}
