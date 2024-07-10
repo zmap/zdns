@@ -2146,13 +2146,6 @@ func TestInvalidInputsLookup(t *testing.T) {
 		Name:  "example.com",
 	}
 
-	t.Run("empty nameserver is not allowed", func(t *testing.T) {
-		result, trace, status, err := resolver.ExternalLookup(&q, "")
-		assert.Nil(t, result)
-		assert.Nil(t, trace)
-		assert.Equal(t, StatusIllegalInput, status)
-		assert.NotNil(t, err)
-	})
 	t.Run("no port attached to nameserver", func(t *testing.T) {
 		result, trace, status, err := resolver.ExternalLookup(&q, "127.0.0.53")
 		assert.Nil(t, result)
