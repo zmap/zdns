@@ -210,11 +210,7 @@ func validateNameServers(gc *CLIConf) error {
 		if err != nil {
 			return errors.Wrapf(err, "could not parse nameserver: %s", ns)
 		}
-		isLoopback, err := is_address_loopback(ip.String())
-		if err != nil {
-			return errors.Wrapf(err, "could not determine if nameserver is loopback: %s", ns)
-		}
-		if isLoopback {
+		if ip.IsLoopback() {
 			gc.UsingLoopbackNameServer = true
 			numberOfLoopbackNameServers++
 		}
