@@ -52,27 +52,37 @@ type Lookuper interface {
 type LookupClient struct{}
 
 func (lc LookupClient) DoSingleDstServerLookup(r *Resolver, q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
+	return r.doSingleDstServerLookup(q, nameServer, isIterative)
+}
+
+func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
 	// Check that nameserver isn't blacklisted
-	nameServerIP, _, err := net.SplitHostPort(nameServer)
+	nameServerIPString, _, err := net.SplitHostPort(nameServer)
 	if err != nil {
 		return nil, nil, StatusError, fmt.Errorf("could not split nameserver %s: %w", nameServer, err)
 	}
+	// nameserver is required
+	if nameServer == "" {
+		return nil, nil, StatusIllegalInput, errors.New("no nameserver specified")
+	}
+	// nameserver must be reachable from the local address
+	nameServerIP := net.ParseIP(nameServerIPString)
+	if nameServerIP == nil {
+		return nil, nil, StatusIllegalInput, errors.New("could not parse nameserver IP")
+	}
+	if nameServerIP.IsLoopback() != r.localAddr.IsLoopback() {
+		return nil, nil, StatusIllegalInput, errors.New("nameserver must be reachable from the local address, ie. both must be loopback or not loopback")
+	}
+
 	// Stop if we hit a nameserver we don't want to hit
 	if r.blacklist != nil {
-		if blacklisted, err := r.blacklist.IsBlacklisted(nameServerIP); err != nil {
+		if blacklisted, err := r.blacklist.IsBlacklisted(nameServerIPString); err != nil {
 			var r SingleQueryResult
 			return &r, Trace{}, StatusError, fmt.Errorf("could not check blacklist for nameserver %s: %w", nameServer, err)
 		} else if blacklisted {
 			var r SingleQueryResult
 			return &r, Trace{}, StatusBlacklist, nil
 		}
-	}
-	return r.doSingleDstServerLookup(q, nameServer, isIterative)
-}
-
-func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
-	if nameServer == "" {
-		return nil, nil, StatusIllegalInput, errors.New("no nameserver specified")
 	}
 
 	if q.Type == dns.TypePTR {

@@ -266,6 +266,7 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryRe
 	if r.isClosed {
 		log.Fatal("resolver has been closed, cannot perform lookup")
 	}
+
 	if dstServer == "" {
 		dstServer = r.randomExternalNameServer()
 	}
