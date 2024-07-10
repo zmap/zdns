@@ -76,7 +76,7 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 
 	// Stop if we hit a nameserver we don't want to hit
 	if r.blacklist != nil {
-		if blacklisted, err := r.blacklist.IsBlacklisted(nameServerIPString); err != nil {
+		if blacklisted, blacklistedErr := r.blacklist.IsBlacklisted(nameServerIPString); blacklistedErr != nil {
 			var r SingleQueryResult
 			return &r, Trace{}, StatusError, fmt.Errorf("could not check blacklist for nameserver %s: %w", nameServer, err)
 		} else if blacklisted {
@@ -86,7 +86,6 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 	}
 
 	if q.Type == dns.TypePTR {
-		var err error
 		var qname string
 		qname, err = dns.ReverseAddr(q.Name)
 		// might be an actual DNS name instead of an IP address
@@ -103,9 +102,9 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 	defer cancel()
 	if isIterative {
 		r.verboseLog(0, "MIEKG-IN: iterative lookup for ", q.Name, " (", q.Type, ")")
-		result, trace, status, err := r.iterativeLookup(ctx, q, nameServer, 1, ".", make(Trace, 0))
-		r.verboseLog(0, "MIEKG-OUT: iterative lookup for ", q.Name, " (", q.Type, "): status: ", status, " , err: ", err)
-		return &result, trace, status, err
+		result, trace, status, lookupErr := r.iterativeLookup(ctx, q, nameServer, 1, ".", make(Trace, 0))
+		r.verboseLog(0, "MIEKG-OUT: iterative lookup for ", q.Name, " (", q.Type, "): status: ", status, " , err: ", lookupErr)
+		return &result, trace, status, lookupErr
 	}
 	res, status, try, err := r.retryingLookup(ctx, q, nameServer, true)
 	if err != nil {
