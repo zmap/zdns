@@ -59,7 +59,7 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 	// Check that nameserver isn't blacklisted
 	nameServerIPString, _, err := net.SplitHostPort(nameServer)
 	if err != nil {
-		return nil, nil, StatusError, fmt.Errorf("could not split nameserver %s: %w", nameServer, err)
+		return nil, nil, StatusIllegalInput, fmt.Errorf("could not split nameserver %s: %w", nameServer, err)
 	}
 	// nameserver is required
 	if nameServer == "" {
