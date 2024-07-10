@@ -30,8 +30,6 @@ import (
 )
 
 const (
-	// TODO - we'll need to update this when we add IPv6 support
-	loopbackAddrSubnet = "127.0.0.0/8"
 	loopbackAddrString = "127.0.0.1"
 )
 
@@ -203,10 +201,6 @@ func validateNameServers(gc *CLIConf) error {
 	// Potentially, a name-server could be listed multiple times by either the user or in the OS's respective /etc/resolv.conf
 	// De-dupe
 	gc.NameServers = util.RemoveDuplicates(gc.NameServers)
-	network, err := netip.ParsePrefix(loopbackAddrSubnet)
-	if err != nil {
-		return errors.New("could not parse loopback subnet")
-	}
 
 	// Check if any of the name servers are in the loopback subnet
 	gc.UsingLoopbackNameServer = false
@@ -214,9 +208,13 @@ func validateNameServers(gc *CLIConf) error {
 	for _, ns := range gc.NameServers {
 		ip, err := netip.ParseAddr(strings.Split(ns, ":")[0])
 		if err != nil {
-			return fmt.Errorf("could not parse nameserver: %s", ns)
+			return errors.Wrapf(err, "could not parse nameserver: %s", ns)
 		}
-		if nsInLoopback := network.Contains(ip); nsInLoopback {
+		isLoopback, err := is_address_loopback(ip.String())
+		if err != nil {
+			return errors.Wrapf(err, "could not determine if nameserver is loopback: %s", ns)
+		}
+		if isLoopback {
 			gc.UsingLoopbackNameServer = true
 			numberOfLoopbackNameServers++
 		}
