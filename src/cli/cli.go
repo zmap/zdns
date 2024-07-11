@@ -161,7 +161,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&GC.NameServerMode, "name-server-mode", false, "Treats input as nameservers to query with a static query rather than queries to send to a static name server")
 
 	rootCmd.PersistentFlags().StringVar(&GC.NameServersString, "name-servers", "", "List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53.")
-	rootCmd.PersistentFlags().StringVar(&GC.LocalAddrString, "local-addr", "", "comma-delimited list of local addresses to use")
+	rootCmd.PersistentFlags().StringVar(&GC.LocalAddrString, "local-addr", "", "comma-delimited list of local addresses to use, serve as the source IP for outbound queries")
 	rootCmd.PersistentFlags().StringVar(&GC.LocalIfaceString, "local-interface", "", "local interface to use")
 	rootCmd.PersistentFlags().StringVar(&GC.ConfigFilePath, "conf-file", "/etc/resolv.conf", "config file for DNS servers")
 	rootCmd.PersistentFlags().IntVar(&GC.Timeout, "timeout", 15, "timeout for resolving a individual name, in seconds")

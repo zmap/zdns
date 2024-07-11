@@ -2135,6 +2135,40 @@ func TestAllNsLookupServFail(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestInvalidInputsLookup(t *testing.T) {
+	config := NewResolverConfig()
+	config.LocalAddrs = []net.IP{net.ParseIP("127.0.0.1")}
+	resolver, err := InitResolver(config)
+	require.NoError(t, err)
+	q := Question{
+		Type:  dns.TypeA,
+		Class: dns.ClassINET,
+		Name:  "example.com",
+	}
+
+	t.Run("no port attached to nameserver", func(t *testing.T) {
+		result, trace, status, err := resolver.ExternalLookup(&q, "127.0.0.53")
+		assert.Nil(t, result)
+		assert.Nil(t, trace)
+		assert.Equal(t, StatusIllegalInput, status)
+		assert.NotNil(t, err)
+	})
+	t.Run("using a loopback local addr with non-loopback nameserver", func(t *testing.T) {
+		result, trace, status, err := resolver.ExternalLookup(&q, "1.1.1.1:53")
+		assert.Nil(t, result)
+		assert.Nil(t, trace)
+		assert.Equal(t, StatusIllegalInput, status)
+		assert.NotNil(t, err)
+	})
+	t.Run("invalid nameserver address", func(t *testing.T) {
+		result, trace, status, err := resolver.ExternalLookup(&q, "987.987.987.987:53")
+		assert.Nil(t, result)
+		assert.Nil(t, trace)
+		assert.Equal(t, StatusIllegalInput, status)
+		assert.NotNil(t, err)
+	})
+}
+
 func verifyNsResult(t *testing.T, servers []NSRecord, expectedServersMap map[string]IPResult) {
 	serversLength := len(servers)
 	expectedServersLength := len(expectedServersMap)

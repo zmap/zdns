@@ -52,14 +52,31 @@ type Lookuper interface {
 type LookupClient struct{}
 
 func (lc LookupClient) DoSingleDstServerLookup(r *Resolver, q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
+	return r.doSingleDstServerLookup(q, nameServer, isIterative)
+}
+
+func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
 	// Check that nameserver isn't blacklisted
-	nameServerIP, _, err := net.SplitHostPort(nameServer)
+	nameServerIPString, _, err := net.SplitHostPort(nameServer)
 	if err != nil {
-		return nil, nil, StatusError, fmt.Errorf("could not split nameserver %s: %w", nameServer, err)
+		return nil, nil, StatusIllegalInput, fmt.Errorf("could not split nameserver %s: %w", nameServer, err)
 	}
+	// nameserver is required
+	if nameServer == "" {
+		return nil, nil, StatusIllegalInput, errors.New("no nameserver specified")
+	}
+	// nameserver must be reachable from the local address
+	nameServerIP := net.ParseIP(nameServerIPString)
+	if nameServerIP == nil {
+		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse nameserver IP: %s", nameServerIPString)
+	}
+	if nameServerIP.IsLoopback() != r.localAddr.IsLoopback() {
+		return nil, nil, StatusIllegalInput, fmt.Errorf("nameserver %s must be reachable from the local address %s, ie. both must be loopback or not loopback", nameServerIPString, r.localAddr.String())
+	}
+
 	// Stop if we hit a nameserver we don't want to hit
 	if r.blacklist != nil {
-		if blacklisted, err := r.blacklist.IsBlacklisted(nameServerIP); err != nil {
+		if blacklisted, blacklistedErr := r.blacklist.IsBlacklisted(nameServerIPString); blacklistedErr != nil {
 			var r SingleQueryResult
 			return &r, Trace{}, StatusError, fmt.Errorf("could not check blacklist for nameserver %s: %w", nameServer, err)
 		} else if blacklisted {
@@ -67,16 +84,8 @@ func (lc LookupClient) DoSingleDstServerLookup(r *Resolver, q Question, nameServ
 			return &r, Trace{}, StatusBlacklist, nil
 		}
 	}
-	return r.doSingleDstServerLookup(q, nameServer, isIterative)
-}
-
-func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
-	if nameServer == "" {
-		return nil, nil, StatusIllegalInput, errors.New("no nameserver specified")
-	}
 
 	if q.Type == dns.TypePTR {
-		var err error
 		var qname string
 		qname, err = dns.ReverseAddr(q.Name)
 		// might be an actual DNS name instead of an IP address
@@ -93,9 +102,9 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 	defer cancel()
 	if isIterative {
 		r.verboseLog(0, "MIEKG-IN: iterative lookup for ", q.Name, " (", q.Type, ")")
-		result, trace, status, err := r.iterativeLookup(ctx, q, nameServer, 1, ".", make(Trace, 0))
-		r.verboseLog(0, "MIEKG-OUT: iterative lookup for ", q.Name, " (", q.Type, "): status: ", status, " , err: ", err)
-		return &result, trace, status, err
+		result, trace, status, lookupErr := r.iterativeLookup(ctx, q, nameServer, 1, ".", make(Trace, 0))
+		r.verboseLog(0, "MIEKG-OUT: iterative lookup for ", q.Name, " (", q.Type, "): status: ", status, " , err: ", lookupErr)
+		return &result, trace, status, lookupErr
 	}
 	res, status, try, err := r.retryingLookup(ctx, q, nameServer, true)
 	if err != nil {
