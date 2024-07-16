@@ -122,14 +122,14 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 	return &res, trace, status, err
 }
 
-// followingIterativeLookup follows CNAME's and DNAME's in a DNS lookup
+// followingIterativeLookup follows CNAMEs in a DNS lookup
 func (r *Resolver) followingIterativeLookup(ctx context.Context, q Question, nameServer string) (*SingleQueryResult, Trace, Status, error) {
 	var res SingleQueryResult
 	var trace Trace
 	var status Status
 	var err error
 	candidateSet := make(map[string][]Answer)
-	cdNameSet := make(map[string][]Answer)
+	cnameSet := make(map[string][]Answer)
 	garbage := make(map[string][]Answer)
 	allAnswerSet := make([]interface{}, 0)
 
@@ -150,8 +150,8 @@ func (r *Resolver) followingIterativeLookup(ctx context.Context, q Question, nam
 			return &res, trace, status, nil
 		}
 
-		// populateResults will parse the Answers and update the candidateSet, cdNameSet, and garbage caching maps
-		populateResults(res.Answers, q.Type, candidateSet, cdNameSet, garbage)
+		// populateResults will parse the Answers and update the candidateSet, cnameSet, and garbage caching maps
+		populateResults(res.Answers, q.Type, candidateSet, cnameSet, garbage)
 		for _, ans := range res.Answers {
 			answer, ok := ans.(Answer)
 			if !ok {
@@ -160,14 +160,14 @@ func (r *Resolver) followingIterativeLookup(ctx context.Context, q Question, nam
 			allAnswerSet = append(allAnswerSet, answer)
 		}
 
-		if isLookupComplete(originalName, candidateSet, cdNameSet) {
+		if isLookupComplete(originalName, candidateSet, cnameSet) {
 			return &SingleQueryResult{
 				Answers: allAnswerSet,
 			}, trace, StatusNoError, nil
 		}
 
-		if candidates, ok := cdNameSet[currName]; ok && len(candidates) > 0 {
-			// we have a CNAME/DNAME and need to further recurse to find IPs
+		if candidates, ok := cnameSet[currName]; ok && len(candidates) > 0 {
+			// we have a CNAME and need to further recurse to find IPs
 			currName = strings.ToLower(strings.TrimSuffix(candidates[0].Answer, "."))
 			continue
 		} else if candidates, ok = garbage[currName]; ok && len(candidates) > 0 {
@@ -181,6 +181,9 @@ func (r *Resolver) followingIterativeLookup(ctx context.Context, q Question, nam
 }
 
 // isLookupComplete checks if there's a valid answer using the originalName and following CNAMES
+// An illustrative example of why this fn is needed, say we're doing an A lookup for foo.com. There exists a CNAME from
+// foo.com -> bar.com. Therefore, the candidate set will contain an A record for bar.com, and we need to ensure there's
+// a complete path from foo.com -> bar.com -> bar.com's A record following the maps. This fn checks that path.
 func isLookupComplete(originalName string, candidateSet map[string][]Answer, cdNameSet map[string][]Answer) bool {
 	maxDepth := len(cdNameSet) + 1
 	currName := originalName
@@ -192,7 +195,6 @@ func isLookupComplete(originalName string, candidateSet map[string][]Answer, cdN
 			currName = strings.ToLower(strings.TrimSuffix(candidates[0].Answer, "."))
 			continue
 		}
-
 	}
 	return false
 }
