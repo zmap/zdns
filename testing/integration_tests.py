@@ -592,7 +592,7 @@ class Tests(unittest.TestCase):
     # The query is for a.zdns-dname.esrg.stanford.edu and should return an A record stating "21.9.87.65"
     def test_a_record_behind_dname(self):
         c = "A"
-        name = "a.zdns-dname.esrg.stanford.edu --verbosity=5"
+        name = "a.zdns-dname.esrg.stanford.edu"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.DNAME_A_RECORD_ANSWERS, cmd)
