@@ -150,6 +150,11 @@ func (r *Resolver) followingIterativeLookup(ctx context.Context, q Question, nam
 			return &res, trace, status, nil
 		}
 
+		if !r.followCNAMEs {
+			// if we're not following CNAMES, we're done
+			return &res, trace, status, nil
+		}
+
 		// populateResults will parse the Answers and update the candidateSet, cnameSet, and garbage caching maps
 		populateResults(res.Answers, q.Type, candidateSet, cnameSet, garbage)
 		for _, ans := range res.Answers {

@@ -85,9 +85,10 @@ type CLIConf struct {
 	LogFilePath       string
 	MetadataFilePath  string
 
-	NamePrefix     string
-	NameOverride   string
-	NameServerMode bool
+	NamePrefix         string
+	NameOverride       string
+	NameServerMode     bool
+	ShouldFollowCNAMEs bool
 
 	Module string
 	Class  uint16
@@ -159,6 +160,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&GC.CheckingDisabled, "checking-disabled", false, "Sends DNS packets with the CD bit set")
 	rootCmd.PersistentFlags().BoolVar(&GC.RecycleSockets, "recycle-sockets", true, "Create long-lived unbound UDP socket for each thread at launch and reuse for all (UDP) queries")
 	rootCmd.PersistentFlags().BoolVar(&GC.NameServerMode, "name-server-mode", false, "Treats input as nameservers to query with a static query rather than queries to send to a static name server")
+	rootCmd.PersistentFlags().BoolVar(&GC.ShouldFollowCNAMEs, "follow-cnames", true, "Follow CNAMEs in the iterative lookup process, not applicable to non-iterative lookups")
 
 	rootCmd.PersistentFlags().StringVar(&GC.NameServersString, "name-servers", "", "List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53.")
 	rootCmd.PersistentFlags().StringVar(&GC.LocalAddrString, "local-addr", "", "comma-delimited list of local addresses to use, serve as the source IP for outbound queries")
