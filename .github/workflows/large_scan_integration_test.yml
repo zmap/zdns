@@ -1,0 +1,29 @@
+# It looks like this large scan action will hit rate-limiting issues if run on every PR.
+# We'll make this a daily scheduled job instead against the main branch.
+
+name: Large Scan Integration Test
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  build-and-large-scan-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.20'
+      - name: Build
+        run: |
+          go version
+          make
+      - name: Integration Tests
+        run: |
+          sudo rm /etc/resolv.conf
+          sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+          python --version
+          ./testing/large_scan_integration/large_scan_integration_tests.py
