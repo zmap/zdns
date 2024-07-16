@@ -39,7 +39,7 @@ def recursiveSort(obj):
 
 class Tests(unittest.TestCase):
     maxDiff = None
-    ZDNS_EXECUTABLE = "./zdns"
+    ZDNS_EXECUTABLE = "../zdns"
 
     def run_zdns_check_failure(self, flags, name, expected_err, executable=ZDNS_EXECUTABLE):
         flags = flags + " --threads=10"
@@ -575,7 +575,7 @@ class Tests(unittest.TestCase):
         self.assertEqualAnswers(res, self.WWW_CNAME_ANSWERS, cmd)
 
     def test_dname(self):
-        c = "DNAME"
+        c = "DNAME --iterative"
         name = "zdns-dname.esrg.stanford.edu"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
@@ -591,7 +591,7 @@ class Tests(unittest.TestCase):
     #
     # The query is for a.zdns-dname.esrg.stanford.edu and should return an A record stating "21.9.87.65"
     def test_a_record_behind_dname(self):
-        c = "A"
+        c = "A --iterative"
         name = "a.zdns-dname.esrg.stanford.edu"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
