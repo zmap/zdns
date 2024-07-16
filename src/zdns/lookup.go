@@ -101,10 +101,8 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	defer cancel()
 	if isIterative {
-		r.verboseLog(0, "MIEKG-IN: iterative lookup for ", q.Name, " (", q.Type, ")")
-		result, trace, status, lookupErr := r.iterativeLookup(ctx, q, nameServer, 1, ".", make(Trace, 0))
-		r.verboseLog(0, "MIEKG-OUT: iterative lookup for ", q.Name, " (", q.Type, "): status: ", status, " , err: ", lookupErr)
-		return &result, trace, status, lookupErr
+		result, trace, status, lookupErr := r.followingIterativeLookup(ctx, q, nameServer)
+		return result, trace, status, lookupErr
 	}
 	res, status, try, err := r.retryingLookup(ctx, q, nameServer, true)
 	if err != nil {
@@ -122,6 +120,81 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 	t.Try = try
 	trace := Trace{t}
 	return &res, trace, status, err
+}
+
+// followingIterativeLookup follows CNAME's and DNAME's in a DNS lookup
+func (r *Resolver) followingIterativeLookup(ctx context.Context, q Question, nameServer string) (*SingleQueryResult, Trace, Status, error) {
+	var res SingleQueryResult
+	var trace Trace
+	var status Status
+	var err error
+	candidateSet := make(map[string][]Answer)
+	cdNameSet := make(map[string][]Answer)
+	garbage := make(map[string][]Answer)
+	allAnswerSet := make([]Answer, 0)
+
+	originalName := q.Name // in case this is a CNAME, this keeps track of the original name while we change the question
+	currName := q.Name     // this is the current name we are looking up
+	r.verboseLog(0, "MIEKG-IN: starting a following iterative lookup for ", originalName, " (", q.Type, ")")
+	for i := 0; i < r.maxDepth; i++ {
+		r.verboseLog(1, "MIEKG-IN: iterative lookup for ", q.Name, " (", q.Type, ")")
+		q.Name = currName // update the question with the current name
+		res, trace, status, err = r.iterativeLookup(ctx, q, nameServer, 1, ".", trace)
+		r.verboseLog(1, "MIEKG-OUT: iterative lookup for ", q.Name, " (", q.Type, "): status: ", status, " , err: ", err)
+		if status != StatusNoError || err != nil {
+			return &res, trace, status, errors.Wrapf(err, "iterative lookup failed for name %v at depth %d", q.Name, i)
+		}
+
+		if q.Type == dns.TypeMX {
+			// MX records have a special lookup format, so we won't attempt to follow CNAMES here
+			return &res, trace, status, nil
+		}
+
+		// populateResults will parse the Answers and update the candidateSet, cdNameSet, and garbage caching maps
+		populateResults(res.Answers, q.Type, candidateSet, cdNameSet, garbage)
+		for _, ans := range res.Answers {
+			answer, ok := ans.(Answer)
+			if !ok {
+				continue
+			}
+			allAnswerSet = append(allAnswerSet, answer)
+		}
+
+		if isLookupComplete(originalName, candidateSet, cdNameSet) {
+			return &SingleQueryResult{
+				Answers: []interface{}{allAnswerSet},
+			}, trace, StatusNoError, nil
+		}
+
+		if candidates, ok := cdNameSet[currName]; ok && len(candidates) > 0 {
+			// we have a CNAME/DNAME and need to further recurse to find IPs
+			currName = strings.ToLower(strings.TrimSuffix(candidates[0].Answer, "."))
+			continue
+		} else if candidates, ok = garbage[currName]; ok && len(candidates) > 0 {
+			return nil, trace, StatusError, errors.New("unexpected record type received")
+		} else {
+			// we have no data whatsoever about this name. return an empty recordset to the user
+			return &res, trace, StatusNoError, nil
+		}
+	}
+	return &res, trace, status, nil
+}
+
+// isLookupComplete checks if there's a valid answer using the originalName and following CNAMES
+func isLookupComplete(originalName string, candidateSet map[string][]Answer, cdNameSet map[string][]Answer) bool {
+	maxDepth := len(cdNameSet) + 1
+	currName := originalName
+	for i := 0; i < maxDepth; i++ {
+		if candidates, ok := candidateSet[currName]; ok && len(candidates) > 0 {
+			return true
+		}
+		if candidates, ok := cdNameSet[currName]; ok && len(candidates) > 0 {
+			currName = strings.ToLower(strings.TrimSuffix(candidates[0].Answer, "."))
+			continue
+		}
+
+	}
+	return false
 }
 
 // TODO - This is incomplete. We only lookup all nameservers for the initial name server lookup, then just send the DNS query to this set.
@@ -520,4 +593,35 @@ func FindTxtRecord(res *SingleQueryResult, regex *regexp.Regexp) (string, error)
 		}
 	}
 	return "", errors.New("no such TXT record found")
+}
+
+// populateResults is a helper function to populate the candidateSet, cnameSet, and garbage maps to follow CNAMES
+// These maps are keyed by the domain name and contain the relevant answers for that domain
+// candidateSet is a map of Answers that have a type matching the requested type.
+// cnameSet is a map of Answers that are CNAME records
+// garbage is a map of Answers that are not of the requested type or CNAME records
+// follows CNAME and A/AAAA records to get all IPs for a given domain
+func populateResults(records []interface{}, dnsType uint16, candidateSet map[string][]Answer, cnameSet map[string][]Answer, garbage map[string][]Answer) {
+	var ans Answer
+	var ok bool
+	for _, a := range records {
+		// filter only valid answers of requested type or CNAME (#163)
+		if ans, ok = a.(Answer); !ok {
+			continue
+		}
+		lowerCaseName := strings.ToLower(strings.TrimSuffix(ans.Name, "."))
+		// Verify that the answer type matches requested type
+		if VerifyAddress(ans.Type, ans.Answer) {
+			ansType := dns.StringToType[ans.Type]
+			if dnsType == ansType {
+				candidateSet[lowerCaseName] = append(candidateSet[lowerCaseName], ans)
+			} else if dns.TypeCNAME == ansType {
+				cnameSet[lowerCaseName] = append(cnameSet[lowerCaseName], ans)
+			} else {
+				garbage[lowerCaseName] = append(garbage[lowerCaseName], ans)
+			}
+		} else {
+			garbage[lowerCaseName] = append(garbage[lowerCaseName], ans)
+		}
+	}
 }
