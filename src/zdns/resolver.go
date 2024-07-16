@@ -40,7 +40,7 @@ const (
 	defaultMaxDepth              = 10
 	defaultCheckingDisabledBit   = false // Sends DNS packets with the CD bit set
 	defaultNameServerModeEnabled = false // Treats input as nameservers to query with a static query rather than queries to send to a static name server
-	defaultFollowCNAMEs          = true  // Follow CNAMEs in iterative queries
+	defaultFollowCNAMEs          = true  // Follow CNAMEs/DNAMEs in iterative queries
 	defaultCacheSize             = 10000
 	defaultShouldTrace           = false
 	defaultDNSSECEnabled         = false
@@ -65,13 +65,13 @@ type ResolverConfig struct {
 	TransportMode        transportMode
 	IPVersionMode        IPVersionMode
 	ShouldRecycleSockets bool
-	ShouldFollowCNAMEs   bool // whether iterative lookups should follow CNAMEs
 
 	IterativeTimeout     time.Duration // applicable to iterative queries only, timeout for a single iteration step
 	Timeout              time.Duration // timeout for the resolution of a single name
 	MaxDepth             int
 	ExternalNameServers  []string // name servers used for external lookups
 	LookupAllNameServers bool     // perform the lookup via all the nameservers for the domain
+	ShouldFollowCNAMEs   bool     // whether iterative lookups should follow CNAMEs/DNAMEs
 
 	DNSSecEnabled       bool
 	EdnsOptions         []dns.EDNS0
@@ -145,7 +145,7 @@ type Resolver struct {
 	externalNameServers  []string // name servers used by external lookups (either OS or user specified)
 	rootNameServers      []string // root servers used for iterative lookups
 	lookupAllNameServers bool
-	followCNAMEs         bool // whether iterative lookups should follow CNAMEs
+	followCNAMEs         bool // whether iterative lookups should follow CNAMEs/DNAMEs
 
 	dnsSecEnabled       bool
 	ednsOptions         []dns.EDNS0

@@ -122,7 +122,9 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 	return &res, trace, status, err
 }
 
-// followingIterativeLookup follows CNAMEs in a DNS lookup
+// followingIterativeLookup follows CNAMEs and DNAMEs in a DNS lookup. Since not all resolvers support DNAMES, all
+// authoritative nameservers perform CNAME synthesis (as specfied in RFC 6672, Sec. 3.1 CNAME Synthesis) to return both
+// a DNAME and relevent CNAME record. Therefore, our CNAME logic below will also handle DNAMEs.
 func (r *Resolver) followingIterativeLookup(ctx context.Context, q Question, nameServer string) (*SingleQueryResult, Trace, Status, error) {
 	var res SingleQueryResult
 	var trace Trace
