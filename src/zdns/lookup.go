@@ -131,7 +131,7 @@ func (r *Resolver) followingIterativeLookup(ctx context.Context, q Question, nam
 	candidateSet := make(map[string][]Answer)
 	cdNameSet := make(map[string][]Answer)
 	garbage := make(map[string][]Answer)
-	allAnswerSet := make([]Answer, 0)
+	allAnswerSet := make([]interface{}, 0)
 
 	originalName := q.Name // in case this is a CNAME, this keeps track of the original name while we change the question
 	currName := q.Name     // this is the current name we are looking up
@@ -162,7 +162,7 @@ func (r *Resolver) followingIterativeLookup(ctx context.Context, q Question, nam
 
 		if isLookupComplete(originalName, candidateSet, cdNameSet) {
 			return &SingleQueryResult{
-				Answers: []interface{}{allAnswerSet},
+				Answers: allAnswerSet,
 			}, trace, StatusNoError, nil
 		}
 
