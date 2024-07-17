@@ -184,6 +184,7 @@ func (r *Resolver) followingIterativeLookup(ctx context.Context, q Question, nam
 			return &res, trace, StatusNoError, nil
 		}
 	}
+	log.Debug("MIEKG-IN: max recursion depth reached for %s lookup", originalName)
 	return &res, trace, status, nil
 }
 
@@ -195,6 +196,10 @@ func isLookupComplete(originalName string, candidateSet map[string][]Answer, cdN
 	maxDepth := len(cdNameSet) + 1
 	currName := originalName
 	for i := 0; i < maxDepth; i++ {
+		if currName == originalName && i != 0 {
+			// we're in a loop
+			return true
+		}
 		if candidates, ok := candidateSet[currName]; ok && len(candidates) > 0 {
 			return true
 		}
