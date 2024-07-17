@@ -39,7 +39,7 @@ def recursiveSort(obj):
 
 class Tests(unittest.TestCase):
     maxDiff = None
-    ZDNS_EXECUTABLE = "./zdns"
+    ZDNS_EXECUTABLE = "../zdns"
 
     def run_zdns_check_failure(self, flags, name, expected_err, executable=ZDNS_EXECUTABLE):
         flags = flags + " --threads=10"
@@ -372,6 +372,20 @@ class Tests(unittest.TestCase):
         }
     ]
 
+    CNAME_LOOP_ANSWERS = [
+        {
+            "type": "CNAME",
+            "class": "IN",
+            "name": "cname-loop.zdns-testing.com",
+            "answer": "cname-loop.esrg.stanford.edu.",
+        }, {
+            "type": "CNAME",
+            "class": "IN",
+            "name": "cname-loop.esrg.stanford.edu",
+            "answer": "cname-loop.zdns-testing.com.",
+        }
+    ]
+
     DMARC_ANSWER = {
         "data": {
             "dmarc": "v=DMARC1; p=none; rua=mailto:postmaster@censys.io"
@@ -552,6 +566,12 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.WWW_CNAME_ANSWERS, cmd)
+
+    def test_cname_loop(self):
+        c = "CNAME"
+        name = "cname-loop.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertEqualAnswers(res, self.CNAME_LOOP_ANSWERS, cmd)
 
     def test_caa(self):
         c = "CAA"
@@ -737,6 +757,20 @@ class Tests(unittest.TestCase):
     def test_spf_lookup_iterative(self):
         c = "spf --iterative"
         name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqual(res["data"], self.SPF_ANSWER["data"])
+
+    def test_spf_lookup_behind_dname(self):
+        c = "spf"
+        name = "zdns-dname.esrg.stanford.edu"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqual(res["data"], self.SPF_ANSWER["data"])
+
+    def test_spf_lookup_iterative_behind_dname(self):
+        c = "spf --iterative"
+        name = "zdns-dname.esrg.stanford.edu"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqual(res["data"], self.SPF_ANSWER["data"])
