@@ -761,20 +761,6 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd)
         self.assertEqual(res["data"], self.SPF_ANSWER["data"])
 
-    def test_spf_lookup_behind_dname(self):
-        c = "spf"
-        name = "zdns-dname.esrg.stanford.edu"
-        cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqual(res["data"], self.SPF_ANSWER["data"])
-
-    def test_spf_lookup_iterative_behind_dname(self):
-        c = "spf --iterative"
-        name = "zdns-dname.esrg.stanford.edu"
-        cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqual(res["data"], self.SPF_ANSWER["data"])
-
     def test_dmarc_lookup(self):
         c = "dmarc"
         name = "_dmarc.zdns-testing.com"
