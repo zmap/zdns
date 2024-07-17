@@ -184,7 +184,7 @@ func (r *Resolver) followingIterativeLookup(ctx context.Context, q Question, nam
 			return &res, trace, StatusNoError, nil
 		}
 	}
-	log.Debug("MIEKG-IN: max recursion depth reached for %s lookup", originalName)
+	log.Debugf("MIEKG-IN: max recursion depth reached for %s lookup", originalName)
 	return &res, trace, status, nil
 }
 
