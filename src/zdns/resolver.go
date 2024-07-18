@@ -241,7 +241,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	r.iterativeTimeout = config.IterativeTimeout
 	r.maxDepth = config.MaxDepth
 	// use the set of 13 root name servers
-	r.rootNameServers = RootServers[:]
+	r.rootNameServers = RootServersV4[:]
 	if len(r.externalNameServers) == 0 {
 		// client did not specify name servers, so use the default from the OS
 		ns, err := GetDNSServers(defaultNameServerConfigFile)
