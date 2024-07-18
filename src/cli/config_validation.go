@@ -158,7 +158,7 @@ func validateNameServers(gc *CLIConf) error {
 		// if we're doing recursive resolution, figure out default OS name servers
 		// otherwise, use the set of 13 root name servers
 		if gc.IterativeResolution {
-			gc.NameServers = zdns.RootServers[:]
+			gc.NameServers = zdns.RootServersV4[:]
 		} else {
 			ns, err := zdns.GetDNSServers(gc.ConfigFilePath)
 			if err != nil {
