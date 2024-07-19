@@ -16,11 +16,12 @@ package zdns
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"math/rand"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
@@ -98,7 +99,7 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 		return fmt.Errorf("invalid IP version mode: %s", reason)
 	}
 	if rc.Cache != nil && rc.CacheSize != 0 {
-		return fmt.Errorf("cannot use both cache and cacheSize")
+		return errors.New("cannot use both cache and cacheSize")
 	}
 
 	// Check that all nameservers/local addresses are valid
@@ -230,7 +231,7 @@ func (rc *ResolverConfig) validateLoopbackConsistency() error {
 		log.Warn("nameservers are loopback, setting local address to loopback to match")
 		rc.LocalAddrs = []net.IP{net.ParseIP(LoopbackAddrString)}
 	} else if noneNameserversLoopback && allLocalAddrsLoopback {
-		return fmt.Errorf("using loopback local addresses with non-loopback nameservers is not supported. " +
+		return errors.New("using loopback local addresses with non-loopback nameservers is not supported. " +
 			"Consider setting nameservers to loopback addresses assuming you have a local DNS server")
 	}
 	return nil
