@@ -58,7 +58,6 @@ func validateNetworkingConfig(gc *CLIConf) error {
 				return fmt.Errorf("invalid argument for --local-addr (%v). Must be a comma-separated list of valid IP addresses", la)
 			}
 		}
-		log.Info("using local address: ", GC.LocalAddrString)
 		gc.LocalAddrSpecified = true
 	}
 
@@ -102,20 +101,6 @@ func validateNetworkingConfig(gc *CLIConf) error {
 		gc.LocalAddrs = []net.IP{net.ParseIP(loopbackAddrString)}
 		gc.LocalAddrSpecified = true
 	}
-
-	if !gc.LocalAddrSpecified {
-		// Find non-loopback local address for use in any socket connections
-		conn, err := net.Dial("udp", "8.8.8.8:53")
-		if err != nil {
-			return fmt.Errorf("unable to find default IP address: %v", err)
-		}
-		gc.LocalAddrs = append(gc.LocalAddrs, conn.LocalAddr().(*net.UDPAddr).IP)
-		err = conn.Close()
-		if err != nil {
-			log.Warn("unable to close test connection to Google Public DNS: ", err)
-		}
-	}
-	log.Infof("using local address(es): %v", gc.LocalAddrs)
 	return nil
 }
 

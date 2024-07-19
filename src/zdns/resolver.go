@@ -43,7 +43,7 @@ const (
 	defaultCacheSize             = 10000
 	defaultShouldTrace           = false
 	defaultDNSSECEnabled         = false
-	defaultIPVersionMode         = IPv4OrIPv6
+	defaultIPVersionMode         = IPv4Only
 	defaultNameServerConfigFile  = "/etc/resolv.conf"
 	defaultLookupAllNameServers  = false
 )
@@ -87,7 +87,26 @@ func (rc *ResolverConfig) ValidateAndPopulate() error {
 	if rc.Cache != nil && rc.CacheSize != 0 {
 		return fmt.Errorf("cannot use both cache and cacheSize")
 	}
+
+	// Local Addresses
+	if len(rc.LocalAddrs) == 0 {
+		// localAddr not set, so we need to find the default IP address
+		conn, err := net.Dial("udp", googleDNSResolverAddr)
+		if err != nil {
+			return fmt.Errorf("unable to find default IP address to open socket: %w", err)
+		}
+		rc.LocalAddrs = append(rc.LocalAddrs, conn.LocalAddr().(*net.UDPAddr).IP)
+		// cleanup socket
+		if err = conn.Close(); err != nil {
+			log.Error("unable to close test connection to Google public DNS: ", err)
+		}
+	}
 	return nil
+}
+
+func (rc *ResolverConfig) PrintInfo() {
+
+	log.Infof("using local addresses: %v", rc.LocalAddrs)
 }
 
 // NewResolverConfig creates a new ResolverConfig with default values.
@@ -189,21 +208,8 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		checkingDisabledBit: config.CheckingDisabledBit,
 	}
 	log.SetLevel(r.logLevel)
-	if len(config.LocalAddrs) == 0 {
-		// localAddr not set, so we need to find the default IP address
-		conn, err := net.Dial("udp", googleDNSResolverAddr)
-		if err != nil {
-			return nil, fmt.Errorf("unable to find default IP address to open socket: %w", err)
-		}
-		r.localAddr = conn.LocalAddr().(*net.UDPAddr).IP
-		// cleanup socket
-		if err = conn.Close(); err != nil {
-			log.Error("unable to close test connection to Google public DNS: ", err)
-		}
-	} else {
-		// caller provided local addresses, choose a random one
-		r.localAddr = config.LocalAddrs[rand.Intn(len(config.LocalAddrs))]
-	}
+	r.localAddr = config.LocalAddrs[rand.Intn(len(config.LocalAddrs))]
+
 	if r.shouldRecycleSockets {
 		// create persistent connection
 		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: r.localAddr})
