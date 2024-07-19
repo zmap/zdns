@@ -100,9 +100,9 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 		log.Fatal("Unknown record class specified. Valid valued are INET (default), CSNET, CHAOS, HESIOD, NONE, ANY")
 	}
 
-	err := validateNetworkingConfig(gc)
+	err := populateNetworkingConfig(gc)
 	if err != nil {
-		log.Fatalf("networking config did not pass validation: %v", err)
+		log.Fatalf("could not populate networking config: %v", err)
 	}
 
 	if gc.UseNanoseconds {

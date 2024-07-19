@@ -23,17 +23,15 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
-
-	"github.com/zmap/zdns/src/internal/util"
 )
 
-func validateNetworkingConfig(gc *CLIConf) error {
+func populateNetworkingConfig(gc *CLIConf) error {
 	// mutually exclusive CLI options
 	if gc.LocalIfaceString != "" && gc.LocalAddrString != "" {
 		return errors.New("--local-addr and --local-interface cannot both be specified")
 	}
 
-	if err := validateNameServers(gc); err != nil {
+	if err := populateNameServers(gc); err != nil {
 		return errors.Wrap(err, "name servers did not pass validation")
 	}
 
@@ -106,7 +104,7 @@ func validateClientSubnetString(gc *CLIConf) error {
 	return nil
 }
 
-func validateNameServers(gc *CLIConf) error {
+func populateNameServers(gc *CLIConf) error {
 	if gc.LookupAllNameServers && gc.NameServersString != "" {
 		log.Fatal("name servers cannot be specified in --all-nameservers mode.")
 	}
@@ -128,16 +126,6 @@ func validateNameServers(gc *CLIConf) error {
 			ns = strings.Split(strings.Trim(string(f), "\n"), "\n")
 		} else {
 			ns = strings.Split(gc.NameServersString, ",")
-		}
-		for i, s := range ns {
-			nsWithPort, err := util.AddDefaultPortToDNSServerName(s)
-			if err != nil {
-				log.Fatalf("unable to parse name server: %s", s)
-			}
-			ns[i] = nsWithPort
-		}
-		if len(ns) == 0 {
-			return fmt.Errorf("no valid name servers specified: %v", ns)
 		}
 		gc.NameServers = ns
 	}

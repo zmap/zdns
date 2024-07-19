@@ -25,14 +25,14 @@ func TestValidateNetworkingConfig(t *testing.T) {
 			LocalAddrString:  "1.1.1.1",
 			LocalIfaceString: "eth0",
 		}
-		err := validateNetworkingConfig(gc)
+		err := populateNetworkingConfig(gc)
 		require.NotNil(t, err, "Expected an error but got nil")
 	})
 	t.Run("Using invalid interface", func(t *testing.T) {
 		gc := &CLIConf{
 			LocalIfaceString: "invalid_interface",
 		}
-		err := validateNetworkingConfig(gc)
+		err := populateNetworkingConfig(gc)
 		require.NotNil(t, err, "Expected an error but got nil")
 	})
 
@@ -40,7 +40,7 @@ func TestValidateNetworkingConfig(t *testing.T) {
 		gc := &CLIConf{
 			NameServersString: "1.1.1.1",
 		}
-		err := validateNetworkingConfig(gc)
+		err := populateNetworkingConfig(gc)
 		require.Nil(t, err, "Expected no error but got %v", err)
 		require.Equal(t, "1.1.1.1:53", gc.NameServers[0], "Expected port 53 to be appended to nameserver")
 	})
@@ -48,7 +48,7 @@ func TestValidateNetworkingConfig(t *testing.T) {
 		gc := &CLIConf{
 			NameServersString: "127.0.0.1:5353",
 		}
-		err := validateNetworkingConfig(gc)
+		err := populateNetworkingConfig(gc)
 		require.Nil(t, err, "Expected no error but got %v", err)
 		require.Equal(t, "127.0.0.1:5353", gc.NameServers[0], "Expected user supplied port to not be changed")
 	})
