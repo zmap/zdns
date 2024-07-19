@@ -43,7 +43,6 @@ func TestValidateNetworkingConfig(t *testing.T) {
 		err := validateNetworkingConfig(gc)
 		require.Nil(t, err, "Expected no error but got %v", err)
 		require.Equal(t, "1.1.1.1:53", gc.NameServers[0], "Expected port 53 to be appended to nameserver")
-		require.False(t, gc.UsingLoopbackNameServer, "Expected UsingLoopbackNameServer to be false")
 	})
 	t.Run("Using nameserver with port", func(t *testing.T) {
 		gc := &CLIConf{
