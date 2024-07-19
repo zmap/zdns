@@ -230,7 +230,8 @@ func (rc *ResolverConfig) validateLoopbackConsistency() error {
 		log.Warn("nameservers are loopback, setting local address to loopback to match")
 		rc.LocalAddrs = []net.IP{net.ParseIP(LoopbackAddrString)}
 	} else if noneNameserversLoopback && allLocalAddrsLoopback {
-		return fmt.Errorf("using loopback local addresses with non-loopback nameservers is not supported")
+		return fmt.Errorf("using loopback local addresses with non-loopback nameservers is not supported. " +
+			"Consider setting nameservers to loopback addresses assuming you have a local DNS server")
 	}
 	return nil
 }
