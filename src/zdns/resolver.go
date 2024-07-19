@@ -319,7 +319,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		c = new(Cache)
 		c.Init(defaultCacheSize)
 	}
-	// copy relevent all values from config to resolver
+	// copy relevant all values from config to resolver
 	r := &Resolver{
 		cache:        c,
 		lookupClient: config.LookupClient,
