@@ -31,7 +31,7 @@ import (
 
 const (
 	// TODO - we'll need to update this when we add IPv6 support
-	LoopbackAddrString    = "127.0.0.1:53"
+	LoopbackAddrString    = "127.0.0.1"
 	googleDNSResolverAddr = "8.8.8.8:53"
 
 	defaultTimeout               = 15 * time.Second // timeout for resolving a single name
@@ -204,8 +204,10 @@ func (rc *ResolverConfig) validateLoopbackConsistency() error {
 	// Both nameservers and local addresses are completely loopback or non-loopback
 	// if using loopback nameservers, override local addresses to be loopback and warn user
 	if allNameserversLoopback && noneLocalAddrsLoopback {
-		rc.LocalAddrs = []net.IP{net.ParseIP(LoopbackAddrString)}
 		log.Warn("nameservers are loopback, setting local address to loopback to match")
+		rc.LocalAddrs = []net.IP{net.ParseIP(LoopbackAddrString)}
+	} else if noneNameserversLoopback && allLocalAddrsLoopback {
+		return fmt.Errorf("using loopback local addresses with non-loopback nameservers is not supported")
 	}
 	return nil
 }

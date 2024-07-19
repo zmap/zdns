@@ -2138,6 +2138,7 @@ func TestAllNsLookupServFail(t *testing.T) {
 func TestInvalidInputsLookup(t *testing.T) {
 	config := NewResolverConfig()
 	config.LocalAddrs = []net.IP{net.ParseIP("127.0.0.1")}
+	config.ExternalNameServers = []string{"127.0.0.1:53"}
 	resolver, err := InitResolver(config)
 	require.NoError(t, err)
 	q := Question{
