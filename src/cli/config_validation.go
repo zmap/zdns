@@ -33,7 +33,6 @@ func validateNetworkingConfig(gc *CLIConf) error {
 		return errors.New("--local-addr and --local-interface cannot both be specified")
 	}
 
-	// Note: we rely on the value of gc.UsingLoopbackNameServer set here, so this must be called first before other validation
 	if err := validateNameServers(gc); err != nil {
 		return errors.Wrap(err, "name servers did not pass validation")
 	}
@@ -74,7 +73,6 @@ func validateNetworkingConfig(gc *CLIConf) error {
 		}
 		log.Info("using local interface: ", gc.LocalIfaceString)
 	}
-
 	return nil
 }
 

@@ -399,8 +399,16 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryRe
 
 	if dstServer == "" {
 		dstServer = r.randomExternalNameServer()
+		log.Info("no name server provided for external lookup, using  random external name server: ", dstServer)
 	}
-	lookup, trace, status, err := r.lookupClient.DoSingleDstServerLookup(r, *q, dstServer, false)
+	dstServerWithPort, err := util.AddDefaultPortToDNSServerName(dstServer)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("could not parse name server (%s): %w", dstServer, err)
+	}
+	if dstServer != dstServerWithPort {
+		log.Info("no port provided for external lookup, using default port 53")
+	}
+	lookup, trace, status, err := r.lookupClient.DoSingleDstServerLookup(r, *q, dstServerWithPort, false)
 	return lookup, trace, status, err
 }
 
