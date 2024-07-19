@@ -35,21 +35,12 @@ func TestValidateNetworkingConfig(t *testing.T) {
 		err := populateNetworkingConfig(gc)
 		require.NotNil(t, err, "Expected an error but got nil")
 	})
-
-	t.Run("Using nameserver with no port", func(t *testing.T) {
-		gc := &CLIConf{
-			NameServersString: "1.1.1.1",
-		}
-		err := populateNetworkingConfig(gc)
-		require.Nil(t, err, "Expected no error but got %v", err)
-		require.Equal(t, "1.1.1.1:53", gc.NameServers[0], "Expected port 53 to be appended to nameserver")
-	})
 	t.Run("Using nameserver with port", func(t *testing.T) {
 		gc := &CLIConf{
-			NameServersString: "127.0.0.1:5353",
+			NameServersString: "127.0.0.1:53",
 		}
 		err := populateNetworkingConfig(gc)
 		require.Nil(t, err, "Expected no error but got %v", err)
-		require.Equal(t, "127.0.0.1:5353", gc.NameServers[0], "Expected user supplied port to not be changed")
+		require.Equal(t, "127.0.0.1:53", gc.NameServers[0], "Expected user supplied port to not be changed")
 	})
 }

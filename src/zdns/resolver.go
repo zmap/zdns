@@ -403,12 +403,22 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryRe
 	}
 	dstServerWithPort, err := util.AddDefaultPortToDNSServerName(dstServer)
 	if err != nil {
-		return nil, nil, "", fmt.Errorf("could not parse name server (%s): %w", dstServer, err)
+		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w", dstServer, err)
 	}
 	if dstServer != dstServerWithPort {
 		log.Info("no port provided for external lookup, using default port 53")
 	}
-	lookup, trace, status, err := r.lookupClient.DoSingleDstServerLookup(r, *q, dstServerWithPort, false)
+	dstServer = dstServerWithPort
+	dstServerIP, _, err := util.SplitHostPort(dstServerWithPort)
+	if err != nil {
+		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w", dstServer, err)
+	}
+	// check that local address and dstServer's don't have a loopback mismatch
+	if r.localAddr.IsLoopback() != dstServerIP.IsLoopback() {
+		return nil, nil, StatusIllegalInput, errors.New("cannot mix loopback and non-loopback addresses")
+
+	}
+	lookup, trace, status, err := r.lookupClient.DoSingleDstServerLookup(r, *q, dstServer, false)
 	return lookup, trace, status, err
 }
 
