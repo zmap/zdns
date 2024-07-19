@@ -145,6 +145,18 @@ func (rc *ResolverConfig) populateResolverConfig() error {
 		}
 		rc.ExternalNameServers = portValidatedNSs
 	}
+	// TODO - Remove when we add IPv6 support
+	ipv4NameServers := make([]string, 0, len(rc.ExternalNameServers))
+	for _, ns := range rc.ExternalNameServers {
+		ip, _, err := util.SplitHostPort(ns)
+		if err != nil {
+			return fmt.Errorf("could not split host and port for nameserver: %s", ns)
+		}
+		if ip.To4() != nil {
+			ipv4NameServers = append(ipv4NameServers, ns)
+		}
+	}
+	rc.ExternalNameServers = ipv4NameServers
 
 	// Local Addresses
 	if len(rc.LocalAddrs) == 0 {
@@ -159,6 +171,17 @@ func (rc *ResolverConfig) populateResolverConfig() error {
 			log.Error("unable to close test connection to Google public DNS: ", err)
 		}
 	}
+
+	// TODO - Remove when we add IPv6 support
+	ipv4LocalAddrs := make([]net.IP, 0, len(rc.LocalAddrs))
+	for _, addr := range rc.LocalAddrs {
+		if addr.To4() != nil {
+			ipv4LocalAddrs = append(ipv4LocalAddrs, addr)
+		} else {
+			log.Info("ignoring non-IPv4 local address: ", addr)
+		}
+	}
+	rc.LocalAddrs = ipv4LocalAddrs
 	return nil
 }
 
@@ -213,7 +236,6 @@ func (rc *ResolverConfig) validateLoopbackConsistency() error {
 }
 
 func (rc *ResolverConfig) PrintInfo() {
-
 	log.Infof("using local addresses: %v", rc.LocalAddrs)
 	log.Infof("for non-iterative lookups, using nameservers: %s", strings.Join(rc.ExternalNameServers, ", "))
 }

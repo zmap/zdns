@@ -204,6 +204,12 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 func Run(gc CLIConf, flags *pflag.FlagSet) {
 	gc = *populateCLIConfig(&gc, flags)
 	resolverConfig := populateResolverConfig(&gc, flags)
+	err := resolverConfig.PopulateAndValidate()
+	if err != nil {
+		log.Fatal("could not populate defaults and validate resolver config: ", err)
+	}
+	// Log any information about the resolver configuration, according to log level
+	resolverConfig.PrintInfo()
 	lookupModule, err := GetLookupModule(gc.Module)
 	if err != nil {
 		log.Fatal("could not get lookup module: ", err)

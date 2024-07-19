@@ -69,12 +69,6 @@ func validateNetworkingConfig(gc *CLIConf) error {
 			if err != nil {
 				return fmt.Errorf("unable to parse IP address from interface %s: %v", gc.LocalIfaceString, err)
 			}
-			if ip.To4() == nil {
-				// skip IPv6 addresses
-				// TODO - we'll need to update this when we add IPv6 support
-				log.Infof("interface %s has IPv6 address %s, skipping since unsupported", gc.LocalIfaceString, ip.String())
-				continue
-			}
 			gc.LocalAddrs = append(gc.LocalAddrs, ip)
 			gc.LocalAddrSpecified = true
 		}
