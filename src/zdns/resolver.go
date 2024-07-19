@@ -76,17 +76,18 @@ type ResolverConfig struct {
 	CheckingDisabledBit bool
 }
 
-func (rc *ResolverConfig) isValid() (bool, string) {
+// ValidateAndPopulate checks if the ResolverConfig is valid and populates any missing fields with default values.
+func (rc *ResolverConfig) ValidateAndPopulate() error {
 	if isValid, reason := rc.TransportMode.isValid(); !isValid {
-		return false, reason
+		return fmt.Errorf("invalid transport mode: %s", reason)
 	}
 	if isValid, reason := rc.IPVersionMode.IsValid(); !isValid {
-		return false, reason
+		return fmt.Errorf("invalid IP version mode: %s", reason)
 	}
 	if rc.Cache != nil && rc.CacheSize != 0 {
-		return false, "cannot use both cache and cacheSize"
+		return fmt.Errorf("cannot use both cache and cacheSize")
 	}
-	return true, ""
+	return nil
 }
 
 // NewResolverConfig creates a new ResolverConfig with default values.
@@ -153,8 +154,8 @@ type Resolver struct {
 // It is safe to create multiple Resolvers with the same ResolverConfig but each resolver should perform only one lookup at a time.
 // Returns a Resolver ptr and any error that occurred
 func InitResolver(config *ResolverConfig) (*Resolver, error) {
-	if isValid, notValidReason := config.isValid(); !isValid {
-		return nil, fmt.Errorf("invalid resolver config: %s", notValidReason)
+	if err := config.ValidateAndPopulate(); err != nil {
+		return nil, fmt.Errorf("invalid resolver config: %w", err)
 	}
 	var c *Cache
 	if config.CacheSize != 0 {
