@@ -16,6 +16,7 @@ package zdns
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"math/rand"
 	"net"
 	"strings"
@@ -29,6 +30,8 @@ import (
 )
 
 const (
+	// TODO - we'll need to update this when we add IPv6 support
+	LoopbackAddrString    = "127.0.0.1:53"
 	googleDNSResolverAddr = "8.8.8.8:53"
 
 	defaultTimeout               = 15 * time.Second // timeout for resolving a single name
@@ -44,7 +47,7 @@ const (
 	defaultShouldTrace           = false
 	defaultDNSSECEnabled         = false
 	defaultIPVersionMode         = IPv4Only
-	defaultNameServerConfigFile  = "/etc/resolv.conf"
+	DefaultNameServerConfigFile  = "/etc/resolv.conf"
 	defaultLookupAllNameServers  = false
 )
 
@@ -70,14 +73,24 @@ type ResolverConfig struct {
 	MaxDepth             int
 	ExternalNameServers  []string // name servers used for external lookups
 	LookupAllNameServers bool     // perform the lookup via all the nameservers for the domain
+	DNSConfigFilePath    string   // path to the DNS config file, ex: /etc/resolv.conf
 
 	DNSSecEnabled       bool
 	EdnsOptions         []dns.EDNS0
 	CheckingDisabledBit bool
 }
 
-// ValidateAndPopulate checks if the ResolverConfig is valid and populates any missing fields with default values.
-func (rc *ResolverConfig) ValidateAndPopulate() error {
+// PopulateAndValidate checks if the ResolverConfig is valid and populates any missing fields with default values.
+func (rc *ResolverConfig) PopulateAndValidate() error {
+	// populate any missing values in resolver config
+	if err := rc.populateResolverConfig(); err != nil {
+		return errors.Wrap(err, "could not populate resolver config")
+	}
+
+	// Potentially, a name-server could be listed multiple times by either the user or in the OS's respective /etc/resolv.conf
+	// De-dupe
+	rc.ExternalNameServers = util.RemoveDuplicates(rc.ExternalNameServers)
+
 	if isValid, reason := rc.TransportMode.isValid(); !isValid {
 		return fmt.Errorf("invalid transport mode: %s", reason)
 	}
@@ -86,6 +99,51 @@ func (rc *ResolverConfig) ValidateAndPopulate() error {
 	}
 	if rc.Cache != nil && rc.CacheSize != 0 {
 		return fmt.Errorf("cannot use both cache and cacheSize")
+	}
+
+	// Check that all nameservers/local addresses are valid
+	for _, ns := range rc.ExternalNameServers {
+		if _, _, err := net.SplitHostPort(ns); err != nil {
+			return fmt.Errorf("invalid name server: %s", ns)
+		}
+	}
+	for _, addr := range rc.LocalAddrs {
+		if addr == nil {
+			return errors.New("local address cannot be nil")
+		}
+		if addr.To4() == nil && addr.To16() == nil {
+			return fmt.Errorf("invalid local address: %v", addr)
+		}
+	}
+
+	if err := rc.validateLoopbackConsistency(); err != nil {
+		return errors.Wrap(err, "could not validate loopback consistency")
+	}
+
+	return nil
+}
+
+func (rc *ResolverConfig) populateResolverConfig() error {
+	// Nameservers
+	if len(rc.ExternalNameServers) == 0 {
+		// if nameservers aren't set, use OS' default
+		ns, err := GetDNSServers(rc.DNSConfigFilePath)
+		if err != nil {
+			ns = util.GetDefaultResolvers()
+			log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(ns, ", "))
+		}
+		rc.ExternalNameServers = ns
+	} else {
+		portValidatedNSs := make([]string, 0, len(rc.ExternalNameServers))
+		// check that the nameservers have a port and append one if necessary
+		for _, ns := range rc.ExternalNameServers {
+			portNS, err := util.AddDefaultPortToDNSServerName(ns)
+			if err != nil {
+				return fmt.Errorf("could not parse name server: %s", ns)
+			}
+			portValidatedNSs = append(portValidatedNSs, portNS)
+		}
+		rc.ExternalNameServers = portValidatedNSs
 	}
 
 	// Local Addresses
@@ -104,9 +162,58 @@ func (rc *ResolverConfig) ValidateAndPopulate() error {
 	return nil
 }
 
+// validateLoopbackConsistency checks that the following is true
+// - if using a loopback nameserver, all nameservers are loopback and vice-versa
+// - if using a loopback local address, all local addresses are loopback and vice-versa
+// - either all nameservers AND all local addresses are loopback, or none are
+func (rc *ResolverConfig) validateLoopbackConsistency() error {
+
+	// check if all nameservers are loopback or non-loopback
+	allNameserversLoopback := true
+	noneNameserversLoopback := true
+	for _, ns := range rc.ExternalNameServers {
+		ip, _, err := util.SplitHostPort(ns)
+		if err != nil {
+			return errors.Wrapf(err, "could not split host and port for nameserver: %s", ns)
+		}
+		if ip.IsLoopback() {
+			noneNameserversLoopback = false
+		} else {
+			allNameserversLoopback = false
+		}
+	}
+	loopbackNameserverMismatch := allNameserversLoopback == noneNameserversLoopback
+	if len(rc.ExternalNameServers) > 0 && loopbackNameserverMismatch {
+		return fmt.Errorf("cannot mix loopback and non-loopback nameservers: %v", rc.ExternalNameServers)
+	}
+
+	allLocalAddrsLoopback := true
+	noneLocalAddrsLoopback := true
+	// check if all local addresses are loopback or non-loopback
+	for _, addr := range rc.LocalAddrs {
+		if addr.IsLoopback() {
+			noneLocalAddrsLoopback = false
+		} else {
+			allLocalAddrsLoopback = false
+		}
+	}
+	if len(rc.LocalAddrs) > 0 && allLocalAddrsLoopback == noneLocalAddrsLoopback {
+		return fmt.Errorf("cannot mix loopback and non-loopback local addresses: %v", rc.LocalAddrs)
+	}
+
+	// Both nameservers and local addresses are completely loopback or non-loopback
+	// if using loopback nameservers, override local addresses to be loopback and warn user
+	if allNameserversLoopback && noneLocalAddrsLoopback {
+		rc.LocalAddrs = []net.IP{net.ParseIP(LoopbackAddrString)}
+		log.Warn("nameservers are loopback, setting local address to loopback to match")
+	}
+	return nil
+}
+
 func (rc *ResolverConfig) PrintInfo() {
 
 	log.Infof("using local addresses: %v", rc.LocalAddrs)
+	log.Infof("for non-iterative lookups, using nameservers: %s", strings.Join(rc.ExternalNameServers, ", "))
 }
 
 // NewResolverConfig creates a new ResolverConfig with default values.
@@ -173,7 +280,7 @@ type Resolver struct {
 // It is safe to create multiple Resolvers with the same ResolverConfig but each resolver should perform only one lookup at a time.
 // Returns a Resolver ptr and any error that occurred
 func InitResolver(config *ResolverConfig) (*Resolver, error) {
-	if err := config.ValidateAndPopulate(); err != nil {
+	if err := config.PopulateAndValidate(); err != nil {
 		return nil, fmt.Errorf("invalid resolver config: %w", err)
 	}
 	var c *Cache
@@ -249,16 +356,6 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	r.maxDepth = config.MaxDepth
 	// use the set of 13 root name servers
 	r.rootNameServers = RootServersV4[:]
-	if len(r.externalNameServers) == 0 {
-		// client did not specify name servers, so use the default from the OS
-		ns, err := GetDNSServers(defaultNameServerConfigFile)
-		if err != nil {
-			ns = util.GetDefaultResolvers()
-			log.Warn("Unable to parse resolvers file with error %w. Using ZDNS defaults: ", err, strings.Join(ns, ", "))
-		}
-		r.externalNameServers = ns
-		log.Info("No name servers specified. will use: ", strings.Join(r.externalNameServers, ", "))
-	}
 	return r, nil
 }
 

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -54,6 +55,26 @@ func AddDefaultPortToDNSServerName(inAddr string) (string, error) {
 	}
 
 	return net.JoinHostPort(ip.String(), port), nil
+}
+
+func SplitHostPort(inaddr string) (net.IP, int, error) {
+	host, port, err := net.SplitHostPort(inaddr)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return nil, 0, errors.Wrap(err, "invalid IP address")
+	}
+
+	portInt, err := strconv.Atoi(port)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "invalid port")
+	}
+
+	return ip, portInt, nil
+
 }
 
 // Reference: https://github.com/carolynvs/stingoftheviper/blob/main/main.go

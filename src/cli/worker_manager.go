@@ -188,6 +188,7 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 	config.ExternalNameServers = gc.NameServers
 	config.LocalAddrs = gc.LocalAddrs
 	config.DNSSecEnabled = gc.Dnssec
+	config.DNSConfigFilePath = gc.ConfigFilePath
 
 	config.LogLevel = log.Level(gc.Verbosity)
 

@@ -25,6 +25,7 @@ import (
 	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/src/internal/util"
+	"github.com/zmap/zdns/src/zdns"
 )
 
 const (
@@ -163,7 +164,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&GC.NameServersString, "name-servers", "", "List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53.")
 	rootCmd.PersistentFlags().StringVar(&GC.LocalAddrString, "local-addr", "", "comma-delimited list of local addresses to use, serve as the source IP for outbound queries")
 	rootCmd.PersistentFlags().StringVar(&GC.LocalIfaceString, "local-interface", "", "local interface to use")
-	rootCmd.PersistentFlags().StringVar(&GC.ConfigFilePath, "conf-file", "/etc/resolv.conf", "config file for DNS servers")
+	rootCmd.PersistentFlags().StringVar(&GC.ConfigFilePath, "conf-file", zdns.DefaultNameServerConfigFile, "config file for DNS servers")
 	rootCmd.PersistentFlags().IntVar(&GC.Timeout, "timeout", 15, "timeout for resolving a individual name, in seconds")
 	rootCmd.PersistentFlags().IntVar(&GC.IterationTimeout, "iteration-timeout", 4, "timeout for a single iterative step in an iterative query, in seconds. Only applicable with --iterative")
 	rootCmd.PersistentFlags().StringVar(&GC.ClassString, "class", "INET", "DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY.")

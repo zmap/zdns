@@ -16,7 +16,6 @@ package cli
 import (
 	"fmt"
 	"net"
-	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -26,12 +25,6 @@ import (
 	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/src/internal/util"
-	"github.com/zmap/zdns/src/zdns"
-)
-
-const (
-	// TODO - we'll need to update this when we add IPv6 support
-	loopbackAddrString = "127.0.0.1"
 )
 
 func validateNetworkingConfig(gc *CLIConf) error {
@@ -66,14 +59,6 @@ func validateNetworkingConfig(gc *CLIConf) error {
 		if err != nil {
 			return fmt.Errorf("invalid local interface specified: %v", err)
 		}
-		// net.FlagLoopback is a bitmask, so we need to check if the loopback flag is set
-		ifaceLoopbackFlag := li.Flags & net.FlagLoopback
-		isIfaceLoopback := ifaceLoopbackFlag != 0
-		// if we're using the loopback nameserver, make sure we're using the loopback interface
-		// Vice-versa for a non-loopback nameserver
-		if isIfaceLoopback != gc.UsingLoopbackNameServer {
-			return fmt.Errorf("cannot mix loopback/non-loopback nameservers (%v) and interface (%s)", gc.NameServers, gc.LocalIfaceString)
-		}
 		addrs, err := li.Addrs()
 		if err != nil {
 			return fmt.Errorf("unable to detect addresses of local interface: %v", err)
@@ -96,11 +81,6 @@ func validateNetworkingConfig(gc *CLIConf) error {
 		log.Info("using local interface: ", gc.LocalIfaceString)
 	}
 
-	if gc.UsingLoopbackNameServer && !gc.LocalAddrSpecified {
-		// set local addr as loopback if we're using the loopback name server
-		gc.LocalAddrs = []net.IP{net.ParseIP(loopbackAddrString)}
-		gc.LocalAddrSpecified = true
-	}
 	return nil
 }
 
@@ -139,21 +119,7 @@ func validateNameServers(gc *CLIConf) error {
 		log.Fatal("name servers cannot be specified in --all-nameservers mode.")
 	}
 
-	if gc.NameServersString == "" {
-		// if we're doing recursive resolution, figure out default OS name servers
-		// otherwise, use the set of 13 root name servers
-		if gc.IterativeResolution {
-			gc.NameServers = zdns.RootServersV4[:]
-		} else {
-			ns, err := zdns.GetDNSServers(gc.ConfigFilePath)
-			if err != nil {
-				ns = util.GetDefaultResolvers()
-				log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(ns, ", "))
-			}
-			gc.NameServers = ns
-		}
-		log.Info("No name servers specified. will use: ", strings.Join(gc.NameServers, ", "))
-	} else {
+	if gc.NameServersString != "" {
 		if gc.NameServerMode {
 			log.Fatal("name servers cannot be specified on command line in --name-server-mode")
 		}
@@ -182,28 +148,6 @@ func validateNameServers(gc *CLIConf) error {
 			return fmt.Errorf("no valid name servers specified: %v", ns)
 		}
 		gc.NameServers = ns
-	}
-
-	// Potentially, a name-server could be listed multiple times by either the user or in the OS's respective /etc/resolv.conf
-	// De-dupe
-	gc.NameServers = util.RemoveDuplicates(gc.NameServers)
-
-	// Check if any of the name servers are in the loopback subnet
-	gc.UsingLoopbackNameServer = false
-	numberOfLoopbackNameServers := 0
-	for _, ns := range gc.NameServers {
-		ip, err := netip.ParseAddr(strings.Split(ns, ":")[0])
-		if err != nil {
-			return errors.Wrapf(err, "could not parse nameserver: %s", ns)
-		}
-		if ip.IsLoopback() {
-			gc.UsingLoopbackNameServer = true
-			numberOfLoopbackNameServers++
-		}
-	}
-
-	if gc.UsingLoopbackNameServer && len(gc.NameServers) > numberOfLoopbackNameServers {
-		return fmt.Errorf("cannot use a loopback nameserver with non-loopback nameservers (%v). Please specify with --name-servers one or the other", gc.NameServers)
 	}
 	return nil
 }

@@ -47,7 +47,7 @@ func InitTest(t *testing.T) *zdns.Resolver {
 	mockResults = make(map[string]*zdns.SingleQueryResult)
 	queries = make([]QueryRecord, 0)
 	rc := zdns.ResolverConfig{
-		ExternalNameServers: []string{"127.0.0.1"},
+		ExternalNameServers: []string{zdns.LoopbackAddrString},
 		LookupClient:        MockLookup{}}
 	r, err := zdns.InitResolver(&rc)
 	assert.NilError(t, err)
@@ -69,7 +69,7 @@ func TestLookup_DoTxtLookup_Valid_1(t *testing.T) {
 	assert.Equal(t, queries[0].Class, uint16(dns.ClassINET))
 	assert.Equal(t, queries[0].Type, dns.TypeTXT)
 	assert.Equal(t, queries[0].Name, "google.com")
-	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
+	assert.Equal(t, queries[0].NameServer, zdns.LoopbackAddrString)
 
 	assert.Equal(t, zdns.StatusNoError, status)
 	assert.Equal(t, res.(Result).Spf, "v=spf1 mx include:_spf.google.com -all")
@@ -89,7 +89,7 @@ func TestLookup_DoTxtLookup_Valid_2(t *testing.T) {
 	assert.Equal(t, queries[0].Class, uint16(dns.ClassINET))
 	assert.Equal(t, queries[0].Type, dns.TypeTXT)
 	assert.Equal(t, queries[0].Name, "google.com")
-	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
+	assert.Equal(t, queries[0].NameServer, zdns.LoopbackAddrString)
 
 	assert.Equal(t, zdns.StatusNoError, status)
 	assert.Equal(t, res.(Result).Spf, "V=SpF1 mx include:_spf.google.com -all")
@@ -109,7 +109,7 @@ func TestLookup_DoTxtLookup_NotValid_1(t *testing.T) {
 	assert.Equal(t, queries[0].Class, uint16(dns.ClassINET))
 	assert.Equal(t, queries[0].Type, dns.TypeTXT)
 	assert.Equal(t, queries[0].Name, "google.com")
-	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
+	assert.Equal(t, queries[0].NameServer, zdns.LoopbackAddrString)
 
 	assert.Equal(t, zdns.StatusNoRecord, status)
 	assert.Equal(t, res.(Result).Spf, "")
@@ -129,7 +129,7 @@ func TestLookup_DoTxtLookup_NotValid_2(t *testing.T) {
 	assert.Equal(t, queries[0].Class, uint16(dns.ClassINET))
 	assert.Equal(t, queries[0].Type, dns.TypeTXT)
 	assert.Equal(t, queries[0].Name, "google.com")
-	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
+	assert.Equal(t, queries[0].NameServer, zdns.LoopbackAddrString)
 
 	assert.Equal(t, zdns.StatusNoRecord, status)
 	assert.Equal(t, res.(Result).Spf, "")
@@ -144,7 +144,7 @@ func TestLookup_DoTxtLookup_NoTXT(t *testing.T) {
 	assert.Equal(t, queries[0].Class, uint16(dns.ClassINET))
 	assert.Equal(t, queries[0].Type, dns.TypeTXT)
 	assert.Equal(t, queries[0].Name, "example.com")
-	assert.Equal(t, queries[0].NameServer, "127.0.0.1")
+	assert.Equal(t, queries[0].NameServer, zdns.LoopbackAddrString)
 
 	assert.Equal(t, zdns.StatusNoAnswer, status)
 	assert.Equal(t, res.(Result).Spf, "")
