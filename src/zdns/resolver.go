@@ -71,7 +71,7 @@ type ResolverConfig struct {
 	MaxDepth             int
 	ExternalNameServers  []string // name servers used for external lookups
 	LookupAllNameServers bool     // perform the lookup via all the nameservers for the domain
-	ShouldFollowCNAMEs   bool     // whether iterative lookups should follow CNAMEs/DNAMEs
+	FollowCNAMEs         bool     // whether iterative lookups should follow CNAMEs/DNAMEs
 
 	DNSSecEnabled       bool
 	EdnsOptions         []dns.EDNS0
@@ -106,7 +106,7 @@ func NewResolverConfig() *ResolverConfig {
 		IPVersionMode:        defaultIPVersionMode,
 		ShouldRecycleSockets: defaultShouldRecycleSockets,
 		LookupAllNameServers: false,
-		ShouldFollowCNAMEs:   defaultFollowCNAMEs,
+		FollowCNAMEs:         defaultFollowCNAMEs,
 
 		Retries:  defaultRetries,
 		LogLevel: defaultLogVerbosity,
@@ -184,7 +184,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		transportMode:        config.TransportMode,
 		ipVersionMode:        config.IPVersionMode,
 		shouldRecycleSockets: config.ShouldRecycleSockets,
-		followCNAMEs:         config.ShouldFollowCNAMEs,
+		followCNAMEs:         config.FollowCNAMEs,
 
 		timeout: config.Timeout,
 

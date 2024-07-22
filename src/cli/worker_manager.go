@@ -105,7 +105,7 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 		log.Fatalf("networking config did not pass validation: %v", err)
 	}
 
-	if !gc.ShouldFollowCNAMEs && !gc.IterativeResolution {
+	if !gc.FollowCNAMEs && !gc.IterativeResolution {
 		log.Warn("CNAME following is only applicable when ZDNS is performing it's own iterative resolution. Ignoring --follow-cnames")
 	}
 
@@ -176,7 +176,7 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 	// copy nameservers to resolver config
 	config.ExternalNameServers = gc.NameServers
 	config.LookupAllNameServers = gc.LookupAllNameServers
-	config.ShouldFollowCNAMEs = gc.ShouldFollowCNAMEs
+	config.FollowCNAMEs = gc.FollowCNAMEs
 
 	if gc.UseNSID {
 		config.EdnsOptions = append(config.EdnsOptions, new(dns.EDNS0_NSID))
