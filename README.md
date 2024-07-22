@@ -178,7 +178,7 @@ routines. This architecture has several cavaets:
    ephemeral ports) as you have threads specified (via `--threads`). By default,
    ZDNS uses 1,000 threads, which is less than Linux's default max number of 1024
    open FDs. However, it is greater than Mac OS's default of 256. You can view
-   the maximum number of open FDs (and thus sockets) permitted by running `unlimit -n`. If
+   the maximum number of open FDs (and thus sockets) permitted by running `ulimit -n`. If
    you want to run with a greater number of threads than this number, you need to
    increase the number of open files at the OS level. If you fail to do this,
    you'll encounter a fatal error similar to `FATA[0000] unable to create
