@@ -100,9 +100,9 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 		log.Fatal("Unknown record class specified. Valid valued are INET (default), CSNET, CHAOS, HESIOD, NONE, ANY")
 	}
 
-	err := validateNetworkingConfig(gc)
+	err := populateNetworkingConfig(gc)
 	if err != nil {
-		log.Fatalf("networking config did not pass validation: %v", err)
+		log.Fatalf("could not populate networking config: %v", err)
 	}
 
 	if !gc.FollowCNAMEs && !gc.IterativeResolution {
@@ -193,6 +193,7 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 	config.ExternalNameServers = gc.NameServers
 	config.LocalAddrs = gc.LocalAddrs
 	config.DNSSecEnabled = gc.Dnssec
+	config.DNSConfigFilePath = gc.ConfigFilePath
 
 	config.LogLevel = log.Level(gc.Verbosity)
 
@@ -208,6 +209,12 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 func Run(gc CLIConf, flags *pflag.FlagSet) {
 	gc = *populateCLIConfig(&gc, flags)
 	resolverConfig := populateResolverConfig(&gc, flags)
+	err := resolverConfig.PopulateAndValidate()
+	if err != nil {
+		log.Fatal("could not populate defaults and validate resolver config: ", err)
+	}
+	// Log any information about the resolver configuration, according to log level
+	resolverConfig.PrintInfo()
 	lookupModule, err := GetLookupModule(gc.Module)
 	if err != nil {
 		log.Fatal("could not get lookup module: ", err)
