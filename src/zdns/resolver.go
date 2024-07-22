@@ -113,6 +113,7 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 			return errors.New("local address cannot be nil")
 		}
 		if addr.To4() == nil && addr.To16() == nil {
+			// Attempting to cast the LocalAddr to both IPv4/IPv6 has failed, so it's not a valid IP address
 			return fmt.Errorf("invalid local address: %v", addr)
 		}
 	}
