@@ -154,6 +154,7 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 	cnameSet := make(map[string][]Answer)
 	garbage := make(map[string][]Answer)
 	allAnswerSet := make([]interface{}, 0)
+	dnameSet := make(map[string][]Answer)
 
 	originalName := q.Name // in case this is a CNAME, this keeps track of the original name while we change the question
 	currName := q.Name     // this is the current name we are looking up
@@ -176,7 +177,7 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 		}
 
 		// populateResults will parse the Answers and update the candidateSet, cnameSet, and garbage caching maps
-		populateResults(res.Answers, q.Type, candidateSet, cnameSet, garbage)
+		populateResults(res.Answers, q.Type, candidateSet, cnameSet, dnameSet, garbage)
 		for _, ans := range res.Answers {
 			answer, ok := ans.(Answer)
 			if !ok {
@@ -185,7 +186,7 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 			allAnswerSet = append(allAnswerSet, answer)
 		}
 
-		if isLookupComplete(originalName, candidateSet, cnameSet) {
+		if isLookupComplete(originalName, candidateSet, cnameSet, dnameSet) {
 			return &SingleQueryResult{
 				Answers:    allAnswerSet,
 				Additional: res.Additional,
@@ -201,6 +202,19 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 			continue
 		} else if candidates, ok = garbage[currName]; ok && len(candidates) > 0 {
 			return nil, trace, StatusError, errors.New("unexpected record type received")
+		}
+		// for each key in DNAMESet, check if the current name has a substring that matches the key.
+		// if so, replace that substring
+		foundDNameMatch := false
+		for k, v := range dnameSet {
+			if strings.Contains(currName, k) {
+				currName = strings.Replace(currName, k, v[0].Answer, 1)
+				foundDNameMatch = true
+				break
+			}
+		}
+		if foundDNameMatch {
+			continue
 		} else {
 			// we have no data whatsoever about this name. return an empty recordset to the user
 			return &res, trace, StatusNoError, nil
@@ -214,8 +228,8 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 // An illustrative example of why this fn is needed, say we're doing an A lookup for foo.com. There exists a CNAME from
 // foo.com -> bar.com. Therefore, the candidate set will contain an A record for bar.com, and we need to ensure there's
 // a complete path from foo.com -> bar.com -> bar.com's A record following the maps. This fn checks that path.
-func isLookupComplete(originalName string, candidateSet map[string][]Answer, cdNameSet map[string][]Answer) bool {
-	maxDepth := len(cdNameSet) + 1
+func isLookupComplete(originalName string, candidateSet map[string][]Answer, cNameSet map[string][]Answer, dNameSet map[string][]Answer) bool {
+	maxDepth := len(cNameSet) + len(dNameSet) + 1
 	currName := originalName
 	for i := 0; i < maxDepth; i++ {
 		if currName == originalName && i != 0 {
@@ -225,9 +239,18 @@ func isLookupComplete(originalName string, candidateSet map[string][]Answer, cdN
 		if candidates, ok := candidateSet[currName]; ok && len(candidates) > 0 {
 			return true
 		}
-		if candidates, ok := cdNameSet[currName]; ok && len(candidates) > 0 {
+		if candidates, ok := cNameSet[currName]; ok && len(candidates) > 0 {
+			// CNAME found, update currName
 			currName = strings.ToLower(strings.TrimSuffix(candidates[0].Answer, "."))
 			continue
+		}
+		// for each key in DNAMESet, check if the current name has a substring that matches the key.
+		// if so, replace that substring
+		for k, v := range dNameSet {
+			if strings.Contains(currName, k) {
+				currName = strings.Replace(currName, k, v[0].Answer, 1)
+				break
+			}
 		}
 	}
 	return false
@@ -635,9 +658,10 @@ func FindTxtRecord(res *SingleQueryResult, regex *regexp.Regexp) (string, error)
 // These maps are keyed by the domain name and contain the relevant answers for that domain
 // candidateSet is a map of Answers that have a type matching the requested type.
 // cnameSet is a map of Answers that are CNAME records
+// dnameSet is a map of Answers that are DNAME records
 // garbage is a map of Answers that are not of the requested type or CNAME records
-// follows CNAME and A/AAAA records to get all IPs for a given domain
-func populateResults(records []interface{}, dnsType uint16, candidateSet map[string][]Answer, cnameSet map[string][]Answer, garbage map[string][]Answer) {
+// follows CNAME/DNAME and A/AAAA records to get all IPs for a given domain
+func populateResults(records []interface{}, dnsType uint16, candidateSet map[string][]Answer, cnameSet map[string][]Answer, dnameSet map[string][]Answer, garbage map[string][]Answer) {
 	var ans Answer
 	var ok bool
 	for _, a := range records {
@@ -653,6 +677,8 @@ func populateResults(records []interface{}, dnsType uint16, candidateSet map[str
 				candidateSet[lowerCaseName] = append(candidateSet[lowerCaseName], ans)
 			} else if dns.TypeCNAME == ansType {
 				cnameSet[lowerCaseName] = append(cnameSet[lowerCaseName], ans)
+			} else if dns.TypeDNAME == ansType {
+				dnameSet[lowerCaseName] = append(dnameSet[lowerCaseName], ans)
 			} else {
 				garbage[lowerCaseName] = append(garbage[lowerCaseName], ans)
 			}
