@@ -409,7 +409,6 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryRe
 	if dstServer != dstServerWithPort {
 		log.Info("no port provided for external lookup, using default port 53")
 	}
-	dstServer = dstServerWithPort
 	dstServerIP, _, err := util.SplitHostPort(dstServerWithPort)
 	if err != nil {
 		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w", dstServer, err)
@@ -419,6 +418,8 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryRe
 		return nil, nil, StatusIllegalInput, errors.New("cannot mix loopback and non-loopback addresses")
 
 	}
+	// dstServer has been validated and has a port
+	dstServer = dstServerWithPort
 	lookup, trace, status, err := r.lookupClient.DoSingleDstServerLookup(r, *q, dstServer, false)
 	return lookup, trace, status, err
 }
