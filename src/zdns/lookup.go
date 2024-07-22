@@ -100,32 +100,52 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	defer cancel()
-	if isIterative {
-		result, trace, status, lookupErr := r.followingIterativeLookup(ctx, q, nameServer)
-		return result, trace, status, lookupErr
+	if r.followCNAMEs {
+		return r.followingLookup(ctx, q, nameServer, isIterative)
 	}
-	res, status, try, err := r.retryingLookup(ctx, q, nameServer, true)
+	res, trace, status, err := r.lookup(ctx, q, nameServer, isIterative)
 	if err != nil {
 		return &res, nil, status, fmt.Errorf("could not perform retrying lookup for name %v: %w", q.Name, err)
 	}
-	var t TraceStep
-	t.Result = res
-	t.DNSType = q.Type
-	t.DNSClass = q.Class
-	t.Name = q.Name
-	t.NameServer = nameServer
-	t.Layer = q.Name
-	t.Depth = 1
-	t.Cached = false
-	t.Try = try
-	trace := Trace{t}
 	return &res, trace, status, err
 }
 
-// followingIterativeLookup follows CNAMEs and DNAMEs in a DNS lookup. Since not all resolvers support DNAMES, all
-// authoritative nameservers perform CNAME synthesis (as specfied in RFC 6672, Sec. 3.1 CNAME Synthesis) to return both
-// a DNAME and relevent CNAME record. Therefore, our CNAME logic below will also handle DNAMEs.
-func (r *Resolver) followingIterativeLookup(ctx context.Context, q Question, nameServer string) (*SingleQueryResult, Trace, Status, error) {
+// lookup performs a DNS lookup for a given question and nameserver taking care of iterative and external lookups
+func (r *Resolver) lookup(ctx context.Context, q Question, nameServer string, isIterative bool) (SingleQueryResult, Trace, Status, error) {
+	var res SingleQueryResult
+	var trace Trace
+	var status Status
+	var err error
+	if util.HasCtxExpired(&ctx) {
+		return res, trace, StatusTimeout, nil
+	}
+	if isIterative {
+		r.verboseLog(1, "MIEKG-IN: following iterative lookup for ", q.Name, " (", q.Type, ")")
+		res, trace, status, err = r.iterativeLookup(ctx, q, nameServer, 1, ".", trace)
+		r.verboseLog(1, "MIEKG-OUT: following iterative lookup for ", q.Name, " (", q.Type, "): status: ", status, " , err: ", err)
+	} else {
+		tries := 0
+		// external lookup
+		r.verboseLog(1, "MIEKG-IN: following external lookup for ", q.Name, " (", q.Type, ")")
+		res, status, tries, err = r.retryingLookup(ctx, q, nameServer, true)
+		r.verboseLog(1, "MIEKG-OUT: following external lookup for ", q.Name, " (", q.Type, ") with ", tries, " attempts: status: ", status, " , err: ", err)
+		var t TraceStep
+		t.Result = res
+		t.DNSType = q.Type
+		t.DNSClass = q.Class
+		t.Name = q.Name
+		t.NameServer = nameServer
+		t.Layer = q.Name
+		t.Depth = 1
+		t.Cached = false
+		t.Try = tries
+		trace = Trace{t}
+	}
+	return res, trace, status, err
+}
+
+// followingLoopup follows CNAMEs and DNAMEs in a DNS lookup for either an iterative or external lookup
+func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
 	var res SingleQueryResult
 	var trace Trace
 	var status Status
@@ -139,10 +159,8 @@ func (r *Resolver) followingIterativeLookup(ctx context.Context, q Question, nam
 	currName := q.Name     // this is the current name we are looking up
 	r.verboseLog(0, "MIEKG-IN: starting a following iterative lookup for ", originalName, " (", q.Type, ")")
 	for i := 0; i < r.maxDepth; i++ {
-		r.verboseLog(1, "MIEKG-IN: iterative lookup for ", q.Name, " (", q.Type, ")")
+		res, trace, status, err = r.lookup(ctx, q, nameServer, isIterative)
 		q.Name = currName // update the question with the current name
-		res, trace, status, err = r.iterativeLookup(ctx, q, nameServer, 1, ".", trace)
-		r.verboseLog(1, "MIEKG-OUT: iterative lookup for ", q.Name, " (", q.Type, "): status: ", status, " , err: ", err)
 		if status != StatusNoError || err != nil {
 			return &res, trace, status, errors.Wrapf(err, "iterative lookup failed for name %v at depth %d", q.Name, i)
 		}
@@ -288,7 +306,7 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer s
 		r.verboseLog(depth+2, "ITERATIVE_TIMEOUT ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
 		status = StatusIterTimeout
 	}
-	if status != StatusNoError {
+	if status != StatusNoError || err != nil {
 		r.verboseLog((depth + 1), "-> error occurred during lookup")
 		return result, trace, status, err
 	} else if len(result.Answers) != 0 || result.Flags.Authoritative {
@@ -489,7 +507,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 	}
 	for i, elem := range result.Authorities {
 		r.verboseLog(depth+1, "Trying Authority: ", elem)
-		ns, nsStatus, newLayer, newTrace := r.extractAuthority(ctx, elem, layer, depth, result, trace)
+		ns, nsStatus, newLayer, newTrace := r.extractAuthority(ctx, elem, layer, depth, &result, trace)
 		r.verboseLog((depth + 1), "Output from extract authorities: ", ns)
 		if nsStatus == StatusIterTimeout {
 			r.verboseLog((depth + 2), "--> Hit iterative timeout: ")
@@ -498,9 +516,9 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 		}
 		if nsStatus != StatusNoError {
 			var err error
-			newStatus, err := handleStatus(&nsStatus, err)
+			newStatus, err := handleStatus(nsStatus, err)
 			// default case we continue
-			if newStatus == nil && err == nil {
+			if err == nil {
 				if i+1 == len(result.Authorities) {
 					r.verboseLog((depth + 2), "--> Auth find Failed. Unknown error. No more authorities to try, terminating: ", nsStatus)
 					var r SingleQueryResult
@@ -515,7 +533,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 				if i+1 == len(result.Authorities) {
 					// We don't allow the continue fall through in order to report the last auth falure code, not STATUS_EROR
 					r.verboseLog((depth + 2), "--> Final auth find non-success. Last auth. Terminating: ", nsStatus)
-					return localResult, newTrace, *newStatus, err
+					return localResult, newTrace, newStatus, err
 				} else {
 					r.verboseLog((depth + 2), "--> Auth find non-success. Trying next: ", nsStatus)
 					continue
@@ -538,7 +556,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 	panic("should not be able to reach here")
 }
 
-func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, layer string, depth int, result SingleQueryResult, trace Trace) (string, Status, string, Trace) {
+func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, layer string, depth int, result *SingleQueryResult, trace Trace) (string, Status, string, Trace) {
 	// Is it an answer
 	ans, ok := authority.(Answer)
 	if !ok {
@@ -556,7 +574,7 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 	// Short circuit a lookup from the glue
 	// Normally this would be handled by caching, but we want to support following glue
 	// that would normally be cache poison. Because it's "ok" and quite common
-	res, status := checkGlue(server, result)
+	res, status := checkGlue(server, *result)
 	if status != StatusNoError {
 		// Fall through to normal query
 		var q Question
