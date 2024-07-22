@@ -208,7 +208,7 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 		foundDNameMatch := false
 		for k, v := range dnameSet {
 			if strings.Contains(currName, k) {
-				currName = strings.Replace(currName, k, v[0].Answer, 1)
+				currName = strings.Replace(currName, k, strings.TrimSuffix(v[0].Answer, "."), 1)
 				foundDNameMatch = true
 				break
 			}
@@ -248,7 +248,7 @@ func isLookupComplete(originalName string, candidateSet map[string][]Answer, cNa
 		// if so, replace that substring
 		for k, v := range dNameSet {
 			if strings.Contains(currName, k) {
-				currName = strings.Replace(currName, k, v[0].Answer, 1)
+				currName = strings.Replace(currName, k, strings.TrimSuffix(v[0].Answer, "."), 1)
 				break
 			}
 		}
