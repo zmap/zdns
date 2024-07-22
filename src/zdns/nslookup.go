@@ -17,7 +17,6 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
 )
 
@@ -41,10 +40,6 @@ type NSResult struct {
 
 // DoNSLookup performs a DNS NS lookup on the given name against the given name server.
 func (r *Resolver) DoNSLookup(lookupName, nameServer string, isIterative bool) (*NSResult, Trace, Status, error) {
-	if !isIterative && len(nameServer) == 0 {
-		nameServer = r.randomExternalNameServer()
-		log.Info("no name server provided for external NS lookup, using random external name server: ", nameServer)
-	}
 	if len(lookupName) == 0 {
 		return nil, nil, "", errors.New("no name provided for NS lookup")
 	}
