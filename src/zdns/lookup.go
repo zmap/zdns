@@ -159,8 +159,8 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 	currName := q.Name     // this is the current name we are looking up
 	r.verboseLog(0, "MIEKG-IN: starting a following iterative lookup for ", originalName, " (", q.Type, ")")
 	for i := 0; i < r.maxDepth; i++ {
+		q.Name = currName // update the question with the current name, this allows following CNAMEs
 		res, trace, status, err = r.lookup(ctx, q, nameServer, isIterative)
-		q.Name = currName // update the question with the current name
 		if status != StatusNoError || err != nil {
 			return &res, trace, status, errors.Wrapf(err, "iterative lookup failed for name %v at depth %d", q.Name, i)
 		}
@@ -187,7 +187,11 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 
 		if isLookupComplete(originalName, candidateSet, cnameSet) {
 			return &SingleQueryResult{
-				Answers: allAnswerSet,
+				Answers:    allAnswerSet,
+				Additional: res.Additional,
+				Protocol:   res.Protocol,
+				Resolver:   res.Resolver,
+				Flags:      res.Flags,
 			}, trace, StatusNoError, nil
 		}
 
