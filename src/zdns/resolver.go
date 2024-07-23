@@ -32,8 +32,9 @@ import (
 
 const (
 	// TODO - we'll need to update this when we add IPv6 support
-	LoopbackAddrString    = "127.0.0.1"
-	googleDNSResolverAddr = "8.8.8.8:53"
+	LoopbackAddrString      = "127.0.0.1"
+	googleDNSResolverAddr   = "8.8.8.8:53"
+	googleDNSResolverAddrV6 = "2001:4860:4860::8888:53"
 
 	defaultTimeout               = 15 * time.Second // timeout for resolving a single name
 	defaultIterativeTimeout      = 4 * time.Second  // timeout for single iteration in an iterative query
@@ -92,7 +93,8 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 
 	// Potentially, a name-server could be listed multiple times by either the user or in the OS's respective /etc/resolv.conf
 	// De-dupe
-	rc.ExternalNameServers = util.RemoveDuplicates(rc.ExternalNameServers)
+	rc.ExternalNameServersV4 = util.RemoveDuplicates(rc.ExternalNameServersV4)
+	rc.ExternalNameServersV6 = util.RemoveDuplicates(rc.ExternalNameServersV6)
 
 	if isValid, reason := rc.TransportMode.isValid(); !isValid {
 		return fmt.Errorf("invalid transport mode: %s", reason)
@@ -105,12 +107,12 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 	}
 
 	// Check that all nameservers/local addresses are valid
-	for _, ns := range rc.ExternalNameServers {
+	for _, ns := range append(rc.ExternalNameServersV4, rc.ExternalNameServersV6...) {
 		if _, _, err := net.SplitHostPort(ns); err != nil {
 			return fmt.Errorf("invalid name server: %s", ns)
 		}
 	}
-	for _, addr := range rc.LocalAddrs {
+	for _, addr := range append(rc.LocalAddrsV4, rc.LocalAddrsV6...) {
 		if addr == nil {
 			return errors.New("local address cannot be nil")
 		}
@@ -131,36 +133,57 @@ func (rc *ResolverConfig) populateResolverConfig() error {
 	if err := rc.populateNameServers(); err != nil {
 		return errors.Wrap(err, "could not populate name servers")
 	}
-	// Local Addresses
-	if len(rc.LocalAddrs) == 0 {
+	if err := rc.populateLocalAddrs(); err != nil {
+		return errors.Wrap(err, "could not populate local addresses")
+	}
+	// if there is no IPv6 local addresses, we should not use IPv6
+	if len(rc.LocalAddrsV6) == 0 {
+		log.Warn("no IPv6 local addresses found, only using IPv4")
+		rc.IPVersionMode = IPv4Only
+	}
+
+	return rc.populateLocalAddrs()
+}
+
+// populateLocalAddrs populates/validates the local addresses for the resolver.
+// If no local addresses are set, it will find a IP address and IPv6 address, if applicable.
+func (rc *ResolverConfig) populateLocalAddrs() error {
+	if len(rc.LocalAddrsV4) == 0 {
 		// localAddr not set, so we need to find the default IP address
 		conn, err := net.Dial("udp", googleDNSResolverAddr)
 		if err != nil {
 			return fmt.Errorf("unable to find default IP address to open socket: %w", err)
 		}
-		rc.LocalAddrs = append(rc.LocalAddrs, conn.LocalAddr().(*net.UDPAddr).IP)
+		rc.LocalAddrsV4 = append(rc.LocalAddrsV4, conn.LocalAddr().(*net.UDPAddr).IP)
 		// cleanup socket
 		if err = conn.Close(); err != nil {
 			log.Error("unable to close test connection to Google public DNS: ", err)
 		}
 	}
 
-	// TODO - Remove when we add IPv6 support
-	ipv4LocalAddrs := make([]net.IP, 0, len(rc.LocalAddrs))
-	for _, addr := range rc.LocalAddrs {
-		if addr.To4() != nil {
-			ipv4LocalAddrs = append(ipv4LocalAddrs, addr)
-		} else {
-			log.Info("ignoring non-IPv4 local address: ", addr)
+	lookupIPv6 := rc.IPVersionMode != IPv4Only
+	if len(rc.LocalAddrsV6) == 0 && lookupIPv6 {
+		// localAddr not set, so we need to find the default IPv6 address
+		conn, err := net.Dial("udp", googleDNSResolverAddrV6)
+		if err != nil {
+			return fmt.Errorf("unable to find default IPv6 address to open socket: %w", err)
 		}
+		rc.LocalAddrsV6 = append(rc.LocalAddrsV6, conn.LocalAddr().(*net.UDPAddr).IP)
+		// cleanup socket
+		if err = conn.Close(); err != nil {
+			log.Error("unable to close test connection to Google IPv6 public DNS: ", err)
+		}
+
+		nonLinkLocalIPv6 := make([]net.IP, 0, len(rc.LocalAddrsV6))
+		for _, ip := range rc.LocalAddrsV6 {
+			if ip != nil && ip.To4() == nil && ip.To16() != nil && (ip.IsLinkLocalMulticast() || ip.IsLinkLocalUnicast()) {
+				log.Debug("ignoring link-local IPv6 nameserver: ", ip)
+				continue
+			}
+			nonLinkLocalIPv6 = append(nonLinkLocalIPv6, ip)
+		}
+		rc.LocalAddrsV6 = nonLinkLocalIPv6
 	}
-	// TODO handle link-local IPv6
-	// TODO pull this into it's own function
-	//if ip.To4() == nil && ip.To16() != nil && (ip.IsLinkLocalMulticast() || ip.IsLinkLocalUnicast()) {
-	//	log.Debug("ignoring link-local IPv6 nameserver: ", portNS)
-	//	continue
-	//}
-	rc.LocalAddrs = ipv4LocalAddrs
 	return nil
 }
 
@@ -267,7 +290,7 @@ func (rc *ResolverConfig) validateLoopbackConsistency() error {
 }
 
 func (rc *ResolverConfig) PrintInfo() {
-	log.Infof("using local addresses: %v", rc.LocalAddrs)
+	log.Infof("using local addresses: %v", append(rc.LocalAddrsV4, rc.LocalAddrsV6...))
 	log.Infof("for non-iterative lookups, using nameservers: %s", strings.Join(append(rc.ExternalNameServersV4, rc.ExternalNameServersV6...), ", "))
 }
 
@@ -279,8 +302,9 @@ func NewResolverConfig() *ResolverConfig {
 		LookupClient: LookupClient{},
 		Cache:        c,
 
-		Blacklist:  blacklist.New(),
-		LocalAddrs: nil,
+		Blacklist:    blacklist.New(),
+		LocalAddrsV4: nil,
+		LocalAddrsV6: nil,
 
 		TransportMode:        defaultTransportMode,
 		IPVersionMode:        defaultIPVersionMode,
