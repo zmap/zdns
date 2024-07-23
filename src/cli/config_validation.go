@@ -131,10 +131,12 @@ func populateNameServers(gc *CLIConf) error {
 		}
 		gc.NameServers = ns
 	} else if gc.IterativeResolution {
-		// if we're in iterative mode, setting nameservers doesn't matter since we always go to the root
-		// however, if the OS' default nameservers are loopback, the Resolver will automatically try to assign a
-		// loopback address as the local, preventing the iterative resolver from working.
-		// We'll set the default nameservers to Google's public DNS servers to prevent this.
+		// if we're in iterative mode, setting nameservers doesn't matter since we always go to the root servers.
+		// However, if the gc.NameServers are empty, the Resolver will automatically populate them with the  OS' default
+		// nameservers since the Resolver isn't aware of if we'll only make iterative queries or not. Since the CLI
+		// does know if we'll only make iterative queries, we'll set the default nameservers to Google's public DNS servers.
+		// In this way, the Resolver won't try to use the OS' default nameservers, which if they're loopback, would
+		// cause the Resolver to set the LocalAddr to a loopback addr, meaning we now can't reach the root servers.
 		gc.NameServers = util.GetDefaultResolvers()
 	}
 	return nil
