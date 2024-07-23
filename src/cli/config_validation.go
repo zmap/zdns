@@ -23,6 +23,8 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
+
+	"github.com/zmap/zdns/src/internal/util"
 )
 
 func populateNetworkingConfig(gc *CLIConf) error {
@@ -128,6 +130,12 @@ func populateNameServers(gc *CLIConf) error {
 			ns = strings.Split(gc.NameServersString, ",")
 		}
 		gc.NameServers = ns
+	} else if gc.IterativeResolution {
+		// if we're in iterative mode, setting nameservers doesn't matter since we always go to the root
+		// however, if the OS' default nameservers are loopback, the Resolver will automatically try to assign a
+		// loopback address as the local, preventing the iterative resolver from working.
+		// We'll set the default nameservers to Google's public DNS servers to prevent this.
+		gc.NameServers = util.GetDefaultResolvers()
 	}
 	return nil
 }
