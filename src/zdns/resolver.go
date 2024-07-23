@@ -60,7 +60,8 @@ type ResolverConfig struct {
 
 	Blacklist *blacklist.SafeBlacklist
 
-	LocalAddrs []net.IP // local addresses to use for connections, one will be selected at random for the resolver
+	LocalAddrsV4 []net.IP // ipv4 local addresses to use for connections, one will be selected at random for the resolver
+	LocalAddrsV6 []net.IP // ipv6 local addresses to use for connections, one will be selected at random for the resolver
 
 	Retries  int
 	LogLevel log.Level
@@ -69,12 +70,13 @@ type ResolverConfig struct {
 	IPVersionMode        IPVersionMode
 	ShouldRecycleSockets bool
 
-	IterativeTimeout     time.Duration // applicable to iterative queries only, timeout for a single iteration step
-	Timeout              time.Duration // timeout for the resolution of a single name
-	MaxDepth             int
-	ExternalNameServers  []string // name servers used for external lookups
-	LookupAllNameServers bool     // perform the lookup via all the nameservers for the domain
-	DNSConfigFilePath    string   // path to the DNS config file, ex: /etc/resolv.conf
+	IterativeTimeout      time.Duration // applicable to iterative queries only, timeout for a single iteration step
+	Timeout               time.Duration // timeout for the resolution of a single name
+	MaxDepth              int
+	ExternalNameServersV4 []string // v4 name servers used for external lookups
+	ExternalNameServersV6 []string // v6 name servers used for external lookups
+	LookupAllNameServers  bool     // perform the lookup via all the nameservers for the domain
+	DNSConfigFilePath     string   // path to the DNS config file, ex: /etc/resolv.conf
 
 	DNSSecEnabled       bool
 	EdnsOptions         []dns.EDNS0
@@ -126,40 +128,9 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 }
 
 func (rc *ResolverConfig) populateResolverConfig() error {
-	// Nameservers
-	if len(rc.ExternalNameServers) == 0 {
-		// if nameservers aren't set, use OS' default
-		ns, err := GetDNSServers(rc.DNSConfigFilePath)
-		if err != nil {
-			ns = util.GetDefaultResolvers()
-			log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(ns, ", "))
-		}
-		rc.ExternalNameServers = ns
-	} else {
-		portValidatedNSs := make([]string, 0, len(rc.ExternalNameServers))
-		// check that the nameservers have a port and append one if necessary
-		for _, ns := range rc.ExternalNameServers {
-			portNS, err := util.AddDefaultPortToDNSServerName(ns)
-			if err != nil {
-				return fmt.Errorf("could not parse name server: %s", ns)
-			}
-			portValidatedNSs = append(portValidatedNSs, portNS)
-		}
-		rc.ExternalNameServers = portValidatedNSs
+	if err := rc.populateNameServers(); err != nil {
+		return errors.Wrap(err, "could not populate name servers")
 	}
-	// TODO - Remove when we add IPv6 support
-	ipv4NameServers := make([]string, 0, len(rc.ExternalNameServers))
-	for _, ns := range rc.ExternalNameServers {
-		ip, _, err := util.SplitHostPort(ns)
-		if err != nil {
-			return fmt.Errorf("could not split host and port for nameserver: %s", ns)
-		}
-		if ip.To4() != nil {
-			ipv4NameServers = append(ipv4NameServers, ns)
-		}
-	}
-	rc.ExternalNameServers = ipv4NameServers
-
 	// Local Addresses
 	if len(rc.LocalAddrs) == 0 {
 		// localAddr not set, so we need to find the default IP address
@@ -183,7 +154,62 @@ func (rc *ResolverConfig) populateResolverConfig() error {
 			log.Info("ignoring non-IPv4 local address: ", addr)
 		}
 	}
+	// TODO handle link-local IPv6
+	// TODO pull this into it's own function
+	//if ip.To4() == nil && ip.To16() != nil && (ip.IsLinkLocalMulticast() || ip.IsLinkLocalUnicast()) {
+	//	log.Debug("ignoring link-local IPv6 nameserver: ", portNS)
+	//	continue
+	//}
 	rc.LocalAddrs = ipv4LocalAddrs
+	return nil
+}
+
+func (rc *ResolverConfig) populateNameServers() error {
+	if len(rc.ExternalNameServersV4) == 0 && len(rc.ExternalNameServersV6) == 0 {
+		// if nameservers aren't set, use OS' default
+		nsv4, nsv6, err := GetDNSServers(rc.DNSConfigFilePath)
+		if err != nil {
+			nsv4, nsv6 = util.GetDefaultResolvers()
+			log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(append(nsv4, nsv6...), ", "))
+		}
+		rc.ExternalNameServersV4 = nsv4
+		rc.ExternalNameServersV6 = nsv6
+	}
+
+	// ensure port is set for all nameservers
+	portValidatedNSsV4 := make([]string, 0, len(rc.ExternalNameServersV4))
+	portValidatedNSsV6 := make([]string, 0, len(rc.ExternalNameServersV6))
+	// check that the nameservers have a port and append one if necessary
+	for _, ns := range rc.ExternalNameServersV4 {
+		portNS, err := util.AddDefaultPortToDNSServerName(ns)
+		if err != nil {
+			return fmt.Errorf("could not parse name server: %s", ns)
+		}
+		portValidatedNSsV4 = append(portValidatedNSsV4, portNS)
+	}
+	for _, ns := range rc.ExternalNameServersV6 {
+		portNS, err := util.AddDefaultPortToDNSServerName(ns)
+		if err != nil {
+			return fmt.Errorf("could not parse name server: %s", ns)
+		}
+		portValidatedNSsV6 = append(portValidatedNSsV6, portNS)
+	}
+	// remove link-local IPv6 nameservers
+	nonLinkLocalIPv6NSs := make([]string, 0, len(portValidatedNSsV6))
+	for _, ns := range portValidatedNSsV6 {
+		ip, _, err := util.SplitHostPort(ns)
+		if err != nil {
+			return errors.Wrapf(err, "could not split host and port for nameserver: %s", ns)
+		}
+		if ip.To4() == nil && ip.To16() != nil && (ip.IsLinkLocalMulticast() || ip.IsLinkLocalUnicast()) {
+			log.Debug("ignoring link-local IPv6 nameserver: ", ns)
+			continue
+		}
+		nonLinkLocalIPv6NSs = append(nonLinkLocalIPv6NSs, ns)
+	}
+	rc.ExternalNameServersV4 = portValidatedNSsV4
+	rc.ExternalNameServersV6 = nonLinkLocalIPv6NSs
+
 	return nil
 }
 
@@ -192,11 +218,11 @@ func (rc *ResolverConfig) populateResolverConfig() error {
 // - if using a loopback local address, all local addresses are loopback and vice-versa
 // - either all nameservers AND all local addresses are loopback, or none are
 func (rc *ResolverConfig) validateLoopbackConsistency() error {
-
+	allNameServers := append(rc.ExternalNameServersV4, rc.ExternalNameServersV6...)
 	// check if all nameservers are loopback or non-loopback
 	allNameserversLoopback := true
 	noneNameserversLoopback := true
-	for _, ns := range rc.ExternalNameServers {
+	for _, ns := range allNameServers {
 		ip, _, err := util.SplitHostPort(ns)
 		if err != nil {
 			return errors.Wrapf(err, "could not split host and port for nameserver: %s", ns)
@@ -208,29 +234,31 @@ func (rc *ResolverConfig) validateLoopbackConsistency() error {
 		}
 	}
 	loopbackNameserverMismatch := allNameserversLoopback == noneNameserversLoopback
-	if len(rc.ExternalNameServers) > 0 && loopbackNameserverMismatch {
-		return fmt.Errorf("cannot mix loopback and non-loopback nameservers: %v", rc.ExternalNameServers)
+	if len(append(rc.ExternalNameServersV4, rc.ExternalNameServersV6...)) > 0 && loopbackNameserverMismatch {
+		return fmt.Errorf("cannot mix loopback and non-loopback nameservers: %v", allNameServers)
 	}
 
 	allLocalAddrsLoopback := true
 	noneLocalAddrsLoopback := true
+	allLocalAddrs := append(rc.LocalAddrsV4, rc.LocalAddrsV6...)
 	// check if all local addresses are loopback or non-loopback
-	for _, addr := range rc.LocalAddrs {
+	for _, addr := range allLocalAddrs {
 		if addr.IsLoopback() {
 			noneLocalAddrsLoopback = false
 		} else {
 			allLocalAddrsLoopback = false
 		}
 	}
-	if len(rc.LocalAddrs) > 0 && allLocalAddrsLoopback == noneLocalAddrsLoopback {
-		return fmt.Errorf("cannot mix loopback and non-loopback local addresses: %v", rc.LocalAddrs)
+	if len(allLocalAddrs) > 0 && allLocalAddrsLoopback == noneLocalAddrsLoopback {
+		return fmt.Errorf("cannot mix loopback and non-loopback local addresses: %v", allLocalAddrs)
 	}
 
 	// Both nameservers and local addresses are completely loopback or non-loopback
 	// if using loopback nameservers, override local addresses to be loopback and warn user
 	if allNameserversLoopback && noneLocalAddrsLoopback {
 		log.Warn("nameservers are loopback, setting local address to loopback to match")
-		rc.LocalAddrs = []net.IP{net.ParseIP(LoopbackAddrString)}
+		rc.LocalAddrsV4 = []net.IP{net.ParseIP(LoopbackAddrString)}
+		// we ignore link-local local addresses, so nothing to be done for IPv6
 	} else if noneNameserversLoopback && allLocalAddrsLoopback {
 		return errors.New("using loopback local addresses with non-loopback nameservers is not supported. " +
 			"Consider setting nameservers to loopback addresses assuming you have a local DNS server")
@@ -240,7 +268,7 @@ func (rc *ResolverConfig) validateLoopbackConsistency() error {
 
 func (rc *ResolverConfig) PrintInfo() {
 	log.Infof("using local addresses: %v", rc.LocalAddrs)
-	log.Infof("for non-iterative lookups, using nameservers: %s", strings.Join(rc.ExternalNameServers, ", "))
+	log.Infof("for non-iterative lookups, using nameservers: %s", strings.Join(append(rc.ExternalNameServersV4, rc.ExternalNameServersV6...), ", "))
 }
 
 // NewResolverConfig creates a new ResolverConfig with default values.

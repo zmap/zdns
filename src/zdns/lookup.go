@@ -27,11 +27,11 @@ import (
 	"github.com/zmap/zdns/src/internal/util"
 )
 
-// GetDNSServers returns a list of DNS servers from a file, or an error if one occurs
-func GetDNSServers(path string) ([]string, error) {
+// GetDNSServers returns a list of IPv4, IPv6 DNS servers from a file, or an error if one occurs
+func GetDNSServers(path string) (ipv4, ipv6 []string, err error) {
 	c, err := dns.ClientConfigFromFile(path)
 	if err != nil {
-		return []string{}, fmt.Errorf("error reading DNS config file: %w", err)
+		return []string{}, []string{}, fmt.Errorf("error reading DNS config file (%s): %w", path, err)
 	}
 	servers := make([]string, 0, len(c.Servers))
 	for _, s := range c.Servers {
@@ -41,7 +41,19 @@ func GetDNSServers(path string) ([]string, error) {
 		full := strings.Join([]string{s, c.Port}, ":")
 		servers = append(servers, full)
 	}
-	return servers, nil
+	ipv4 = make([]string, 0, len(servers))
+	ipv6 = make([]string, 0, len(servers))
+	for _, s := range servers {
+		ip := net.ParseIP(s)
+		if ip.To4() != nil {
+			ipv4 = append(ipv4, s)
+		} else if ip.To16() != nil {
+			ipv6 = append(ipv6, s)
+		} else {
+			return []string{}, []string{}, fmt.Errorf("could not parse IP address (%s) from file: %s", s, path)
+		}
+	}
+	return ipv4, ipv6, nil
 }
 
 // Lookup client interface for help in mocking
