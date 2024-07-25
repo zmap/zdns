@@ -309,6 +309,12 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer s
 		r.verboseLog(depth+1, "-> Max recursion depth reached")
 		return result, trace, StatusError, errors.New("max recursion depth reached")
 	}
+	// check that context hasn't expired
+	if util.HasCtxExpired(&ctx) {
+		var result SingleQueryResult
+		r.verboseLog(depth+1, "-> Context expired")
+		return result, trace, StatusTimeout, nil
+	}
 	// create iteration context for this iteration step
 	iterationStepCtx, cancel := context.WithTimeout(ctx, r.iterativeTimeout)
 	defer cancel()
