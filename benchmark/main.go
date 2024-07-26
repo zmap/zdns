@@ -90,7 +90,7 @@ type Stats struct {
 
 func printStats(s *Stats) {
 	// Define the width for alignment
-	titleWidth := 40
+	titleWidth := 60
 	timeWidth := 15
 
 	// Print the benchmark duration
@@ -100,6 +100,7 @@ func printStats(s *Stats) {
 	fmt.Printf("%-*s %*v\n", titleWidth, "Min resolution time:", timeWidth, formatTime(s.MinResolveTime))
 	fmt.Printf("%-*s %*v\n", titleWidth, "Max resolution time:", timeWidth, formatTime(s.MaxResolveTime))
 	fmt.Printf("%-*s %*v\n", titleWidth, "Average resolution time:", timeWidth, formatTime(s.AverageResolveTime))
+	fmt.Printf("\n")
 
 	// Print the ten longest resolutions with formatting for alignment
 	// Convert the map to a slice of key-value pairs
@@ -121,18 +122,22 @@ func printStats(s *Stats) {
 	for _, entry := range sortedResolutions {
 		fmt.Printf("\t%-*s %*v\n", titleWidth-8, entry.Domain+":", timeWidth, formatTime(entry.Time))
 	}
+	fmt.Printf("\n")
+
 	fmt.Printf("%-*s %*v\n", titleWidth, "Domains resolved successfully:", timeWidth, fmt.Sprintf("%d/%d", s.SuccessfulResolutions, linesOfInput))
 	if len(s.TimedOutDomains) > 0 {
 		fmt.Printf("%-*s %*v\n", titleWidth, "Domains that timed out:", timeWidth, len(s.TimedOutDomains))
 		for _, domain := range s.TimedOutDomains {
 			fmt.Printf("\t%s\n", domain)
 		}
+		fmt.Printf("\n")
 	}
 	if len(s.FailedDomains) > 0 {
 		fmt.Printf("%-*s %*v\n", titleWidth, "Domains that failed:", timeWidth, len(s.FailedDomains))
 		for domain, status := range s.FailedDomains {
 			fmt.Printf("\t%-*s %*v\n", titleWidth-8, fmt.Sprintf("%s:", domain), timeWidth, status)
 		}
+		fmt.Printf("\n")
 	}
 }
 
