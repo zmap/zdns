@@ -33,9 +33,9 @@ import (
 
 func main() {
 	// if the ZDNS_PPROF environment variable is set, start the pprof server
-	if os.Getenv("ZDNS_PPROF") != "" {
+	if os.Getenv("ZDNS_PPROF") == "true" {
 		go func() {
-			log.Warn("Starting pprof server on :6060")
+			log.Debug("Starting pprof server on localhost:6060")
 			log.Warn(http.ListenAndServe("localhost:6060", nil))
 		}()
 	}
