@@ -30,7 +30,7 @@ import (
 
 const (
 	linesOfInput  = 7000 // number of lines to read from input file to feed to ZDNS
-	inputFileName = "10k_crux_top_domains.input"
+	inputFileName = "./10k_crux_top_domains.input"
 )
 
 func feedZDNS(inputLines int, stdin io.WriteCloser) {
@@ -88,13 +88,6 @@ func processOutput(stdout io.ReadCloser, s *Stats) {
 }
 
 func main() {
-	s := Stats{
-		StartTime:             time.Now(),
-		TenLongestResolutions: make(map[string]time.Duration, 10),
-		numberOfResolutions:   0,
-		TimedOutDomains:       make([]string, 0),
-		FailedDomains:         make(map[string]zdns.Status),
-	}
 	// ZDNS can start a pprof server if the ZDNS_PPROF environment variable is set
 	if err := os.Setenv("ZDNS_PPROF", "true"); err != nil {
 		log.Panicf("failed to set ZDNS_PPROF environment variable: %v", err)
@@ -116,9 +109,15 @@ func main() {
 	}
 
 	feedZDNS(linesOfInput, stdin)
+	// stats to collect on ZDNS performance
+	s := Stats{
+		StartTime:             time.Now(),
+		TenLongestResolutions: make(map[string]time.Duration, 10),
+		numberOfResolutions:   0,
+		TimedOutDomains:       make([]string, 0),
+		FailedDomains:         make(map[string]zdns.Status),
+	}
 	processOutput(stdout, &s)
-
-	// start the command
 
 	err = cmd.Start()
 	if err != nil {
