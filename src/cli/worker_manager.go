@@ -105,10 +105,6 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 		log.Fatalf("could not populate networking config: %v", err)
 	}
 
-	if !gc.FollowCNAMEs && !gc.IterativeResolution {
-		log.Warn("CNAME following is only applicable when ZDNS is performing it's own iterative resolution. Ignoring --follow-cnames")
-	}
-
 	if gc.UseNanoseconds {
 		gc.TimeFormat = time.RFC3339Nano
 	} else {
