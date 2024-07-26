@@ -8,9 +8,21 @@ By default, `make benchmark` (run from the `zdns` directory) will run ZDNS:
 - Start a `pprof` server at [`localhost:6060`](http://localhost:6060/debug/pprof/)
   - You can get a CPU, goroutine, memory, and other profiles from this server
 
+### pprof
+[pprof](https://github.com/google/pprof/blob/main/doc/README.md) is a tool that can be used to profile Go programs. It can be used to profile CPU, memory, and goroutines. 
+The pprof server is started by default when running the benchmark. You can access the pprof server at [`localhost:6060`](http://localhost:6060/debug/pprof/).
+![pprof Web View](./readme_imgs/pprof_web.png)
+
+Selecting a profile will show you the profile in text format, which isn't super useful for diagnostics.
+
+To get a nice graphical view of a profile, run:
+`pprof -png http://localhost:6060/debug/pprof/goroutine > pprof.png`
+
+Replace the `goroutine` in the URL with any of the available profiles to get the graphical view of that profile.
+
 ### Benchmark Output
 The benchmark will give you a status update to show progress:
-![img.png](img.png)
+![Status Bar](./readme_imgs/status_bar.png)
 At the end of the benchmark, you will see the following output:
 ```
 Benchmark took:                                15.94s
