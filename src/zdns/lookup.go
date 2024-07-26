@@ -174,7 +174,7 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 				return &iterRes, trace, iterStatus, lookupErr
 			}
 			// return the last good result/status if we're traversing CNAMEs
-			return &res, trace, iterStatus, errors.Wrapf(lookupErr, "iterative lookup failed for name %v at depth %d", q.Name, i)
+			return &res, trace, status, errors.Wrapf(lookupErr, "iterative lookup failed for name %v at depth %d", q.Name, i)
 		}
 		// update the result with the latest iteration since there's no error
 		// We'll return the latest good result if we're traversing CNAMEs
