@@ -82,6 +82,10 @@ type Stats struct {
 
 	fastestResolveOfLongest time.Duration // fastest resolution time of the ten longest resolutions, used to know if a new resolution time is in the top ten
 	numberOfResolutions     int           // number of resolutions, used to calculate rolling average
+
+	SuccessfulResolutions int                    // number of successful resolutions
+	TimedOutDomains       []string               // domains that timed out
+	FailedDomains         map[string]zdns.Status // domains that failed and why
 }
 
 func printStats(s *Stats) {
@@ -116,6 +120,19 @@ func printStats(s *Stats) {
 	fmt.Println("Ten longest resolutions:")
 	for _, entry := range sortedResolutions {
 		fmt.Printf("\t%-*s %*v\n", titleWidth-8, entry.Domain+":", timeWidth, formatTime(entry.Time))
+	}
+	fmt.Printf("%-*s %*v\n", titleWidth, "Domains resolved successfully:", timeWidth, fmt.Sprintf("%d/%d", s.SuccessfulResolutions, linesOfInput))
+	if len(s.TimedOutDomains) > 0 {
+		fmt.Printf("%-*s %*v\n", titleWidth, "Domains that timed out:", timeWidth, len(s.TimedOutDomains))
+		for _, domain := range s.TimedOutDomains {
+			fmt.Printf("\t%s\n", domain)
+		}
+	}
+	if len(s.FailedDomains) > 0 {
+		fmt.Printf("%-*s %*v\n", titleWidth, "Domains that failed:", timeWidth, len(s.FailedDomains))
+		for domain, status := range s.FailedDomains {
+			fmt.Printf("\t%-*s %*v\n", titleWidth-8, fmt.Sprintf("%s:", domain), timeWidth, status)
+		}
 	}
 }
 
@@ -184,6 +201,15 @@ func updateStats(line string, s *Stats) {
 		s.TenLongestResolutions[domainName] = resolveTime
 	}
 	s.numberOfResolutions++
+
+	status := zdns.Status(res.Status)
+	if status == zdns.StatusNoError {
+		s.SuccessfulResolutions++
+	} else if status == zdns.StatusTimeout || status == zdns.StatusIterTimeout {
+		s.TimedOutDomains = append(s.TimedOutDomains, domainName)
+	} else {
+		s.FailedDomains[domainName] = status
+	}
 }
 
 func processOutput(stdout io.ReadCloser, s *Stats) {
@@ -207,6 +233,7 @@ func main() {
 		StartTime:             time.Now(),
 		TenLongestResolutions: make(map[string]time.Duration, 10),
 		numberOfResolutions:   0,
+		TimedOutDomains:       make([]string, 0),
 	}
 	// ZDNS can start a pprof server if the ZDNS_PPROF environment variable is set
 	if err := os.Setenv("ZDNS_PPROF", "true"); err != nil {
