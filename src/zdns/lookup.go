@@ -158,7 +158,7 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 
 	originalName := q.Name // in case this is a CNAME, this keeps track of the original name while we change the question
 	currName := q.Name     // this is the current name we are looking up
-	r.verboseLog(0, "MIEKG-IN: starting a following iterative lookup for ", originalName, " (", q.Type, ")")
+	r.verboseLog(0, "MIEKG-IN: starting a C/DNAME following lookup for ", originalName, " (", q.Type, ")")
 	for i := 0; i < r.maxDepth; i++ {
 		q.Name = currName // update the question with the current name, this allows following CNAMEs
 		iterRes, iterTrace, iterStatus, lookupErr := r.lookup(ctx, q, nameServer, isIterative)
@@ -176,11 +176,6 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 
 		if q.Type == dns.TypeMX {
 			// MX records have a special lookup format, so we won't attempt to follow CNAMES here
-			return &res, iterTrace, status, nil
-		}
-
-		if !r.followCNAMEs {
-			// if we're not following CNAMES, we're done
 			return &res, iterTrace, status, nil
 		}
 
