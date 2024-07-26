@@ -30,8 +30,8 @@ import (
 )
 
 const (
-	linesOfInput = 2 // number of lines to read from input file to feed to ZDNS
-	ZDNSThreads  = 1
+	linesOfInput = 2000 // number of lines to read from input file to feed to ZDNS
+	ZDNSThreads  = 100
 )
 
 func feedZDNS(inputLines int, stdin io.WriteCloser) {
@@ -234,6 +234,7 @@ func main() {
 		TenLongestResolutions: make(map[string]time.Duration, 10),
 		numberOfResolutions:   0,
 		TimedOutDomains:       make([]string, 0),
+		FailedDomains:         make(map[string]zdns.Status),
 	}
 	// ZDNS can start a pprof server if the ZDNS_PPROF environment variable is set
 	if err := os.Setenv("ZDNS_PPROF", "true"); err != nil {
