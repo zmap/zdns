@@ -14,10 +14,11 @@
 package main
 
 import (
-	log "github.com/sirupsen/logrus"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/zmap/zdns/src/cli"
 	// the order of these imports is important, as the modules are registered in the init() functions.

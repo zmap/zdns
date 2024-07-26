@@ -41,13 +41,13 @@ func feedZDNS(inputLines int, stdin io.WriteCloser) {
 			log.Panicf("failed to open input file: %v", err)
 		}
 		defer func(f *os.File) {
-			err := f.Close()
+			err = f.Close()
 			if err != nil {
 				log.Panicf("failed to close input file: %v", err)
 			}
 		}(f)
 		defer func(stdin io.WriteCloser) {
-			err := stdin.Close()
+			err = stdin.Close()
 			if err != nil {
 				log.Panicf("failed to close stdin: %v", err)
 			}

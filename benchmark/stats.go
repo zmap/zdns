@@ -16,9 +16,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"sort"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/zmap/zdns/src/zdns"
 )
@@ -60,7 +61,7 @@ func printStats(s *Stats) {
 		Domain string
 		Time   time.Duration
 	}
-	var sortedResolutions []DomainTime
+	sortedResolutions := make([]DomainTime, 0, len(s.TenLongestResolutions))
 	for domain, t := range s.TenLongestResolutions {
 		sortedResolutions = append(sortedResolutions, DomainTime{domain, t})
 	}
@@ -100,7 +101,7 @@ func printStats(s *Stats) {
 
 		fmt.Printf("%-*s %*v\n\n", titleWidth, "Domains that failed:", timeWidth, len(s.FailedDomains))
 		for _, domainStatus := range sortedFailedDomains {
-			fmt.Printf("\t%-*s %*v\n", titleWidth-8, fmt.Sprintf("%s:", domainStatus.Domain), timeWidth, domainStatus.Status)
+			fmt.Printf("\t%-*s %*v\n", titleWidth-8, domainStatus.Domain+":", timeWidth, domainStatus.Status)
 		}
 		fmt.Printf("\n")
 	}
