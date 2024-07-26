@@ -145,6 +145,8 @@ func (r *Resolver) lookup(ctx context.Context, q Question, nameServer string, is
 }
 
 // followingLoopup follows CNAMEs and DNAMEs in a DNS lookup for either an iterative or external lookup
+// If an error occurs during the lookup, the last good result/status is returned along with the error and a full trace
+// If an error occurs on the first lookup, the bad result/status is returned along with the error and a full trace
 func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
 	var res SingleQueryResult
 	var trace Trace
@@ -162,12 +164,17 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 	for i := 0; i < r.maxDepth; i++ {
 		q.Name = currName // update the question with the current name, this allows following CNAMEs
 		iterRes, iterTrace, iterStatus, lookupErr := r.lookup(ctx, q, nameServer, isIterative)
-		// append iterTrace to the global iterTrace
+		// append iterTrace to the global trace so we can return full trace
 		if iterTrace != nil {
 			trace = append(trace, iterTrace...)
 		}
 		if iterStatus != StatusNoError || lookupErr != nil {
-			return &res, trace, status, errors.Wrapf(lookupErr, "iterative lookup failed for name %v at depth %d", q.Name, i)
+			if i == 0 {
+				// only have 1 result to return
+				return &iterRes, trace, iterStatus, lookupErr
+			}
+			// return the last good result/status if we're traversing CNAMEs
+			return &res, trace, iterStatus, errors.Wrapf(lookupErr, "iterative lookup failed for name %v at depth %d", q.Name, i)
 		}
 		// update the result with the latest iteration since there's no error
 		// We'll return the latest good result if we're traversing CNAMEs
@@ -176,7 +183,7 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 
 		if q.Type == dns.TypeMX {
 			// MX records have a special lookup format, so we won't attempt to follow CNAMES here
-			return &res, iterTrace, status, nil
+			return &res, trace, status, nil
 		}
 
 		// populateResults will parse the Answers and update the candidateSet, cnameSet, and garbage caching maps
@@ -196,7 +203,7 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 				Protocol:   res.Protocol,
 				Resolver:   res.Resolver,
 				Flags:      res.Flags,
-			}, iterTrace, StatusNoError, nil
+			}, trace, StatusNoError, nil
 		}
 
 		if candidates, ok := cnameSet[currName]; ok && len(candidates) > 0 {
@@ -204,7 +211,7 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 			currName = strings.ToLower(strings.TrimSuffix(candidates[0].Answer, "."))
 			continue
 		} else if candidates, ok = garbage[currName]; ok && len(candidates) > 0 {
-			return nil, iterTrace, StatusError, errors.New("unexpected record type received")
+			return nil, trace, StatusError, errors.New("unexpected record type received")
 		}
 		// for each key in DNAMESet, check if the current name has a substring that matches the key.
 		// if so, replace that substring
