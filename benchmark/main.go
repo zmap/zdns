@@ -18,7 +18,6 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"io"
-	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/exec"
@@ -29,14 +28,12 @@ func initZDNS() (cmd *exec.Cmd, stdin io.WriteCloser, stderr io.ReadCloser, err 
 }
 
 func main() {
-	// Start pprof server
-	// accessible at http://localhost:6060/debug/pprof/
-	go func() {
-		fmt.Println("Starting pprof server on :6060")
-		fmt.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
+	// ZDNS can start a pprof server if the ZDNS_PPROF environment variable is set
+	if err := os.Setenv("ZDNS_PPROF", "true"); err != nil {
+		log.Panicf("failed to set ZDNS_PPROF environment variable: %v", err)
+	}
 
-	cmd := exec.Command("../zdns", "A", "--iterative", "--verbosity=3")
+	cmd := exec.Command("../zdns", "A", "--iterative", "--verbosity=3", "--threads=1")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		log.Panicf("failed to create stdin pipe: %v", err)
