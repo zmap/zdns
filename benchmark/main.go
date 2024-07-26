@@ -29,13 +29,14 @@ import (
 )
 
 const (
-	linesOfInput = 7000 // number of lines to read from input file to feed to ZDNS
+	linesOfInput  = 7000 // number of lines to read from input file to feed to ZDNS
+	inputFileName = "10k_crux_top_domains.input"
 )
 
 func feedZDNS(inputLines int, stdin io.WriteCloser) {
 	// read in input to stdin
 	go func() {
-		f, err := os.Open("10k_domains.input")
+		f, err := os.Open(inputFileName)
 		if err != nil {
 			log.Panicf("failed to open input file: %v", err)
 		}
