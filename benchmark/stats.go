@@ -98,7 +98,7 @@ func printStats(s *Stats) {
 			return sortedFailedDomains[i].Domain < sortedFailedDomains[j].Domain
 		})
 
-		fmt.Printf("%-*s %*v\n", titleWidth, "Domains that failed:", timeWidth, len(s.FailedDomains))
+		fmt.Printf("%-*s %*v\n\n", titleWidth, "Domains that failed:", timeWidth, len(s.FailedDomains))
 		for _, domainStatus := range sortedFailedDomains {
 			fmt.Printf("\t%-*s %*v\n", titleWidth-8, fmt.Sprintf("%s:", domainStatus.Domain), timeWidth, domainStatus.Status)
 		}
