@@ -23,14 +23,15 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/exec"
+	"sort"
 	"time"
 
 	"github.com/zmap/zdns/src/zdns"
 )
 
 const (
-	linesOfInput = 10 // number of lines to read from input file to feed to ZDNS
-	ZDNSThreads  = 10
+	linesOfInput = 2000 // number of lines to read from input file to feed to ZDNS
+	ZDNSThreads  = 100
 )
 
 func feedZDNS(inputLines int, stdin io.WriteCloser) {
@@ -96,9 +97,24 @@ func printStats(s *Stats) {
 	fmt.Printf("%-*s %*v\n", titleWidth, "Average resolution time:", timeWidth, s.AverageResolveTime)
 
 	// Print the ten longest resolutions with formatting for alignment
-	fmt.Println("Ten longest resolutions:")
+	// Convert the map to a slice of key-value pairs
+	type DomainTime struct {
+		Domain string
+		Time   time.Duration
+	}
+	var sortedResolutions []DomainTime
 	for domain, t := range s.TenLongestResolutions {
-		fmt.Printf("\t%-*s %*v\n", titleWidth-8, domain+":", timeWidth, t)
+		sortedResolutions = append(sortedResolutions, DomainTime{domain, t})
+	}
+
+	// Sort the slice based on the time in decreasing order
+	sort.Slice(sortedResolutions, func(i, j int) bool {
+		return sortedResolutions[i].Time > sortedResolutions[j].Time
+	})
+
+	fmt.Println("Ten longest resolutions:")
+	for _, entry := range sortedResolutions {
+		fmt.Printf("\t%-*s %*v\n", titleWidth-8, entry.Domain+":", timeWidth, entry.Time)
 	}
 }
 
