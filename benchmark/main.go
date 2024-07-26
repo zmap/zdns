@@ -30,8 +30,8 @@ import (
 )
 
 const (
-	linesOfInput = 2000 // number of lines to read from input file to feed to ZDNS
-	ZDNSThreads  = 100
+	linesOfInput = 2 // number of lines to read from input file to feed to ZDNS
+	ZDNSThreads  = 1
 )
 
 func feedZDNS(inputLines int, stdin io.WriteCloser) {
@@ -74,6 +74,7 @@ func feedZDNS(inputLines int, stdin io.WriteCloser) {
 
 type Stats struct {
 	StartTime             time.Time                // when the benchmark started
+	EndTime               time.Time                // when the benchmark ended
 	MinResolveTime        time.Duration            // minimum resolution time for a single domain
 	MaxResolveTime        time.Duration            // maximum resolution time for a single domain
 	AverageResolveTime    time.Duration            // average resolution time for all domains
@@ -89,12 +90,12 @@ func printStats(s *Stats) {
 	timeWidth := 15
 
 	// Print the benchmark duration
-	fmt.Printf("%-*s %*v\n", titleWidth, "Benchmark took:", timeWidth, time.Since(s.StartTime))
+	fmt.Printf("%-*s %*v\n", titleWidth, "Benchmark took:", timeWidth, formatTime(s.EndTime.Sub(s.StartTime)))
 
 	// Print the min, max, and average resolution times
-	fmt.Printf("%-*s %*v\n", titleWidth, "Min resolution time:", timeWidth, s.MinResolveTime)
-	fmt.Printf("%-*s %*v\n", titleWidth, "Max resolution time:", timeWidth, s.MaxResolveTime)
-	fmt.Printf("%-*s %*v\n", titleWidth, "Average resolution time:", timeWidth, s.AverageResolveTime)
+	fmt.Printf("%-*s %*v\n", titleWidth, "Min resolution time:", timeWidth, formatTime(s.MinResolveTime))
+	fmt.Printf("%-*s %*v\n", titleWidth, "Max resolution time:", timeWidth, formatTime(s.MaxResolveTime))
+	fmt.Printf("%-*s %*v\n", titleWidth, "Average resolution time:", timeWidth, formatTime(s.AverageResolveTime))
 
 	// Print the ten longest resolutions with formatting for alignment
 	// Convert the map to a slice of key-value pairs
@@ -114,7 +115,26 @@ func printStats(s *Stats) {
 
 	fmt.Println("Ten longest resolutions:")
 	for _, entry := range sortedResolutions {
-		fmt.Printf("\t%-*s %*v\n", titleWidth-8, entry.Domain+":", timeWidth, entry.Time)
+		fmt.Printf("\t%-*s %*v\n", titleWidth-8, entry.Domain+":", timeWidth, formatTime(entry.Time))
+	}
+}
+
+// formatTime takes a time.Duration and formats it with 2 decimal places
+func formatTime(d time.Duration) string {
+	decimalPlaces := 2
+	switch {
+	case d >= time.Second:
+		formatStr := fmt.Sprintf("%%.%dfs", decimalPlaces)
+		return fmt.Sprintf(formatStr, d.Seconds())
+	case d >= time.Millisecond:
+		formatStr := fmt.Sprintf("%%.%dfms", decimalPlaces)
+		return fmt.Sprintf(formatStr, float64(d.Microseconds())/1000)
+	case d >= time.Microsecond:
+		formatStr := fmt.Sprintf("%%.%dfµs", decimalPlaces)
+		return fmt.Sprintf(formatStr, float64(d.Nanoseconds())/1000)
+	default:
+		formatStr := fmt.Sprintf("%%.%dfns", decimalPlaces)
+		return fmt.Sprintf(formatStr, float64(d.Nanoseconds()))
 	}
 }
 
@@ -178,6 +198,7 @@ func processOutput(stdout io.ReadCloser, s *Stats) {
 			}
 			updateStats(scanner.Text(), s)
 		}
+		s.EndTime = time.Now()
 	}()
 }
 
