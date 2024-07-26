@@ -29,8 +29,7 @@ import (
 )
 
 const (
-	linesOfInput = 2000 // number of lines to read from input file to feed to ZDNS
-	ZDNSThreads  = 100
+	linesOfInput = 7000 // number of lines to read from input file to feed to ZDNS
 )
 
 func feedZDNS(inputLines int, stdin io.WriteCloser) {
@@ -100,7 +99,7 @@ func main() {
 		log.Panicf("failed to set ZDNS_PPROF environment variable: %v", err)
 	}
 
-	cmd := exec.Command("../zdns", "A", "--iterative", "--verbosity=3", "--name-servers=1.1.1.1,8.8.8.8", "--threads", fmt.Sprintf("%d", ZDNSThreads))
+	cmd := exec.Command("../zdns", "A", "--iterative", "--verbosity=3", "--name-servers=1.1.1.1,8.8.8.8")
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
