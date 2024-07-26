@@ -149,7 +149,7 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 	var res SingleQueryResult
 	var trace Trace
 	var status Status
-	var err error
+
 	candidateSet := make(map[string][]Answer)
 	cnameSet := make(map[string][]Answer)
 	garbage := make(map[string][]Answer)
@@ -161,19 +161,27 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 	r.verboseLog(0, "MIEKG-IN: starting a following iterative lookup for ", originalName, " (", q.Type, ")")
 	for i := 0; i < r.maxDepth; i++ {
 		q.Name = currName // update the question with the current name, this allows following CNAMEs
-		res, trace, status, err = r.lookup(ctx, q, nameServer, isIterative)
-		if status != StatusNoError || err != nil {
-			return &res, trace, status, errors.Wrapf(err, "iterative lookup failed for name %v at depth %d", q.Name, i)
+		iterRes, iterTrace, iterStatus, lookupErr := r.lookup(ctx, q, nameServer, isIterative)
+		// append iterTrace to the global iterTrace
+		if iterTrace != nil {
+			trace = append(trace, iterTrace...)
 		}
+		if iterStatus != StatusNoError || lookupErr != nil {
+			return &res, trace, status, errors.Wrapf(lookupErr, "iterative lookup failed for name %v at depth %d", q.Name, i)
+		}
+		// update the result with the latest iteration since there's no error
+		// We'll return the latest good result if we're traversing CNAMEs
+		res = iterRes
+		status = iterStatus
 
 		if q.Type == dns.TypeMX {
 			// MX records have a special lookup format, so we won't attempt to follow CNAMES here
-			return &res, trace, status, nil
+			return &res, iterTrace, status, nil
 		}
 
 		if !r.followCNAMEs {
 			// if we're not following CNAMES, we're done
-			return &res, trace, status, nil
+			return &res, iterTrace, status, nil
 		}
 
 		// populateResults will parse the Answers and update the candidateSet, cnameSet, and garbage caching maps
@@ -193,7 +201,7 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 				Protocol:   res.Protocol,
 				Resolver:   res.Resolver,
 				Flags:      res.Flags,
-			}, trace, StatusNoError, nil
+			}, iterTrace, StatusNoError, nil
 		}
 
 		if candidates, ok := cnameSet[currName]; ok && len(candidates) > 0 {
@@ -201,7 +209,7 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 			currName = strings.ToLower(strings.TrimSuffix(candidates[0].Answer, "."))
 			continue
 		} else if candidates, ok = garbage[currName]; ok && len(candidates) > 0 {
-			return nil, trace, StatusError, errors.New("unexpected record type received")
+			return nil, iterTrace, StatusError, errors.New("unexpected record type received")
 		}
 		// for each key in DNAMESet, check if the current name has a substring that matches the key.
 		// if so, replace that substring
@@ -217,11 +225,11 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 			continue
 		} else {
 			// we have no data whatsoever about this name. return an empty recordset to the user
-			return &res, trace, StatusNoError, nil
+			return &iterRes, trace, StatusNoError, nil
 		}
 	}
 	log.Debugf("MIEKG-IN: max recursion depth reached for %s lookup", originalName)
-	return &res, trace, status, nil
+	return nil, trace, StatusServFail, nil
 }
 
 // isLookupComplete checks if there's a valid answer using the originalName and following CNAMES
