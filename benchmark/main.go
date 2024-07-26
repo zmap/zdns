@@ -192,7 +192,8 @@ func main() {
 		log.Panicf("failed to set ZDNS_PPROF environment variable: %v", err)
 	}
 
-	cmd := exec.Command("../zdns", "A", "--iterative", "--verbosity=3", "--threads", fmt.Sprintf("%d", ZDNSThreads))
+	cmd := exec.Command("../zdns", "A", "--iterative", "--verbosity=3", "--name-servers=1.1.1.1,8.8.8.8", "--threads", fmt.Sprintf("%d", ZDNSThreads))
+
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		log.Panicf("failed to create stdin pipe: %v", err)
