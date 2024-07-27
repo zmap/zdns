@@ -57,6 +57,7 @@ type Result struct {
 	Status      string      `json:"status,omitempty" groups:"short,normal,long,trace"`
 	Error       string      `json:"error,omitempty" groups:"short,normal,long,trace"`
 	Timestamp   string      `json:"timestamp,omitempty" groups:"short,normal,long,trace"`
+	Duration    float64     `json:"duration,omitempty" groups:"short,normal,long,trace"` // in seconds
 	Data        interface{} `json:"data,omitempty" groups:"short,normal,long,trace"`
 	Trace       Trace       `json:"trace,omitempty" groups:"trace"`
 }
