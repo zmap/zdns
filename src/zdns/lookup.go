@@ -68,35 +68,7 @@ func (lc LookupClient) DoSingleDstServerLookup(r *Resolver, q Question, nameServ
 }
 
 func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
-	// Check that nameserver isn't blacklisted
-	nameServerIPString, _, err := net.SplitHostPort(nameServer)
-	if err != nil {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("could not split nameserver %s: %w", nameServer, err)
-	}
-	// nameserver is required
-	if nameServer == "" {
-		return nil, nil, StatusIllegalInput, errors.New("no nameserver specified")
-	}
-	// nameserver must be reachable from the local address
-	nameServerIP := net.ParseIP(nameServerIPString)
-	if nameServerIP == nil {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse nameserver IP: %s", nameServerIPString)
-	}
-	if nameServerIP.IsLoopback() != r.localAddr.IsLoopback() {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("nameserver %s must be reachable from the local address %s, ie. both must be loopback or not loopback", nameServerIPString, r.localAddr.String())
-	}
-
-	// Stop if we hit a nameserver we don't want to hit
-	if r.blacklist != nil {
-		if blacklisted, blacklistedErr := r.blacklist.IsBlacklisted(nameServerIPString); blacklistedErr != nil {
-			var r SingleQueryResult
-			return &r, Trace{}, StatusError, fmt.Errorf("could not check blacklist for nameserver %s: %w", nameServer, err)
-		} else if blacklisted {
-			var r SingleQueryResult
-			return &r, Trace{}, StatusBlacklist, nil
-		}
-	}
-
+	var err error
 	if q.Type == dns.TypePTR {
 		var qname string
 		qname, err = dns.ReverseAddr(q.Name)
@@ -302,14 +274,43 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 // retryingLookup wraps around wireLookup to perform a DNS lookup with retries
 // Returns the result, status, number of tries, and error
 func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer string, recursive bool) (SingleQueryResult, Status, int, error) {
+	// nameserver is required
+	if nameServer == "" {
+		return SingleQueryResult{}, StatusIllegalInput, 0, errors.New("no nameserver specified")
+	}
+	nameServerIP, _, err := util.SplitHostPort(nameServer)
+	if err != nil {
+		return SingleQueryResult{}, StatusError, 0, errors.Wrapf(err, "could not split nameserver %s to get IP", nameServer)
+	}
+	// Check that nameserver isn't blacklisted
+
+	// Stop if we hit a nameserver we don't want to hit
+	if r.blacklist != nil {
+		if blacklisted, blacklistedErr := r.blacklist.IsBlacklisted(nameServerIP.String()); blacklistedErr != nil {
+			return SingleQueryResult{}, StatusError, 0, fmt.Errorf("could not check blacklist for nameserver %s: %w", nameServer, err)
+		} else if blacklisted {
+			return SingleQueryResult{}, StatusBlacklist, 0, nil
+		}
+	}
+	var connInfo *ConnectionInfo
+	if nameServerIP.To4() != nil {
+		connInfo = r.connInfoIPv4
+	} else if nameServerIP.To16() != nil {
+		connInfo = r.connInfoIPv6
+	} else {
+		return SingleQueryResult{}, StatusError, 0, fmt.Errorf("could not determine IP version of nameserver: %s", nameServer)
+	}
+	// check loopback consistency
+	if nameServerIP.IsLoopback() != connInfo.localAddr.IsLoopback() {
+		return SingleQueryResult{}, StatusIllegalInput, 0, fmt.Errorf("nameserver %s must be reachable from the local address %s, ie. both must be loopback or not loopback", nameServer, connInfo.localAddr.String())
+	}
 	r.verboseLog(1, "****WIRE LOOKUP*** ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
 	for i := 0; i <= r.retries; i++ {
 		// check context before going into wireLookup
 		if util.HasCtxExpired(&ctx) {
-			var r SingleQueryResult
-			return r, StatusTimeout, i + 1, nil
+			return SingleQueryResult{}, StatusTimeout, i + 1, nil
 		}
-		result, status, err := wireLookup(ctx, r.udpClient, r.tcpClient, r.conn, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
+		result, status, err := wireLookup(ctx, connInfo.udpClient, connInfo.tcpClient, connInfo.conn, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
 		if status != StatusTimeout || i == r.retries {
 			return result, status, i + 1, err
 		}

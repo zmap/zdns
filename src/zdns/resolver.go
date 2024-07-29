@@ -126,6 +126,20 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 		return errors.Wrap(err, "could not validate loopback consistency")
 	}
 
+	// If we're using IPv6, we need both a local IPv4 address and an IPv6 nameserver
+	if rc.IPVersionMode != IPv4Only && (len(rc.LocalAddrsV6) == 0 || len(rc.ExternalNameServersV6) == 0) {
+		if rc.IPVersionMode == IPv6Only {
+			return errors.New("IPv6 only mode requires both local IPv6 addresses and IPv6 nameservers")
+		}
+		log.Info("cannot use IPv6 only mode without both local IPv6 addresses and IPv6 nameservers, defaulting to IPv4 only")
+		rc.IPVersionMode = IPv4Only
+	}
+
+	if rc.IPVersionMode == IPv4Only {
+		rc.LocalAddrsV6 = nil
+		rc.ExternalNameServersV6 = nil
+	}
+
 	return nil
 }
 
@@ -330,6 +344,13 @@ func NewResolverConfig() *ResolverConfig {
 	}
 }
 
+type ConnectionInfo struct {
+	udpClient *dns.Client
+	tcpClient *dns.Client
+	conn      *dns.Conn
+	localAddr net.IP
+}
+
 // Resolver is a struct that holds the state of a DNS resolver. It is used to perform DNS lookups.
 type Resolver struct {
 	cache        *Cache
@@ -337,10 +358,8 @@ type Resolver struct {
 
 	blacklist *blacklist.SafeBlacklist
 
-	udpClient *dns.Client
-	tcpClient *dns.Client
-	conn      *dns.Conn
-	localAddr net.IP
+	connInfoIPv4 *ConnectionInfo
+	connInfoIPv6 *ConnectionInfo
 
 	retries  int
 	logLevel log.Level
@@ -401,41 +420,26 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		checkingDisabledBit: config.CheckingDisabledBit,
 	}
 	log.SetLevel(r.logLevel)
-	r.localAddr = config.LocalAddrs[rand.Intn(len(config.LocalAddrs))]
-
-	if r.shouldRecycleSockets {
-		// create persistent connection
-		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: r.localAddr})
+	// create connection info for IPv4
+	if config.IPVersionMode == IPv4Only || config.IPVersionMode == IPv4OrIPv6 {
+		connInfo, err := getConnectionInfo(config.LocalAddrsV4, config.TransportMode, config.Timeout, config.ShouldRecycleSockets)
 		if err != nil {
-			return nil, fmt.Errorf("unable to create UDP connection: %w", err)
+			return nil, fmt.Errorf("could not create connection info for IPv4: %w", err)
 		}
-		r.conn = new(dns.Conn)
-		r.conn.Conn = conn
+		r.connInfoIPv4 = connInfo
 	}
-
-	usingUDP := r.transportMode == UDPOrTCP || r.transportMode == UDPOnly
-	if usingUDP {
-		r.udpClient = new(dns.Client)
-		r.udpClient.Timeout = r.timeout
-		r.udpClient.Dialer = &net.Dialer{
-			Timeout:   r.timeout,
-			LocalAddr: &net.UDPAddr{IP: r.localAddr},
+	// create connection info for IPv6
+	if config.IPVersionMode == IPv6Only || config.IPVersionMode == IPv4OrIPv6 {
+		connInfo, err := getConnectionInfo(config.LocalAddrsV6, config.TransportMode, config.Timeout, config.ShouldRecycleSockets)
+		if err != nil {
+			return nil, fmt.Errorf("could not create connection info for IPv6: %w", err)
 		}
+		r.connInfoIPv6 = connInfo
 	}
-	usingTCP := r.transportMode == UDPOrTCP || r.transportMode == TCPOnly
-	if usingTCP {
-		r.tcpClient = new(dns.Client)
-		r.tcpClient.Net = "tcp"
-		r.tcpClient.Timeout = r.timeout
-		r.tcpClient.Dialer = &net.Dialer{
-			Timeout:   config.Timeout,
-			LocalAddr: &net.TCPAddr{IP: r.localAddr},
-		}
-	}
-	r.externalNameServers = make([]string, len(config.ExternalNameServers))
+	r.externalNameServers = make([]string, len(config.ExternalNameServersV4)+len(config.ExternalNameServersV6))
 	// deep copy external name servers from config to resolver
-	elemsCopied := copy(r.externalNameServers, config.ExternalNameServers)
-	if elemsCopied != len(config.ExternalNameServers) {
+	elemsCopied := copy(r.externalNameServers, append(config.ExternalNameServersV4, config.ExternalNameServersV6...))
+	if elemsCopied != len(config.ExternalNameServersV4)+len(config.ExternalNameServersV6) {
 		log.Fatal("failed to copy entire name servers list from config")
 	}
 	r.iterativeTimeout = config.IterativeTimeout
@@ -443,6 +447,42 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	// use the set of 13 root name servers
 	r.rootNameServers = RootServersV4[:]
 	return r, nil
+}
+
+func getConnectionInfo(localAddr []net.IP, transportMode transportMode, timeout time.Duration, shouldRecycleSockets bool) (*ConnectionInfo, error) {
+	connInfo := &ConnectionInfo{
+		localAddr: localAddr[rand.Intn(len(localAddr))],
+	}
+	if shouldRecycleSockets {
+		// create persistent connection
+		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: connInfo.localAddr})
+		if err != nil {
+			return nil, fmt.Errorf("unable to create UDP connection: %w", err)
+		}
+		connInfo.conn = new(dns.Conn)
+		connInfo.conn.Conn = conn
+	}
+
+	usingUDP := transportMode == UDPOrTCP || transportMode == UDPOnly
+	if usingUDP {
+		connInfo.udpClient = new(dns.Client)
+		connInfo.udpClient.Timeout = timeout
+		connInfo.udpClient.Dialer = &net.Dialer{
+			Timeout:   timeout,
+			LocalAddr: &net.UDPAddr{IP: connInfo.localAddr},
+		}
+	}
+	usingTCP := transportMode == UDPOrTCP || transportMode == TCPOnly
+	if usingTCP {
+		connInfo.tcpClient = new(dns.Client)
+		connInfo.tcpClient.Net = "tcp"
+		connInfo.tcpClient.Timeout = timeout
+		connInfo.tcpClient.Dialer = &net.Dialer{
+			Timeout:   timeout,
+			LocalAddr: &net.TCPAddr{IP: connInfo.localAddr},
+		}
+	}
+	return connInfo, nil
 }
 
 // ExternalLookup performs a single lookup of a DNS question, q,  against an external name server.
@@ -468,15 +508,6 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryRe
 	if dstServer != dstServerWithPort {
 		log.Info("no port provided for external lookup, using default port 53")
 	}
-	dstServerIP, _, err := util.SplitHostPort(dstServerWithPort)
-	if err != nil {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w", dstServer, err)
-	}
-	// check that local address and dstServer's don't have a loopback mismatch
-	if r.localAddr.IsLoopback() != dstServerIP.IsLoopback() {
-		return nil, nil, StatusIllegalInput, errors.New("cannot mix loopback and non-loopback addresses")
-
-	}
 	// dstServer has been validated and has a port
 	dstServer = dstServerWithPort
 	lookup, trace, status, err := r.lookupClient.DoSingleDstServerLookup(r, *q, dstServer, false)
@@ -499,9 +530,14 @@ func (r *Resolver) IterativeLookup(q *Question) (*SingleQueryResult, Trace, Stat
 // Close cleans up any resources used by the resolver. This should be called when the resolver is no longer needed.
 // Lookup will panic if called after Close.
 func (r *Resolver) Close() {
-	if r.conn != nil {
-		if err := r.conn.Close(); err != nil {
-			log.Errorf("error closing connection: %v", err)
+	if r.connInfoIPv4.conn != nil {
+		if err := r.connInfoIPv4.conn.Close(); err != nil {
+			log.Errorf("error closing IPv4 connection: %v", err)
+		}
+	}
+	if r.connInfoIPv6.conn != nil {
+		if err := r.connInfoIPv6.conn.Close(); err != nil {
+			log.Errorf("error closing IPv6 connection: %v", err)
 		}
 	}
 }
