@@ -170,8 +170,25 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
 	// copy nameservers to resolver config
-	config.ExternalNameServers = gc.NameServers
+	ipv4NSes, ipv6NSes, err := util.SplitIPv4AndIPv6Addrs(gc.NameServers)
+	if err != nil {
+		log.Fatalf("unable to split IPv4 and IPv6 addresses (%s): %v", gc.NameServers, err)
+	}
+	config.ExternalNameServersV4 = ipv4NSes
+	// this will be empty if no IPv6 addresses are specified
+	config.ExternalNameServersV6 = ipv6NSes
 	config.LookupAllNameServers = gc.LookupAllNameServers
+
+	// Local Addresses
+	for _, ip := range gc.LocalAddrs {
+		if ip.To4() != nil {
+			config.LocalAddrsV4 = append(config.LocalAddrsV4, ip)
+		} else if ip.To16() != nil {
+			config.LocalAddrsV6 = append(config.LocalAddrsV6, ip)
+		} else {
+			log.Fatalf("invalid local address: %s", ip.String())
+		}
+	}
 
 	if gc.UseNSID {
 		config.EdnsOptions = append(config.EdnsOptions, new(dns.EDNS0_NSID))
@@ -185,8 +202,6 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 	config.MaxDepth = gc.MaxDepth
 	config.CheckingDisabledBit = gc.CheckingDisabled
 	config.ShouldRecycleSockets = gc.RecycleSockets
-	config.ExternalNameServers = gc.NameServers
-	config.LocalAddrs = gc.LocalAddrs
 	config.DNSSecEnabled = gc.Dnssec
 	config.DNSConfigFilePath = gc.ConfigFilePath
 
