@@ -39,6 +39,7 @@ func populateNetworkingConfig(gc *CLIConf) error {
 		return errors.Wrap(err, "client subnet did not pass validation")
 	}
 
+	// local address - the user can enter both IPv4 and IPv6 addresses. We'll differentiate them later in the Resolver
 	if GC.LocalAddrString != "" {
 		for _, la := range strings.Split(GC.LocalAddrString, ",") {
 			ip := net.ParseIP(la)
@@ -51,6 +52,7 @@ func populateNetworkingConfig(gc *CLIConf) error {
 		gc.LocalAddrSpecified = true
 	}
 
+	// local interface - same as local addresses, an interface could have both IPv4 and IPv6 addresses, we'll differentiate them later in the Resolver
 	if gc.LocalIfaceString != "" {
 		li, err := net.InterfaceByName(gc.LocalIfaceString)
 		if err != nil {
