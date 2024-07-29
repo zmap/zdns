@@ -417,6 +417,8 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		dnsSecEnabled:       config.DNSSecEnabled,
 		ednsOptions:         config.EdnsOptions,
 		checkingDisabledBit: config.CheckingDisabledBit,
+
+		rootNameServers: []string{},
 	}
 	log.SetLevel(r.logLevel)
 	// create connection info for IPv4
@@ -444,6 +446,13 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	r.iterativeTimeout = config.IterativeTimeout
 	r.maxDepth = config.MaxDepth
 	// use the set of 13 root name servers
+	if r.ipVersionMode != IPv6Only {
+		r.rootNameServers = append(r.rootNameServers, RootServersV4...)
+	}
+	if r.ipVersionMode != IPv4Only {
+		r.rootNameServers = append(r.rootNameServers, RootServersV6...)
+	}
+
 	r.rootNameServers = RootServersV4[:]
 	return r, nil
 }
