@@ -546,6 +546,13 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
 
+    def test_a_ipv6(self):
+        c = "A --name-servers=2001:4860:4860::8888:53"
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+
     def test_cname(self):
         c = "CNAME"
         name = "www.zdns-testing.com"
