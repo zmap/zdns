@@ -14,6 +14,12 @@
 package main
 
 import (
+	"net/http"
+	_ "net/http/pprof"
+	"os"
+
+	log "github.com/sirupsen/logrus"
+
 	"github.com/zmap/zdns/src/cli"
 	// the order of these imports is important, as the modules are registered in the init() functions.
 	// Import modules after the basic cmd pkg
@@ -27,5 +33,12 @@ import (
 )
 
 func main() {
+	// if the ZDNS_PPROF environment variable is set, start the pprof server
+	if os.Getenv("ZDNS_PPROF") == "true" {
+		go func() {
+			log.Debug("Starting pprof server on localhost:6060")
+			log.Warn(http.ListenAndServe("localhost:6060", nil))
+		}()
+	}
 	cli.Execute()
 }

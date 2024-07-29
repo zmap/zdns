@@ -354,9 +354,11 @@ func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, i
 		res.Name = rawName
 		res.Class = dns.Class(gc.Class).String()
 
+		startTime := time.Now()
 		innerRes, trace, status, err = lookup.Lookup(resolver, lookupName, nameServer)
 
 		res.Timestamp = time.Now().Format(gc.TimeFormat)
+		res.Duration = time.Since(startTime).Seconds()
 		if status != zdns.StatusNoOutput {
 			res.Status = string(status)
 			res.Data = innerRes
