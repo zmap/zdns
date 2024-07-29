@@ -166,7 +166,14 @@ func (rc *ResolverConfig) populateLocalAddrs() error {
 		// localAddr not set, so we need to find the default IPv6 address
 		conn, err := net.Dial("udp", googleDNSResolverAddrV6)
 		if err != nil {
-			return fmt.Errorf("unable to find default IPv6 address to open socket: %w", err)
+			if rc.IPVersionMode == IPv6Only {
+				// if user selected only IPv6 and we can't find a default IPv6 address, return an error
+				return errors.New("unable to find default IPv6 address to open socket")
+			}
+			// user didn't specify IPv6 only, so we'll just log the issue and continue with IPv4
+			log.Info("unable to find default IPv6 address to open socket, using IPv4 only: ", err)
+			rc.IPVersionMode = IPv4Only
+			return nil
 		}
 		rc.LocalAddrsV6 = append(rc.LocalAddrsV6, conn.LocalAddr().(*net.UDPAddr).IP)
 		// cleanup socket
@@ -303,8 +310,8 @@ func NewResolverConfig() *ResolverConfig {
 		Cache:        c,
 
 		Blacklist:    blacklist.New(),
-		LocalAddrsV4: nil,
-		LocalAddrsV6: nil,
+		LocalAddrsV4: []net.IP{},
+		LocalAddrsV6: []net.IP{},
 
 		TransportMode:        defaultTransportMode,
 		IPVersionMode:        defaultIPVersionMode,
