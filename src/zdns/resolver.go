@@ -33,7 +33,7 @@ import (
 const (
 	LoopbackAddrString      = "127.0.0.1"
 	googleDNSResolverAddr   = "8.8.8.8:53"
-	googleDNSResolverAddrV6 = "2001:4860:4860::8888:53"
+	googleDNSResolverAddrV6 = "[2001:4860:4860::8888]:53"
 
 	defaultTimeout               = 15 * time.Second // timeout for resolving a single name
 	defaultIterativeTimeout      = 4 * time.Second  // timeout for single iteration in an iterative query
@@ -137,6 +137,9 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 	if rc.IPVersionMode == IPv4Only {
 		rc.LocalAddrsV6 = nil
 		rc.ExternalNameServersV6 = nil
+	} else if rc.IPVersionMode == IPv6Only {
+		rc.LocalAddrsV4 = nil
+		rc.ExternalNameServersV4 = nil
 	}
 
 	return nil
@@ -447,13 +450,14 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	r.maxDepth = config.MaxDepth
 	// use the set of 13 root name servers
 	if r.ipVersionMode != IPv6Only {
+		// add IPv4 root servers
 		r.rootNameServers = append(r.rootNameServers, RootServersV4...)
 	}
 	if r.ipVersionMode != IPv4Only {
+		// add IPv6 root servers
 		r.rootNameServers = append(r.rootNameServers, RootServersV6...)
 	}
 
-	r.rootNameServers = RootServersV4[:]
 	return r, nil
 }
 
