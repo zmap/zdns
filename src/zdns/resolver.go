@@ -31,7 +31,6 @@ import (
 )
 
 const (
-	// TODO - we'll need to update this when we add IPv6 support
 	LoopbackAddrString      = "127.0.0.1"
 	googleDNSResolverAddr   = "8.8.8.8:53"
 	googleDNSResolverAddrV6 = "2001:4860:4860::8888:53"
