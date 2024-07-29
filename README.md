@@ -305,6 +305,12 @@ at any time as we expand support for additional record types. If you find
 yourself using this field, please consider submitting a pull-request adding
 parser support.
 
+Benchmark for ZDNS
+------------------
+There is a benchmark available in `benchmark/` that can be used to run ZDNS in a predictable fashion and print out some statistics about the run.
+This can be useful for comparing performance before and after a change to ZDNS.
+See more details in the [benchmark README](./benchmark/README.md).
+
 Contributing
 ============
 
