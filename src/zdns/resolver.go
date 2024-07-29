@@ -150,7 +150,7 @@ func (rc *ResolverConfig) populateResolverConfig() error {
 		return errors.Wrap(err, "could not populate local addresses")
 	}
 	// if there is no IPv6 local addresses, we should not use IPv6
-	if len(rc.LocalAddrsV6) == 0 {
+	if len(rc.LocalAddrsV6) == 0 && rc.IPVersionMode != IPv4Only {
 		log.Warn("no IPv6 local addresses found, only using IPv4")
 		rc.IPVersionMode = IPv4Only
 	}
@@ -213,7 +213,7 @@ func (rc *ResolverConfig) populateNameServers() error {
 		nsv4, nsv6, err := GetDNSServers(rc.DNSConfigFilePath)
 		if err != nil {
 			nsv4, nsv6 = util.GetDefaultResolvers()
-			log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(append(nsv4, nsv6...), ", "))
+			log.Warnf("Unable to parse resolvers file (%v). Using ZDNS defaults: %s", err, strings.Join(append(nsv4, nsv6...), ", "))
 		}
 		rc.ExternalNameServersV4 = nsv4
 		rc.ExternalNameServersV6 = nsv6

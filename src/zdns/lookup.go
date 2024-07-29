@@ -44,7 +44,10 @@ func GetDNSServers(path string) (ipv4, ipv6 []string, err error) {
 	ipv4 = make([]string, 0, len(servers))
 	ipv6 = make([]string, 0, len(servers))
 	for _, s := range servers {
-		ip := net.ParseIP(s)
+		ip, _, err := util.SplitHostPort(s)
+		if err != nil {
+			return []string{}, []string{}, fmt.Errorf("could not parse IP address (%s) from file: %w", s, err)
+		}
 		if ip.To4() != nil {
 			ipv4 = append(ipv4, s)
 		} else if ip.To16() != nil {
