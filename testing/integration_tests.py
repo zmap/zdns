@@ -39,7 +39,7 @@ def recursiveSort(obj):
 
 class Tests(unittest.TestCase):
     maxDiff = None
-    ZDNS_EXECUTABLE = "./zdns"
+    ZDNS_EXECUTABLE = "../zdns"
 
     def run_zdns_check_failure(self, flags, name, expected_err, executable=ZDNS_EXECUTABLE):
         flags = flags + " --threads=10"
@@ -974,6 +974,54 @@ class Tests(unittest.TestCase):
         # microseconds should be non-zero since we called with --nanoseconds. There is a chance it happens to be 0,
         # but it is very unlikely. (1 in 1,000,000). Python's datetime.date's smallest unit of time is microseconds,
         # so that's why we're using this in place of nanoseconds. It should not affect the test's validity.
+
+    def test_ipv6_unreachable(self):
+        c = "A --iterative --ipv6-lookup=true --ipv4-lookup=false"
+        name = "esrg.stanford.edu"
+        cmd, res = self.run_zdns(c, name)
+        # esrg.stanford.edu is hosted on NS's that do not have an IPv6 address. Therefore, this will fail.
+        self.assertServFail(res, cmd)
+
+    def test_ipv6_external_lookup_unreachable_nameserver(self):
+        c = "A --ipv6-lookup=true --ipv4-lookup=false --name-servers=1.1.1.1"
+        name = "zdns-testing.com"
+        try:
+            cmd, res = self.run_zdns(c, name)
+        except Exception as e:
+            return True
+        self.fail("Should have thrown an exception, shouldn't be able to reach any IPv4 servers while in IPv6 mode")
+
+    def test_ipv4_external_lookup_unreachable_nameserver(self):
+        c = "A --ipv6-lookup=false --ipv4-lookup=true --name-servers=2606:4700:4700::1111"
+        name = "zdns-testing.com"
+        try:
+            cmd, res = self.run_zdns(c, name)
+        except Exception as e:
+            return True
+        self.fail("Should have thrown an exception, shouldn't be able to reach any IPv6 servers while in IPv4 mode")
+
+    def test_ipv6_happy_path_external(self):
+        c = "A --ipv6-lookup=true"
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+
+    def test_ipv6_happy_path_iterative(self):
+        c = "A --ipv6-lookup=true --iterative"
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+
+    def test_ipv6_happy_path_no_ipv4_iterative(self):
+        c = "A --ipv6-lookup=true --ipv4-lookup=false --iterative"
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+
+
 
 
 if __name__ == "__main__":
