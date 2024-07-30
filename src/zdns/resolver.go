@@ -19,6 +19,7 @@ import (
 	"math/rand"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -54,6 +55,7 @@ const (
 
 // ResolverConfig is a struct that holds all the configuration options for a Resolver. It is used to create a new Resolver.
 type ResolverConfig struct {
+	sync.Mutex   // lock for populateAndValidate
 	Cache        *Cache
 	CacheSize    int      // don't use both cache and cacheSize
 	LookupClient Lookuper // either a functional or mock Lookuper client for testing
@@ -85,6 +87,9 @@ type ResolverConfig struct {
 
 // PopulateAndValidate checks if the ResolverConfig is valid and populates any missing fields with default values.
 func (rc *ResolverConfig) PopulateAndValidate() error {
+	// This is called in every InitResolver while re-using the config, so it needs to be thread-safe
+	rc.Lock()
+	defer rc.Unlock()
 	// populate any missing values in resolver config
 	if err := rc.populateResolverConfig(); err != nil {
 		return errors.Wrap(err, "could not populate resolver config")
@@ -164,7 +169,7 @@ func (rc *ResolverConfig) populateResolverConfig() error {
 // populateLocalAddrs populates/validates the local addresses for the resolver.
 // If no local addresses are set, it will find a IP address and IPv6 address, if applicable.
 func (rc *ResolverConfig) populateLocalAddrs() error {
-	if len(rc.LocalAddrsV4) == 0 {
+	if rc.IPVersionMode != IPv6Only && len(rc.LocalAddrsV4) == 0 {
 		// localAddr not set, so we need to find the default IP address
 		conn, err := net.Dial("udp", googleDNSResolverAddr)
 		if err != nil {
@@ -177,8 +182,7 @@ func (rc *ResolverConfig) populateLocalAddrs() error {
 		}
 	}
 
-	lookupIPv6 := rc.IPVersionMode != IPv4Only
-	if len(rc.LocalAddrsV6) == 0 && lookupIPv6 {
+	if rc.IPVersionMode != IPv4Only && len(rc.LocalAddrsV6) == 0 {
 		// localAddr not set, so we need to find the default IPv6 address
 		conn, err := net.Dial("udp", googleDNSResolverAddrV6)
 		if err != nil {

@@ -88,16 +88,23 @@ func nextAuthority(name, layer string) (string, error) {
 	return next, nil
 }
 
-func checkGlue(server string, result SingleQueryResult) (SingleQueryResult, Status) {
+func checkGlue(server string, result SingleQueryResult, ipMode IPVersionMode) (SingleQueryResult, Status) {
 	for _, additional := range result.Additional {
 		ans, ok := additional.(Answer)
 		if !ok {
 			continue
 		}
-		if ans.Type == "A" && strings.TrimSuffix(ans.Name, ".") == server {
+		if ipMode != IPv6Only && ans.Type == "A" && strings.TrimSuffix(ans.Name, ".") == server {
 			var retv SingleQueryResult
 			retv.Authorities = make([]interface{}, 0)
-			retv.Answers = make([]interface{}, 0)
+			retv.Answers = make([]interface{}, 0, 1)
+			retv.Additional = make([]interface{}, 0)
+			retv.Answers = append(retv.Answers, ans)
+			return retv, StatusNoError
+		} else if ipMode != IPv4Only && ans.Type == "AAAA" && strings.TrimSuffix(ans.Name, ".") == server {
+			var retv SingleQueryResult
+			retv.Authorities = make([]interface{}, 0)
+			retv.Answers = make([]interface{}, 0, 1)
 			retv.Additional = make([]interface{}, 0)
 			retv.Answers = append(retv.Answers, ans)
 			return retv, StatusNoError

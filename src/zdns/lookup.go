@@ -489,7 +489,7 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 	// Short circuit a lookup from the glue
 	// Normally this would be handled by caching, but we want to support following glue
 	// that would normally be cache poison. Because it's "ok" and quite common
-	res, status := checkGlue(server, result)
+	res, status := checkGlue(server, result, r.ipVersionMode)
 	if status != StatusNoError {
 		// Fall through to normal query
 		var q Question
@@ -508,8 +508,11 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 			if !ok {
 				continue
 			}
-			if innerAns.Type == "A" {
+			if r.ipVersionMode != IPv6Only && innerAns.Type == "A" {
 				server := strings.TrimSuffix(innerAns.Answer, ".") + ":53"
+				return server, StatusNoError, layer, trace
+			} else if r.ipVersionMode != IPv4Only && innerAns.Type == "AAAA" {
+				server := "[" + strings.TrimSuffix(innerAns.Answer, ".") + "]:53"
 				return server, StatusNoError, layer, trace
 			}
 		}
