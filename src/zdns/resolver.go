@@ -531,6 +531,16 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryRe
 	if dstServer != dstServerWithPort {
 		log.Info("no port provided for external lookup, using default port 53")
 	}
+	// Check for loopback mis-match
+	nsIP, _, err := util.SplitHostPort(dstServerWithPort)
+	if err != nil {
+		return nil, nil, StatusIllegalInput, fmt.Errorf("could not split host and port for name server: %w", err)
+	}
+	if nsIP.To4() != nil && r.connInfoIPv4.localAddr.IsLoopback() != nsIP.IsLoopback() {
+		return nil, nil, StatusIllegalInput, errors.New("nameserver (%s) and local address(%s) must be both loopback or non-loopback")
+	} else if nsIP.To16() != nil && nsIP.IsLoopback() {
+		return nil, nil, StatusIllegalInput, errors.New("cannot use IPv6 loopback nameserver")
+	}
 	// dstServer has been validated and has a port
 	dstServer = dstServerWithPort
 	lookup, trace, status, err := r.lookupClient.DoSingleDstServerLookup(r, *q, dstServer, false)
