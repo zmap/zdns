@@ -24,41 +24,41 @@ import (
 func TestResolverConfig_PopulateAndValidate(t *testing.T) {
 	t.Run("Using loopback nameserver and no specified local address", func(t *testing.T) {
 		rc := &ResolverConfig{
-			ExternalNameServers: []string{"127.0.0.53:53"},
+			ExternalNameServersV4: []string{"127.0.0.53:53"},
 		}
 		err := rc.PopulateAndValidate()
 		require.Nil(t, err, "Expected no error but got %v", err)
-		require.Equal(t, LoopbackAddrString, rc.LocalAddrs[0].String())
+		require.Equal(t, LoopbackAddrString, rc.LocalAddrsV4[0].String())
 	})
 
 	t.Run("Using nameserver with no port", func(t *testing.T) {
 		rc := &ResolverConfig{
-			ExternalNameServers: []string{"1.1.1.1"},
+			ExternalNameServersV4: []string{"1.1.1.1"},
 		}
 		err := rc.PopulateAndValidate()
 		require.Nil(t, err)
-		require.Equal(t, "1.1.1.1:53", rc.ExternalNameServers[0], "Expected port 53 to be appended to nameserver")
+		require.Equal(t, "1.1.1.1:53", rc.ExternalNameServersV4[0], "Expected port 53 to be appended to nameserver")
 	})
 	t.Run("Using nameserver with port", func(t *testing.T) {
 		rc := &ResolverConfig{
-			ExternalNameServers: []string{"1.1.1.1:64"},
+			ExternalNameServersV4: []string{"1.1.1.1:64"},
 		}
 		err := rc.PopulateAndValidate()
 		require.Nil(t, err)
-		require.Equal(t, "1.1.1.1:64", rc.ExternalNameServers[0], "Expected nameserver to remain unchanged")
+		require.Equal(t, "1.1.1.1:64", rc.ExternalNameServersV4[0], "Expected nameserver to remain unchanged")
 	})
 	t.Run("Using local address with no port", func(t *testing.T) {
 		rc := &ResolverConfig{
-			LocalAddrs: []net.IP{net.ParseIP("192.168.1.1")},
+			LocalAddrsV4: []net.IP{net.ParseIP("192.168.1.1")},
 		}
 		err := rc.PopulateAndValidate()
 		require.Nil(t, err)
-		require.Equal(t, "192.168.1.1", rc.LocalAddrs[0].String(), "Expected local address to be unchanged")
+		require.Equal(t, "192.168.1.1", rc.LocalAddrsV4[0].String(), "Expected local address to be unchanged")
 	})
 
 	t.Run("Mixing loopback and non-loopback nameservers results in error", func(t *testing.T) {
 		rc := &ResolverConfig{
-			ExternalNameServers: []string{"127.0.0.1:53", "8.8.8.8:53"},
+			ExternalNameServersV4: []string{"127.0.0.1:53", "8.8.8.8:53"},
 		}
 		err := rc.PopulateAndValidate()
 		require.NotNil(t, err, "Mixing loopback and non-loopback nameservers should result in an error")
@@ -66,8 +66,8 @@ func TestResolverConfig_PopulateAndValidate(t *testing.T) {
 
 	t.Run("Using non-loopback nameservers with loopback local address results in nameserver being overwritten", func(t *testing.T) {
 		rc := &ResolverConfig{
-			ExternalNameServers: []string{"8.8.8.8:53"},
-			LocalAddrs:          []net.IP{net.ParseIP("127.0.0.1")},
+			ExternalNameServersV4: []string{"8.8.8.8:53"},
+			LocalAddrsV4:          []net.IP{net.ParseIP("127.0.0.1")},
 		}
 		err := rc.PopulateAndValidate()
 		require.NotNil(t, err, "Using non-loopback nameservers with loopback local address should result in an error")
@@ -75,33 +75,33 @@ func TestResolverConfig_PopulateAndValidate(t *testing.T) {
 
 	t.Run("Using loopback nameservers with non-loopback local address results in local address being overwritten", func(t *testing.T) {
 		rc := &ResolverConfig{
-			ExternalNameServers: []string{"127.0.0.1:53"},
-			LocalAddrs:          []net.IP{net.ParseIP("192.168.0.1")},
+			ExternalNameServersV4: []string{"127.0.0.1:53"},
+			LocalAddrsV4:          []net.IP{net.ParseIP("192.168.0.1")},
 		}
 		err := rc.PopulateAndValidate()
 		require.Nil(t, err)
-		require.Equal(t, LoopbackAddrString, rc.LocalAddrs[0].String(), "Expected local address to be overwritten with loopback address")
+		require.Equal(t, LoopbackAddrString, rc.LocalAddrsV4[0].String(), "Expected local address to be overwritten with loopback address")
 	})
 
 	t.Run("Valid non-loopback nameservers and local addresses", func(t *testing.T) {
 		rc := &ResolverConfig{
-			ExternalNameServers: []string{"8.8.8.8:53", "8.8.4.4:53"},
-			LocalAddrs:          []net.IP{net.ParseIP("192.168.0.1"), net.ParseIP("192.168.0.2")},
+			ExternalNameServersV4: []string{"8.8.8.8:53", "8.8.4.4:53"},
+			LocalAddrsV4:          []net.IP{net.ParseIP("192.168.0.1"), net.ParseIP("192.168.0.2")},
 		}
 		err := rc.PopulateAndValidate()
 		require.Nil(t, err, "Valid non-loopback nameservers and local addresses should not result in an error")
-		require.Equal(t, "8.8.8.8:53", rc.ExternalNameServers[0], "Expected nameserver to remain unchanged")
-		require.Equal(t, "192.168.0.1", rc.LocalAddrs[0].String(), "Expected local address to remain unchanged")
+		require.Equal(t, "8.8.8.8:53", rc.ExternalNameServersV4[0], "Expected nameserver to remain unchanged")
+		require.Equal(t, "192.168.0.1", rc.LocalAddrsV4[0].String(), "Expected local address to remain unchanged")
 	})
 
 	t.Run("Valid loopback nameservers and local addresses", func(t *testing.T) {
 		rc := &ResolverConfig{
-			ExternalNameServers: []string{"127.0.0.1:53", "127.0.0.2:53"},
-			LocalAddrs:          []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("127.0.0.2")},
+			ExternalNameServersV4: []string{"127.0.0.1:53", "127.0.0.2:53"},
+			LocalAddrsV4:          []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("127.0.0.2")},
 		}
 		err := rc.PopulateAndValidate()
 		require.Nil(t, err, "Valid loopback nameservers and local addresses should not result in an error")
-		require.Equal(t, LoopbackAddrString, rc.LocalAddrs[0].String(), "Expected local address to be overwritten with loopback address")
-		require.Equal(t, "127.0.0.1:53", rc.ExternalNameServers[0], "Expected nameserver to remain unchanged")
+		require.Equal(t, LoopbackAddrString, rc.LocalAddrsV4[0].String(), "Expected local address to be overwritten with loopback address")
+		require.Equal(t, "127.0.0.1:53", rc.ExternalNameServersV4[0], "Expected nameserver to remain unchanged")
 	})
 }
