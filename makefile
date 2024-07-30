@@ -25,7 +25,10 @@ lint:
 license-check:
 	./.github/workflows/check_license.sh
 
+benchmark: zdns
+	cd ./benchmark && go run main.go stats.go
+
 ci: zdns lint test integration-tests license-check
 
-.PHONY: zdns clean test integration-tests lint ci license-check
+.PHONY: zdns clean test integration-tests lint ci license-check benchmark
 
