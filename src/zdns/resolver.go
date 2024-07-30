@@ -130,7 +130,14 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 		return errors.Wrap(err, "could not validate loopback consistency")
 	}
 
-	// If we're using IPv6, we need both a local IPv4 address and an IPv6 nameserver
+	if rc.IPVersionMode == IPv4Only {
+		rc.LocalAddrsV6 = nil
+		rc.ExternalNameServersV6 = nil
+	} else if rc.IPVersionMode == IPv6Only {
+		rc.LocalAddrsV4 = nil
+		rc.ExternalNameServersV4 = nil
+	}
+	// If we're using IPv6, we need both a local IPv6 address and an IPv6 nameserver
 	if rc.IPVersionMode != IPv4Only && (len(rc.LocalAddrsV6) == 0 || len(rc.ExternalNameServersV6) == 0) {
 		if rc.IPVersionMode == IPv6Only {
 			return errors.New("IPv6 only mode requires both local IPv6 addresses and IPv6 nameservers")
@@ -138,13 +145,13 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 		log.Info("cannot use IPv6 only mode without both local IPv6 addresses and IPv6 nameservers, defaulting to IPv4 only")
 		rc.IPVersionMode = IPv4Only
 	}
-
-	if rc.IPVersionMode == IPv4Only {
-		rc.LocalAddrsV6 = nil
-		rc.ExternalNameServersV6 = nil
-	} else if rc.IPVersionMode == IPv6Only {
-		rc.LocalAddrsV4 = nil
-		rc.ExternalNameServersV4 = nil
+	// If we're using IPv4, we need both a local IPv4 address and an IPv4 nameserver
+	if rc.IPVersionMode != IPv6Only && (len(rc.LocalAddrsV4) == 0 || len(rc.ExternalNameServersV4) == 0) {
+		if rc.IPVersionMode == IPv4Only {
+			return errors.New("IPv4 only mode requires both local IPv4 addresses and IPv4 nameservers")
+		}
+		log.Info("cannot use IPv4 only mode without both local IPv4 addresses and IPv4 nameservers, defaulting to IPv6 only")
+		rc.IPVersionMode = IPv6Only
 	}
 
 	return nil
