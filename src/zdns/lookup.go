@@ -303,6 +303,10 @@ func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer st
 	} else {
 		return SingleQueryResult{}, StatusError, 0, fmt.Errorf("could not determine IP version of nameserver: %s", nameServer)
 	}
+	// check that our connection info is valid
+	if connInfo == nil {
+		return SingleQueryResult{}, StatusError, 0, fmt.Errorf("no connection info for nameserver: %s", nameServer)
+	}
 	// check loopback consistency
 	if nameServerIP.IsLoopback() != connInfo.localAddr.IsLoopback() {
 		return SingleQueryResult{}, StatusIllegalInput, 0, fmt.Errorf("nameserver %s must be reachable from the local address %s, ie. both must be loopback or not loopback", nameServer, connInfo.localAddr.String())
