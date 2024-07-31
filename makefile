@@ -17,6 +17,11 @@ integration-tests: zdns
 	python3 testing/integration_tests.py
 	python3 testing/large_scan_integration/large_scan_integration_tests.py
 
+# Not all hosts support this, so this will be a custom make target
+ipv6-tests: zdns
+	pip3 install -r testing/requirements.txt
+	python3 testing/ipv6_tests.py
+
 lint:
 	goimports -w -local "github.com/zmap/zdns" ./
 	gofmt -s -w ./
