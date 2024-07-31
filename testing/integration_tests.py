@@ -373,6 +373,27 @@ class Tests(unittest.TestCase):
         }
     ]
 
+    # an A record behind a DNAME record
+    DNAME_A_RECORD_ANSWERS = [
+        {
+            "type": "DNAME",
+            "class": "IN",
+            "name": "zdns-dname.esrg.stanford.edu",
+            "answer": "zdns-testing.com.",
+        },
+        {
+            "type": "CNAME",
+            "class": "IN",
+            "name": "a.zdns-dname.esrg.stanford.edu",
+            "answer": "a.zdns-testing.com.",
+        }, {
+            "type": "A",
+            "class": "IN",
+            "name": "a.zdns-testing.com",
+            "answer": "21.9.87.65",
+        }
+    ]
+
     DMARC_ANSWER = {
         "data": {
             "dmarc": "v=DMARC1; p=none; rua=mailto:postmaster@censys.io"
@@ -554,6 +575,29 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.WWW_CNAME_ANSWERS, cmd)
+
+    def test_dname(self):
+        c = "DNAME --iterative"
+        name = "zdns-dname.esrg.stanford.edu"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqual(res["data"]["answers"][0]["type"], "DNAME")
+        self.assertEqual(res["data"]["answers"][0]["name"], "zdns-dname.esrg.stanford.edu")
+        self.assertEqual(res["data"]["answers"][0]["answer"], "zdns-testing.com.")
+
+    # Test for A record behind a DNAME record
+    # There exists the following records:
+    # a.zdns-dname.esrg.stanford.edu    A           56.78.90.12
+    # a.zdns-testing.com                A           21.9.87.65
+    # zdns-dname.esrg.stanford.edu      DNAME       zdns-testing.com.
+    #
+    # The query is for a.zdns-dname.esrg.stanford.edu and should return an A record stating "21.9.87.65"
+    def test_a_record_behind_dname(self):
+        c = "A --iterative"
+        name = "a.zdns-dname.esrg.stanford.edu"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.DNAME_A_RECORD_ANSWERS, cmd)
 
     def test_caa(self):
         c = "CAA"

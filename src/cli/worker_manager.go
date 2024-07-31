@@ -171,6 +171,7 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	// this will be empty if no IPv6 addresses are specified
 	config.ExternalNameServersV6 = ipv6NSes
 	config.LookupAllNameServers = gc.LookupAllNameServers
+	config.FollowCNAMEs = gc.FollowCNAMEs
 
 	// Local Addresses
 	for _, ip := range gc.LocalAddrs {

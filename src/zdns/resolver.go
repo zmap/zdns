@@ -45,6 +45,7 @@ const (
 	defaultMaxDepth              = 10
 	defaultCheckingDisabledBit   = false // Sends DNS packets with the CD bit set
 	defaultNameServerModeEnabled = false // Treats input as nameservers to query with a static query rather than queries to send to a static name server
+	defaultFollowCNAMEs          = true  // Follow CNAMEs/DNAMEs in iterative queries
 	defaultCacheSize             = 10000
 	defaultShouldTrace           = false
 	defaultDNSSECEnabled         = false
@@ -78,6 +79,7 @@ type ResolverConfig struct {
 	ExternalNameServersV4 []string // v4 name servers used for external lookups
 	ExternalNameServersV6 []string // v6 name servers used for external lookups
 	LookupAllNameServers  bool     // perform the lookup via all the nameservers for the domain
+	FollowCNAMEs          bool     // whether iterative lookups should follow CNAMEs/DNAMEs
 	DNSConfigFilePath     string   // path to the DNS config file, ex: /etc/resolv.conf
 
 	DNSSecEnabled       bool
@@ -337,6 +339,7 @@ func NewResolverConfig() *ResolverConfig {
 		IPVersionMode:        defaultIPVersionMode,
 		ShouldRecycleSockets: defaultShouldRecycleSockets,
 		LookupAllNameServers: false,
+		FollowCNAMEs:         defaultFollowCNAMEs,
 
 		Retries:  defaultRetries,
 		LogLevel: defaultLogVerbosity,
@@ -380,6 +383,7 @@ type Resolver struct {
 	externalNameServers  []string // name servers used by external lookups (either OS or user specified)
 	rootNameServers      []string // root servers used for iterative lookups
 	lookupAllNameServers bool
+	followCNAMEs         bool // whether iterative lookups should follow CNAMEs/DNAMEs
 
 	dnsSecEnabled       bool
 	ednsOptions         []dns.EDNS0
@@ -418,6 +422,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		transportMode:        config.TransportMode,
 		ipVersionMode:        config.IPVersionMode,
 		shouldRecycleSockets: config.ShouldRecycleSockets,
+		followCNAMEs:         config.FollowCNAMEs,
 
 		timeout: config.Timeout,
 
