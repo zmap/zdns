@@ -29,6 +29,7 @@ func (r *Resolver) DoTargetedLookup(name, nameServer string, ipMode IPVersionMod
 	res := IPResult{}
 	candidateSet := map[string][]Answer{}
 	cnameSet := map[string][]Answer{}
+	dnameSet := map[string][]Answer{}
 	var ipv4 []string
 	var ipv6 []string
 	var ipv4Trace Trace
@@ -37,7 +38,7 @@ func (r *Resolver) DoTargetedLookup(name, nameServer string, ipMode IPVersionMod
 	var ipv6status Status
 
 	if lookupIPv4 {
-		ipv4, ipv4Trace, ipv4status, _ = recursiveIPLookup(r, name, nameServer, dns.TypeA, candidateSet, cnameSet, name, 0, isIterative)
+		ipv4, ipv4Trace, ipv4status, _ = recursiveIPLookup(r, name, nameServer, dns.TypeA, candidateSet, cnameSet, dnameSet, name, 0, isIterative)
 		if len(ipv4) > 0 {
 			ipv4 = Unique(ipv4)
 			res.IPv4Addresses = make([]string, len(ipv4))
@@ -46,8 +47,9 @@ func (r *Resolver) DoTargetedLookup(name, nameServer string, ipMode IPVersionMod
 	}
 	candidateSet = map[string][]Answer{}
 	cnameSet = map[string][]Answer{}
+	dnameSet = map[string][]Answer{}
 	if lookupIPv6 {
-		ipv6, ipv6Trace, ipv6status, _ = recursiveIPLookup(r, name, nameServer, dns.TypeAAAA, candidateSet, cnameSet, name, 0, isIterative)
+		ipv6, ipv6Trace, ipv6status, _ = recursiveIPLookup(r, name, nameServer, dns.TypeAAAA, candidateSet, cnameSet, dnameSet, name, 0, isIterative)
 		if len(ipv6) > 0 {
 			ipv6 = Unique(ipv6)
 			res.IPv6Addresses = make([]string, len(ipv6))
@@ -73,7 +75,7 @@ func (r *Resolver) DoTargetedLookup(name, nameServer string, ipMode IPVersionMod
 
 // recursiveIPLookup helper fn that recursively follows both A/AAAA records and CNAME records to find IP addresses
 // returns an array of IP addresses, a trace of the lookups, a status, and an error
-func recursiveIPLookup(r *Resolver, name, nameServer string, dnsType uint16, candidateSet map[string][]Answer, cnameSet map[string][]Answer, origName string, depth int, isIterative bool) ([]string, Trace, Status, error) {
+func recursiveIPLookup(r *Resolver, name, nameServer string, dnsType uint16, candidateSet map[string][]Answer, cnameSet map[string][]Answer, dnameSet map[string][]Answer, origName string, depth int, isIterative bool) ([]string, Trace, Status, error) {
 	// avoid infinite loops
 	if name == origName && depth != 0 {
 		return nil, make(Trace, 0), StatusError, errors.New("infinite redirection loop")
@@ -99,8 +101,8 @@ func recursiveIPLookup(r *Resolver, name, nameServer string, dnsType uint16, can
 			return nil, trace, status, err
 		}
 
-		populateResults(result.Answers, dnsType, candidateSet, cnameSet, garbage)
-		populateResults(result.Additional, dnsType, candidateSet, cnameSet, garbage)
+		populateResults(result.Answers, dnsType, candidateSet, cnameSet, dnameSet, garbage)
+		populateResults(result.Additional, dnsType, candidateSet, cnameSet, dnameSet, garbage)
 	}
 	// our cache should now have any data that exists about the current name
 	if res, ok := candidateSet[name]; ok && len(res) > 0 {
@@ -113,7 +115,7 @@ func recursiveIPLookup(r *Resolver, name, nameServer string, dnsType uint16, can
 	} else if res, ok = cnameSet[name]; ok && len(res) > 0 {
 		// we have a CNAME and need to further recurse to find IPs
 		shortName := strings.ToLower(strings.TrimSuffix(res[0].Answer, "."))
-		res, secondTrace, status, err := recursiveIPLookup(r, shortName, nameServer, dnsType, candidateSet, cnameSet, origName, depth+1, isIterative)
+		res, secondTrace, status, err := recursiveIPLookup(r, shortName, nameServer, dnsType, candidateSet, cnameSet, dnameSet, origName, depth+1, isIterative)
 		trace = append(trace, secondTrace...)
 		return res, trace, status, err
 	} else if res, ok = garbage[name]; ok && len(res) > 0 {
@@ -122,29 +124,5 @@ func recursiveIPLookup(r *Resolver, name, nameServer string, dnsType uint16, can
 		// we have no data whatsoever about this name. return an empty recordset to the user
 		var ips []string
 		return ips, trace, StatusNoError, nil
-	}
-}
-
-// populateResults is a helper function to populate the candidateSet, cnameSet, and garbage maps as recursiveIPLookup
-// follows CNAME and A/AAAA records to get all IPs for a given domain
-func populateResults(records []interface{}, dnsType uint16, candidateSet map[string][]Answer, cnameSet map[string][]Answer, garbage map[string][]Answer) {
-	for _, a := range records {
-		// filter only valid answers of requested type or CNAME (#163)
-		if ans, ok := a.(Answer); ok {
-			lowerCaseName := strings.ToLower(strings.TrimSuffix(ans.Name, "."))
-			// Verify that the answer type matches requested type
-			if VerifyAddress(ans.Type, ans.Answer) {
-				ansType := dns.StringToType[ans.Type]
-				if dnsType == ansType {
-					candidateSet[lowerCaseName] = append(candidateSet[lowerCaseName], ans)
-				} else if ok && dns.TypeCNAME == ansType {
-					cnameSet[lowerCaseName] = append(cnameSet[lowerCaseName], ans)
-				} else {
-					garbage[lowerCaseName] = append(garbage[lowerCaseName], ans)
-				}
-			} else {
-				garbage[lowerCaseName] = append(garbage[lowerCaseName], ans)
-			}
-		}
 	}
 }
