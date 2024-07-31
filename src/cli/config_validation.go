@@ -31,6 +31,10 @@ func populateNetworkingConfig(gc *CLIConf) error {
 		return errors.New("--local-addr and --local-interface cannot both be specified")
 	}
 
+	if !gc.IPv4Transport && !gc.IPv6Transport {
+		return errors.New("both IPv4 and IPv6 transport cannot both be disabled")
+	}
+
 	if err := populateNameServers(gc); err != nil {
 		return errors.Wrap(err, "name servers did not pass validation")
 	}

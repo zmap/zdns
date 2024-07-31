@@ -69,6 +69,8 @@ type CLIConf struct {
 	LookupAllNameServers bool
 	TCPOnly              bool
 	UDPOnly              bool
+	IPv4Transport        bool
+	IPv6Transport        bool
 	RecycleSockets       bool
 	LocalAddrSpecified   bool
 	LocalAddrs           []net.IP
@@ -163,6 +165,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&GC.NameServersString, "name-servers", "", "List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53.")
 	rootCmd.PersistentFlags().StringVar(&GC.LocalAddrString, "local-addr", "", "comma-delimited list of local addresses to use, serve as the source IP for outbound queries")
 	rootCmd.PersistentFlags().StringVar(&GC.LocalIfaceString, "local-interface", "", "local interface to use")
+	rootCmd.PersistentFlags().BoolVar(&GC.IPv4Transport, "4", true, "utilize IPv4 query transport, must have an IPv4 local address")
+	rootCmd.PersistentFlags().BoolVar(&GC.IPv6Transport, "6", false, "utilize IPv6 query transport, must have an IPv6 local address")
 	rootCmd.PersistentFlags().StringVar(&GC.ConfigFilePath, "conf-file", zdns.DefaultNameServerConfigFile, "config file for DNS servers")
 	rootCmd.PersistentFlags().IntVar(&GC.Timeout, "timeout", 15, "timeout for resolving a individual name, in seconds")
 	rootCmd.PersistentFlags().IntVar(&GC.IterationTimeout, "iteration-timeout", 4, "timeout for a single iterative step in an iterative query, in seconds. Only applicable with --iterative")
@@ -172,8 +176,8 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&GC.Dnssec, "dnssec", false, "Requests DNSSEC records by setting the DNSSEC OK (DO) bit")
 	rootCmd.PersistentFlags().BoolVar(&GC.UseNSID, "nsid", false, "Request NSID.")
 
-	rootCmd.PersistentFlags().Bool("ipv4-lookup", false, "Perform an IPv4 Lookup in modules")
-	rootCmd.PersistentFlags().Bool("ipv6-lookup", false, "Perform an IPv6 Lookup in modules")
+	rootCmd.PersistentFlags().Bool("ipv4-lookup", false, "Perform an IPv4 Lookup (requests A records) in modules")
+	rootCmd.PersistentFlags().Bool("ipv6-lookup", false, "Perform an IPv6 Lookup (requests AAAA recoreds) in modules")
 	rootCmd.PersistentFlags().StringVar(&GC.BlacklistFilePath, "blacklist-file", "", "blacklist file for servers to exclude from lookups")
 }
 

@@ -154,17 +154,10 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 	return gc
 }
 
-func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverConfig {
+func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config := zdns.NewResolverConfig()
-	useIPv4, err := flags.GetBool("ipv4-lookup")
-	if err != nil {
-		log.Fatal("Unable to parse ipv4 flag: ", err)
-	}
-	useIPv6, err := flags.GetBool("ipv6-lookup")
-	if err != nil {
-		log.Fatal("Unable to parse ipv6 flag: ", err)
-	}
-	config.IPVersionMode = zdns.GetIPVersionMode(useIPv4, useIPv6)
+
+	config.IPVersionMode = zdns.GetIPVersionMode(gc.IPv4Transport, gc.IPv6Transport)
 	config.TransportMode = zdns.GetTransportMode(gc.UDPOnly, gc.TCPOnly)
 
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
@@ -218,7 +211,7 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 
 func Run(gc CLIConf, flags *pflag.FlagSet) {
 	gc = *populateCLIConfig(&gc, flags)
-	resolverConfig := populateResolverConfig(&gc, flags)
+	resolverConfig := populateResolverConfig(&gc)
 	err := resolverConfig.PopulateAndValidate()
 	if err != nil {
 		log.Fatal("could not populate defaults and validate resolver config: ", err)

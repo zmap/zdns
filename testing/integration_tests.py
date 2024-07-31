@@ -977,14 +977,14 @@ class Tests(unittest.TestCase):
 
 # Test Cases for IPv6
     def test_ipv6_unreachable(self):
-        c = "A --iterative --ipv6-lookup=true --ipv4-lookup=false"
+        c = "A --iterative --6=true --4=false"
         name = "esrg.stanford.edu"
         cmd, res = self.run_zdns(c, name)
         # esrg.stanford.edu is hosted on NS's that do not have an IPv6 address. Therefore, this will fail.
         self.assertServFail(res, cmd)
 
     def test_ipv6_external_lookup_unreachable_nameserver(self):
-        c = "A --ipv6-lookup=true --ipv4-lookup=false --name-servers=1.1.1.1"
+        c = "A --6=true --4=false --name-servers=1.1.1.1"
         name = "zdns-testing.com"
         try:
             cmd, res = self.run_zdns(c, name)
@@ -993,7 +993,7 @@ class Tests(unittest.TestCase):
         self.fail("Should have thrown an exception, shouldn't be able to reach any IPv4 servers while in IPv6 mode")
 
     def test_ipv4_external_lookup_unreachable_nameserver(self):
-        c = "A --ipv6-lookup=false --ipv4-lookup=true --name-servers=2606:4700:4700::1111"
+        c = "A --6=false --4=true --name-servers=2606:4700:4700::1111"
         name = "zdns-testing.com"
         try:
             cmd, res = self.run_zdns(c, name)
@@ -1002,21 +1002,21 @@ class Tests(unittest.TestCase):
         self.fail("Should have thrown an exception, shouldn't be able to reach any IPv6 servers while in IPv4 mode")
 
     def test_ipv6_happy_path_external(self):
-        c = "A --ipv6-lookup=true"
+        c = "A --6=true"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
 
     def test_ipv6_happy_path_iterative(self):
-        c = "A --ipv6-lookup=true --iterative"
+        c = "A --6=true --iterative"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
 
     def test_ipv6_happy_path_no_ipv4_iterative(self):
-        c = "A --ipv6-lookup=true --ipv4-lookup=false --iterative"
+        c = "A --6=true --4=false --iterative"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
