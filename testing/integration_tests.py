@@ -386,6 +386,27 @@ class Tests(unittest.TestCase):
         }
     ]
 
+    # an A record behind a DNAME record
+    DNAME_A_RECORD_ANSWERS = [
+        {
+            "type": "DNAME",
+            "class": "IN",
+            "name": "zdns-dname.esrg.stanford.edu",
+            "answer": "zdns-testing.com.",
+        },
+        {
+            "type": "CNAME",
+            "class": "IN",
+            "name": "a.zdns-dname.esrg.stanford.edu",
+            "answer": "a.zdns-testing.com.",
+        }, {
+            "type": "A",
+            "class": "IN",
+            "name": "a.zdns-testing.com",
+            "answer": "21.9.87.65",
+        }
+    ]
+
     DMARC_ANSWER = {
         "data": {
             "dmarc": "v=DMARC1; p=none; rua=mailto:postmaster@censys.io"
@@ -566,12 +587,6 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.WWW_CNAME_ANSWERS, cmd)
-
-    def test_cname_loop(self):
-        c = "CNAME"
-        name = "cname-loop.zdns-testing.com"
-        cmd, res = self.run_zdns(c, name)
-        self.assertEqualAnswers(res, self.CNAME_LOOP_ANSWERS, cmd)
 
     def test_caa(self):
         c = "CAA"

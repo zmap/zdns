@@ -153,8 +153,8 @@ func TranslateDNSErrorCode(err int) Status {
 
 // handleStatus is a helper function to deal with a status and error. Error is only returned if the status is an
 // Iterative Timeout
-func handleStatus(status *Status, err error) (*Status, error) {
-	switch *status {
+func handleStatus(status Status, err error) (Status, error) {
+	switch status {
 	case StatusIterTimeout:
 		return status, err
 	case StatusNXDomain:
@@ -178,7 +178,7 @@ func handleStatus(status *Status, err error) (*Status, error) {
 	case StatusIllegalInput:
 		return status, nil
 	default:
-		var s *Status
+		var s Status
 		return s, nil
 	}
 }
