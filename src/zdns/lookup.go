@@ -119,7 +119,7 @@ func (r *Resolver) LookupAllNameservers(q *Question, nameServer string) (*Combin
 	var curServer string
 
 	// Lookup both ipv4 and ipv6 addresses of nameservers.
-	nsResults, nsTrace, nsStatus, nsError := r.DoNSLookup(q.Name, nameServer, false)
+	nsResults, nsTrace, nsStatus, nsError := r.DoNSLookup(q.Name, nameServer, false, true, true)
 
 	// Terminate early if nameserver lookup also failed
 	if nsStatus != StatusNoError {
@@ -140,7 +140,12 @@ func (r *Resolver) LookupAllNameservers(q *Question, nameServer string) (*Combin
 		ips := append(nserver.IPv4Addresses, nserver.IPv6Addresses...)
 		for _, ip := range ips {
 			curServer = net.JoinHostPort(ip, "53")
-			res, trace, status, _ := r.ExternalLookup(q, curServer)
+			res, trace, status, err := r.ExternalLookup(q, curServer)
+			if err != nil {
+				// log and move on
+				log.Errorf("lookup for domain %s to nameserver %s failed with error %s. Continueing to next nameserver", q.Name, curServer, err)
+				continue
+			}
 
 			fullTrace = append(fullTrace, trace...)
 			extendedResult := ExtendedResult{
