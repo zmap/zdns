@@ -193,7 +193,7 @@ func (rc *ResolverConfig) populateLocalAddrs() error {
 				return errors.New("unable to find default IPv6 address to open socket")
 			}
 			// user didn't specify IPv6 only, so we'll just log the issue and continue with IPv4
-			log.Info("unable to find default IPv6 address to open socket, using IPv4 only: ", err)
+			log.Warn("unable to find default IPv6 address to open socket, using IPv4 only: ", err)
 			rc.IPVersionMode = IPv4Only
 			return nil
 		}
