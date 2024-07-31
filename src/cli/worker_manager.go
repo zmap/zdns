@@ -172,6 +172,7 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 	// copy nameservers to resolver config
 	config.ExternalNameServers = gc.NameServers
 	config.LookupAllNameServers = gc.LookupAllNameServers
+	config.FollowCNAMEs = gc.FollowCNAMEs
 
 	if gc.UseNSID {
 		config.EdnsOptions = append(config.EdnsOptions, new(dns.EDNS0_NSID))
