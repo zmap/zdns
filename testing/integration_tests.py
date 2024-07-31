@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import copy
+import socket
 import subprocess
 import json
 import unittest
@@ -39,7 +40,7 @@ def recursiveSort(obj):
 
 class Tests(unittest.TestCase):
     maxDiff = None
-    ZDNS_EXECUTABLE = "./zdns"
+    ZDNS_EXECUTABLE = "../zdns"
 
     def run_zdns_check_failure(self, flags, name, expected_err, executable=ZDNS_EXECUTABLE):
         flags = flags + " --threads=10"
@@ -546,8 +547,21 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
 
+
+    def check_ipv6_support(self):
+        try:
+            # Attempt to create an IPv6 socket
+            socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+            return True
+        except OSError:
+            return False
+
     def test_a_ipv6(self):
-        c = "A --name-servers=2001:4860:4860::8888:53"
+        if not self.check_ipv6_support():
+            # can only run this integration test if we have IPv6 support on this host
+            print("IPv6 not supported on this host, test passing by default since we can't test")
+            return True
+        c = "A --6=true --name-servers=[2001:4860:4860::8888]:53"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
