@@ -1,41 +1,9 @@
 #!/usr/bin/env python3
 
-import copy
 import socket
 import subprocess
 import json
 import unittest
-import tempfile
-import datetime
-from dateutil import parser
-from ipaddress import ip_address
-
-
-def recursiveSort(obj):
-    def listSort(l):
-        assert (type(l) == type(list()))
-        new_list = []
-        for item in l:
-            item = recursiveSort(item)
-            new_list.append(item)
-        if len(new_list) > 0 and type(new_list[0]) == dict:
-            return sorted(new_list, key=lambda x: x["name"])
-        else:
-            return sorted(new_list)
-
-    def dictSort(d):
-        assert (type(d) == type(dict()))
-        for key in d:
-            d[key] = recursiveSort(d[key])
-        return d
-
-    if type(obj) == list:
-        return listSort(obj)
-
-    elif type(obj) == dict:
-        return dictSort(obj)
-    else:
-        return obj
 
 
 class Tests(unittest.TestCase):
