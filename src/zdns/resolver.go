@@ -130,13 +130,6 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 		return errors.Wrap(err, "could not validate loopback consistency")
 	}
 
-	if rc.IPVersionMode == IPv4Only {
-		rc.LocalAddrsV6 = nil
-		rc.ExternalNameServersV6 = nil
-	} else if rc.IPVersionMode == IPv6Only {
-		rc.LocalAddrsV4 = nil
-		rc.ExternalNameServersV4 = nil
-	}
 	// If we're using IPv6, we need both a local IPv6 address and an IPv6 nameserver
 	if rc.IPVersionMode != IPv4Only && (len(rc.LocalAddrsV6) == 0 || len(rc.ExternalNameServersV6) == 0) {
 		if rc.IPVersionMode == IPv6Only {
@@ -210,7 +203,7 @@ func (rc *ResolverConfig) populateLocalAddrs() error {
 
 		nonLinkLocalIPv6 := make([]net.IP, 0, len(rc.LocalAddrsV6))
 		for _, ip := range rc.LocalAddrsV6 {
-			if ip != nil && ip.To4() == nil && ip.To16() != nil && (ip.IsLinkLocalMulticast() || ip.IsLinkLocalUnicast()) {
+			if util.IsIPv6(&ip) && (ip.IsLinkLocalMulticast() || ip.IsLinkLocalUnicast()) {
 				log.Debug("ignoring link-local IPv6 nameserver: ", ip)
 				continue
 			}
@@ -258,7 +251,7 @@ func (rc *ResolverConfig) populateNameServers() error {
 		if err != nil {
 			return errors.Wrapf(err, "could not split host and port for nameserver: %s", ns)
 		}
-		if ip.To4() == nil && ip.To16() != nil && (ip.IsLinkLocalMulticast() || ip.IsLinkLocalUnicast()) {
+		if util.IsIPv6(&ip) && (ip.IsLinkLocalMulticast() || ip.IsLinkLocalUnicast()) {
 			log.Debug("ignoring link-local IPv6 nameserver: ", ns)
 			continue
 		}
@@ -451,12 +444,24 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		}
 		r.connInfoIPv6 = connInfo
 	}
-	r.externalNameServers = make([]string, len(config.ExternalNameServersV4)+len(config.ExternalNameServersV6))
-	// deep copy external name servers from config to resolver
-	elemsCopied := copy(r.externalNameServers, append(config.ExternalNameServersV4, config.ExternalNameServersV6...))
-	if elemsCopied != len(config.ExternalNameServersV4)+len(config.ExternalNameServersV6) {
-		log.Fatal("failed to copy entire name servers list from config")
+	ipv4Nameservers := make([]string, 0, len(config.ExternalNameServersV4))
+	if config.IPVersionMode == IPv4Only || config.IPVersionMode == IPv4OrIPv6 {
+		// copy over IPv4 nameservers
+		elemsCopied := copy(ipv4Nameservers, config.ExternalNameServersV4)
+		if elemsCopied != len(config.ExternalNameServersV4) {
+			log.Fatal("failed to copy entire IPv4 name servers list from config")
+		}
 	}
+	ipv6Nameservers := make([]string, 0, len(config.ExternalNameServersV6))
+	if config.IPVersionMode == IPv6Only || config.IPVersionMode == IPv4OrIPv6 {
+		// copy over IPv6 nameservers
+		elemsCopied := copy(ipv6Nameservers, config.ExternalNameServersV6)
+		if elemsCopied != len(config.ExternalNameServersV6) {
+			log.Fatal("failed to copy entire IPv6 name servers list from config")
+		}
+	}
+	r.externalNameServers = append(ipv4Nameservers, ipv6Nameservers...)
+	// deep copy external name servers from config to resolver
 	r.iterativeTimeout = config.IterativeTimeout
 	r.maxDepth = config.MaxDepth
 	// use the set of 13 root name servers
@@ -536,9 +541,9 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryRe
 	if err != nil {
 		return nil, nil, StatusIllegalInput, fmt.Errorf("could not split host and port for name server: %w", err)
 	}
-	if nsIP.To4() != nil && r.connInfoIPv4.localAddr.IsLoopback() != nsIP.IsLoopback() {
+	if nsIP.To4() != nil && r.connInfoIPv4 != nil && r.connInfoIPv4.localAddr.IsLoopback() != nsIP.IsLoopback() {
 		return nil, nil, StatusIllegalInput, errors.New("nameserver (%s) and local address(%s) must be both loopback or non-loopback")
-	} else if nsIP.To16() != nil && nsIP.IsLoopback() {
+	} else if util.IsIPv6(&nsIP) && nsIP.IsLoopback() {
 		return nil, nil, StatusIllegalInput, errors.New("cannot use IPv6 loopback nameserver")
 	}
 	// dstServer has been validated and has a port

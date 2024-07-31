@@ -183,7 +183,7 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 	for _, ip := range gc.LocalAddrs {
 		if ip.To4() != nil {
 			config.LocalAddrsV4 = append(config.LocalAddrsV4, ip)
-		} else if ip.To16() != nil {
+		} else if util.IsIPv6(&ip) {
 			config.LocalAddrsV6 = append(config.LocalAddrsV6, ip)
 		} else {
 			log.Fatalf("invalid local address: %s", ip.String())

@@ -100,6 +100,11 @@ func SplitIPv4AndIPv6Addrs(addrs []string) (ipv4 []string, ipv6 []string, err er
 	return ipv4, ipv6, nil
 }
 
+// IsIPv6 checks if the given IP address is an IPv6 address.
+func IsIPv6(ip *net.IP) bool {
+	return ip != nil && ip.To4() == nil && ip.To16() != nil
+}
+
 // Reference: https://github.com/carolynvs/stingoftheviper/blob/main/main.go
 // For how to make cobra/viper sync up, and still use custom struct
 // Bind each cobra flag to its associated viper configuration (config file and environment variable)
