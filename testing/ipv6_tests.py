@@ -8,7 +8,7 @@ import unittest
 
 class Tests(unittest.TestCase):
     maxDiff = None
-    ZDNS_EXECUTABLE = "./zdns"
+    ZDNS_EXECUTABLE = "../zdns"
 
     ROOT_A = {"1.2.3.4", "2.3.4.5", "3.4.5.6"}
 
@@ -67,6 +67,15 @@ class Tests(unittest.TestCase):
         except Exception as e:
             return True
         self.fail("Should have thrown an exception, shouldn't be able to reach any IPv6 servers while in IPv4 mode")
+
+    def test_ipv6_external_lookup_loopback_nameserver(self):
+        c = "A --6=true --4=false --name-servers=[::1]:53"
+        name = "zdns-testing.com"
+        try:
+            cmd, res = self.run_zdns(c, name)
+        except Exception as e:
+            return True
+        self.fail("Should have thrown an exception, shouldn't be able to use a loopback address as a nameserver in IPv6")
 
     def test_ipv6_happy_path_external(self):
         c = "A --6=true"
