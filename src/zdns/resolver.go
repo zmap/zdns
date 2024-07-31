@@ -135,7 +135,7 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 		if rc.IPVersionMode == IPv6Only {
 			return errors.New("IPv6 only mode requires both local IPv6 addresses and IPv6 nameservers")
 		}
-		log.Info("cannot use IPv6 only mode without both local IPv6 addresses and IPv6 nameservers, defaulting to IPv4 only")
+		log.Info("cannot use IPv6 mode without both local IPv6 addresses and IPv6 nameservers, defaulting to IPv4 only")
 		rc.IPVersionMode = IPv4Only
 	}
 	// If we're using IPv4, we need both a local IPv4 address and an IPv4 nameserver
@@ -143,7 +143,7 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 		if rc.IPVersionMode == IPv4Only {
 			return errors.New("IPv4 only mode requires both local IPv4 addresses and IPv4 nameservers")
 		}
-		log.Info("cannot use IPv4 only mode without both local IPv4 addresses and IPv4 nameservers, defaulting to IPv6 only")
+		log.Info("cannot use IPv4 mode without both local IPv4 addresses and IPv4 nameservers, defaulting to IPv6 only")
 		rc.IPVersionMode = IPv6Only
 	}
 
@@ -444,23 +444,26 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		}
 		r.connInfoIPv6 = connInfo
 	}
-	ipv4Nameservers := make([]string, 0, len(config.ExternalNameServersV4))
+	// need to deep-copy here so we're not reliant on the state of the resolver config post-resolver creation
+	r.externalNameServers = make([]string, 0)
 	if config.IPVersionMode == IPv4Only || config.IPVersionMode == IPv4OrIPv6 {
+		ipv4Nameservers := make([]string, len(config.ExternalNameServersV4))
 		// copy over IPv4 nameservers
 		elemsCopied := copy(ipv4Nameservers, config.ExternalNameServersV4)
 		if elemsCopied != len(config.ExternalNameServersV4) {
 			log.Fatal("failed to copy entire IPv4 name servers list from config")
 		}
+		r.externalNameServers = append(r.externalNameServers, ipv4Nameservers...)
 	}
-	ipv6Nameservers := make([]string, 0, len(config.ExternalNameServersV6))
+	ipv6Nameservers := make([]string, len(config.ExternalNameServersV6))
 	if config.IPVersionMode == IPv6Only || config.IPVersionMode == IPv4OrIPv6 {
 		// copy over IPv6 nameservers
 		elemsCopied := copy(ipv6Nameservers, config.ExternalNameServersV6)
 		if elemsCopied != len(config.ExternalNameServersV6) {
 			log.Fatal("failed to copy entire IPv6 name servers list from config")
 		}
+		r.externalNameServers = append(r.externalNameServers, ipv6Nameservers...)
 	}
-	r.externalNameServers = append(ipv4Nameservers, ipv6Nameservers...)
 	// deep copy external name servers from config to resolver
 	r.iterativeTimeout = config.IterativeTimeout
 	r.maxDepth = config.MaxDepth
