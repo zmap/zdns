@@ -176,9 +176,8 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 		config.RootNameServers = zdns.RootServersV4[:]
 	} else if !gc.IterativeResolution && len(gc.NameServers) != 0 {
 		config.ExternalNameServers = gc.NameServers
-	} else {
-		// Resolver will populate the external name servers with either the OS default or the ZDNS default if none exist
 	}
+	// Else: Resolver will populate the external name servers with either the OS default or the ZDNS default if none exist
 	config.LookupAllNameServers = gc.LookupAllNameServers
 	config.FollowCNAMEs = gc.FollowCNAMEs
 
