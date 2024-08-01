@@ -74,6 +74,7 @@ type ResolverConfig struct {
 	Timeout              time.Duration // timeout for the resolution of a single name
 	MaxDepth             int
 	ExternalNameServers  []string // name servers used for external lookups
+	RootNameServers      []string // root servers used for iterative lookups
 	LookupAllNameServers bool     // perform the lookup via all the nameservers for the domain
 	FollowCNAMEs         bool     // whether iterative lookups should follow CNAMEs/DNAMEs
 	DNSConfigFilePath    string   // path to the DNS config file, ex: /etc/resolv.conf
@@ -93,6 +94,7 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 	// Potentially, a name-server could be listed multiple times by either the user or in the OS's respective /etc/resolv.conf
 	// De-dupe
 	rc.ExternalNameServers = util.RemoveDuplicates(rc.ExternalNameServers)
+	rc.RootNameServers = util.RemoveDuplicates(rc.RootNameServers)
 
 	if isValid, reason := rc.TransportMode.isValid(); !isValid {
 		return fmt.Errorf("invalid transport mode: %s", reason)
@@ -107,7 +109,12 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 	// Check that all nameservers/local addresses are valid
 	for _, ns := range rc.ExternalNameServers {
 		if _, _, err := net.SplitHostPort(ns); err != nil {
-			return fmt.Errorf("invalid name server: %s", ns)
+			return fmt.Errorf("invalid external name server: %s", ns)
+		}
+	}
+	for _, ns := range rc.RootNameServers {
+		if _, _, err := net.SplitHostPort(ns); err != nil {
+			return fmt.Errorf("invalid root name server: %s", ns)
 		}
 	}
 	for _, addr := range rc.LocalAddrs {
@@ -128,7 +135,7 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 }
 
 func (rc *ResolverConfig) populateResolverConfig() error {
-	// Nameservers
+	// External Nameservers
 	if len(rc.ExternalNameServers) == 0 {
 		// if nameservers aren't set, use OS' default
 		ns, err := GetDNSServers(rc.DNSConfigFilePath)
@@ -148,6 +155,19 @@ func (rc *ResolverConfig) populateResolverConfig() error {
 			portValidatedNSs = append(portValidatedNSs, portNS)
 		}
 		rc.ExternalNameServers = portValidatedNSs
+	}
+	if len(rc.RootNameServers) != 0 {
+		portValidatedNSs := make([]string, 0, len(rc.RootNameServers))
+		// check that the nameservers have a port and append one if necessary
+		for _, ns := range rc.RootNameServers {
+			portNS, err := util.AddDefaultPortToDNSServerName(ns)
+			if err != nil {
+				return fmt.Errorf("could not parse root name server: %s", ns)
+			}
+			portValidatedNSs = append(portValidatedNSs, portNS)
+		}
+		rc.RootNameServers = portValidatedNSs
+
 	}
 	// TODO - Remove when we add IPv6 support
 	ipv4NameServers := make([]string, 0, len(rc.ExternalNameServers))
@@ -209,8 +229,19 @@ func (rc *ResolverConfig) validateLoopbackConsistency() error {
 			allNameserversLoopback = false
 		}
 	}
+	for _, ns := range rc.RootNameServers {
+		ip, _, err := util.SplitHostPort(ns)
+		if err != nil {
+			return errors.Wrapf(err, "could not split host and port for nameserver: %s", ns)
+		}
+		if ip.IsLoopback() {
+			noneNameserversLoopback = false
+		} else {
+			allNameserversLoopback = false
+		}
+	}
 	loopbackNameserverMismatch := allNameserversLoopback == noneNameserversLoopback
-	if len(rc.ExternalNameServers) > 0 && loopbackNameserverMismatch {
+	if len(rc.ExternalNameServers)+len(rc.RootNameServers) > 0 && loopbackNameserverMismatch {
 		return fmt.Errorf("cannot mix loopback and non-loopback nameservers: %v", rc.ExternalNameServers)
 	}
 
@@ -242,7 +273,8 @@ func (rc *ResolverConfig) validateLoopbackConsistency() error {
 
 func (rc *ResolverConfig) PrintInfo() {
 	log.Infof("using local addresses: %v", rc.LocalAddrs)
-	log.Infof("for non-iterative lookups, using nameservers: %s", strings.Join(rc.ExternalNameServers, ", "))
+	log.Infof("for non-iterative lookups, using external nameservers: %s", strings.Join(rc.ExternalNameServers, ", "))
+	log.Infof("for iterative lookups, using nameservers: %s", strings.Join(rc.RootNameServers, ", "))
 }
 
 // NewResolverConfig creates a new ResolverConfig with default values.
@@ -387,7 +419,16 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	r.iterativeTimeout = config.IterativeTimeout
 	r.maxDepth = config.MaxDepth
 	// use the set of 13 root name servers
-	r.rootNameServers = RootServersV4[:]
+	if len(config.RootNameServers) == 0 {
+		r.rootNameServers = RootServersV4[:]
+	} else {
+		r.rootNameServers = make([]string, len(config.RootNameServers))
+		// deep copy root name servers from config to resolver
+		elemsCopied = copy(r.rootNameServers, config.RootNameServers)
+		if elemsCopied != len(config.RootNameServers) {
+			log.Fatal("failed to copy entire root name servers list from config")
+		}
+	}
 	return r, nil
 }
 

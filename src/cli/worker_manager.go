@@ -170,7 +170,11 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
 	// copy nameservers to resolver config
-	config.ExternalNameServers = gc.NameServers
+	if gc.IterativeResolution {
+		config.RootNameServers = gc.NameServers
+	} else {
+		config.ExternalNameServers = gc.NameServers
+	}
 	config.LookupAllNameServers = gc.LookupAllNameServers
 	config.FollowCNAMEs = gc.FollowCNAMEs
 
