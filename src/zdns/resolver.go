@@ -308,7 +308,7 @@ func (rc *ResolverConfig) validateLoopbackConsistency() error {
 	// Both nameservers and local addresses are completely loopback or non-loopback
 	// if using loopback nameservers, override local addresses to be loopback and warn user
 	if allNameserversLoopback && noneLocalAddrsLoopback {
-		log.Warn("nameservers are loopback, setting local address to loopback to match")
+		log.Warnf("nameservers (%s) are loopback, setting local address to loopback (%s) to match", allNameServers, LoopbackAddrString)
 		rc.LocalAddrsV4 = []net.IP{net.ParseIP(LoopbackAddrString)}
 		// we ignore link-local local addresses, so nothing to be done for IPv6
 	} else if noneNameserversLoopback && allLocalAddrsLoopback {
