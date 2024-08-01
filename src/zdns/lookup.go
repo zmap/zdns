@@ -642,19 +642,16 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 	// Short circuit a lookup from the glue
 	// Normally this would be handled by caching, but we want to support following glue
 	// that would normally be cache poison. Because it's "ok" and quite common
-	res, status := checkGlue(server, *result, r.ipVersionMode)
+	res, status := checkGlue(server, *result, r.ipVersionMode, r.iterationIPPreference)
 	if status != StatusNoError {
 		// Fall through to normal query
 		var q Question
 		q.Name = server
-		q.Type = dns.TypeA
 		q.Class = dns.ClassINET
-		// TODO This logic prefers IPv4 for IPv4OrIPv6 lookups.
-		// When we address the allNameservers not actually trying allNameservers (#352), we should address this
-		// Likely, we need to make both A/AAAA lookups and combine the results
-		if r.ipVersionMode == IPv6Only {
-			// If we're only looking for IPv6, we need to request the AAAA record so we can get the IP of this authority
+		if r.ipVersionMode != IPv4Only && r.iterationIPPreference == PreferIPv6 {
 			q.Type = dns.TypeAAAA
+		} else {
+			q.Type = dns.TypeA
 		}
 		res, trace, status, _ = r.iterativeLookup(ctx, q, r.randomRootNameServer(), depth+1, ".", trace)
 	}

@@ -50,6 +50,7 @@ const (
 	defaultShouldTrace           = false
 	defaultDNSSECEnabled         = false
 	defaultIPVersionMode         = IPv4Only
+	defaultIterationIPPreference = PreferIPv4
 	DefaultNameServerConfigFile  = "/etc/resolv.conf"
 	defaultLookupAllNameServers  = false
 )
@@ -69,9 +70,10 @@ type ResolverConfig struct {
 	Retries  int
 	LogLevel log.Level
 
-	TransportMode        transportMode
-	IPVersionMode        IPVersionMode
-	ShouldRecycleSockets bool
+	TransportMode         transportMode
+	IPVersionMode         IPVersionMode
+	IterationIPPreference IterationIPPreference // preference for IPv4 or IPv6 lookups in iterative queries
+	ShouldRecycleSockets  bool
 
 	IterativeTimeout      time.Duration // applicable to iterative queries only, timeout for a single iteration step
 	Timeout               time.Duration // timeout for the resolution of a single name
@@ -147,6 +149,13 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 		}
 		log.Info("cannot use IPv4 mode without both local IPv4 addresses and IPv4 nameservers, defaulting to IPv6 only")
 		rc.IPVersionMode = IPv6Only
+	}
+
+	if rc.IterationIPPreference == PreferIPv6 && rc.IPVersionMode == IPv4Only {
+		return errors.New("cannot prefer IPv6 in iterative queries with IPv4 only mode")
+	}
+	if rc.IterationIPPreference == PreferIPv4 && rc.IPVersionMode == IPv6Only {
+		return errors.New("cannot prefer IPv4 in iterative queries with IPv6 only mode")
 	}
 
 	return nil
@@ -335,11 +344,12 @@ func NewResolverConfig() *ResolverConfig {
 		LocalAddrsV4: []net.IP{},
 		LocalAddrsV6: []net.IP{},
 
-		TransportMode:        defaultTransportMode,
-		IPVersionMode:        defaultIPVersionMode,
-		ShouldRecycleSockets: defaultShouldRecycleSockets,
-		LookupAllNameServers: false,
-		FollowCNAMEs:         defaultFollowCNAMEs,
+		TransportMode:         defaultTransportMode,
+		IPVersionMode:         defaultIPVersionMode,
+		IterationIPPreference: defaultIterationIPPreference,
+		ShouldRecycleSockets:  defaultShouldRecycleSockets,
+		LookupAllNameServers:  false,
+		FollowCNAMEs:          defaultFollowCNAMEs,
 
 		Retries:  defaultRetries,
 		LogLevel: defaultLogVerbosity,
@@ -373,9 +383,10 @@ type Resolver struct {
 	retries  int
 	logLevel log.Level
 
-	transportMode        transportMode
-	ipVersionMode        IPVersionMode
-	shouldRecycleSockets bool
+	transportMode         transportMode
+	ipVersionMode         IPVersionMode
+	iterationIPPreference IterationIPPreference
+	shouldRecycleSockets  bool
 
 	iterativeTimeout     time.Duration
 	timeout              time.Duration // timeout for the network conns
@@ -419,10 +430,11 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		logLevel:             config.LogLevel,
 		lookupAllNameServers: config.LookupAllNameServers,
 
-		transportMode:        config.TransportMode,
-		ipVersionMode:        config.IPVersionMode,
-		shouldRecycleSockets: config.ShouldRecycleSockets,
-		followCNAMEs:         config.FollowCNAMEs,
+		transportMode:         config.TransportMode,
+		ipVersionMode:         config.IPVersionMode,
+		iterationIPPreference: config.IterationIPPreference,
+		shouldRecycleSockets:  config.ShouldRecycleSockets,
+		followCNAMEs:          config.FollowCNAMEs,
 
 		timeout: config.Timeout,
 

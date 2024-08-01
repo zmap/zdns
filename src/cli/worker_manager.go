@@ -159,6 +159,7 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 
 	config.IPVersionMode = zdns.GetIPVersionMode(gc.IPv4Transport, gc.IPv6Transport)
 	config.TransportMode = zdns.GetTransportMode(gc.UDPOnly, gc.TCPOnly)
+	config.IterationIPPreference = zdns.GetIterationIPPreference(gc.PreferIPv4Iteration, gc.PreferIPv6Iteration)
 
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)

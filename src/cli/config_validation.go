@@ -38,6 +38,13 @@ func populateNetworkingConfig(gc *CLIConf) error {
 		return errors.New("both IPv4 and IPv6 transport cannot both be disabled")
 	}
 
+	if gc.IPv4Transport && gc.IPv6Transport && !gc.PreferIPv4Iteration && !gc.PreferIPv6Iteration {
+		return errors.New("both prefer IPv4 and prefer IPv6 iteration cannot both be disabled when using both IPv4 and IPv6 transport")
+	}
+	if gc.IPv4Transport && gc.IPv6Transport && gc.PreferIPv4Iteration && gc.PreferIPv6Iteration {
+		return errors.New("both prefer IPv4 and prefer IPv6 iteration cannot both be enabled when using both IPv4 and IPv6 transport")
+	}
+
 	if err := populateNameServers(gc); err != nil {
 		return errors.Wrap(err, "name servers did not pass validation")
 	}
