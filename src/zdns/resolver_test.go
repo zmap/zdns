@@ -120,7 +120,10 @@ func TestResolverConfig_PopulateAndValidate(t *testing.T) {
 		err = rc.PopulateAndValidate()
 		require.NotNil(t, err, "Expected error but got nil")
 		rc = &ResolverConfig{
-			IPVersionMode:         IPv4OrIPv6,
+			IPVersionMode: IPv4OrIPv6,
+			// Hack - we don't technically support loopback nameservers, but if we don't have this
+			// The PopulateAndValidate function will try to setup an IPv6 connection which will fail on hosts without IPv6
+			// This is a hack to get around that
 			LocalAddrsV4:          []net.IP{net.ParseIP("127.0.0.1")},
 			LocalAddrsV6:          []net.IP{net.ParseIP("::1")},
 			ExternalNameServersV4: []string{"127.0.0.1"},
