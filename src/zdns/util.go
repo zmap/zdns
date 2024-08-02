@@ -16,9 +16,10 @@ package zdns
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"net"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/pkg/errors"
 
