@@ -114,18 +114,21 @@ func TestResolverConfig_PopulateAndValidate(t *testing.T) {
 		require.NotNil(t, err, "Expected error but got nil")
 		rc = &ResolverConfig{
 			IPVersionMode:         IPv6Only,
+			LocalAddrsV6:          []net.IP{net.ParseIP("::1")},
 			IterationIPPreference: PreferIPv4,
 		}
 		err = rc.PopulateAndValidate()
 		require.NotNil(t, err, "Expected error but got nil")
 		rc = &ResolverConfig{
 			IPVersionMode:         IPv4OrIPv6,
+			LocalAddrsV6:          []net.IP{net.ParseIP("::1")},
 			IterationIPPreference: PreferIPv4,
 		}
 		err = rc.PopulateAndValidate()
 		require.Nil(t, err, "This is valid")
 		rc = &ResolverConfig{
 			IPVersionMode:         IPv4OrIPv6,
+			LocalAddrsV6:          []net.IP{net.ParseIP("::1")},
 			IterationIPPreference: PreferIPv6,
 		}
 		err = rc.PopulateAndValidate()
