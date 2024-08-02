@@ -158,8 +158,20 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config := zdns.NewResolverConfig()
 
 	config.IPVersionMode = zdns.GetIPVersionMode(gc.IPv4Transport, gc.IPv6Transport)
+	// if we're in IPv4 or IPv6 only mode, set the iteration preference to match
+	// This is used in extractAuthorities where we need to know whether to request A or AAAA records to continue iteration
+	if config.IPVersionMode == zdns.IPv4Only {
+		config.IterationIPPreference = zdns.PreferIPv4
+	} else if config.IPVersionMode == zdns.IPv6Only {
+		config.IterationIPPreference = zdns.PreferIPv6
+	} else if config.IPVersionMode == zdns.IPv4OrIPv6 && !gc.PreferIPv4Iteration && !gc.PreferIPv6Iteration {
+		// need to specify some type of preference, we'll default to IPv4 and inform the user
+		log.Info("No iteration IP preference specified, defaulting to IPv4 preferred. See --prefer-ipv4-iteration and --prefer-ipv6-iteration for more info")
+		config.IterationIPPreference = zdns.PreferIPv4
+	} else {
+		config.IterationIPPreference = zdns.GetIterationIPPreference(gc.PreferIPv4Iteration, gc.PreferIPv6Iteration)
+	}
 	config.TransportMode = zdns.GetTransportMode(gc.UDPOnly, gc.TCPOnly)
-	config.IterationIPPreference = zdns.GetIterationIPPreference(gc.PreferIPv4Iteration, gc.PreferIPv6Iteration)
 
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)

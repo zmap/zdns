@@ -104,4 +104,31 @@ func TestResolverConfig_PopulateAndValidate(t *testing.T) {
 		require.Equal(t, LoopbackAddrString, rc.LocalAddrsV4[0].String(), "Expected local address to be overwritten with loopback address")
 		require.Equal(t, "127.0.0.1:53", rc.ExternalNameServersV4[0], "Expected nameserver to remain unchanged")
 	})
+
+	t.Run("Test invalid IPv4/IPv6 configuration", func(t *testing.T) {
+		rc := &ResolverConfig{
+			IPVersionMode:         IPv4Only,
+			IterationIPPreference: PreferIPv6,
+		}
+		err := rc.PopulateAndValidate()
+		require.NotNil(t, err, "Expected error but got nil")
+		rc = &ResolverConfig{
+			IPVersionMode:         IPv6Only,
+			IterationIPPreference: PreferIPv4,
+		}
+		err = rc.PopulateAndValidate()
+		require.NotNil(t, err, "Expected error but got nil")
+		rc = &ResolverConfig{
+			IPVersionMode:         IPv4OrIPv6,
+			IterationIPPreference: PreferIPv4,
+		}
+		err = rc.PopulateAndValidate()
+		require.Nil(t, err, "This is valid")
+		rc = &ResolverConfig{
+			IPVersionMode:         IPv4OrIPv6,
+			IterationIPPreference: PreferIPv6,
+		}
+		err = rc.PopulateAndValidate()
+		require.Nil(t, err, "This is Valid")
+	})
 }
