@@ -95,8 +95,10 @@ func populateNetworkingConfig(gc *CLIConf) error {
 		log.Debug("OS external resolution nameservers are loopback and iterative mode is enabled. " +
 			"Using default non-loopback nameservers to prevent resolution failure edge case")
 		ipv4NS, ipv6NS := util.GetDefaultResolvers()
-		gc.NameServers = append(ipv4NS, ipv6NS...)
+		// we don't want to change the underlying slice with append, so we create a new slice
+		gc.NameServers = append(append([]string{}, ipv4NS...), ipv6NS...)
 	}
+
 	return nil
 }
 
@@ -106,7 +108,8 @@ func areOSNameserversLoopback(gc *CLIConf) bool {
 	if err != nil {
 		log.Fatalf("Error getting OS nameservers: %s", err.Error())
 	}
-	for _, ns := range append(nsesIPv4, nsesIPv6...) {
+	// we don't want to change the underlying slice with append, so we create a new slice
+	for _, ns := range append(append([]string{}, nsesIPv4...), nsesIPv6...) {
 		ipString, _, err := net.SplitHostPort(ns)
 		if err != nil {
 			// might be missing a port

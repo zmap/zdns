@@ -279,7 +279,8 @@ func (r *Resolver) LookupAllNameservers(q *Question, nameServer string) (*Combin
 	for _, nserver := range nsResults.Servers {
 		// Use all the ipv4 and ipv6 addresses of each nameserver
 		nameserver := nserver.Name
-		ips := append(nserver.IPv4Addresses, nserver.IPv6Addresses...)
+		// we don't want to change the underlying slice with append, so we create a new slice
+		ips := append(append([]string{}, nserver.IPv4Addresses...), nserver.IPv6Addresses...)
 		for _, ip := range ips {
 			curServer = net.JoinHostPort(ip, "53")
 			res, trace, status, err := r.ExternalLookup(q, curServer)

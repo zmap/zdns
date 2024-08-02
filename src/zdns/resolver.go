@@ -115,7 +115,8 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 	}
 
 	// Check that all nameservers/local addresses are valid
-	for _, ns := range append(rc.ExternalNameServersV4, rc.ExternalNameServersV6...) {
+	// we don't want to change the underlying slice with append, so we create a new slice
+	for _, ns := range append(append([]string{}, rc.ExternalNameServersV4...), rc.ExternalNameServersV6...) {
 		if _, _, err := net.SplitHostPort(ns); err != nil {
 			return fmt.Errorf("invalid name server: %s", ns)
 		}
@@ -301,7 +302,8 @@ func (rc *ResolverConfig) validateLoopbackConsistency() error {
 
 	allLocalAddrsLoopback := true
 	noneLocalAddrsLoopback := true
-	allLocalAddrs := append(rc.LocalAddrsV4, rc.LocalAddrsV6...)
+	// we don't want to change the underlying slice with append, so we create a new slice
+	allLocalAddrs := append(append([]net.IP{}, rc.LocalAddrsV4...), rc.LocalAddrsV6...)
 	// check if all local addresses are loopback or non-loopback
 	for _, addr := range allLocalAddrs {
 		if addr.IsLoopback() {
@@ -329,7 +331,8 @@ func (rc *ResolverConfig) validateLoopbackConsistency() error {
 
 func (rc *ResolverConfig) PrintInfo() {
 	log.Infof("using local addresses: %v", append(rc.LocalAddrsV4, rc.LocalAddrsV6...))
-	log.Infof("for non-iterative lookups, using nameservers: %s", strings.Join(append(rc.ExternalNameServersV4, rc.ExternalNameServersV6...), ", "))
+	// we don't want to change the underlying slice with append, so we create a new slice
+	log.Infof("for non-iterative lookups, using nameservers: %s", strings.Join(append(append([]string{}, rc.ExternalNameServersV4...), rc.ExternalNameServersV6...), ", "))
 }
 
 // NewResolverConfig creates a new ResolverConfig with default values.
