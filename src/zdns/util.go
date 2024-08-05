@@ -21,8 +21,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/pkg/errors"
-
 	"github.com/zmap/dns"
 )
 
@@ -59,36 +57,6 @@ func nameIsBeneath(name, layer string) (bool, string) {
 	return false, ""
 }
 
-func nextAuthority(name, layer string) (string, error) {
-	// We are our own authority for PTRs
-	// (This is dealt with elsewhere)
-	if strings.HasSuffix(name, "in-addr.arpa") && layer == "." {
-		return "in-addr.arpa", nil
-	}
-
-	idx := strings.LastIndex(name, ".")
-	if idx < 0 || (idx+1) >= len(name) {
-		return name, nil
-	}
-	if layer == "." {
-		return name[idx+1:], nil
-	}
-
-	if !strings.HasSuffix(name, layer) {
-		return "", errors.New("server did not provide appropriate resolvers to continue recursion")
-	}
-
-	// Limit the search space to the prefix of the string that isnt layer
-	idx = strings.LastIndex(name, layer) - 1
-	if idx < 0 || (idx+1) >= len(name) {
-		// Out of bounds. We are our own authority
-		return name, nil
-	}
-	// Find the next step in the layer
-	idx = strings.LastIndex(name[0:idx], ".")
-	next := name[idx+1:]
-	return next, nil
-}
 
 func checkGlue(server string, result SingleQueryResult, ipMode IPVersionMode, ipPreference IterationIPPreference) (SingleQueryResult, Status) {
 	var ansType string

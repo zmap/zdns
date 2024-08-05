@@ -397,30 +397,6 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 		}
 	}
 
-	// Now, we check the authoritative:
-	name := strings.ToLower(q.Name)
-	layer = strings.ToLower(layer)
-	authName, err := nextAuthority(name, layer)
-	if err != nil {
-		var r SingleQueryResult
-		return r, isCached, StatusAuthFail, 0, err
-	}
-	if name != layer && authName != layer {
-		if authName == "" {
-			var r SingleQueryResult
-			return r, isCached, StatusAuthFail, 0, nil
-		}
-		var qAuth Question
-		qAuth.Name = authName
-		qAuth.Type = dns.TypeNS
-		qAuth.Class = dns.ClassINET
-
-		if cachedResult, ok = r.cache.GetCachedResult(qAuth, true, depth+2); ok {
-			isCached = true
-			return cachedResult, isCached, StatusNoError, 0, nil
-		}
-	}
-
 	// Alright, we're not sure what to do, go to the wire.
 	result, status, try, err := r.retryingLookup(ctx, q, nameServer, false)
 
