@@ -251,10 +251,10 @@ func (rc *ResolverConfig) populateNameServers() error {
 // Also, validates the nameservers and adds a default port if necessary
 // IPv6 note: link-local IPv6 nameservers are ignored
 func (rc *ResolverConfig) populateExternalNameServers() error {
-	var nsv4 []string
-	var nsv6 []string
+	nsv4 := rc.ExternalNameServersV4
+	nsv6 := rc.ExternalNameServersV6
 	var err error
-	if len(rc.ExternalNameServersV4) == 0 && len(rc.ExternalNameServersV6) == 0 {
+	if len(nsv4) == 0 && len(nsv6) == 0 {
 		nsv4, nsv6, err = GetDNSServers(rc.DNSConfigFilePath)
 		if err != nil {
 			// if can't retrieve OS defaults, use hard-coded ZDNS defaults
