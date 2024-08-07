@@ -80,8 +80,8 @@ type ResolverConfig struct {
 	MaxDepth              int
 	ExternalNameServersV4 []string // v4 name servers used for external lookups
 	ExternalNameServersV6 []string // v6 name servers used for external lookups
-	RootNameServersV4      []string // v4 root servers used for iterative lookups
-	RootNameServersV6      []string // v6 root servers used for iterative lookups
+	RootNameServersV4     []string // v4 root servers used for iterative lookups
+	RootNameServersV6     []string // v6 root servers used for iterative lookups
 	LookupAllNameServers  bool     // perform the lookup via all the nameservers for the domain
 	FollowCNAMEs          bool     // whether iterative lookups should follow CNAMEs/DNAMEs
 	DNSConfigFilePath     string   // path to the DNS config file, ex: /etc/resolv.conf
@@ -125,7 +125,7 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 			return fmt.Errorf("invalid external name server: %s", ns)
 		}
 	}
-	for _, ns := range rc.RootNameServers {
+	for _, ns := range append(append([]string{}, rc.RootNameServersV4...), rc.RootNameServersV6...) {
 		if _, _, err := net.SplitHostPort(ns); err != nil {
 			return fmt.Errorf("invalid root name server: %s", ns)
 		}
@@ -172,8 +172,6 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 }
 
 func (rc *ResolverConfig) populateResolverConfig() error {
-	// External Nameservers
-	if len(rc.ExternalNameServers) == 0 {
 	if err := rc.populateNameServers(); err != nil {
 		return errors.Wrap(err, "could not populate name servers")
 	}
@@ -237,22 +235,37 @@ func (rc *ResolverConfig) populateLocalAddrs() error {
 	return nil
 }
 
+// populateNameServers populates the name servers (external and root) for the resolver.
+// Check individual functions for more details.
 func (rc *ResolverConfig) populateNameServers() error {
+	if err := rc.populateExternalNameServers(); err != nil {
+		return errors.Wrap(err, "could not populate external name servers")
+	}
+	if err := rc.populateRootNameServers(); err != nil {
+		return errors.Wrap(err, "could not populate root name servers")
+	}
+	return nil
+}
+
+// populateExternalNameServers populates the external name servers for the resolver if they're not set
+// Also, validates the nameservers and adds a default port if necessary
+// IPv6 note: link-local IPv6 nameservers are ignored
+func (rc *ResolverConfig) populateExternalNameServers() error {
 	if len(rc.ExternalNameServersV4) == 0 && len(rc.ExternalNameServersV6) == 0 {
 		// if nameservers aren't set, use OS' default
 		nsv4, nsv6, err := GetDNSServers(rc.DNSConfigFilePath)
 		if err != nil {
+			// if can't retrieve OS defaults, use hard-coded ZDNS defaults
 			nsv4, nsv6 = util.GetDefaultResolvers()
-			log.Warnf("Unable to parse resolvers file (%v). Using ZDNS defaults: %s", err, strings.Join(append(nsv4, nsv6...), ", "))
+			log.Warnf("Unable to parse resolvers file (%v). Using ZDNS defaults: %s", err, strings.Join(append(append([]string{}, nsv4...), nsv6...), ", "))
 		}
 		rc.ExternalNameServersV4 = nsv4
 		rc.ExternalNameServersV6 = nsv6
 	}
 
-	// ensure port is set for all nameservers
+	// check that the nameservers have a port and append one if necessary
 	portValidatedNSsV4 := make([]string, 0, len(rc.ExternalNameServersV4))
 	portValidatedNSsV6 := make([]string, 0, len(rc.ExternalNameServersV6))
-	// check that the nameservers have a port and append one if necessary
 	for _, ns := range rc.ExternalNameServersV4 {
 		portNS, err := util.AddDefaultPortToDNSServerName(ns)
 		if err != nil {
@@ -265,20 +278,7 @@ func (rc *ResolverConfig) populateNameServers() error {
 		if err != nil {
 			return fmt.Errorf("could not parse name server: %s", ns)
 		}
-		rc.ExternalNameServers = portValidatedNSs
-	}
-	if len(rc.RootNameServers) != 0 {
-		portValidatedNSs := make([]string, 0, len(rc.RootNameServers))
-		// check that the nameservers have a port and append one if necessary
-		for _, ns := range rc.RootNameServers {
-			portNS, err := util.AddDefaultPortToDNSServerName(ns)
-			if err != nil {
-				return fmt.Errorf("could not parse root name server: %s", ns)
-			}
-			portValidatedNSs = append(portValidatedNSs, portNS)
-		}
-		rc.RootNameServers = portValidatedNSs
-
+		portValidatedNSsV6 = append(portValidatedNSsV6, portNS)
 	}
 	// remove link-local IPv6 nameservers
 	nonLinkLocalIPv6NSs := make([]string, 0, len(portValidatedNSsV6))
@@ -295,7 +295,49 @@ func (rc *ResolverConfig) populateNameServers() error {
 	}
 	rc.ExternalNameServersV4 = portValidatedNSsV4
 	rc.ExternalNameServersV6 = nonLinkLocalIPv6NSs
+	return nil
+}
 
+// populateRootNameServers populates the root name servers for the resolver if they're not set
+// Also, validates the nameservers and adds a default port if necessary
+// Link-local IPv6 root nameservers are not allowed
+func (rc *ResolverConfig) populateRootNameServers() error {
+	if len(rc.RootNameServersV4) == 0 && len(rc.RootNameServersV6) == 0 {
+		// if nameservers aren't set, use the set of 13 root name servers
+		rc.RootNameServersV4 = RootServersV4[:]
+		rc.RootNameServersV6 = RootServersV4[:]
+		return nil
+	}
+	// check that the nameservers have a port and append one if necessary
+	portValidatedNSsV4 := make([]string, 0, len(rc.RootNameServersV4))
+	portValidatedNSsV6 := make([]string, 0, len(rc.RootNameServersV6))
+	for _, ns := range rc.RootNameServersV4 {
+		portNS, err := util.AddDefaultPortToDNSServerName(ns)
+		if err != nil {
+			return fmt.Errorf("could not parse name server: %s", ns)
+		}
+		portValidatedNSsV4 = append(portValidatedNSsV4, portNS)
+	}
+	for _, ns := range rc.RootNameServersV6 {
+		portNS, err := util.AddDefaultPortToDNSServerName(ns)
+		if err != nil {
+			return fmt.Errorf("could not parse name server: %s", ns)
+		}
+		portValidatedNSsV6 = append(portValidatedNSsV6, portNS)
+	}
+	// all root nameservers should be non-link-local
+	// appending like this so we don't change the underlying array
+	for _, ns := range portValidatedNSsV6 {
+		ip, _, err := util.SplitHostPort(ns)
+		if err != nil {
+			return errors.Wrapf(err, "could not split host and port for nameserver: %s", ns)
+		}
+		if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+			return fmt.Errorf("link-local IPv6 root nameservers are not supported: %s", ns)
+		}
+	}
+	rc.RootNameServersV4 = portValidatedNSsV4
+	rc.RootNameServersV6 = portValidatedNSsV6
 	return nil
 }
 
@@ -304,7 +346,7 @@ func (rc *ResolverConfig) populateNameServers() error {
 // - if using a loopback local address, all local addresses are loopback and vice-versa
 // - either all nameservers AND all local addresses are loopback, or none are
 func (rc *ResolverConfig) validateLoopbackConsistency() error {
-	allNameServers := append(rc.ExternalNameServersV4, rc.ExternalNameServersV6...)
+	allNameServers := append(append(append(append([]string{}, rc.ExternalNameServersV4...), rc.ExternalNameServersV6...), rc.RootNameServersV4...), rc.ExternalNameServersV6...)
 	// check if all nameservers are loopback or non-loopback
 	allNameserversLoopback := true
 	noneNameserversLoopback := true
@@ -319,22 +361,9 @@ func (rc *ResolverConfig) validateLoopbackConsistency() error {
 			allNameserversLoopback = false
 		}
 	}
-	for _, ns := range rc.RootNameServers {
-		ip, _, err := util.SplitHostPort(ns)
-		if err != nil {
-			return errors.Wrapf(err, "could not split host and port for nameserver: %s", ns)
-		}
-		if ip.IsLoopback() {
-			noneNameserversLoopback = false
-		} else {
-			allNameserversLoopback = false
-		}
-	}
-	// TODO this needs to be fixed for the new two root nameservers slices.
-	// TODO keep in mind the whole append changing underlying array trick (append([]slice{}, realSlice))
 	loopbackNameserverMismatch := allNameserversLoopback == noneNameserversLoopback
-	if len(rc.ExternalNameServers) > 0 && loopbackNameserverMismatch {
-		return fmt.Errorf("cannot mix loopback and non-loopback nameservers: %v", rc.ExternalNameServers)
+	if len(allNameServers) > 0 && loopbackNameserverMismatch {
+		return errors.New("cannot mix loopback and non-loopback nameservers")
 	}
 
 	allLocalAddrsLoopback := true
@@ -367,9 +396,9 @@ func (rc *ResolverConfig) validateLoopbackConsistency() error {
 }
 
 func (rc *ResolverConfig) PrintInfo() {
-	log.Infof("using local addresses: %v", rc.LocalAddrs)
-	log.Infof("for non-iterative lookups, using external nameservers: %s", strings.Join(rc.ExternalNameServers, ", "))
-	log.Infof("for iterative lookups, using nameservers: %s", strings.Join(rc.RootNameServers, ", "))
+	log.Infof("using local addresses: %v", append(append([]net.IP{}, rc.LocalAddrsV4...), rc.LocalAddrsV6...))
+	log.Infof("for non-iterative lookups, using external nameservers: %s", strings.Join(append(append([]string{}, rc.ExternalNameServersV4...), rc.ExternalNameServersV6...), ", "))
+	log.Infof("for iterative lookups, using nameservers: %s", strings.Join(append(append([]string{}, rc.RootNameServersV4...), rc.RootNameServersV6...), ", "))
 }
 
 // NewResolverConfig creates a new ResolverConfig with default values.
@@ -524,25 +553,24 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	// deep copy external name servers from config to resolver
 	r.iterativeTimeout = config.IterativeTimeout
 	r.maxDepth = config.MaxDepth
-	// TODO Fix this
-	// use the set of 13 root name servers
-	if r.ipVersionMode != IPv6Only {
+	if r.ipVersionMode != IPv6Only && len(config.RootNameServersV4) == 0 {
 		// add IPv4 root servers
 		r.rootNameServers = append(r.rootNameServers, RootServersV4...)
+	} else if r.ipVersionMode != IPv6Only {
+		// deep copy root name servers from config to resolver
+		elemsCopied := copy(r.rootNameServers, config.RootNameServersV4)
+		if elemsCopied != len(config.RootNameServersV4) {
+			log.Fatal("failed to copy entire v4 root name servers list from config")
+		}
 	}
-	if r.ipVersionMode != IPv4Only {
+	if r.ipVersionMode != IPv4Only && len(config.RootNameServersV6) == 0 {
 		// add IPv6 root servers
 		r.rootNameServers = append(r.rootNameServers, RootServersV6...)
-	}
-	// TODO And this
-	if len(config.RootNameServers) == 0 {
-		r.rootNameServers = RootServersV4[:]
-	} else {
-		r.rootNameServers = make([]string, len(config.RootNameServers))
+	} else if r.ipVersionMode != IPv4Only {
 		// deep copy root name servers from config to resolver
-		elemsCopied = copy(r.rootNameServers, config.RootNameServers)
-		if elemsCopied != len(config.RootNameServers) {
-			log.Fatal("failed to copy entire root name servers list from config")
+		elemsCopied := copy(r.rootNameServers, config.RootNameServersV6)
+		if elemsCopied != len(config.RootNameServersV6) {
+			log.Fatal("failed to copy entire v6 root name servers list from config")
 		}
 	}
 	return r, nil
