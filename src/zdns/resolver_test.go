@@ -145,18 +145,9 @@ func TestResolverConfig_PopulateAndValidate(t *testing.T) {
 		require.Nil(t, err, "This is Valid")
 	})
 
-	t.Run("Valid loobpack root nameservers and valid non-loopback external nameservers is not allowed", func(t *testing.T) {
-		rc := &ResolverConfig{
-			ExternalNameServers: []string{"1.1.1.1"},
-			RootNameServers:     []string{"127.0.0.1"},
-		}
-		err := rc.PopulateAndValidate()
-		require.NotNil(t, err, "cannot mix loopback root nameservers with non-loopback external nameservers")
-	})
-
 	t.Run("Invalid Root NS", func(t *testing.T) {
 		rc := &ResolverConfig{
-			RootNameServers: []string{"1.2.3"},
+			RootNameServersV4: []string{"1.2.3"},
 		}
 		err := rc.PopulateAndValidate()
 		require.NotNil(t, err, "Expected error for invalid root nameserver")
@@ -164,16 +155,16 @@ func TestResolverConfig_PopulateAndValidate(t *testing.T) {
 
 	t.Run("Validate Port-appended Root NS", func(t *testing.T) {
 		rc := &ResolverConfig{
-			RootNameServers: []string{"1.2.3.4:49"},
+			RootNameServersV4: []string{"1.2.3.4:49"},
 		}
 		err := rc.PopulateAndValidate()
 		require.Nil(t, err, "Expected no error for valid root nameserver")
-		require.Equal(t, "49", strings.Split(rc.RootNameServers[0], ":")[1], "Expected port to be unchanged")
+		require.Equal(t, "49", strings.Split(rc.RootNameServersV4[0], ":")[1], "Expected port to be unchanged")
 		rc = &ResolverConfig{
-			RootNameServers: []string{"1.2.3.4"},
+			RootNameServersV4: []string{"1.2.3.4"},
 		}
 		err = rc.PopulateAndValidate()
 		require.Nil(t, err, "Expected no error for valid root nameserver")
-		require.Equal(t, "53", strings.Split(rc.RootNameServers[0], ":")[1], "Expected port to be populated")
+		require.Equal(t, "53", strings.Split(rc.RootNameServersV4[0], ":")[1], "Expected port to be populated")
 	})
 }

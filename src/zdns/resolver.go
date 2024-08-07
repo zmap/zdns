@@ -305,7 +305,7 @@ func (rc *ResolverConfig) populateRootNameServers() error {
 	if len(rc.RootNameServersV4) == 0 && len(rc.RootNameServersV6) == 0 {
 		// if nameservers aren't set, use the set of 13 root name servers
 		rc.RootNameServersV4 = RootServersV4[:]
-		rc.RootNameServersV6 = RootServersV4[:]
+		rc.RootNameServersV6 = RootServersV6[:]
 		return nil
 	}
 	// check that the nameservers have a port and append one if necessary
@@ -346,8 +346,8 @@ func (rc *ResolverConfig) populateRootNameServers() error {
 // - if using a loopback local address, all local addresses are loopback and vice-versa
 // - either all nameservers AND all local addresses are loopback, or none are
 func (rc *ResolverConfig) validateLoopbackConsistency() error {
-	allNameServers := append(append(append(append([]string{}, rc.ExternalNameServersV4...), rc.ExternalNameServersV6...), rc.RootNameServersV4...), rc.ExternalNameServersV6...)
-	// check if all nameservers are loopback or non-loopback
+	allNameServers := append(append([]string{}, rc.ExternalNameServersV4...), rc.ExternalNameServersV6...)
+	// check if external nameservers are loopback or non-loopback
 	allNameserversLoopback := true
 	noneNameserversLoopback := true
 	for _, ns := range allNameServers {
@@ -553,25 +553,18 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	// deep copy external name servers from config to resolver
 	r.iterativeTimeout = config.IterativeTimeout
 	r.maxDepth = config.MaxDepth
+	r.rootNameServers = make([]string, 0, len(config.RootNameServersV4)+len(config.RootNameServersV6))
 	if r.ipVersionMode != IPv6Only && len(config.RootNameServersV4) == 0 {
 		// add IPv4 root servers
 		r.rootNameServers = append(r.rootNameServers, RootServersV4...)
 	} else if r.ipVersionMode != IPv6Only {
-		// deep copy root name servers from config to resolver
-		elemsCopied := copy(r.rootNameServers, config.RootNameServersV4)
-		if elemsCopied != len(config.RootNameServersV4) {
-			log.Fatal("failed to copy entire v4 root name servers list from config")
-		}
+		r.rootNameServers = append(r.rootNameServers, config.RootNameServersV4...)
 	}
 	if r.ipVersionMode != IPv4Only && len(config.RootNameServersV6) == 0 {
 		// add IPv6 root servers
 		r.rootNameServers = append(r.rootNameServers, RootServersV6...)
 	} else if r.ipVersionMode != IPv4Only {
-		// deep copy root name servers from config to resolver
-		elemsCopied := copy(r.rootNameServers, config.RootNameServersV6)
-		if elemsCopied != len(config.RootNameServersV6) {
-			log.Fatal("failed to copy entire v6 root name servers list from config")
-		}
+		r.rootNameServers = append(r.rootNameServers, config.RootNameServersV6...)
 	}
 	return r, nil
 }

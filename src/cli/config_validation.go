@@ -180,6 +180,18 @@ func populateNameServers(gc *CLIConf) error {
 		} else {
 			ns = strings.Split(gc.NameServersString, ",")
 		}
+		// in --iterative mode, we don't allow loopback nameservers
+		if gc.IterativeResolution {
+			for _, ns := range ns {
+				ip, _, err := util.SplitHostPort(ns)
+				if err != nil {
+					return err
+				}
+				if ip.IsLoopback() {
+					return fmt.Errorf("loopback nameservers not allowed in iterative mode: %s", ns)
+				}
+			}
+		}
 		gc.NameServers = ns
 	}
 	return nil
