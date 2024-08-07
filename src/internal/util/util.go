@@ -131,12 +131,6 @@ func BindFlags(cmd *cobra.Command, v *viper.Viper, envPrefix string) {
 	})
 }
 
-// GetDefaultResolvers returns a slice of default DNS resolvers to be used when no system resolvers could be discovered.
-// Returns IPv4 and IPv6 resolvers.
-func GetDefaultResolvers() ([]string, []string) {
-	return []string{"8.8.8.8:53", "8.8.4.4:53", "1.1.1.1:53", "1.0.0.1:53"}, []string{"2001:4860:4860::8888:53", "2001:4860:4860::8844:53", "2606:4700:4700::1111:53", "2606:4700:4700::1001:53"}
-}
-
 // IsStringValidDomainName checks if the given string is a valid domain name using regex
 func IsStringValidDomainName(domain string) bool {
 	var domainRegex = regexp.MustCompile(`^(?i)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*\.[a-z]{2,}$`)
