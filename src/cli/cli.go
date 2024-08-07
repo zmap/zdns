@@ -65,7 +65,7 @@ type CLIConf struct {
 	GoMaxProcs           int
 	Verbosity            int
 	TimeFormat           string
-	NameServers          []string
+	NameServers          []string // recursive resolvers if not in iterative mode, root servers if in iterative mode
 	LookupAllNameServers bool
 	TCPOnly              bool
 	UDPOnly              bool

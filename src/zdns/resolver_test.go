@@ -16,6 +16,7 @@ package zdns
 
 import (
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -103,5 +104,37 @@ func TestResolverConfig_PopulateAndValidate(t *testing.T) {
 		require.Nil(t, err, "Valid loopback nameservers and local addresses should not result in an error")
 		require.Equal(t, LoopbackAddrString, rc.LocalAddrs[0].String(), "Expected local address to be overwritten with loopback address")
 		require.Equal(t, "127.0.0.1:53", rc.ExternalNameServers[0], "Expected nameserver to remain unchanged")
+	})
+
+	t.Run("Valid loobpack root nameservers and valid non-loopback external nameservers is not allowed", func(t *testing.T) {
+		rc := &ResolverConfig{
+			ExternalNameServers: []string{"1.1.1.1"},
+			RootNameServers:     []string{"127.0.0.1"},
+		}
+		err := rc.PopulateAndValidate()
+		require.NotNil(t, err, "cannot mix loopback root nameservers with non-loopback external nameservers")
+	})
+
+	t.Run("Invalid Root NS", func(t *testing.T) {
+		rc := &ResolverConfig{
+			RootNameServers: []string{"1.2.3"},
+		}
+		err := rc.PopulateAndValidate()
+		require.NotNil(t, err, "Expected error for invalid root nameserver")
+	})
+
+	t.Run("Validate Port-appended Root NS", func(t *testing.T) {
+		rc := &ResolverConfig{
+			RootNameServers: []string{"1.2.3.4:49"},
+		}
+		err := rc.PopulateAndValidate()
+		require.Nil(t, err, "Expected no error for valid root nameserver")
+		require.Equal(t, "49", strings.Split(rc.RootNameServers[0], ":")[1], "Expected port to be unchanged")
+		rc = &ResolverConfig{
+			RootNameServers: []string{"1.2.3.4"},
+		}
+		err = rc.PopulateAndValidate()
+		require.Nil(t, err, "Expected no error for valid root nameserver")
+		require.Equal(t, "53", strings.Split(rc.RootNameServers[0], ":")[1], "Expected port to be populated")
 	})
 }
