@@ -176,23 +176,25 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
 	// copy nameservers to resolver config
-	if gc.IterativeResolution && len(gc.NameServers) != 0 {
+	if len(gc.NameServers) != 0 {
 		ipv4NSs, ipv6NSs, err := util.SplitIPv4AndIPv6Addrs(gc.NameServers)
 		if err != nil {
 			log.Fatalf("unable to split IPv4 and IPv6 name-server addresses (%s): %v", gc.NameServers, err)
 		}
+		// While this is a bit of a hack to set both the root and external name servers to the same values, the CLI
+		// can only be used in either recursive or iterative mode. If we don't do this and leave one or the other empty,
+		// the resolver will attempt to auto-populate with the OS/ZDNS defaults. If these defaults and the user-provided
+		// values have a loopback mismatch (some are loopback, others aren't), this causes issues.
+		// By setting them both here, we prevent that auto-populate.
 		config.RootNameServersV4 = ipv4NSs
 		config.RootNameServersV6 = ipv6NSs
+		config.ExternalNameServersV4 = ipv4NSs
+		config.ExternalNameServersV6 = ipv6NSs
 	} else if gc.IterativeResolution {
 		config.RootNameServersV4 = zdns.RootServersV4[:]
 		config.RootNameServersV6 = zdns.RootServersV6[:]
-	} else if !gc.IterativeResolution && len(gc.NameServers) != 0 {
-		ipv4NSs, ipv6NSs, err := util.SplitIPv4AndIPv6Addrs(gc.NameServers)
-		if err != nil {
-			log.Fatalf("unable to split IPv4 and IPv6 name-server addresses (%s): %v", gc.NameServers, err)
-		}
-		config.ExternalNameServersV4 = ipv4NSs
-		config.ExternalNameServersV6 = ipv6NSs
+		config.ExternalNameServersV4 = zdns.RootServersV4[:]
+		config.ExternalNameServersV6 = zdns.RootServersV6[:]
 	}
 	// Else: resolver will populate the external name servers with either the OS default or the ZDNS default if none exist
 	config.LookupAllNameServers = gc.LookupAllNameServers
