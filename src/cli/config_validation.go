@@ -23,15 +23,16 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
-
-	"github.com/zmap/zdns/src/internal/util"
-	"github.com/zmap/zdns/src/zdns"
 )
 
 func populateNetworkingConfig(gc *CLIConf) error {
 	// mutually exclusive CLI options
 	if gc.LocalIfaceString != "" && gc.LocalAddrString != "" {
 		return errors.New("--local-addr and --local-interface cannot both be specified")
+	}
+
+	if gc.IPv4Transport && gc.IPv6Transport && gc.PreferIPv4Iteration && gc.PreferIPv6Iteration {
+		return errors.New("both prefer IPv4 and prefer IPv6 iteration cannot both be enabled when using both IPv4 and IPv6 transport")
 	}
 
 	if err := populateNameServers(gc); err != nil {
@@ -42,6 +43,7 @@ func populateNetworkingConfig(gc *CLIConf) error {
 		return errors.Wrap(err, "client subnet did not pass validation")
 	}
 
+	// local address - the user can enter both IPv4 and IPv6 addresses. We'll differentiate them later
 	if GC.LocalAddrString != "" {
 		for _, la := range strings.Split(GC.LocalAddrString, ",") {
 			ip := net.ParseIP(la)
@@ -54,6 +56,7 @@ func populateNetworkingConfig(gc *CLIConf) error {
 		gc.LocalAddrSpecified = true
 	}
 
+	// local interface - same as local addresses, an interface could have both IPv4 and IPv6 addresses, we'll differentiate them later
 	if gc.LocalIfaceString != "" {
 		li, err := net.InterfaceByName(gc.LocalIfaceString)
 		if err != nil {
@@ -75,47 +78,7 @@ func populateNetworkingConfig(gc *CLIConf) error {
 		log.Info("using local interface: ", gc.LocalIfaceString)
 	}
 
-	// If we're in iterative mode, we always start the DNS resolution iterative process at the root DNS servers.
-	// However, the ZDNS resolver library we'll create doesn't know that all queries will be iterative, it's designed to be able to do
-	// both iterative queries and use a recursive resolver with the same config. While usually fine, there's an edge case here
-	// if it is the case that we're only doing iterative queries AND the OS' configured NS's are loopback, ZDNS library
-	// will set the local address to a loopback address so the NS's are reachable.
-	// Unfortunately, this will cause the iterative queries to fail, as the root servers are not reachable from the loopback address.
-	//
-	// To prevent this, we'll check if we're in iterative mode, the user hasn't passed in the local addr/nameservers directly to ZDNS,
-	// and the OS' configured NS's are loopback.  If so, we'll set the nameservers to be our default non-loopback recursive resolvers.
-	// This prevents the edge case described above and has no effect on iterative queries since we just use the root nameservers.
-	if gc.IterativeResolution && !gc.LocalAddrSpecified && areOSNameserversLoopback(gc) && len(gc.NameServersString) == 0 {
-		log.Debug("OS external resolution nameservers are loopback and iterative mode is enabled. " +
-			"Using default non-loopback nameservers to prevent resolution failure edge case")
-		gc.NameServers = util.GetDefaultResolvers()
-	}
-
 	return nil
-}
-
-// areOSNameserversLoopback returns true if the OS' configured nameservers (in /etc/resolv.conf by default) are loopback addresses
-func areOSNameserversLoopback(gc *CLIConf) bool {
-	nses, err := zdns.GetDNSServers(gc.ConfigFilePath)
-	if err != nil {
-		log.Fatalf("Error getting OS nameservers: %s", err.Error())
-	}
-	for _, ns := range nses {
-		ipString, _, err := net.SplitHostPort(ns)
-		if err != nil {
-			// might be missing a port
-			ipString = ns
-		}
-		ip := net.ParseIP(ipString)
-		if ip == nil {
-			log.Fatalf("Error parsing OS nameserver IP: %s", ns)
-		}
-		if ip.IsLoopback() {
-			return true
-		}
-
-	}
-	return false
 }
 
 func validateClientSubnetString(gc *CLIConf) error {
@@ -157,7 +120,7 @@ func populateNameServers(gc *CLIConf) error {
 		if gc.NameServerMode {
 			log.Fatal("name servers cannot be specified on command line in --name-server-mode")
 		}
-		var ns []string
+		var nses []string
 		if (gc.NameServersString)[0] == '@' {
 			filepath := (gc.NameServersString)[1:]
 			f, err := os.ReadFile(filepath)
@@ -167,11 +130,16 @@ func populateNameServers(gc *CLIConf) error {
 			if len(f) == 0 {
 				log.Fatalf("Empty file (%s)", filepath)
 			}
-			ns = strings.Split(strings.Trim(string(f), "\n"), "\n")
+			nses = strings.Split(strings.Trim(string(f), "\n"), "\n")
 		} else {
-			ns = strings.Split(gc.NameServersString, ",")
+			nses = strings.Split(gc.NameServersString, ",")
+			trimmedNSes := make([]string, 0, len(nses))
+			for _, ns := range nses {
+				trimmedNSes = append(trimmedNSes, strings.TrimSpace(ns))
+			}
+			nses = trimmedNSes
 		}
-		gc.NameServers = ns
+		gc.NameServers = nses
 	}
 	return nil
 }

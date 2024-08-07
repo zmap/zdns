@@ -154,32 +154,62 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 	return gc
 }
 
-func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverConfig {
+func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config := zdns.NewResolverConfig()
-	useIPv4, err := flags.GetBool("ipv4-lookup")
-	if err != nil {
-		log.Fatal("Unable to parse ipv4 flag: ", err)
+
+	config.IPVersionMode = zdns.GetIPVersionMode(gc.IPv4Transport, gc.IPv6Transport)
+	// if we're in IPv4 or IPv6 only mode, set the iteration preference to match
+	// This is used in extractAuthorities where we need to know whether to request A or AAAA records to continue iteration
+	if config.IPVersionMode == zdns.IPv4Only {
+		config.IterationIPPreference = zdns.PreferIPv4
+	} else if config.IPVersionMode == zdns.IPv6Only {
+		config.IterationIPPreference = zdns.PreferIPv6
+	} else if config.IPVersionMode == zdns.IPv4OrIPv6 && !gc.PreferIPv4Iteration && !gc.PreferIPv6Iteration {
+		// need to specify some type of preference, we'll default to IPv4 and inform the user
+		log.Info("No iteration IP preference specified, defaulting to IPv4 preferred. See --prefer-ipv4-iteration and --prefer-ipv6-iteration for more info")
+		config.IterationIPPreference = zdns.PreferIPv4
+	} else {
+		config.IterationIPPreference = zdns.GetIterationIPPreference(gc.PreferIPv4Iteration, gc.PreferIPv6Iteration)
 	}
-	useIPv6, err := flags.GetBool("ipv6-lookup")
-	if err != nil {
-		log.Fatal("Unable to parse ipv6 flag: ", err)
-	}
-	config.IPVersionMode = zdns.GetIPVersionMode(useIPv4, useIPv6)
 	config.TransportMode = zdns.GetTransportMode(gc.UDPOnly, gc.TCPOnly)
 
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
 	// copy nameservers to resolver config
-	if gc.IterativeResolution && len(gc.NameServers) != 0 {
-		config.RootNameServers = gc.NameServers
+	if len(gc.NameServers) != 0 {
+		ipv4NSs, ipv6NSs, err := util.SplitIPv4AndIPv6Addrs(gc.NameServers)
+		if err != nil {
+			log.Fatalf("unable to split IPv4 and IPv6 name-server addresses (%s): %v", gc.NameServers, err)
+		}
+		// While this is a bit of a hack to set both the root and external name servers to the same values, the CLI
+		// can only be used in either recursive or iterative mode. If we don't do this and leave one or the other empty,
+		// the resolver will attempt to auto-populate with the OS/ZDNS defaults. If these defaults and the user-provided
+		// values have a loopback mismatch (some are loopback, others aren't), this causes issues.
+		// By setting them both here, we prevent that auto-populate.
+		config.RootNameServersV4 = ipv4NSs
+		config.RootNameServersV6 = ipv6NSs
+		config.ExternalNameServersV4 = ipv4NSs
+		config.ExternalNameServersV6 = ipv6NSs
 	} else if gc.IterativeResolution {
-		config.RootNameServers = zdns.RootServersV4[:]
-	} else if !gc.IterativeResolution && len(gc.NameServers) != 0 {
-		config.ExternalNameServers = gc.NameServers
+		config.RootNameServersV4 = zdns.RootServersV4[:]
+		config.RootNameServersV6 = zdns.RootServersV6[:]
+		config.ExternalNameServersV4 = zdns.RootServersV4[:]
+		config.ExternalNameServersV6 = zdns.RootServersV6[:]
 	}
-	// Else: Resolver will populate the external name servers with either the OS default or the ZDNS default if none exist
+	// Else: resolver will populate the external name servers with either the OS default or the ZDNS default if none exist
 	config.LookupAllNameServers = gc.LookupAllNameServers
 	config.FollowCNAMEs = gc.FollowCNAMEs
+
+	// Local Addresses
+	for _, ip := range gc.LocalAddrs {
+		if ip.To4() != nil {
+			config.LocalAddrsV4 = append(config.LocalAddrsV4, ip)
+		} else if util.IsIPv6(&ip) {
+			config.LocalAddrsV6 = append(config.LocalAddrsV6, ip)
+		} else {
+			log.Fatalf("invalid local address: %s", ip.String())
+		}
+	}
 
 	if gc.UseNSID {
 		config.EdnsOptions = append(config.EdnsOptions, new(dns.EDNS0_NSID))
@@ -193,8 +223,6 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 	config.MaxDepth = gc.MaxDepth
 	config.CheckingDisabledBit = gc.CheckingDisabled
 	config.ShouldRecycleSockets = gc.RecycleSockets
-	config.ExternalNameServers = gc.NameServers
-	config.LocalAddrs = gc.LocalAddrs
 	config.DNSSecEnabled = gc.Dnssec
 	config.DNSConfigFilePath = gc.ConfigFilePath
 
@@ -211,7 +239,7 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 
 func Run(gc CLIConf, flags *pflag.FlagSet) {
 	gc = *populateCLIConfig(&gc, flags)
-	resolverConfig := populateResolverConfig(&gc, flags)
+	resolverConfig := populateResolverConfig(&gc)
 	err := resolverConfig.PopulateAndValidate()
 	if err != nil {
 		log.Fatal("could not populate defaults and validate resolver config: ", err)

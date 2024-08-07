@@ -47,8 +47,8 @@ func InitTest(t *testing.T) *zdns.Resolver {
 	mockResults = make(map[string]*zdns.SingleQueryResult)
 	queries = make([]QueryRecord, 0)
 	rc := zdns.ResolverConfig{
-		ExternalNameServers: []string{"127.0.0.1:53"},
-		LookupClient:        MockLookup{}}
+		ExternalNameServersV4: []string{"127.0.0.1:53"},
+		LookupClient:          MockLookup{}}
 	r, err := zdns.InitResolver(&rc)
 	assert.NilError(t, err)
 

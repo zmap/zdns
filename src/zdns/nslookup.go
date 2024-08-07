@@ -39,9 +39,12 @@ type NSResult struct {
 }
 
 // DoNSLookup performs a DNS NS lookup on the given name against the given name server.
-func (r *Resolver) DoNSLookup(lookupName, nameServer string, isIterative bool) (*NSResult, Trace, Status, error) {
+func (r *Resolver) DoNSLookup(lookupName, nameServer string, isIterative, lookupA, lookupAAAA bool) (*NSResult, Trace, Status, error) {
 	if len(lookupName) == 0 {
 		return nil, nil, "", errors.New("no name provided for NS lookup")
+	}
+	if !lookupA && !lookupAAAA {
+		return nil, nil, "", errors.New("must lookup either A or AAAA")
 	}
 
 	var trace Trace
@@ -93,17 +96,14 @@ func (r *Resolver) DoNSLookup(lookupName, nameServer string, isIterative bool) (
 		var findIpv4 = false
 		var findIpv6 = false
 
-		lookupIPv4 := r.ipVersionMode == IPv4Only || r.ipVersionMode == IPv4OrIPv6
-		lookupIPv6 := r.ipVersionMode == IPv6Only || r.ipVersionMode == IPv4OrIPv6
-
-		if lookupIPv4 {
+		if lookupA {
 			if ips, ok := ipv4s[rec.Name]; ok {
 				rec.IPv4Addresses = ips
 			} else {
 				findIpv4 = true
 			}
 		}
-		if lookupIPv6 {
+		if lookupAAAA {
 			if ips, ok := ipv6s[rec.Name]; ok {
 				rec.IPv6Addresses = ips
 			} else {
@@ -111,7 +111,7 @@ func (r *Resolver) DoNSLookup(lookupName, nameServer string, isIterative bool) (
 			}
 		}
 		if findIpv4 || findIpv6 {
-			res, nextTrace, _, _ := r.DoTargetedLookup(rec.Name, nameServer, r.ipVersionMode, false)
+			res, nextTrace, _, _ := r.DoTargetedLookup(rec.Name, nameServer, false, lookupA, lookupAAAA)
 			if res != nil {
 				if findIpv4 {
 					rec.IPv4Addresses = res.IPv4Addresses

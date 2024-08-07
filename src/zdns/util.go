@@ -19,6 +19,8 @@ import (
 	"net"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/zmap/dns"
 )
 
@@ -55,23 +57,51 @@ func nameIsBeneath(name, layer string) (bool, string) {
 	return false, ""
 }
 
-func checkGlue(server string, result SingleQueryResult) (SingleQueryResult, Status) {
+func checkGlue(server string, result SingleQueryResult, ipMode IPVersionMode, ipPreference IterationIPPreference) (SingleQueryResult, Status) {
+	var ansType string
+	if ipMode == IPv4Only {
+		ansType = "A"
+	} else if ipMode == IPv6Only {
+		ansType = "AAAA"
+	} else if ipPreference == PreferIPv4 {
+		// msut be using either IPv4 or IPv6
+		ansType = "A"
+	} else if ipPreference == PreferIPv6 {
+		// msut be using either IPv4 or IPv6
+		ansType = "AAAA"
+	} else {
+		log.Fatal("should never hit this case in check glue: ", ipMode, ipPreference)
+	}
+	res, status := checkGlueHelper(server, ansType, result)
+	if status == StatusNoError || ipMode != IPv4OrIPv6 {
+		// If we have a valid answer, or we're not looking for both A and AAAA records, return
+		return res, status
+	}
+	// If we're looking for both A and AAAA records, and we didn't find an answer, try the other type
+	if ansType == "A" {
+		ansType = "AAAA"
+	} else {
+		ansType = "A"
+	}
+	return checkGlueHelper(server, ansType, result)
+}
+
+func checkGlueHelper(server, ansType string, result SingleQueryResult) (SingleQueryResult, Status) {
 	for _, additional := range result.Additional {
 		ans, ok := additional.(Answer)
 		if !ok {
 			continue
 		}
-		if ans.Type == "A" && strings.TrimSuffix(ans.Name, ".") == server {
+		if ans.Type == ansType && strings.TrimSuffix(ans.Name, ".") == server {
 			var retv SingleQueryResult
 			retv.Authorities = make([]interface{}, 0)
-			retv.Answers = make([]interface{}, 0)
+			retv.Answers = make([]interface{}, 0, 1)
 			retv.Additional = make([]interface{}, 0)
 			retv.Answers = append(retv.Answers, ans)
 			return retv, StatusNoError
 		}
 	}
-	var r SingleQueryResult
-	return r, StatusError
+	return SingleQueryResult{}, StatusError
 }
 
 func makeVerbosePrefix(depth int) string {

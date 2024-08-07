@@ -27,11 +27,11 @@ import (
 	"github.com/zmap/zdns/src/internal/util"
 )
 
-// GetDNSServers returns a list of DNS servers from a file, or an error if one occurs
-func GetDNSServers(path string) ([]string, error) {
+// GetDNSServers returns a list of IPv4, IPv6 DNS servers from a file, or an error if one occurs
+func GetDNSServers(path string) (ipv4, ipv6 []string, err error) {
 	c, err := dns.ClientConfigFromFile(path)
 	if err != nil {
-		return []string{}, fmt.Errorf("error reading DNS config file: %w", err)
+		return []string{}, []string{}, fmt.Errorf("error reading DNS config file (%s): %w", path, err)
 	}
 	servers := make([]string, 0, len(c.Servers))
 	for _, s := range c.Servers {
@@ -41,7 +41,22 @@ func GetDNSServers(path string) ([]string, error) {
 		full := strings.Join([]string{s, c.Port}, ":")
 		servers = append(servers, full)
 	}
-	return servers, nil
+	ipv4 = make([]string, 0, len(servers))
+	ipv6 = make([]string, 0, len(servers))
+	for _, s := range servers {
+		ip, _, err := util.SplitHostPort(s)
+		if err != nil {
+			return []string{}, []string{}, fmt.Errorf("could not parse IP address (%s) from file: %w", s, err)
+		}
+		if ip.To4() != nil {
+			ipv4 = append(ipv4, s)
+		} else if util.IsIPv6(&ip) {
+			ipv6 = append(ipv6, s)
+		} else {
+			return []string{}, []string{}, fmt.Errorf("could not parse IP address (%s) from file: %s", s, path)
+		}
+	}
+	return ipv4, ipv6, nil
 }
 
 // Lookup client interface for help in mocking
@@ -56,35 +71,7 @@ func (lc LookupClient) DoSingleDstServerLookup(r *Resolver, q Question, nameServ
 }
 
 func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
-	// Check that nameserver isn't blacklisted
-	nameServerIPString, _, err := net.SplitHostPort(nameServer)
-	if err != nil {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("could not split nameserver %s: %w", nameServer, err)
-	}
-	// nameserver is required
-	if nameServer == "" {
-		return nil, nil, StatusIllegalInput, errors.New("no nameserver specified")
-	}
-	// nameserver must be reachable from the local address
-	nameServerIP := net.ParseIP(nameServerIPString)
-	if nameServerIP == nil {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse nameserver IP: %s", nameServerIPString)
-	}
-	if nameServerIP.IsLoopback() != r.localAddr.IsLoopback() {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("nameserver %s must be reachable from the local address %s, ie. both must be loopback or not loopback", nameServerIPString, r.localAddr.String())
-	}
-
-	// Stop if we hit a nameserver we don't want to hit
-	if r.blacklist != nil {
-		if blacklisted, blacklistedErr := r.blacklist.IsBlacklisted(nameServerIPString); blacklistedErr != nil {
-			var r SingleQueryResult
-			return &r, Trace{}, StatusError, fmt.Errorf("could not check blacklist for nameserver %s: %w", nameServer, err)
-		} else if blacklisted {
-			var r SingleQueryResult
-			return &r, Trace{}, StatusBlacklist, nil
-		}
-	}
-
+	var err error
 	if q.Type == dns.TypePTR {
 		var qname string
 		qname, err = dns.ReverseAddr(q.Name)
@@ -274,7 +261,7 @@ func (r *Resolver) LookupAllNameservers(q *Question, nameServer string) (*Combin
 	var curServer string
 
 	// Lookup both ipv4 and ipv6 addresses of nameservers.
-	nsResults, nsTrace, nsStatus, nsError := r.DoNSLookup(q.Name, nameServer, false)
+	nsResults, nsTrace, nsStatus, nsError := r.DoNSLookup(q.Name, nameServer, false, true, true)
 
 	// Terminate early if nameserver lookup also failed
 	if nsStatus != StatusNoError {
@@ -292,10 +279,16 @@ func (r *Resolver) LookupAllNameservers(q *Question, nameServer string) (*Combin
 	for _, nserver := range nsResults.Servers {
 		// Use all the ipv4 and ipv6 addresses of each nameserver
 		nameserver := nserver.Name
-		ips := append(nserver.IPv4Addresses, nserver.IPv6Addresses...)
+		// we don't want to change the underlying slice with append, so we create a new slice
+		ips := append(append([]string{}, nserver.IPv4Addresses...), nserver.IPv6Addresses...)
 		for _, ip := range ips {
 			curServer = net.JoinHostPort(ip, "53")
-			res, trace, status, _ := r.ExternalLookup(q, curServer)
+			res, trace, status, err := r.ExternalLookup(q, curServer)
+			if err != nil {
+				// log and move on
+				log.Errorf("lookup for domain %s to nameserver %s failed with error %s. Continueing to next nameserver", q.Name, curServer, err)
+				continue
+			}
 
 			fullTrace = append(fullTrace, trace...)
 			extendedResult := ExtendedResult{
@@ -414,14 +407,47 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 // retryingLookup wraps around wireLookup to perform a DNS lookup with retries
 // Returns the result, status, number of tries, and error
 func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer string, recursive bool) (SingleQueryResult, Status, int, error) {
+	// nameserver is required
+	if nameServer == "" {
+		return SingleQueryResult{}, StatusIllegalInput, 0, errors.New("no nameserver specified")
+	}
+	nameServerIP, _, err := util.SplitHostPort(nameServer)
+	if err != nil {
+		return SingleQueryResult{}, StatusError, 0, errors.Wrapf(err, "could not split nameserver %s to get IP", nameServer)
+	}
+	// Check that nameserver isn't blacklisted
+
+	// Stop if we hit a nameserver we don't want to hit
+	if r.blacklist != nil {
+		if blacklisted, blacklistedErr := r.blacklist.IsBlacklisted(nameServerIP.String()); blacklistedErr != nil {
+			return SingleQueryResult{}, StatusError, 0, fmt.Errorf("could not check blacklist for nameserver %s: %w", nameServer, err)
+		} else if blacklisted {
+			return SingleQueryResult{}, StatusBlacklist, 0, nil
+		}
+	}
+	var connInfo *ConnectionInfo
+	if nameServerIP.To4() != nil {
+		connInfo = r.connInfoIPv4
+	} else if nameServerIP.To16() != nil {
+		connInfo = r.connInfoIPv6
+	} else {
+		return SingleQueryResult{}, StatusError, 0, fmt.Errorf("could not determine IP version of nameserver: %s", nameServer)
+	}
+	// check that our connection info is valid
+	if connInfo == nil {
+		return SingleQueryResult{}, StatusError, 0, fmt.Errorf("no connection info for nameserver: %s", nameServer)
+	}
+	// check loopback consistency
+	if nameServerIP.IsLoopback() != connInfo.localAddr.IsLoopback() {
+		return SingleQueryResult{}, StatusIllegalInput, 0, fmt.Errorf("nameserver %s must be reachable from the local address %s, ie. both must be loopback or not loopback", nameServer, connInfo.localAddr.String())
+	}
 	r.verboseLog(1, "****WIRE LOOKUP*** ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
 	for i := 0; i <= r.retries; i++ {
 		// check context before going into wireLookup
 		if util.HasCtxExpired(&ctx) {
-			var r SingleQueryResult
-			return r, StatusTimeout, i + 1, nil
+			return SingleQueryResult{}, StatusTimeout, i + 1, nil
 		}
-		result, status, err := wireLookup(ctx, r.udpClient, r.tcpClient, r.conn, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
+		result, status, err := wireLookup(ctx, connInfo.udpClient, connInfo.tcpClient, connInfo.conn, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
 		if status != StatusTimeout || i == r.retries {
 			return result, status, i + 1, err
 		}
@@ -593,13 +619,17 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 	// Short circuit a lookup from the glue
 	// Normally this would be handled by caching, but we want to support following glue
 	// that would normally be cache poison. Because it's "ok" and quite common
-	res, status := checkGlue(server, *result)
+	res, status := checkGlue(server, *result, r.ipVersionMode, r.iterationIPPreference)
 	if status != StatusNoError {
 		// Fall through to normal query
 		var q Question
 		q.Name = server
-		q.Type = dns.TypeA
 		q.Class = dns.ClassINET
+		if r.ipVersionMode != IPv4Only && r.iterationIPPreference == PreferIPv6 {
+			q.Type = dns.TypeAAAA
+		} else {
+			q.Type = dns.TypeA
+		}
 		res, trace, status, _ = r.iterativeLookup(ctx, q, r.randomRootNameServer(), depth+1, ".", trace)
 	}
 	if status == StatusIterTimeout {
@@ -612,8 +642,11 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 			if !ok {
 				continue
 			}
-			if innerAns.Type == "A" {
+			if r.ipVersionMode != IPv6Only && innerAns.Type == "A" {
 				server := strings.TrimSuffix(innerAns.Answer, ".") + ":53"
+				return server, StatusNoError, layer, trace
+			} else if r.ipVersionMode != IPv4Only && innerAns.Type == "AAAA" {
+				server := "[" + strings.TrimSuffix(innerAns.Answer, ".") + "]:53"
 				return server, StatusNoError, layer, trace
 			}
 		}

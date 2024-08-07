@@ -68,3 +68,27 @@ func (ivm IPVersionMode) IsValid() (bool, string) {
 	}
 	return true, ""
 }
+
+type IterationIPPreference int
+
+const (
+	PreferIPv4 IterationIPPreference = iota
+	PreferIPv6
+)
+
+func GetIterationIPPreference(preferIPv4, preferIPv6 bool) IterationIPPreference {
+	if preferIPv4 {
+		return PreferIPv4
+	} else if preferIPv6 {
+		return PreferIPv6
+	}
+	return PreferIPv4
+}
+
+func (iip IterationIPPreference) IsValid() (bool, string) {
+	isValid := iip >= 0 && iip <= 1
+	if !isValid {
+		return false, fmt.Sprintf("invalid iteration ip preference: %d", iip)
+	}
+	return true, ""
+}
