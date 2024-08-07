@@ -85,7 +85,7 @@ func populateNetworkingConfig(gc *CLIConf) error {
 	// To prevent this, we'll check if we're in iterative mode, the user hasn't passed in the local addr/nameservers directly to ZDNS,
 	// and the OS' configured NS's are loopback.  If so, we'll set the nameservers to be our default non-loopback recursive resolvers.
 	// This prevents the edge case described above and has no effect on iterative queries since we just use the root nameservers.
-	if gc.IterativeResolution && !gc.LocalAddrSpecified && areOSNameserversLoopback(gc) {
+	if gc.IterativeResolution && !gc.LocalAddrSpecified && areOSNameserversLoopback(gc) && len(gc.NameServersString) == 0 {
 		log.Debug("OS external resolution nameservers are loopback and iterative mode is enabled. " +
 			"Using default non-loopback nameservers to prevent resolution failure edge case")
 		gc.NameServers = util.GetDefaultResolvers()
