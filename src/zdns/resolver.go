@@ -293,8 +293,12 @@ func (rc *ResolverConfig) populateExternalNameServers() error {
 		}
 		nonLinkLocalIPv6NSs = append(nonLinkLocalIPv6NSs, ns)
 	}
-	rc.ExternalNameServersV4 = portValidatedNSsV4
-	rc.ExternalNameServersV6 = nonLinkLocalIPv6NSs
+	if rc.IPVersionMode != IPv4Only {
+		rc.ExternalNameServersV6 = nonLinkLocalIPv6NSs
+	}
+	if rc.IPVersionMode != IPv6Only {
+		rc.ExternalNameServersV4 = portValidatedNSsV4
+	}
 	return nil
 }
 
@@ -336,8 +340,12 @@ func (rc *ResolverConfig) populateRootNameServers() error {
 			return fmt.Errorf("link-local IPv6 root nameservers are not supported: %s", ns)
 		}
 	}
-	rc.RootNameServersV4 = portValidatedNSsV4
-	rc.RootNameServersV6 = portValidatedNSsV6
+	if rc.IPVersionMode != IPv4Only {
+		rc.RootNameServersV6 = portValidatedNSsV6
+	}
+	if rc.IPVersionMode != IPv6Only {
+		rc.RootNameServersV4 = portValidatedNSsV4
+	}
 	return nil
 }
 
