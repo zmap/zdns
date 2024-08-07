@@ -170,12 +170,17 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
 	// copy nameservers to resolver config
-	if gc.IterativeResolution && len(gc.NameServers) != 0 {
+	if len(gc.NameServers) != 0 {
+		// While this is a bit of a hack to set both the root and external name servers to the same values, the CLI
+		// can only be used in either recursive or iterative mode. If we don't do this and leave one or the other empty,
+		// the resolver will attempt to auto-populate with the OS/ZDNS defaults. If these defaults and the user-provided
+		// values have a loopback mismatch (some are loopback, others aren't), this causes issues.
+		// By setting them both here, we prevent that auto-populate.
 		config.RootNameServers = gc.NameServers
-	} else if gc.IterativeResolution {
-		config.RootNameServers = zdns.RootServersV4[:]
-	} else if !gc.IterativeResolution && len(gc.NameServers) != 0 {
 		config.ExternalNameServers = gc.NameServers
+	} else if gc.IterativeResolution {
+		config.ExternalNameServers = zdns.RootServersV4[:]
+		config.RootNameServers = zdns.RootServersV4[:]
 	}
 	// Else: Resolver will populate the external name servers with either the OS default or the ZDNS default if none exist
 	config.LookupAllNameServers = gc.LookupAllNameServers
@@ -193,7 +198,6 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 	config.MaxDepth = gc.MaxDepth
 	config.CheckingDisabledBit = gc.CheckingDisabled
 	config.ShouldRecycleSockets = gc.RecycleSockets
-	config.ExternalNameServers = gc.NameServers
 	config.LocalAddrs = gc.LocalAddrs
 	config.DNSSecEnabled = gc.Dnssec
 	config.DNSConfigFilePath = gc.ConfigFilePath

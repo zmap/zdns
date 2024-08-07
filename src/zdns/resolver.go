@@ -242,7 +242,7 @@ func (rc *ResolverConfig) validateLoopbackConsistency() error {
 	}
 	loopbackNameserverMismatch := allNameserversLoopback == noneNameserversLoopback
 	if len(rc.ExternalNameServers)+len(rc.RootNameServers) > 0 && loopbackNameserverMismatch {
-		return fmt.Errorf("cannot mix loopback and non-loopback nameservers: %v", rc.ExternalNameServers)
+		return fmt.Errorf("cannot mix loopback and non-loopback nameservers: %v", append(append([]string{}, rc.ExternalNameServers...), rc.RootNameServers...))
 	}
 
 	allLocalAddrsLoopback := true
