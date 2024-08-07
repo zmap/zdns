@@ -251,18 +251,22 @@ func (rc *ResolverConfig) populateNameServers() error {
 // Also, validates the nameservers and adds a default port if necessary
 // IPv6 note: link-local IPv6 nameservers are ignored
 func (rc *ResolverConfig) populateExternalNameServers() error {
-	nsv4, nsv6, err := GetDNSServers(rc.DNSConfigFilePath)
-	if err != nil {
-		// if can't retrieve OS defaults, use hard-coded ZDNS defaults
-		nsv4, nsv6 = DefaultExternalResolversV4, DefaultExternalResolversV6
-		log.Warnf("Unable to parse resolvers file (%v). Using ZDNS defaults: %s", err, strings.Join(append(append([]string{}, nsv4...), nsv6...), ", "))
-	} else {
-		if rc.IPVersionMode != IPv4Only && len(nsv6) == 0 {
-			log.Fatal("no IPv6 nameservers found in OS configuration and IPv6 mode is enabled, please specify IPv6 nameservers")
+	var nsv4 []string
+	var nsv6 []string
+	var err error
+	if len(rc.ExternalNameServersV4) == 0 && len(rc.ExternalNameServersV6) == 0 {
+		nsv4, nsv6, err = GetDNSServers(rc.DNSConfigFilePath)
+		if err != nil {
+			// if can't retrieve OS defaults, use hard-coded ZDNS defaults
+			nsv4, nsv6 = DefaultExternalResolversV4, DefaultExternalResolversV6
+			log.Warnf("Unable to parse resolvers file (%v). Using ZDNS defaults: %s", err, strings.Join(append(append([]string{}, nsv4...), nsv6...), ", "))
 		}
-		if rc.IPVersionMode != IPv6Only && len(nsv4) == 0 {
-			log.Fatal("no IPv4 nameservers found in OS configuration and IPv4 mode is enabled, please specify IPv4 nameservers")
-		}
+	}
+	if rc.IPVersionMode != IPv4Only && len(nsv6) == 0 {
+		log.Fatal("no IPv6 nameservers found in OS configuration and IPv6 mode is enabled, please specify IPv6 nameservers")
+	}
+	if rc.IPVersionMode != IPv6Only && len(nsv4) == 0 {
+		log.Fatal("no IPv4 nameservers found in OS configuration and IPv4 mode is enabled, please specify IPv4 nameservers")
 	}
 	if rc.IPVersionMode != IPv6Only && len(rc.ExternalNameServersV4) == 0 {
 		// if IPv4 nameservers aren't set, use OS' default
