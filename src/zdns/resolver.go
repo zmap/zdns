@@ -346,11 +346,10 @@ func (rc *ResolverConfig) populateRootNameServers() error {
 // - if using a loopback local address, all local addresses are loopback and vice-versa
 // - either all nameservers AND all local addresses are loopback, or none are
 func (rc *ResolverConfig) validateLoopbackConsistency() error {
-	allNameServers := append(append([]string{}, rc.ExternalNameServersV4...), rc.ExternalNameServersV6...)
 	// check if external nameservers are loopback or non-loopback
 	allNameserversLoopback := true
 	noneNameserversLoopback := true
-	for _, ns := range allNameServers {
+	for _, ns := range rc.ExternalNameServersV4 {
 		ip, _, err := util.SplitHostPort(ns)
 		if err != nil {
 			return errors.Wrapf(err, "could not split host and port for nameserver: %s", ns)
@@ -362,8 +361,20 @@ func (rc *ResolverConfig) validateLoopbackConsistency() error {
 		}
 	}
 	loopbackNameserverMismatch := allNameserversLoopback == noneNameserversLoopback
-	if len(allNameServers) > 0 && loopbackNameserverMismatch {
+	if len(rc.ExternalNameServersV4) > 0 && loopbackNameserverMismatch {
 		return errors.New("cannot mix loopback and non-loopback nameservers")
+	}
+
+	// Loopback IPv6 addresses are not allowed
+	allIPv6Nameservers := append(append([]string{}, rc.ExternalNameServersV6...), rc.RootNameServersV6...)
+	for _, ns := range allIPv6Nameservers {
+		ip, _, err := util.SplitHostPort(ns)
+		if err != nil {
+			return errors.Wrapf(err, "could not split host and port for nameserver: %s", ns)
+		}
+		if ip.IsLoopback() {
+			return fmt.Errorf("loopback IPv6 nameservers are not supported: %s", ns)
+		}
 	}
 
 	allLocalAddrsLoopback := true
@@ -385,7 +396,7 @@ func (rc *ResolverConfig) validateLoopbackConsistency() error {
 	// Both nameservers and local addresses are completely loopback or non-loopback
 	// if using loopback nameservers, override local addresses to be loopback and warn user
 	if allNameserversLoopback && noneLocalAddrsLoopback {
-		log.Warnf("nameservers (%s) are loopback, setting local address to loopback (%s) to match", allNameServers, LoopbackAddrString)
+		log.Warnf("nameservers (%s) are loopback, setting local address to loopback (%s) to match", rc.ExternalNameServersV4, LoopbackAddrString)
 		rc.LocalAddrsV4 = []net.IP{net.ParseIP(LoopbackAddrString)}
 		// we ignore link-local local addresses, so nothing to be done for IPv6
 	} else if noneNameserversLoopback && allLocalAddrsLoopback {

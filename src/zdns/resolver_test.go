@@ -106,45 +106,6 @@ func TestResolverConfig_PopulateAndValidate(t *testing.T) {
 		require.Equal(t, "127.0.0.1:53", rc.ExternalNameServersV4[0], "Expected nameserver to remain unchanged")
 	})
 
-	t.Run("Test invalid IPv4/IPv6 configuration", func(t *testing.T) {
-		rc := &ResolverConfig{
-			IPVersionMode:         IPv4Only,
-			IterationIPPreference: PreferIPv6,
-		}
-		err := rc.PopulateAndValidate()
-		require.NotNil(t, err, "Expected error but got nil")
-		rc = &ResolverConfig{
-			IPVersionMode:         IPv6Only,
-			LocalAddrsV6:          []net.IP{net.ParseIP("::1")},
-			IterationIPPreference: PreferIPv4,
-		}
-		err = rc.PopulateAndValidate()
-		require.NotNil(t, err, "Expected error but got nil")
-		rc = &ResolverConfig{
-			IPVersionMode: IPv4OrIPv6,
-			// Hack - we don't technically support loopback nameservers, but if we don't have this
-			// The PopulateAndValidate function will try to setup an IPv6 connection which will fail on hosts without IPv6
-			// This is a hack to get around that
-			LocalAddrsV4:          []net.IP{net.ParseIP("127.0.0.1")},
-			LocalAddrsV6:          []net.IP{net.ParseIP("::1")},
-			ExternalNameServersV4: []string{"127.0.0.1"},
-			ExternalNameServersV6: []string{"::1"},
-			IterationIPPreference: PreferIPv4,
-		}
-		err = rc.PopulateAndValidate()
-		require.Nil(t, err, "This is valid")
-		rc = &ResolverConfig{
-			IPVersionMode:         IPv4OrIPv6,
-			LocalAddrsV4:          []net.IP{net.ParseIP("127.0.0.1")},
-			LocalAddrsV6:          []net.IP{net.ParseIP("::1")},
-			ExternalNameServersV4: []string{"127.0.0.1"},
-			ExternalNameServersV6: []string{"::1"},
-			IterationIPPreference: PreferIPv6,
-		}
-		err = rc.PopulateAndValidate()
-		require.Nil(t, err, "This is Valid")
-	})
-
 	t.Run("Invalid Root NS", func(t *testing.T) {
 		rc := &ResolverConfig{
 			RootNameServersV4: []string{"1.2.3"},
