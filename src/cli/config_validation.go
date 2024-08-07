@@ -75,7 +75,6 @@ func populateNetworkingConfig(gc *CLIConf) error {
 		log.Info("using local interface: ", gc.LocalIfaceString)
 	}
 
-	// TODO this now needs re-work
 	// If we're in iterative mode, we always start the DNS resolution iterative process at the root DNS servers.
 	// However, the ZDNS resolver library we'll create doesn't know that all queries will be iterative, it's designed to be able to do
 	// both iterative queries and use a recursive resolver with the same config. While usually fine, there's an edge case here
