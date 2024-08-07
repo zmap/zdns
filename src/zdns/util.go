@@ -57,7 +57,6 @@ func nameIsBeneath(name, layer string) (bool, string) {
 	return false, ""
 }
 
-
 func checkGlue(server string, result SingleQueryResult, ipMode IPVersionMode, ipPreference IterationIPPreference) (SingleQueryResult, Status) {
 	var ansType string
 	if ipMode == IPv4Only {
