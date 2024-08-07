@@ -176,13 +176,23 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
 	// copy nameservers to resolver config
-	ipv4NSes, ipv6NSes, err := util.SplitIPv4AndIPv6Addrs(gc.NameServers)
-	if err != nil {
-		log.Fatalf("unable to split IPv4 and IPv6 addresses (%s): %v", gc.NameServers, err)
+	// TODO - add IPv6 support here
+	if gc.IterativeResolution && len(gc.NameServers) != 0 {
+		config.RootNameServers = gc.NameServers
+	} else if gc.IterativeResolution {
+		config.RootNameServers = zdns.RootServersV4[:]
+	} else if !gc.IterativeResolution && len(gc.NameServers) != 0 {
+		config.ExternalNameServers = gc.NameServers
 	}
-	config.ExternalNameServersV4 = ipv4NSes
-	// this will be empty if no IPv6 addresses are specified
-	config.ExternalNameServersV6 = ipv6NSes
+	// TODO - this was the old IPv6 code
+	// 	ipv4NSes, ipv6NSes, err := util.SplitIPv4AndIPv6Addrs(gc.NameServers)
+	//	if err != nil {
+	//		log.Fatalf("unable to split IPv4 and IPv6 addresses (%s): %v", gc.NameServers, err)
+	//	}
+	//	config.ExternalNameServersV4 = ipv4NSes
+	//	// this will be empty if no IPv6 addresses are specified
+	//	config.ExternalNameServersV6 = ipv6NSes
+	// Else: Resolver will populate the external name servers with either the OS default or the ZDNS default if none exist
 	config.LookupAllNameServers = gc.LookupAllNameServers
 	config.FollowCNAMEs = gc.FollowCNAMEs
 
