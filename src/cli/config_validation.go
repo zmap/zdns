@@ -23,8 +23,6 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
-
-	"github.com/zmap/zdns/src/zdns"
 )
 
 func populateNetworkingConfig(gc *CLIConf) error {
@@ -75,30 +73,6 @@ func populateNetworkingConfig(gc *CLIConf) error {
 	}
 
 	return nil
-}
-
-// areOSNameserversLoopback returns true if the OS' configured nameservers (in /etc/resolv.conf by default) are loopback addresses
-func areOSNameserversLoopback(gc *CLIConf) bool {
-	nses, err := zdns.GetDNSServers(gc.ConfigFilePath)
-	if err != nil {
-		log.Fatalf("Error getting OS nameservers: %s", err.Error())
-	}
-	for _, ns := range nses {
-		ipString, _, err := net.SplitHostPort(ns)
-		if err != nil {
-			// might be missing a port
-			ipString = ns
-		}
-		ip := net.ParseIP(ipString)
-		if ip == nil {
-			log.Fatalf("Error parsing OS nameserver IP: %s", ns)
-		}
-		if ip.IsLoopback() {
-			return true
-		}
-
-	}
-	return false
 }
 
 func validateClientSubnetString(gc *CLIConf) error {
