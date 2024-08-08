@@ -168,3 +168,8 @@ func Concat[S ~[]E, E any](slices ...S) S {
 	}
 	return newSlice
 }
+
+// IsIPv6 checks if the given IP address is an IPv6 address.
+func IsIPv6(ip *net.IP) bool {
+	return ip != nil && ip.To4() == nil && ip.To16() != nil
+}

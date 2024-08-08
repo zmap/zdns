@@ -31,8 +31,8 @@ func populateNetworkingConfig(gc *CLIConf) error {
 		return errors.New("--local-addr and --local-interface cannot both be specified")
 	}
 
-	if err := populateNameServers(gc); err != nil {
-		return errors.Wrap(err, "name servers did not pass validation")
+	if err := parseNameServers(gc); err != nil {
+		return errors.Wrap(err, "name servers could not be parsed")
 	}
 
 	if err := validateClientSubnetString(gc); err != nil {
@@ -105,7 +105,7 @@ func validateClientSubnetString(gc *CLIConf) error {
 	return nil
 }
 
-func populateNameServers(gc *CLIConf) error {
+func parseNameServers(gc *CLIConf) error {
 	if gc.LookupAllNameServers && gc.NameServersString != "" {
 		log.Fatal("name servers cannot be specified in --all-nameservers mode.")
 	}
