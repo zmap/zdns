@@ -19,6 +19,7 @@ import (
 	"math/rand"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -55,6 +56,7 @@ const (
 
 // ResolverConfig is a struct that holds all the configuration options for a Resolver. It is used to create a new Resolver.
 type ResolverConfig struct {
+	sync.Mutex
 	Cache        *Cache
 	CacheSize    int      // don't use both cache and cacheSize
 	LookupClient Lookuper // either a functional or mock Lookuper client for testing
@@ -86,6 +88,10 @@ type ResolverConfig struct {
 
 // PopulateAndValidate checks if the ResolverConfig is valid and populates any missing fields with default values.
 func (rc *ResolverConfig) PopulateAndValidate() error {
+	// when creating multiple resolvers, each will call this function against the same config.
+	rc.Lock()
+	defer rc.Unlock()
+
 	// populate any missing values in resolver config
 	if err := rc.populateResolverConfig(); err != nil {
 		return errors.Wrap(err, "could not populate resolver config")
