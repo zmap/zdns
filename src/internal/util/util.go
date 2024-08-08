@@ -147,3 +147,20 @@ func RemoveDuplicates[T comparable](slice []T) []T {
 	}
 	return result
 }
+
+// Concat concatenates multiple slices of the same type into a new single slice of that type.
+// Avoids a gotcha in Go where since append modifies the underlying memory of the input slice, doing
+// newSlice := append(slice1, slice2) can modify slice1. See https://go.dev/doc/effective_go#append
+// A std. library concat was added in go 1.22, but this is for backwards compatibility. https://pkg.go.dev/slices#Concat
+// This should be used anytime you're not trying to modify the input slices.
+func Concat[T any](slices ...[]T) []T {
+	var totalLen int
+	for _, s := range slices {
+		totalLen += len(s)
+	}
+	result := make([]T, 0, totalLen)
+	for _, s := range slices {
+		result = append(result, s...)
+	}
+	return result
+}

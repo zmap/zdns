@@ -143,3 +143,19 @@ func TestRemoveDuplicates(t *testing.T) {
 		})
 	}
 }
+
+func TestConcat(t *testing.T) {
+	inputSlice1 := make([]int, 0, 10)
+	for i := 0; i < 3; i++ {
+		inputSlice1 = append(inputSlice1, i)
+	}
+	newSlice1 := Concat(inputSlice1, []int{4})
+	newSlice2 := Concat(inputSlice1, []int{5})
+	newSlice3 := Concat(inputSlice1, []int{6})
+	require.Len(t, inputSlice1, 3)
+	require.Equal(t, 10, cap(inputSlice1))
+	require.Equal(t, []int{0, 1, 2}, inputSlice1)
+	require.Equal(t, []int{0, 1, 2, 4}, newSlice1)
+	require.Equal(t, []int{0, 1, 2, 5}, newSlice2)
+	require.Equal(t, []int{0, 1, 2, 6}, newSlice3)
+}
