@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"regexp"
-	slices2 "slices"
 	"strconv"
 	"strings"
 
@@ -154,7 +153,7 @@ func RemoveDuplicates[T comparable](slice []T) []T {
 // Avoids a gotcha in Go where since append modifies the underlying memory of the input slice, doing
 // newSlice := append(slice1, slice2) can modify slice1. See https://go.dev/doc/effective_go#append
 // A std. library concat was added in go 1.22, but this is for backwards compatibility. https://pkg.go.dev/slices#Concat
-// This is a direct copy of the std. library implementation's Concat implementation.
+// This is mostly similiar to the std. library concat, but with a few differences so it compiles on go 1.20.
 func Concat[S ~[]E, E any](slices ...S) S {
 	size := 0
 	for _, s := range slices {
@@ -163,9 +162,9 @@ func Concat[S ~[]E, E any](slices ...S) S {
 			panic("len out of range")
 		}
 	}
-	newslice := slices2.Grow[S](nil, size)
+	newSlice := make([]E, 0, size)
 	for _, s := range slices {
-		newslice = append(newslice, s...)
+		newSlice = append(newSlice, s...)
 	}
-	return newslice
+	return newSlice
 }
