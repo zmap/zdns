@@ -149,9 +149,17 @@ func TestConcat(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		inputSlice1 = append(inputSlice1, i)
 	}
-	newSlice1 := Concat(inputSlice1, []int{4})
-	newSlice2 := Concat(inputSlice1, []int{5})
-	newSlice3 := Concat(inputSlice1, []int{6})
+	// Test naive append
+	newSlice1 := append(inputSlice1, 4)
+	newSlice2 := append(inputSlice1, 5)
+	newSlice3 := append(inputSlice1, 6)
+	// Shows test is working, you'd think that this would be Equal but it isn't. append() is modifying the inputSlice1
+	require.NotEqual(t, []int{0, 1, 2, 4}, newSlice1)
+	require.NotEqual(t, []int{0, 1, 2, 5}, newSlice2)
+	// Now try with new Concat
+	newSlice1 = Concat(inputSlice1, []int{4})
+	newSlice2 = Concat(inputSlice1, []int{5})
+	newSlice3 = Concat(inputSlice1, []int{6})
 	require.Len(t, inputSlice1, 3)
 	require.Equal(t, 10, cap(inputSlice1))
 	require.Equal(t, []int{0, 1, 2}, inputSlice1)
