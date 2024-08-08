@@ -174,8 +174,8 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 		// While this is a bit of a hack to set both the root and external name servers to the same values, the CLI
 		// can only be used in either recursive or iterative mode. If we don't do this and leave one or the other empty,
 		// the resolver will attempt to auto-populate with the OS/ZDNS defaults. If these defaults and the user-provided
-		// values have a loopback mismatch (some are loopback, others aren't), this causes issues.
-		// By setting them both here, we prevent that auto-populate.
+		// values have a loopback mismatch (some are loopback, others aren't), the config won't pass loopback mismatch
+		// validation. By setting them both here, we prevent that auto-populate issue.
 		config.RootNameServers = gc.NameServers
 		config.ExternalNameServers = gc.NameServers
 	} else if gc.IterativeResolution {
