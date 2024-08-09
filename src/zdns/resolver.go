@@ -131,14 +131,20 @@ func (rc *ResolverConfig) Validate() error {
 	// TODO - Remove when we add IPv6 support
 	for _, ns := range rc.RootNameServers {
 		// we know ns passed validation above
-		ip := net.ParseIP(ns)
+		ip, _, err := util.SplitHostPort(ns)
+		if err != nil {
+			return errors.Wrapf(err, "could not split host and port for root nameserver: %s", ns)
+		}
 		if util.IsIPv6(&ip) {
 			return fmt.Errorf("IPv6 root nameservers are not supported: %s", ns)
 		}
 	}
 	for _, ns := range rc.ExternalNameServers {
 		// we know ns passed validation above
-		ip := net.ParseIP(ns)
+		ip, _, err := util.SplitHostPort(ns)
+		if err != nil {
+			return errors.Wrapf(err, "could not split host and port for external nameserver: %s", ns)
+		}
 		if util.IsIPv6(&ip) {
 			return fmt.Errorf("IPv6 extenral nameservers are not supported: %s", ns)
 		}
