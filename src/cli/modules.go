@@ -154,10 +154,12 @@ func GetLookupModule(name string) (LookupModule, error) {
 	return module, nil
 }
 
-func GetValidLookups() []string {
-	lookups := make([]string, 0, len(moduleToLookupModule))
+// GetValidLookups returns a map of valid lookup modules as keys and empty structs as values.
+// Used as a lookup table to check for valid lookup modules.
+func GetValidLookups() map[string]struct{} {
+	lookups := make(map[string]struct{}, len(moduleToLookupModule))
 	for lookup := range moduleToLookupModule {
-		lookups = append(lookups, lookup)
+		lookups[lookup] = struct{}{}
 	}
 	return lookups
 }

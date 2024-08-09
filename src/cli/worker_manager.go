@@ -17,6 +17,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
 	"os"
 	"runtime"
 	"strconv"
@@ -53,7 +54,7 @@ type Metadata struct {
 	ZDNSVersion string         `json:"zdns_version"`
 }
 
-func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
+func populateCLIConfig(gc *CLIConf) *CLIConf {
 	if gc.LogFilePath != "" && gc.LogFilePath != "-" {
 		f, err := os.OpenFile(gc.LogFilePath, os.O_WRONLY|os.O_CREATE, util.DefaultFilePermissions)
 		if err != nil {
@@ -209,10 +210,15 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 	return config
 }
 
-func Run(gc CLIConf, flags *pflag.FlagSet) {
-	gc = *populateCLIConfig(&gc, flags)
+func Run(gc CLIConf, flags *pflag.FlagSet, args []string) {
+	module, domains, err := parseArgs(args)
+	if err != nil {
+		log.Fatal("could not parse arguments: ", err)
+	}
+	gc.Module = module
+	gc = *populateCLIConfig(&gc)
 	resolverConfig := populateResolverConfig(&gc, flags)
-	err := resolverConfig.PopulateAndValidate()
+	err = resolverConfig.PopulateAndValidate()
 	if err != nil {
 		log.Fatal("could not populate defaults and validate resolver config: ", err)
 	}
@@ -247,6 +253,7 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 	}
 
 	// Use handlers to populate the input and output/results channel
+	// TODO use domains slice here if it has anything in it
 	go func() {
 		inErr := inHandler.FeedChannel(inChan, &routineWG)
 		if inErr != nil {
@@ -452,4 +459,33 @@ func aggregateMetadata(c <-chan routineMetadata) Metadata {
 		}
 	}
 	return meta
+}
+
+// parseArgs parses and validates the command line arguments to ZDNS
+// Valid args are 1+ module names and 0+ domain names.
+// The module name(s) must be one of the valid lookup modules.
+// No validation is performed on domain names, they'll be queried as-is.
+func parseArgs(args []string) (module string, domains []string, err error) {
+	// pre-alloc the domains slice, we know it will be at most the length of args - 1 for the mandatory module name
+	domains = make([]string, 0, len(args)-1)
+	// We have some mix of module name and input domain names
+	validLookupModulesMap := GetValidLookups()
+	for _, arg := range args {
+		if _, ok := validLookupModulesMap[strings.ToUpper(arg)]; ok {
+			// we found the module
+			if module == "" {
+				module = strings.ToUpper(arg)
+			} else {
+				// we already found the module, so this is a duplicate
+				return "", nil, errors.New("multiple lookup modules not supported")
+			}
+		} else {
+			// must be a domain name
+			domains = append(domains, arg)
+		}
+	}
+	if module == "" {
+		return "", nil, errors.New("no lookup module specified")
+	}
+	return module, domains, nil
 }

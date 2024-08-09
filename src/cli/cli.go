@@ -17,7 +17,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 	"sync"
 
 	"github.com/spf13/cobra"
@@ -106,11 +105,9 @@ https://github.com/zmap/dns (and in turn https://github.com/miekg/dns) for const
 and parsing raw DNS packets.
 
 ZDNS also includes its own recursive resolution and a cache to further optimize performance.`,
-	ValidArgs: GetValidLookups(),
-	Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+	Args: cobra.MatchAll(cobra.MinimumNArgs(1)), // at least a module name is required
 	Run: func(cmd *cobra.Command, args []string) {
-		GC.Module = strings.ToUpper(args[0])
-		Run(GC, cmd.Flags())
+		Run(GC, cmd.Flags(), args)
 	},
 	Version: zdnsCLIVersion,
 }
