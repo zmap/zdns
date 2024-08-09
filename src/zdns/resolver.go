@@ -99,64 +99,58 @@ func (rc *ResolverConfig) Validate() error {
 	}
 
 	// External Nameservers
-	if len(rc.ExternalNameServers) == 0 {
-		return errors.New("must have at least one external name server")
+	if rc.IPVersionMode != IPv6Only && len(rc.ExternalNameServersV4) == 0 {
+		// If IPv4 is supported, we require at least one IPv4 external nameserver
+		return errors.New("must have at least one external IPv4 name server if IPv4 mode is enabled")
+	}
+	if rc.IPVersionMode != IPv4Only && len(rc.ExternalNameServersV6) == 0 {
+		// If IPv6 is supported, we require at least one IPv6 external nameserver
+		return errors.New("must have at least one external IPv6 name server if IPv6 mode is enabled")
 	}
 
-	for _, ns := range rc.ExternalNameServers {
+	// Validate all nameservers have ports and are valid IPs
+	for _, ns := range util.Concat(rc.ExternalNameServersV4, rc.ExternalNameServersV6) {
 		ipString, _, err := net.SplitHostPort(ns)
 		if err != nil {
-			return fmt.Errorf("could not parse external name server (%s), must be valid IP and have port appended, ex: 1.2.3.4:53", ns)
+			return fmt.Errorf("could not parse external name server (%s), must be valid IP and have port appended, ex: 1.2.3.4:53 or [::1]:53", ns)
 		}
 		ip := net.ParseIP(ipString)
 		if ip == nil {
-			return fmt.Errorf("could not parse external name server (%s), must be valid IP and have port appended, ex: 1.2.3.4:53", ns)
+			return fmt.Errorf("could not parse external name server (%s), must be valid IP and have port appended, ex: 1.2.3.4:53 or [::1]:53", ns)
 		}
 	}
-	// Check Root Servers
-	if len(rc.RootNameServers) == 0 {
-		return errors.New("must have at least one root name server")
+	// Root Nameservers
+	if rc.IPVersionMode != IPv6Only && len(rc.RootNameServersV4) == 0 {
+		// If IPv4 is supported, we require at least one IPv4 root nameserver
+		return errors.New("must have at least one root IPv4 name server if IPv4 mode is enabled")
 	}
-	for _, ns := range rc.RootNameServers {
+	if rc.IPVersionMode != IPv4Only && len(rc.RootNameServersV6) == 0 {
+		// If IPv6 is supported, we require at least one IPv6 root nameserver
+		return errors.New("must have at least one root IPv6 name server if IPv6 mode is enabled")
+	}
+
+	// Validate all nameservers have ports and are valid IPs
+	for _, ns := range util.Concat(rc.RootNameServersV4, rc.RootNameServersV6) {
 		ipString, _, err := net.SplitHostPort(ns)
 		if err != nil {
-			return fmt.Errorf("could not parse root name server (%s), must be valid IP and have port appended, ex: 1.2.3.4:53", ns)
+			return fmt.Errorf("could not parse root name server (%s), must be valid IP and have port appended, ex: 1.2.3.4:53 or [::1]:53", ns)
 		}
 		ip := net.ParseIP(ipString)
 		if ip == nil {
-			return fmt.Errorf("could not parse root name server (%s), must be valid IP and have port appended, ex: 1.2.3.4:53", ns)
+			return fmt.Errorf("could not parse root name server (%s), must be valid IP and have port appended, ex: 1.2.3.4:53 or [::1]:53", ns)
 		}
 	}
-
-	// TODO - Remove when we add IPv6 support
-	for _, ns := range rc.RootNameServers {
-		// we know ns passed validation above
-		ip, _, err := util.SplitHostPort(ns)
-		if err != nil {
-			return errors.Wrapf(err, "could not split host and port for root nameserver: %s", ns)
-		}
-		if util.IsIPv6(&ip) {
-			return fmt.Errorf("IPv6 root nameservers are not supported: %s", ns)
-		}
-	}
-	for _, ns := range rc.ExternalNameServers {
-		// we know ns passed validation above
-		ip, _, err := util.SplitHostPort(ns)
-		if err != nil {
-			return errors.Wrapf(err, "could not split host and port for external nameserver: %s", ns)
-		}
-		if util.IsIPv6(&ip) {
-			return fmt.Errorf("IPv6 extenral nameservers are not supported: %s", ns)
-		}
-	}
-	// TODO end IPv6 section
 
 	// Local Addresses
-	if len(rc.LocalAddrs) == 0 {
-		return errors.New("must have a local address to send traffic from")
+	if rc.IPVersionMode != IPv6Only && len(rc.LocalAddrsV4) == 0 {
+		return errors.New("must have a local IPv4 address to send traffic from")
+	}
+	if rc.IPVersionMode != IPv4Only && len(rc.LocalAddrsV6) == 0 {
+		return errors.New("must have a local IPv6 address to send traffic from")
 	}
 
-	for _, ip := range rc.LocalAddrs {
+	// Validate all local addresses are valid IPs
+	for _, ip := range util.Concat(rc.LocalAddrsV4, rc.LocalAddrsV6) {
 		if ip == nil {
 			return errors.New("local address cannot be nil")
 		}
@@ -165,17 +159,37 @@ func (rc *ResolverConfig) Validate() error {
 		}
 	}
 
-	// TODO - Remove when we add IPv6 support
-	for _, addr := range rc.LocalAddrs {
-		if util.IsIPv6(&addr) {
-			return fmt.Errorf("IPv6 local addresses are not supported: %v", rc.LocalAddrs)
-		}
-		// TODO - remember, no link-local/multicast IPv6 addrs
-		if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
-			return fmt.Errorf("link-local IPv6 root nameservers are not supported: %s", ns)
+	// Validate IPv4 local addresses are IPv4
+	for _, ip := range rc.LocalAddrsV4 {
+		if ip.To4() == nil {
+			return fmt.Errorf("local address is not IPv4: %v", ip)
 		}
 	}
-	// TODO end IPv6 section
+
+	// Validate IPv6 local addresses are IPv6
+	for _, ip := range rc.LocalAddrsV6 {
+		if !util.IsIPv6(&ip) {
+			return fmt.Errorf("IPv6 local address (%v) is not IPv6", ip)
+		}
+	}
+
+	// Ensure no IPv6 link-local/multicast local addresses are used
+	for _, ip := range rc.LocalAddrsV6 {
+		if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+			return fmt.Errorf("link-local IPv6 local addresses are not supported: %v", ip)
+		}
+	}
+
+	// Ensure no IPv6 link-local/multicast external/root nameservers are used
+	for _, ns := range util.Concat(rc.ExternalNameServersV6, rc.RootNameServersV6) {
+		ip, _, err := util.SplitHostPort(ns)
+		if err != nil {
+			return errors.Wrapf(err, "could not split host and port for nameserver: %s", ns)
+		}
+		if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+			return fmt.Errorf("link-local IPv6 external/root nameservers are not supported: %v", ip)
+		}
+	}
 
 	if err := rc.validateLoopbackConsistency(); err != nil {
 		return errors.Wrap(err, "could not validate loopback consistency")
@@ -187,20 +201,16 @@ func (rc *ResolverConfig) Validate() error {
 // validateLoopbackConsistency checks that the following is true
 // - either all nameservers AND all local addresses are loopback, or none are
 func (rc *ResolverConfig) validateLoopbackConsistency() error {
-	allIPsLength := len(rc.LocalAddrs) + len(rc.RootNameServers) + len(rc.ExternalNameServers)
+	allLocalAddrs := util.Concat(rc.LocalAddrsV4, rc.LocalAddrsV6)
+	allExternalNameServers := util.Concat(rc.ExternalNameServersV4, rc.ExternalNameServersV6)
+	allRootNameServers := util.Concat(rc.RootNameServersV4, rc.RootNameServersV6)
+	allIPsLength := len(allLocalAddrs) + len(allExternalNameServers) + len(allRootNameServers)
 	allIPs := make([]net.IP, 0, allIPsLength)
-	allIPs = append(allIPs, rc.LocalAddrs...)
-	for _, ns := range rc.ExternalNameServers {
+	allIPs = append(allIPs, allLocalAddrs...)
+	for _, ns := range util.Concat(allExternalNameServers, allRootNameServers) {
 		ip, _, err := util.SplitHostPort(ns)
 		if err != nil {
-			return errors.Wrapf(err, "could not split host and port for external nameserver: %s", ns)
-		}
-		allIPs = append(allIPs, ip)
-	}
-	for _, ns := range rc.RootNameServers {
-		ip, _, err := util.SplitHostPort(ns)
-		if err != nil {
-			return errors.Wrapf(err, "could not split host and port for root nameserver: %s", ns)
+			return errors.Wrapf(err, "could not split host and port for nameserver: %s", ns)
 		}
 		allIPs = append(allIPs, ip)
 	}
@@ -214,7 +224,7 @@ func (rc *ResolverConfig) validateLoopbackConsistency() error {
 		}
 	}
 	if allIPsLoopback == noneIPsLoopback {
-		return fmt.Errorf("cannot mix loopback and non-loopback local addresses (%v) and name servers (%v)", rc.LocalAddrs, util.Concat(rc.ExternalNameServers, rc.RootNameServers))
+		return fmt.Errorf("cannot mix loopback and non-loopback local addresses (%v) and name servers (%v)", allLocalAddrs, util.Concat(allExternalNameServers, allRootNameServers))
 	}
 	return nil
 }
@@ -336,16 +346,16 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		checkingDisabledBit: config.CheckingDisabledBit,
 	}
 	log.SetLevel(r.logLevel)
-	// create connection info for IPv4
-	if config.IPVersionMode == IPv4Only || config.IPVersionMode == IPv4OrIPv6 {
+	if config.IPVersionMode != IPv6Only {
+		// create connection info for IPv4
 		connInfo, err := getConnectionInfo(config.LocalAddrsV4, config.TransportMode, config.Timeout, config.ShouldRecycleSockets)
 		if err != nil {
 			return nil, fmt.Errorf("could not create connection info for IPv4: %w", err)
 		}
 		r.connInfoIPv4 = connInfo
 	}
-	// create connection info for IPv6
-	if config.IPVersionMode == IPv6Only || config.IPVersionMode == IPv4OrIPv6 {
+	if config.IPVersionMode != IPv4Only {
+		// create connection info for IPv6
 		connInfo, err := getConnectionInfo(config.LocalAddrsV6, config.TransportMode, config.Timeout, config.ShouldRecycleSockets)
 		if err != nil {
 			return nil, fmt.Errorf("could not create connection info for IPv6: %w", err)
@@ -445,23 +455,22 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryRe
 	}
 	dstServerWithPort, err := util.AddDefaultPortToDNSServerName(dstServer)
 	if err != nil {
-		// TODO update below when adding IPv6, add ex. IPv6
-		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w. Correct format IPv4 (1.1.1.1:53)", dstServer, err)
+		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w. Correct format IPv4 1.1.1.1:53 or IPv6 [::1]:53", dstServer, err)
 	}
 	if dstServer != dstServerWithPort {
 		log.Info("no port provided for external lookup, using default port 53")
 	}
 	dstServerIP, _, err := util.SplitHostPort(dstServerWithPort)
 	if err != nil {
-		// TODO update below when adding IPv6, add ex. IPv6
-		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w. Correct format IPv4 (1.1.1.1:53)", dstServer, err)
+		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w. Correct format IPv4 1.1.1.1:53 or IPv6 [::1]:53", dstServer, err)
 	}
 	// check that local address and dstServer's don't have a loopback mismatch
-	if r.localAddr.IsLoopback() != dstServerIP.IsLoopback() {
+	if dstServerIP.To4() != nil && r.connInfoIPv4.localAddr.IsLoopback() != dstServerIP.IsLoopback() {
 		return nil, nil, StatusIllegalInput, errors.New("cannot mix loopback and non-loopback addresses")
-
+	} else if util.IsIPv6(&dstServerIP) && r.connInfoIPv6.localAddr.IsLoopback() != dstServerIP.IsLoopback() {
+		return nil, nil, StatusIllegalInput, errors.New("cannot mix loopback and non-loopback addresses")
 	}
-	// dstServer has been validated and has a port
+	// dstServer has been validated and has a port, continue with lookup
 	dstServer = dstServerWithPort
 	lookup, trace, status, err := r.lookupClient.DoSingleDstServerLookup(r, *q, dstServer, false)
 	return lookup, trace, status, err
