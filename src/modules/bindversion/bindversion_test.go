@@ -15,6 +15,7 @@
 package bindversion
 
 import (
+	"net"
 	"testing"
 
 	"github.com/zmap/dns"
@@ -46,7 +47,9 @@ func (ml MockLookup) DoSingleDstServerLookup(r *zdns.Resolver, question zdns.Que
 func InitTest(t *testing.T) *zdns.Resolver {
 	mockResults = make(map[string]*zdns.SingleQueryResult)
 	rc := zdns.ResolverConfig{
-		ExternalNameServers: []string{"1.1.1.1"},
+		ExternalNameServers: []string{"1.1.1.1:53"},
+		RootNameServers:     []string{"1.1.1.1:53"},
+		LocalAddrs:          []net.IP{net.ParseIP("192.168.1.1")},
 		LookupClient:        MockLookup{}}
 	r, err := zdns.InitResolver(&rc)
 	assert.NilError(t, err)

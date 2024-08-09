@@ -91,9 +91,12 @@ func InitTest() (*AxfrLookupModule, *zdns.Resolver) {
 	nsStatus = zdns.StatusNoError
 
 	cc := new(cli.CLIConf)
-	cc.NameServers = []string{"127.0.0.1"}
 
 	rc := new(zdns.ResolverConfig)
+	rc.RootNameServers = []string{"127.0.0.53:53"}
+	rc.ExternalNameServers = []string{"127.0.0.53:53"}
+	rc.LocalAddrs = []net.IP{net.ParseIP("127.0.0.1")}
+
 	flagSet := new(pflag.FlagSet)
 	flagSet.Bool("ipv4-lookup", false, "Use IPv4")
 	flagSet.Bool("ipv6-lookup", false, "Use IPv6")
