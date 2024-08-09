@@ -25,10 +25,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/hashicorp/go-version"
 	"github.com/liip/sheriff"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
@@ -198,7 +197,7 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 
 	if gc.BlacklistFilePath != "" {
 		config.Blacklist = blacklist.New()
-		if err := config.Blacklist.ParseFromFile(gc.BlacklistFilePath); err != nil {
+		if err = config.Blacklist.ParseFromFile(gc.BlacklistFilePath); err != nil {
 			log.Fatal("unable to parse blacklist file: ", err)
 		}
 	}
