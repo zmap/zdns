@@ -15,6 +15,7 @@
 package dmarc
 
 import (
+	"net"
 	"testing"
 
 	"github.com/zmap/dns"
@@ -47,6 +48,8 @@ func InitTest(t *testing.T) *zdns.Resolver {
 	mockResults = make(map[string]*zdns.SingleQueryResult)
 	rc := zdns.ResolverConfig{
 		ExternalNameServers: []string{"127.0.0.1:53"},
+		RootNameServers:     []string{"127.0.0.53:53"},
+		LocalAddrs:          []net.IP{net.ParseIP("127.0.0.1")},
 		LookupClient:        MockLookup{}}
 	r, err := zdns.InitResolver(&rc)
 	assert.NilError(t, err)

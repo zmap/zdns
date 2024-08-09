@@ -65,14 +65,6 @@ func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIter
 	if nameServer == "" {
 		return nil, nil, StatusIllegalInput, errors.New("no nameserver specified")
 	}
-	// nameserver must be reachable from the local address
-	nameServerIP := net.ParseIP(nameServerIPString)
-	if nameServerIP == nil {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse nameserver IP: %s", nameServerIPString)
-	}
-	if nameServerIP.IsLoopback() != r.localAddr.IsLoopback() {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("nameserver %s must be reachable from the local address %s, ie. both must be loopback or not loopback", nameServerIPString, r.localAddr.String())
-	}
 
 	// Stop if we hit a nameserver we don't want to hit
 	if r.blacklist != nil {

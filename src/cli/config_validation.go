@@ -23,9 +23,6 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
-
-	"github.com/zmap/zdns/src/internal/util"
-	"github.com/zmap/zdns/src/zdns"
 )
 
 func populateNetworkingConfig(gc *CLIConf) error {
@@ -34,8 +31,8 @@ func populateNetworkingConfig(gc *CLIConf) error {
 		return errors.New("--local-addr and --local-interface cannot both be specified")
 	}
 
-	if err := populateNameServers(gc); err != nil {
-		return errors.Wrap(err, "name servers did not pass validation")
+	if err := parseNameServers(gc); err != nil {
+		return errors.Wrap(err, "name servers could not be parsed")
 	}
 
 	if err := validateClientSubnetString(gc); err != nil {
@@ -75,47 +72,7 @@ func populateNetworkingConfig(gc *CLIConf) error {
 		log.Info("using local interface: ", gc.LocalIfaceString)
 	}
 
-	// If we're in iterative mode, we always start the DNS resolution iterative process at the root DNS servers.
-	// However, the ZDNS resolver library we'll create doesn't know that all queries will be iterative, it's designed to be able to do
-	// both iterative queries and use a recursive resolver with the same config. While usually fine, there's an edge case here
-	// if it is the case that we're only doing iterative queries AND the OS' configured NS's are loopback, ZDNS library
-	// will set the local address to a loopback address so the NS's are reachable.
-	// Unfortunately, this will cause the iterative queries to fail, as the root servers are not reachable from the loopback address.
-	//
-	// To prevent this, we'll check if we're in iterative mode, the user hasn't passed in the local addr/nameservers directly to ZDNS,
-	// and the OS' configured NS's are loopback.  If so, we'll set the nameservers to be our default non-loopback recursive resolvers.
-	// This prevents the edge case described above and has no effect on iterative queries since we just use the root nameservers.
-	if gc.IterativeResolution && !gc.LocalAddrSpecified && areOSNameserversLoopback(gc) && len(gc.NameServersString) == 0 {
-		log.Debug("OS external resolution nameservers are loopback and iterative mode is enabled. " +
-			"Using default non-loopback nameservers to prevent resolution failure edge case")
-		gc.NameServers = util.GetDefaultResolvers()
-	}
-
 	return nil
-}
-
-// areOSNameserversLoopback returns true if the OS' configured nameservers (in /etc/resolv.conf by default) are loopback addresses
-func areOSNameserversLoopback(gc *CLIConf) bool {
-	nses, err := zdns.GetDNSServers(gc.ConfigFilePath)
-	if err != nil {
-		log.Fatalf("Error getting OS nameservers: %s", err.Error())
-	}
-	for _, ns := range nses {
-		ipString, _, err := net.SplitHostPort(ns)
-		if err != nil {
-			// might be missing a port
-			ipString = ns
-		}
-		ip := net.ParseIP(ipString)
-		if ip == nil {
-			log.Fatalf("Error parsing OS nameserver IP: %s", ns)
-		}
-		if ip.IsLoopback() {
-			return true
-		}
-
-	}
-	return false
 }
 
 func validateClientSubnetString(gc *CLIConf) error {
@@ -148,7 +105,7 @@ func validateClientSubnetString(gc *CLIConf) error {
 	return nil
 }
 
-func populateNameServers(gc *CLIConf) error {
+func parseNameServers(gc *CLIConf) error {
 	if gc.LookupAllNameServers && gc.NameServersString != "" {
 		log.Fatal("name servers cannot be specified in --all-nameservers mode.")
 	}

@@ -19,6 +19,7 @@ import (
 	"math/rand"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -32,8 +33,7 @@ import (
 
 const (
 	// TODO - we'll need to update this when we add IPv6 support
-	LoopbackAddrString    = "127.0.0.1"
-	googleDNSResolverAddr = "8.8.8.8:53"
+	LoopbackAddrString = "127.0.0.1"
 
 	defaultTimeout               = 15 * time.Second // timeout for resolving a single name
 	defaultIterativeTimeout      = 4 * time.Second  // timeout for single iteration in an iterative query
@@ -55,6 +55,7 @@ const (
 
 // ResolverConfig is a struct that holds all the configuration options for a Resolver. It is used to create a new Resolver.
 type ResolverConfig struct {
+	sync.Mutex
 	Cache        *Cache
 	CacheSize    int      // don't use both cache and cacheSize
 	LookupClient Lookuper // either a functional or mock Lookuper client for testing
@@ -84,18 +85,9 @@ type ResolverConfig struct {
 	CheckingDisabledBit bool
 }
 
-// PopulateAndValidate checks if the ResolverConfig is valid and populates any missing fields with default values.
-func (rc *ResolverConfig) PopulateAndValidate() error {
-	// populate any missing values in resolver config
-	if err := rc.populateResolverConfig(); err != nil {
-		return errors.Wrap(err, "could not populate resolver config")
-	}
-
-	// Potentially, a name-server could be listed multiple times by either the user or in the OS's respective /etc/resolv.conf
-	// De-dupe
-	rc.ExternalNameServers = util.RemoveDuplicates(rc.ExternalNameServers)
-	rc.RootNameServers = util.RemoveDuplicates(rc.RootNameServers)
-
+// Validate checks if the ResolverConfig is valid, returns an error describing the issue if it is not.
+// This function should not modify the config
+func (rc *ResolverConfig) Validate() error {
 	if isValid, reason := rc.TransportMode.isValid(); !isValid {
 		return fmt.Errorf("invalid transport mode: %s", reason)
 	}
@@ -106,26 +98,80 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 		return errors.New("cannot use both cache and cacheSize")
 	}
 
-	// Check that all nameservers/local addresses are valid
+	// External Nameservers
+	if len(rc.ExternalNameServers) == 0 {
+		return errors.New("must have at least one external name server")
+	}
+
 	for _, ns := range rc.ExternalNameServers {
-		if _, _, err := net.SplitHostPort(ns); err != nil {
-			return fmt.Errorf("invalid external name server: %s", ns)
+		ipString, _, err := net.SplitHostPort(ns)
+		if err != nil {
+			return fmt.Errorf("could not parse external name server (%s), must be valid IP and have port appended, ex: 1.2.3.4:53", ns)
 		}
+		ip := net.ParseIP(ipString)
+		if ip == nil {
+			return fmt.Errorf("could not parse external name server (%s), must be valid IP and have port appended, ex: 1.2.3.4:53", ns)
+		}
+	}
+	// Check Root Servers
+	if len(rc.RootNameServers) == 0 {
+		return errors.New("must have at least one root name server")
 	}
 	for _, ns := range rc.RootNameServers {
-		if _, _, err := net.SplitHostPort(ns); err != nil {
-			return fmt.Errorf("invalid root name server: %s", ns)
+		ipString, _, err := net.SplitHostPort(ns)
+		if err != nil {
+			return fmt.Errorf("could not parse root name server (%s), must be valid IP and have port appended, ex: 1.2.3.4:53", ns)
+		}
+		ip := net.ParseIP(ipString)
+		if ip == nil {
+			return fmt.Errorf("could not parse root name server (%s), must be valid IP and have port appended, ex: 1.2.3.4:53", ns)
 		}
 	}
-	for _, addr := range rc.LocalAddrs {
-		if addr == nil {
+
+	// TODO - Remove when we add IPv6 support
+	for _, ns := range rc.RootNameServers {
+		// we know ns passed validation above
+		ip, _, err := util.SplitHostPort(ns)
+		if err != nil {
+			return errors.Wrapf(err, "could not split host and port for root nameserver: %s", ns)
+		}
+		if util.IsIPv6(&ip) {
+			return fmt.Errorf("IPv6 root nameservers are not supported: %s", ns)
+		}
+	}
+	for _, ns := range rc.ExternalNameServers {
+		// we know ns passed validation above
+		ip, _, err := util.SplitHostPort(ns)
+		if err != nil {
+			return errors.Wrapf(err, "could not split host and port for external nameserver: %s", ns)
+		}
+		if util.IsIPv6(&ip) {
+			return fmt.Errorf("IPv6 extenral nameservers are not supported: %s", ns)
+		}
+	}
+	// TODO end IPv6 section
+
+	// Local Addresses
+	if len(rc.LocalAddrs) == 0 {
+		return errors.New("must have a local address to send traffic from")
+	}
+
+	for _, ip := range rc.LocalAddrs {
+		if ip == nil {
 			return errors.New("local address cannot be nil")
 		}
-		if addr.To4() == nil && addr.To16() == nil {
-			// Attempting to cast the LocalAddr to both IPv4/IPv6 has failed, so it's not a valid IP address
-			return fmt.Errorf("invalid local address: %v", addr)
+		if ip.To4() == nil && ip.To16() == nil {
+			return fmt.Errorf("invalid local address: %v", ip)
 		}
 	}
+
+	// TODO - Remove when we add IPv6 support
+	for _, addr := range rc.LocalAddrs {
+		if util.IsIPv6(&addr) {
+			return fmt.Errorf("IPv6 local addresses are not supported: %v", rc.LocalAddrs)
+		}
+	}
+	// TODO end IPv6 section
 
 	if err := rc.validateLoopbackConsistency(); err != nil {
 		return errors.Wrap(err, "could not validate loopback consistency")
@@ -134,139 +180,37 @@ func (rc *ResolverConfig) PopulateAndValidate() error {
 	return nil
 }
 
-func (rc *ResolverConfig) populateResolverConfig() error {
-	// External Nameservers
-	if len(rc.ExternalNameServers) == 0 {
-		// if nameservers aren't set, use OS' default
-		ns, err := GetDNSServers(rc.DNSConfigFilePath)
-		if err != nil {
-			ns = util.GetDefaultResolvers()
-			log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(ns, ", "))
-		}
-		rc.ExternalNameServers = ns
-	} else {
-		portValidatedNSs := make([]string, 0, len(rc.ExternalNameServers))
-		// check that the nameservers have a port and append one if necessary
-		for _, ns := range rc.ExternalNameServers {
-			portNS, err := util.AddDefaultPortToDNSServerName(ns)
-			if err != nil {
-				return fmt.Errorf("could not parse name server: %s", ns)
-			}
-			portValidatedNSs = append(portValidatedNSs, portNS)
-		}
-		rc.ExternalNameServers = portValidatedNSs
-	}
-	if len(rc.RootNameServers) != 0 {
-		portValidatedNSs := make([]string, 0, len(rc.RootNameServers))
-		// check that the nameservers have a port and append one if necessary
-		for _, ns := range rc.RootNameServers {
-			portNS, err := util.AddDefaultPortToDNSServerName(ns)
-			if err != nil {
-				return fmt.Errorf("could not parse root name server: %s", ns)
-			}
-			portValidatedNSs = append(portValidatedNSs, portNS)
-		}
-		rc.RootNameServers = portValidatedNSs
-
-	}
-	// TODO - Remove when we add IPv6 support
-	ipv4NameServers := make([]string, 0, len(rc.ExternalNameServers))
-	for _, ns := range rc.ExternalNameServers {
-		ip, _, err := util.SplitHostPort(ns)
-		if err != nil {
-			return fmt.Errorf("could not split host and port for nameserver: %s", ns)
-		}
-		if ip.To4() != nil {
-			ipv4NameServers = append(ipv4NameServers, ns)
-		}
-	}
-	rc.ExternalNameServers = ipv4NameServers
-
-	// Local Addresses
-	if len(rc.LocalAddrs) == 0 {
-		// localAddr not set, so we need to find the default IP address
-		conn, err := net.Dial("udp", googleDNSResolverAddr)
-		if err != nil {
-			return fmt.Errorf("unable to find default IP address to open socket: %w", err)
-		}
-		rc.LocalAddrs = append(rc.LocalAddrs, conn.LocalAddr().(*net.UDPAddr).IP)
-		// cleanup socket
-		if err = conn.Close(); err != nil {
-			log.Error("unable to close test connection to Google public DNS: ", err)
-		}
-	}
-
-	// TODO - Remove when we add IPv6 support
-	ipv4LocalAddrs := make([]net.IP, 0, len(rc.LocalAddrs))
-	for _, addr := range rc.LocalAddrs {
-		if addr.To4() != nil {
-			ipv4LocalAddrs = append(ipv4LocalAddrs, addr)
-		} else {
-			log.Info("ignoring non-IPv4 local address: ", addr)
-		}
-	}
-	rc.LocalAddrs = ipv4LocalAddrs
-	return nil
-}
-
 // validateLoopbackConsistency checks that the following is true
-// - if using a loopback nameserver, all nameservers are loopback and vice-versa
-// - if using a loopback local address, all local addresses are loopback and vice-versa
 // - either all nameservers AND all local addresses are loopback, or none are
 func (rc *ResolverConfig) validateLoopbackConsistency() error {
-
-	// check if all nameservers are loopback or non-loopback
-	allNameserversLoopback := true
-	noneNameserversLoopback := true
+	allIPsLength := len(rc.LocalAddrs) + len(rc.RootNameServers) + len(rc.ExternalNameServers)
+	allIPs := make([]net.IP, 0, allIPsLength)
+	allIPs = append(allIPs, rc.LocalAddrs...)
 	for _, ns := range rc.ExternalNameServers {
 		ip, _, err := util.SplitHostPort(ns)
 		if err != nil {
-			return errors.Wrapf(err, "could not split host and port for nameserver: %s", ns)
+			return errors.Wrapf(err, "could not split host and port for external nameserver: %s", ns)
 		}
-		if ip.IsLoopback() {
-			noneNameserversLoopback = false
-		} else {
-			allNameserversLoopback = false
-		}
+		allIPs = append(allIPs, ip)
 	}
 	for _, ns := range rc.RootNameServers {
 		ip, _, err := util.SplitHostPort(ns)
 		if err != nil {
-			return errors.Wrapf(err, "could not split host and port for nameserver: %s", ns)
+			return errors.Wrapf(err, "could not split host and port for root nameserver: %s", ns)
 		}
+		allIPs = append(allIPs, ip)
+	}
+	allIPsLoopback := true
+	noneIPsLoopback := true
+	for _, ip := range allIPs {
 		if ip.IsLoopback() {
-			noneNameserversLoopback = false
+			noneIPsLoopback = false
 		} else {
-			allNameserversLoopback = false
+			allIPsLoopback = false
 		}
 	}
-	loopbackNameserverMismatch := allNameserversLoopback == noneNameserversLoopback
-	if len(rc.ExternalNameServers)+len(rc.RootNameServers) > 0 && loopbackNameserverMismatch {
-		return fmt.Errorf("cannot mix loopback and non-loopback nameservers: %v", rc.ExternalNameServers)
-	}
-
-	allLocalAddrsLoopback := true
-	noneLocalAddrsLoopback := true
-	// check if all local addresses are loopback or non-loopback
-	for _, addr := range rc.LocalAddrs {
-		if addr.IsLoopback() {
-			noneLocalAddrsLoopback = false
-		} else {
-			allLocalAddrsLoopback = false
-		}
-	}
-	if len(rc.LocalAddrs) > 0 && allLocalAddrsLoopback == noneLocalAddrsLoopback {
-		return fmt.Errorf("cannot mix loopback and non-loopback local addresses: %v", rc.LocalAddrs)
-	}
-
-	// Both nameservers and local addresses are completely loopback or non-loopback
-	// if using loopback nameservers, override local addresses to be loopback and warn user
-	if allNameserversLoopback && noneLocalAddrsLoopback {
-		log.Warn("nameservers are loopback, setting local address to loopback to match")
-		rc.LocalAddrs = []net.IP{net.ParseIP(LoopbackAddrString)}
-	} else if noneNameserversLoopback && allLocalAddrsLoopback {
-		return errors.New("using loopback local addresses with non-loopback nameservers is not supported. " +
-			"Consider setting nameservers to loopback addresses assuming you have a local DNS server")
+	if allIPsLoopback == noneIPsLoopback {
+		return fmt.Errorf("cannot mix loopback and non-loopback local addresses (%v) and name servers (%v)", rc.LocalAddrs, util.Concat(rc.ExternalNameServers, rc.RootNameServers))
 	}
 	return nil
 }
@@ -343,7 +287,7 @@ type Resolver struct {
 // It is safe to create multiple Resolvers with the same ResolverConfig but each resolver should perform only one lookup at a time.
 // Returns a Resolver ptr and any error that occurred
 func InitResolver(config *ResolverConfig) (*Resolver, error) {
-	if err := config.PopulateAndValidate(); err != nil {
+	if err := config.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid resolver config: %w", err)
 	}
 	var c *Cache
@@ -450,14 +394,16 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryRe
 	}
 	dstServerWithPort, err := util.AddDefaultPortToDNSServerName(dstServer)
 	if err != nil {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w", dstServer, err)
+		// TODO update below when adding IPv6, add ex. IPv6
+		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w. Correct format IPv4 (1.1.1.1:53)", dstServer, err)
 	}
 	if dstServer != dstServerWithPort {
 		log.Info("no port provided for external lookup, using default port 53")
 	}
 	dstServerIP, _, err := util.SplitHostPort(dstServerWithPort)
 	if err != nil {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w", dstServer, err)
+		// TODO update below when adding IPv6, add ex. IPv6
+		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w. Correct format IPv4 (1.1.1.1:53)", dstServer, err)
 	}
 	// check that local address and dstServer's don't have a loopback mismatch
 	if r.localAddr.IsLoopback() != dstServerIP.IsLoopback() {
