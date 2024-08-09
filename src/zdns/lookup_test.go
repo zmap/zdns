@@ -58,7 +58,9 @@ func InitTest(t *testing.T) *ResolverConfig {
 
 	mc := MockLookupClient{}
 	config := NewResolverConfig()
-	config.ExternalNameServers = []string{"127.0.0.1"}
+	config.ExternalNameServers = []string{"127.0.0.1:53"}
+	config.RootNameServers = []string{"127.0.0.1:53"}
+	config.LocalAddrs = []net.IP{net.ParseIP("127.0.0.1")}
 	config.LookupClient = mc
 
 	return config
