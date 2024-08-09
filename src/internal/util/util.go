@@ -170,3 +170,29 @@ func RemoveDuplicates[T comparable](slice []T) []T {
 	}
 	return result
 }
+
+// Concat returns a new slice concatenating the passed in slices.
+//
+// Avoids a gotcha in Go where since append modifies the underlying memory of the input slice, doing
+// newSlice := append(slice1, slice2) can modify slice1. See https://go.dev/doc/effective_go#append
+// A std. library concat was added in go 1.22, but this is for backwards compatibility. https://pkg.go.dev/slices#Concat
+// This is mostly similiar to the std. library concat, but with a few differences so it compiles on go 1.20.
+func Concat[S ~[]E, E any](slices ...S) S {
+	size := 0
+	for _, s := range slices {
+		size += len(s)
+		if size < 0 {
+			panic("len out of range")
+		}
+	}
+	newSlice := make([]E, 0, size)
+	for _, s := range slices {
+		newSlice = append(newSlice, s...)
+	}
+	return newSlice
+}
+
+// IsIPv6 checks if the given IP address is an IPv6 address.
+func IsIPv6(ip *net.IP) bool {
+	return ip != nil && ip.To4() == nil && ip.To16() != nil
+}

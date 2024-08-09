@@ -72,6 +72,28 @@ func (lc LookupClient) DoSingleDstServerLookup(r *Resolver, q Question, nameServ
 
 func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
 	var err error
+	// TODO check that the next 20 lines aren't located somewhere else, avoid duplicate checks
+	// Check that nameserver isn't blacklisted
+	nameServerIPString, _, err := net.SplitHostPort(nameServer)
+	if err != nil {
+		return nil, nil, StatusIllegalInput, fmt.Errorf("could not split nameserver %s: %w", nameServer, err)
+	}
+	// nameserver is required
+	if nameServer == "" {
+		return nil, nil, StatusIllegalInput, errors.New("no nameserver specified")
+	}
+
+	// Stop if we hit a nameserver we don't want to hit
+	if r.blacklist != nil {
+		if blacklisted, blacklistedErr := r.blacklist.IsBlacklisted(nameServerIPString); blacklistedErr != nil {
+			var r SingleQueryResult
+			return &r, Trace{}, StatusError, fmt.Errorf("could not check blacklist for nameserver %s: %w", nameServer, err)
+		} else if blacklisted {
+			var r SingleQueryResult
+			return &r, Trace{}, StatusBlacklist, nil
+		}
+	}
+
 	if q.Type == dns.TypePTR {
 		var qname string
 		qname, err = dns.ReverseAddr(q.Name)
@@ -279,8 +301,7 @@ func (r *Resolver) LookupAllNameservers(q *Question, nameServer string) (*Combin
 	for _, nserver := range nsResults.Servers {
 		// Use all the ipv4 and ipv6 addresses of each nameserver
 		nameserver := nserver.Name
-		// we don't want to change the underlying slice with append, so we create a new slice
-		ips := append(append([]string{}, nserver.IPv4Addresses...), nserver.IPv6Addresses...)
+		ips := util.Concat(nserver.IPv4Addresses, nserver.IPv6Addresses)
 		for _, ip := range ips {
 			curServer = net.JoinHostPort(ip, "53")
 			res, trace, status, err := r.ExternalLookup(q, curServer)
@@ -407,6 +428,7 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 // retryingLookup wraps around wireLookup to perform a DNS lookup with retries
 // Returns the result, status, number of tries, and error
 func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer string, recursive bool) (SingleQueryResult, Status, int, error) {
+	// TODO - think we're duplicating this logic
 	// nameserver is required
 	if nameServer == "" {
 		return SingleQueryResult{}, StatusIllegalInput, 0, errors.New("no nameserver specified")

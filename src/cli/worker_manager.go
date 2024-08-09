@@ -17,6 +17,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"runtime"
 	"strconv"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/hashicorp/go-version"
 	"github.com/liip/sheriff"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
@@ -34,6 +36,10 @@ import (
 	blacklist "github.com/zmap/zdns/src/internal/safeblacklist"
 	"github.com/zmap/zdns/src/internal/util"
 	"github.com/zmap/zdns/src/zdns"
+)
+
+const (
+	googleDNSResolverAddr = "8.8.8.8:53"
 )
 
 type routineMetadata struct {
@@ -175,41 +181,8 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
-	// copy nameservers to resolver config
-	if len(gc.NameServers) != 0 {
-		ipv4NSs, ipv6NSs, err := util.SplitIPv4AndIPv6Addrs(gc.NameServers)
-		if err != nil {
-			log.Fatalf("unable to split IPv4 and IPv6 name-server addresses (%s): %v", gc.NameServers, err)
-		}
-		// While this is a bit of a hack to set both the root and external name servers to the same values, the CLI
-		// can only be used in either recursive or iterative mode. If we don't do this and leave one or the other empty,
-		// the resolver will attempt to auto-populate with the OS/ZDNS defaults. If these defaults and the user-provided
-		// values have a loopback mismatch (some are loopback, others aren't), this causes issues.
-		// By setting them both here, we prevent that auto-populate.
-		config.RootNameServersV4 = ipv4NSs
-		config.RootNameServersV6 = ipv6NSs
-		config.ExternalNameServersV4 = ipv4NSs
-		config.ExternalNameServersV6 = ipv6NSs
-	} else if gc.IterativeResolution {
-		config.RootNameServersV4 = zdns.RootServersV4[:]
-		config.RootNameServersV6 = zdns.RootServersV6[:]
-		config.ExternalNameServersV4 = zdns.RootServersV4[:]
-		config.ExternalNameServersV6 = zdns.RootServersV6[:]
-	}
-	// Else: resolver will populate the external name servers with either the OS default or the ZDNS default if none exist
 	config.LookupAllNameServers = gc.LookupAllNameServers
 	config.FollowCNAMEs = gc.FollowCNAMEs
-
-	// Local Addresses
-	for _, ip := range gc.LocalAddrs {
-		if ip.To4() != nil {
-			config.LocalAddrsV4 = append(config.LocalAddrsV4, ip)
-		} else if util.IsIPv6(&ip) {
-			config.LocalAddrsV6 = append(config.LocalAddrsV6, ip)
-		} else {
-			log.Fatalf("invalid local address: %s", ip.String())
-		}
-	}
 
 	if gc.UseNSID {
 		config.EdnsOptions = append(config.EdnsOptions, new(dns.EDNS0_NSID))
@@ -230,22 +203,157 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 
 	if gc.BlacklistFilePath != "" {
 		config.Blacklist = blacklist.New()
-		if err := config.Blacklist.ParseFromFile(gc.BlacklistFilePath); err != nil {
+		if err = config.Blacklist.ParseFromFile(gc.BlacklistFilePath); err != nil {
 			log.Fatal("unable to parse blacklist file: ", err)
 		}
 	}
+	// This must occur after setting the DNSConfigFilePath above, so that ZDNS knows where to fetch the DNS Config
+	config, err = populateNameServers(gc, config)
+	if err != nil {
+		log.Fatal("could not populate name servers: ", err)
+	}
+	// User/OS defaults could contain duplicates, remove
+	config.ExternalNameServers = util.RemoveDuplicates(config.ExternalNameServers)
+	config.RootNameServers = util.RemoveDuplicates(config.RootNameServers)
+	config, err = populateLocalAddresses(gc, config)
+	if err != nil {
+		log.Fatal("could not populate local addresses: ", err)
+	}
 	return config
+}
+
+func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.ResolverConfig, error) {
+	// Nameservers are populated in this order:
+	// 1. If user provided nameservers, use those
+	// 2. (External Only) If we can get the OS' default recursive resolver nameservers, use those
+	// 3. Use ZDNS defaults
+
+	// Additionally, both Root and External nameservers must be populated, since the Resolver doesn't know we'll only
+	// be performing either iterative or recursive lookups, not both.
+
+	if len(gc.NameServers) != 0 {
+		// User provided name servers, use them.
+		// Check that the nameservers have a port and append one if necessary
+		portValidatedNSs := make([]string, 0, len(gc.NameServers))
+		// check that the nameservers have a port and append one if necessary
+		for _, ns := range gc.NameServers {
+			portNS, err := util.AddDefaultPortToDNSServerName(ns)
+			if err != nil {
+				// TODO Update error msg when we add IPv6
+				return nil, fmt.Errorf("could not parse name server: %s. Correct IPv4 format: 1.1.1.1:53", ns)
+			}
+			portValidatedNSs = append(portValidatedNSs, portNS)
+		}
+		config.ExternalNameServers = portValidatedNSs
+		config.RootNameServers = portValidatedNSs
+		return config, nil
+	}
+	// User did not provide nameservers
+	if !gc.IterativeResolution {
+		// Try to get the OS' default recursive resolver nameservers
+		ns, err := zdns.GetDNSServers(config.DNSConfigFilePath)
+		if err != nil {
+			ns = util.GetDefaultResolvers()
+			log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(ns, ", "))
+		}
+		// TODO remove when we add IPv6 support, without this if the user's OS defaults contain both IPv4/6
+		// It'll fail validation since we can't currently handle those
+		ipv4NameServers := make([]string, 0, len(ns))
+		for _, addr := range ns {
+			ip, _, err := util.SplitHostPort(addr)
+			if err != nil {
+				return nil, errors.Wrapf(err, "could not split host and port for nameserver: %s", addr)
+			}
+			if ip.To4() == nil {
+				log.Infof("Ignoring non-IPv4 nameserver: %s", ip.String())
+				continue
+			}
+			ipv4NameServers = append(ipv4NameServers, addr)
+		}
+		config.ExternalNameServers = ipv4NameServers
+		config.RootNameServers = ipv4NameServers
+		return config, nil
+	}
+	// User did not provide nameservers and we're doing iterative resolution, use ZDNS defaults
+	config.ExternalNameServers = zdns.RootServersV4[:]
+	config.RootNameServers = zdns.RootServersV4[:]
+	return config, nil
+}
+
+func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.ResolverConfig, error) {
+	// Local Addresses are populated in this order:
+	// 1. If user provided local addresses, use those
+	// 2. If the config's nameservers are loopback, use the local loopback address
+	// 3. Otherwise, try to connect to Google's recursive resolver and take the IP address we use for the connection
+	if len(gc.LocalAddrs) != 0 {
+		// if user provided a local address(es), that takes precedent
+		// TODO remove when we add IPv6 support, without this if the user provides --local-interface with both IPv4/6
+		// It'll fail validation since we can't currently handle those
+		ipv4LocalAddrs := make([]net.IP, 0, len(gc.LocalAddrs))
+		for _, addr := range gc.LocalAddrs {
+			if addr.To4() == nil {
+				log.Infof("Ignoring non-IPv4 local address: %s", addr.String())
+				continue
+			}
+			ipv4LocalAddrs = append(ipv4LocalAddrs, addr)
+		}
+		config.LocalAddrs = ipv4LocalAddrs
+		return config, nil
+	}
+	// if the nameservers are loopback, use the loopback address
+	if len(config.ExternalNameServers) == 0 {
+		// this shouldn't happen
+		return nil, errors.New("name servers must be set before populating local addresses")
+	}
+	anyNameServersLoopack := false
+	for _, ns := range util.Concat(config.ExternalNameServers, config.RootNameServers) {
+		ip, _, err := util.SplitHostPort(ns)
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not split host and port for nameserver: %s", ns)
+		}
+		if ip.IsLoopback() {
+			anyNameServersLoopack = true
+			break
+		}
+	}
+	if anyNameServersLoopack {
+		// set local address so name servers are reachable
+		config.LocalAddrs = []net.IP{net.ParseIP(zdns.LoopbackAddrString)}
+	} else {
+		// localAddr not set, so we need to find the default IP address
+		conn, err := net.Dial("udp", googleDNSResolverAddr)
+		if err != nil {
+			return nil, fmt.Errorf("unable to find default IP address to open socket: %w", err)
+		}
+		config.LocalAddrs = []net.IP{conn.LocalAddr().(*net.UDPAddr).IP}
+		// cleanup socket
+		if err = conn.Close(); err != nil {
+			log.Error("unable to close test connection to Google public DNS: ", err)
+		}
+	}
+	return config, nil
+	// TODO - from main
+	//	// Local Addresses
+	//	for _, ip := range gc.LocalAddrs {
+	//		if ip.To4() != nil {
+	//			config.LocalAddrsV4 = append(config.LocalAddrsV4, ip)
+	//		} else if util.IsIPv6(&ip) {
+	//			config.LocalAddrsV6 = append(config.LocalAddrsV6, ip)
+	//		} else {
+	//			log.Fatalf("invalid local address: %s", ip.String())
+	//		}
+	//	}
 }
 
 func Run(gc CLIConf, flags *pflag.FlagSet) {
 	gc = *populateCLIConfig(&gc, flags)
 	resolverConfig := populateResolverConfig(&gc)
-	err := resolverConfig.PopulateAndValidate()
-	if err != nil {
-		log.Fatal("could not populate defaults and validate resolver config: ", err)
-	}
 	// Log any information about the resolver configuration, according to log level
 	resolverConfig.PrintInfo()
+	err := resolverConfig.Validate()
+	if err != nil {
+		log.Fatalf("resolver config did not pass validation: %v", err)
+	}
 	lookupModule, err := GetLookupModule(gc.Module)
 	if err != nil {
 		log.Fatal("could not get lookup module: ", err)
@@ -327,12 +435,12 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 		} else {
 			f, err = os.OpenFile(gc.MetadataFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, util.DefaultFilePermissions)
 			if err != nil {
-				log.Fatal("unable to open metadata file:", err.Error())
+				log.Fatalf("unable to open metadata file: %v", err)
 			}
 			defer func(f *os.File) {
 				err = f.Close()
 				if err != nil {
-					log.Error("unable to close metadata file:", err.Error())
+					log.Errorf("unable to close metadata file: %v", err)
 				}
 			}(f)
 		}
