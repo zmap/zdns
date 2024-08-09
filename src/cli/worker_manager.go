@@ -233,7 +233,8 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 		for _, ns := range gc.NameServers {
 			portNS, err := util.AddDefaultPortToDNSServerName(ns)
 			if err != nil {
-				return nil, fmt.Errorf("could not parse name server: %s", ns)
+				// TODO Update error msg when we add IPv6
+				return nil, fmt.Errorf("could not parse name server: %s. Correct IPv4 format: 1.1.1.1:53", ns)
 			}
 			portValidatedNSs = append(portValidatedNSs, portNS)
 		}
@@ -249,8 +250,22 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 			ns = util.GetDefaultResolvers()
 			log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(ns, ", "))
 		}
-		config.ExternalNameServers = ns
-		config.RootNameServers = ns
+		// TODO remove when we add IPv6 support, without this if the user's OS defaults contain both IPv4/6
+		// It'll fail validation since we can't currently handle those
+		ipv4NameServers := make([]string, 0, len(ns))
+		for _, addr := range ns {
+			ip, _, err := util.SplitHostPort(addr)
+			if err != nil {
+				return nil, errors.Wrapf(err, "could not split host and port for nameserver: %s", addr)
+			}
+			if ip.To4() == nil {
+				log.Infof("Ignoring non-IPv4 nameserver: %s", ip.String())
+				continue
+			}
+			ipv4NameServers = append(ipv4NameServers, addr)
+		}
+		config.ExternalNameServers = ipv4NameServers
+		config.RootNameServers = ipv4NameServers
 		return config, nil
 	}
 	// User did not provide nameservers and we're doing iterative resolution, use ZDNS defaults

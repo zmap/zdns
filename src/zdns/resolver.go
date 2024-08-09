@@ -388,14 +388,16 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryRe
 	}
 	dstServerWithPort, err := util.AddDefaultPortToDNSServerName(dstServer)
 	if err != nil {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w", dstServer, err)
+		// TODO update below when adding IPv6, add ex. IPv6
+		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w. Correct format IPv4 (1.1.1.1:53)", dstServer, err)
 	}
 	if dstServer != dstServerWithPort {
 		log.Info("no port provided for external lookup, using default port 53")
 	}
 	dstServerIP, _, err := util.SplitHostPort(dstServerWithPort)
 	if err != nil {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w", dstServer, err)
+		// TODO update below when adding IPv6, add ex. IPv6
+		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w. Correct format IPv4 (1.1.1.1:53)", dstServer, err)
 	}
 	// check that local address and dstServer's don't have a loopback mismatch
 	if r.localAddr.IsLoopback() != dstServerIP.IsLoopback() {
