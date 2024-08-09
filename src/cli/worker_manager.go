@@ -265,8 +265,18 @@ func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Res
 	// 2. If the config's nameservers are loopback, use the local loopback address
 	// 3. Otherwise, try to connect to Google's recursive resolver and take the IP address we use for the connection
 	if len(gc.LocalAddrs) != 0 {
-		// if user provided a local address, that takes precedent
-		config.LocalAddrs = gc.LocalAddrs
+		// if user provided a local address(es), that takes precedent
+		// TODO remove when we add IPv6 support, without this if the user provides --local-interface with both IPv4/6
+		// It'll fail validation since we can't currently handle those
+		ipv4LocalAddrs := make([]net.IP, 0, len(gc.LocalAddrs))
+		for _, addr := range gc.LocalAddrs {
+			if addr.To4() == nil {
+				log.Infof("Ignoring non-IPv4 local address: %s", addr.String())
+				continue
+			}
+			ipv4LocalAddrs = append(ipv4LocalAddrs, addr)
+		}
+		config.LocalAddrs = ipv4LocalAddrs
 		return config, nil
 	}
 	// if the nameservers are loopback, use the loopback address
@@ -306,12 +316,12 @@ func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Res
 func Run(gc CLIConf, flags *pflag.FlagSet) {
 	gc = *populateCLIConfig(&gc, flags)
 	resolverConfig := populateResolverConfig(&gc, flags)
+	// Log any information about the resolver configuration, according to log level
+	resolverConfig.PrintInfo()
 	err := resolverConfig.Validate()
 	if err != nil {
 		log.Fatalf("resolver config did not pass validation: %v", err)
 	}
-	// Log any information about the resolver configuration, according to log level
-	resolverConfig.PrintInfo()
 	lookupModule, err := GetLookupModule(gc.Module)
 	if err != nil {
 		log.Fatal("could not get lookup module: ", err)
