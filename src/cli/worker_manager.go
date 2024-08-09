@@ -176,17 +176,6 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
-	config, err = populateNameServers(gc, config)
-	if err != nil {
-		log.Fatal("could not populate name servers: ", err)
-	}
-	// User/OS defaults could contain duplicates, remove
-	config.ExternalNameServers = util.RemoveDuplicates(config.ExternalNameServers)
-	config.RootNameServers = util.RemoveDuplicates(config.RootNameServers)
-	config, err = populateLocalAddresses(gc, config)
-	if err != nil {
-		log.Fatal("could not populate local addresses: ", err)
-	}
 	config.LookupAllNameServers = gc.LookupAllNameServers
 	config.FollowCNAMEs = gc.FollowCNAMEs
 
@@ -212,6 +201,18 @@ func populateResolverConfig(gc *CLIConf, flags *pflag.FlagSet) *zdns.ResolverCon
 		if err := config.Blacklist.ParseFromFile(gc.BlacklistFilePath); err != nil {
 			log.Fatal("unable to parse blacklist file: ", err)
 		}
+	}
+	// This must occur after setting the DNSConfigFilePath above, so that ZDNS knows where to fetch the DNS Config
+	config, err = populateNameServers(gc, config)
+	if err != nil {
+		log.Fatal("could not populate name servers: ", err)
+	}
+	// User/OS defaults could contain duplicates, remove
+	config.ExternalNameServers = util.RemoveDuplicates(config.ExternalNameServers)
+	config.RootNameServers = util.RemoveDuplicates(config.RootNameServers)
+	config, err = populateLocalAddresses(gc, config)
+	if err != nil {
+		log.Fatal("could not populate local addresses: ", err)
 	}
 	return config
 }
