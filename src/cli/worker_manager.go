@@ -17,7 +17,6 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
 	"net"
 	"os"
 	"runtime"
@@ -25,6 +24,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/hashicorp/go-version"
 	"github.com/liip/sheriff"
@@ -397,7 +398,7 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 			defer func(f *os.File) {
 				err = f.Close()
 				if err != nil {
-					log.Errorf("unable to close metadata file:", err)
+					log.Errorf("unable to close metadata file: %v", err)
 				}
 			}(f)
 		}
