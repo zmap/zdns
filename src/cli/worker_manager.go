@@ -338,7 +338,10 @@ func Run(gc CLIConf, flags *pflag.FlagSet, args []string) {
 	if err != nil {
 		log.Fatal("could not parse arguments: ", err)
 	}
-	if len(gc.Module) == 0 {
+	if len(gc.Module) == 0 && len(module) == 0 {
+		// no module specified by either user or command, we cannot continue
+		log.Fatal("No valid DNS lookup module specified. Please provide a module to run.")
+	} else if len(gc.Module) == 0 {
 		// Some commands set gc.Module, but most don't. If it's not set, set with module from parsing args
 		gc.Module = strings.ToUpper(module)
 	}
@@ -353,7 +356,7 @@ func Run(gc CLIConf, flags *pflag.FlagSet, args []string) {
 	}
 	lookupModule, err := GetLookupModule(gc.Module)
 	if err != nil {
-		log.Fatal("could not get lookup module: ", err)
+		log.Fatal("could not get lookup module %s: ", err)
 	}
 	err = lookupModule.CLIInit(&gc, resolverConfig, flags)
 	if err != nil {
