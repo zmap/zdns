@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import copy
-import socket
 import subprocess
 import json
 import unittest
@@ -581,7 +580,6 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
-
 
     def test_cname(self):
         c = "CNAME"
