@@ -356,7 +356,7 @@ func Run(gc CLIConf, flags *pflag.FlagSet, args []string) {
 	}
 	lookupModule, err := GetLookupModule(gc.Module)
 	if err != nil {
-		log.Fatal("could not get lookup module %s: ", err)
+		log.Fatalf("could not get lookup module %s: %v", gc.Module, err)
 	}
 	err = lookupModule.CLIInit(&gc, resolverConfig, flags)
 	if err != nil {
