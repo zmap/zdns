@@ -51,6 +51,7 @@ const (
 	StatusTimeout      Status = "TIMEOUT"
 	StatusIterTimeout  Status = "ITERATIVE_TIMEOUT"
 	StatusNoAuth       Status = "NOAUTH"
+	StatusNoNeededGlue Status = "NONEEDEDGLUE" // When a nameserver is authoritative for itself and the parent nameserver doesn't provide the glue to look it up
 )
 
 var RootServersV4 = []string{

@@ -584,7 +584,6 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 		if nsStatus != StatusNoError {
 			var err error
 			newStatus, err := handleStatus(nsStatus, err)
-			// default case we continue
 			if err == nil {
 				if i+1 == len(result.Authorities) {
 					r.verboseLog((depth + 2), "--> Auth find Failed. Unknown error. No more authorities to try, terminating: ", nsStatus)
@@ -608,8 +607,11 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 			}
 		}
 		iterateResult, newTrace, status, err := r.iterativeLookup(ctx, q, ns, depth+1, newLayer, newTrace)
-		if isStatusAnswer(status) {
-			r.verboseLog((depth + 1), "--> Auth Resolution success: ", status)
+		if status == StatusNoNeededGlue {
+			r.verboseLog((depth + 2), "--> Auth resolution of ", ns, " was unsuccessful. No glue to follow", status)
+			return iterateResult, newTrace, status, err
+		} else if isStatusAnswer(status) {
+			r.verboseLog((depth + 1), "--> Auth Resolution of ", ns, " success: ", status)
 			return iterateResult, newTrace, status, err
 		} else if i+1 < len(result.Authorities) {
 			r.verboseLog((depth + 2), "--> Auth resolution of ", ns, " Failed: ", status, ". Will try next authority")
@@ -643,6 +645,11 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 	// that would normally be cache poison. Because it's "ok" and quite common
 	res, status := checkGlue(server, *result, r.ipVersionMode, r.iterationIPPreference)
 	if status != StatusNoError {
+		if ok, _ = nameIsBeneath(server, layer); ok {
+			// The domain we're searching for is beneath us but no glue was returned. We cannot proceed without this Glue.
+			// Terminating
+			return "", StatusNoNeededGlue, "", trace
+		}
 		// Fall through to normal query
 		var q Question
 		q.Name = server
@@ -654,7 +661,7 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 		}
 		res, trace, status, _ = r.iterativeLookup(ctx, q, r.randomRootNameServer(), depth+1, ".", trace)
 	}
-	if status == StatusIterTimeout {
+	if status == StatusIterTimeout || status == StatusNoNeededGlue {
 		return "", status, "", trace
 	}
 	if status == StatusNoError {
