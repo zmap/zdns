@@ -383,12 +383,12 @@ func Run(gc CLIConf, flags *pflag.FlagSet, args []string) {
 	}
 
 	// Use handlers to populate the input and output/results channel
-	go func(domains []string) {
+	go func() {
 		inErr := inHandler.FeedChannel(inChan, &routineWG)
 		if inErr != nil {
 			log.Fatal(fmt.Sprintf("could not feed input channel: %v", inErr))
 		}
-	}(domains)
+	}()
 	go func() {
 		outErr := outHandler.WriteResults(outChan, &routineWG)
 		if outErr != nil {
