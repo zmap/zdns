@@ -64,10 +64,10 @@ func checkGlue(server string, result SingleQueryResult, ipMode IPVersionMode, ip
 	} else if ipMode == IPv6Only {
 		ansType = "AAAA"
 	} else if ipPreference == PreferIPv4 {
-		// msut be using either IPv4 or IPv6
+		// must be using either IPv4 or IPv6
 		ansType = "A"
 	} else if ipPreference == PreferIPv6 {
-		// msut be using either IPv4 or IPv6
+		// must be using either IPv4 or IPv6
 		ansType = "AAAA"
 	} else {
 		log.Fatal("should never hit this case in check glue: ", ipMode, ipPreference)
