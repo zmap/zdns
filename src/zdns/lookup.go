@@ -72,7 +72,6 @@ func (lc LookupClient) DoSingleDstServerLookup(r *Resolver, q Question, nameServ
 
 func (r *Resolver) doSingleDstServerLookup(q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
 	var err error
-	// TODO check that the next 20 lines aren't located somewhere else, avoid duplicate checks
 	// Check that nameserver isn't blacklisted
 	nameServerIPString, _, err := net.SplitHostPort(nameServer)
 	if err != nil {
@@ -428,7 +427,6 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 // retryingLookup wraps around wireLookup to perform a DNS lookup with retries
 // Returns the result, status, number of tries, and error
 func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer string, recursive bool) (SingleQueryResult, Status, int, error) {
-	// TODO - think we're duplicating this logic
 	// nameserver is required
 	if nameServer == "" {
 		return SingleQueryResult{}, StatusIllegalInput, 0, errors.New("no nameserver specified")
@@ -436,16 +434,6 @@ func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer st
 	nameServerIP, _, err := util.SplitHostPort(nameServer)
 	if err != nil {
 		return SingleQueryResult{}, StatusError, 0, errors.Wrapf(err, "could not split nameserver %s to get IP", nameServer)
-	}
-	// Check that nameserver isn't blacklisted
-
-	// Stop if we hit a nameserver we don't want to hit
-	if r.blacklist != nil {
-		if blacklisted, blacklistedErr := r.blacklist.IsBlacklisted(nameServerIP.String()); blacklistedErr != nil {
-			return SingleQueryResult{}, StatusError, 0, fmt.Errorf("could not check blacklist for nameserver %s: %w", nameServer, err)
-		} else if blacklisted {
-			return SingleQueryResult{}, StatusBlacklist, 0, nil
-		}
 	}
 	var connInfo *ConnectionInfo
 	if nameServerIP.To4() != nil {
