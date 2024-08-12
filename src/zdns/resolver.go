@@ -230,9 +230,9 @@ func (rc *ResolverConfig) validateLoopbackConsistency() error {
 }
 
 func (rc *ResolverConfig) PrintInfo() {
-	log.Infof("using local addresses: %v", append(append([]net.IP{}, rc.LocalAddrsV4...), rc.LocalAddrsV6...))
-	log.Infof("for non-iterative lookups, using external nameservers: %s", strings.Join(append(append([]string{}, rc.ExternalNameServersV4...), rc.ExternalNameServersV6...), ", "))
-	log.Infof("for iterative lookups, using nameservers: %s", strings.Join(append(append([]string{}, rc.RootNameServersV4...), rc.RootNameServersV6...), ", "))
+	log.Infof("using local addresses: %v", util.Concat(rc.LocalAddrsV4, rc.LocalAddrsV6))
+	log.Infof("for non-iterative lookups, using external nameservers: %s", strings.Join(util.Concat(rc.ExternalNameServersV4, rc.ExternalNameServersV6), ", "))
+	log.Infof("for iterative lookups, using nameservers: %s", strings.Join(util.Concat(rc.RootNameServersV4, rc.RootNameServersV6), ", "))
 }
 
 // NewResolverConfig creates a new ResolverConfig with default values.
