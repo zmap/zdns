@@ -104,7 +104,12 @@ var rootCmd = &cobra.Command{
 https://github.com/zmap/dns (and in turn https://github.com/miekg/dns) for constructing
 and parsing raw DNS packets.
 
-ZDNS also includes its own recursive resolution and a cache to further optimize performance.`,
+ZDNS also includes its own recursive resolution and a cache to further optimize performance.
+
+ZDNS can take input in the following ways:
+- file (--input-file)
+- stream (echo "example.com" | ./zdns A)
+- as arguments (./zdns A example.com google.com).`,
 	Args: cobra.MatchAll(cobra.MinimumNArgs(1)), // at least a module name is required, optionally users can provide N domain names similar to dig
 	Run: func(cmd *cobra.Command, args []string) {
 		Run(GC, cmd.Flags(), args)

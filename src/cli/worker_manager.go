@@ -333,11 +333,15 @@ func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Res
 }
 
 func Run(gc CLIConf, flags *pflag.FlagSet, args []string) {
+	// User can provide both a module and a list of domains to query as inputs, similar to dig
 	module, domains, err := parseArgs(args)
 	if err != nil {
 		log.Fatal("could not parse arguments: ", err)
 	}
-	gc.Module = strings.ToUpper(module)
+	if len(gc.Module) == 0 {
+		// Some commands set gc.Module, but most don't. If it's not set, set with module from parsing args
+		gc.Module = strings.ToUpper(module)
+	}
 
 	gc = *populateCLIConfig(&gc, domains)
 	resolverConfig := populateResolverConfig(&gc, flags)
@@ -583,12 +587,14 @@ func aggregateMetadata(c <-chan routineMetadata) Metadata {
 	return meta
 }
 
-// parseArgs parses and validates the command line arguments to ZDNS// Valid args are 1+ module names and 0+ domain names.
+// parseArgs parses and validates the command line arguments to ZDNS
 // The module name(s) must be one of the valid lookup modules.
 // No validation is performed on domain names, they'll be queried as-is.
 func parseArgs(args []string) (module string, domains []string, err error) {
-	// pre-alloc the domains slice, we know it will be at most the length of args - 1 for the mandatory module name
-	domains = make([]string, 0, len(args)-1)
+	if len(args) > 1 {
+		// pre-alloc the domains slice, we know it will be at most the length of args - 1 for the mandatory module name
+		domains = make([]string, 0, len(args)-1)
+	}
 	// We have some mix of module name and input domain names
 	validLookupModulesMap := GetValidLookups()
 	for _, arg := range args {
@@ -604,9 +610,6 @@ func parseArgs(args []string) (module string, domains []string, err error) {
 			// must be a domain name
 			domains = append(domains, arg)
 		}
-	}
-	if module == "" {
-		return "", nil, errors.New("no lookup module specified")
 	}
 	return module, domains, nil
 }
