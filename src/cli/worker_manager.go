@@ -59,7 +59,7 @@ type Metadata struct {
 	ZDNSVersion string         `json:"zdns_version"`
 }
 
-// populateCLIConfig populates the CLIConf struct with the values from the command line arguments.
+// populateCLIConfig populates the CLIConf struct with the values from the command line arguments or the defaults.
 func populateCLIConfig(gc *CLIConf, domains []string) *CLIConf {
 	if gc.LogFilePath != "" && gc.LogFilePath != "-" {
 		f, err := os.OpenFile(gc.LogFilePath, os.O_WRONLY|os.O_CREATE, util.DefaultFilePermissions)
