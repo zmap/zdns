@@ -48,7 +48,7 @@ class Tests(unittest.TestCase):
         name = "esrg.stanford.edu"
         cmd, res = self.run_zdns(c, name)
         # esrg.stanford.edu is hosted on NS's that do not have an IPv6 address. Therefore, this will fail.
-        self.assertServFail(res, cmd)
+        self.assertEqual(res["status"], "NONEEDEDGLUE", cmd)
 
     def test_ipv6_external_lookup_unreachable_nameserver(self):
         c = "A --6=true --4=false --name-servers=1.1.1.1"
