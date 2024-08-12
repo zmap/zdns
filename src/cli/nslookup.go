@@ -29,7 +29,7 @@ var nslookupCmd = &cobra.Command{
 	Long:  `nslookup will additionally do an A/AAAA lookup for the IP addresses that correspond with name server records.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		GC.Module = strings.ToUpper("nslookup")
-		Run(GC, cmd.Flags())
+		Run(GC, cmd.Flags(), args)
 	},
 }
 

@@ -31,7 +31,7 @@ var mxlookupCmd = &cobra.Command{
 correspond with an exchange record.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		GC.Module = strings.ToUpper("mxlookup")
-		Run(GC, cmd.Flags())
+		Run(GC, cmd.Flags(), args)
 	},
 }
 

@@ -154,10 +154,10 @@ func GetLookupModule(name string) (LookupModule, error) {
 	return module, nil
 }
 
-func GetValidLookups() []string {
-	lookups := make([]string, 0, len(moduleToLookupModule))
+func GetValidLookups() map[string]struct{} {
+	lookups := make(map[string]struct{}, len(moduleToLookupModule))
 	for lookup := range moduleToLookupModule {
-		lookups = append(lookups, lookup)
+		lookups[lookup] = struct{}{}
 	}
 	return lookups
 }

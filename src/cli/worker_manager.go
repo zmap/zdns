@@ -59,7 +59,8 @@ type Metadata struct {
 	ZDNSVersion string         `json:"zdns_version"`
 }
 
-func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
+// populateCLIConfig populates the CLIConf struct with the values from the command line arguments.
+func populateCLIConfig(gc *CLIConf, domains []string) *CLIConf {
 	if gc.LogFilePath != "" && gc.LogFilePath != "-" {
 		f, err := os.OpenFile(gc.LogFilePath, os.O_WRONLY|os.O_CREATE, util.DefaultFilePermissions)
 		if err != nil {
@@ -151,7 +152,10 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 	gc.OutputGroups = append(gc.OutputGroups, groups...)
 
 	// setup i/o if not specified
-	if gc.InputHandler == nil {
+	if len(domains) > 0 {
+		// using domains from command line
+		gc.InputHandler = iohandlers.NewStringSliceInputHandler(domains)
+	} else if gc.InputHandler == nil {
 		gc.InputHandler = iohandlers.NewFileInputHandler(gc.InputFilePath)
 	}
 	if gc.OutputHandler == nil {
@@ -328,12 +332,18 @@ func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Res
 	return config, nil
 }
 
-func Run(gc CLIConf, flags *pflag.FlagSet) {
-	gc = *populateCLIConfig(&gc, flags)
+func Run(gc CLIConf, flags *pflag.FlagSet, args []string) {
+	module, domains, err := parseArgs(args)
+	if err != nil {
+		log.Fatal("could not parse arguments: ", err)
+	}
+	gc.Module = strings.ToUpper(module)
+
+	gc = *populateCLIConfig(&gc, domains)
 	resolverConfig := populateResolverConfig(&gc, flags)
 	// Log any information about the resolver configuration, according to log level
 	resolverConfig.PrintInfo()
-	err := resolverConfig.Validate()
+	err = resolverConfig.Validate()
 	if err != nil {
 		log.Fatalf("resolver config did not pass validation: %v", err)
 	}
@@ -366,12 +376,12 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 	}
 
 	// Use handlers to populate the input and output/results channel
-	go func() {
+	go func(domains []string) {
 		inErr := inHandler.FeedChannel(inChan, &routineWG)
 		if inErr != nil {
 			log.Fatal(fmt.Sprintf("could not feed input channel: %v", inErr))
 		}
-	}()
+	}(domains)
 	go func() {
 		outErr := outHandler.WriteResults(outChan, &routineWG)
 		if outErr != nil {
@@ -571,4 +581,32 @@ func aggregateMetadata(c <-chan routineMetadata) Metadata {
 		}
 	}
 	return meta
+}
+
+// parseArgs parses and validates the command line arguments to ZDNS// Valid args are 1+ module names and 0+ domain names.
+// The module name(s) must be one of the valid lookup modules.
+// No validation is performed on domain names, they'll be queried as-is.
+func parseArgs(args []string) (module string, domains []string, err error) {
+	// pre-alloc the domains slice, we know it will be at most the length of args - 1 for the mandatory module name
+	domains = make([]string, 0, len(args)-1)
+	// We have some mix of module name and input domain names
+	validLookupModulesMap := GetValidLookups()
+	for _, arg := range args {
+		if _, ok := validLookupModulesMap[strings.ToUpper(arg)]; ok {
+			// we found the module
+			if module == "" {
+				module = strings.ToUpper(arg)
+			} else {
+				// we already found the module, so this is a duplicate
+				return "", nil, errors.New("multiple lookup modules not supported")
+			}
+		} else {
+			// must be a domain name
+			domains = append(domains, arg)
+		}
+	}
+	if module == "" {
+		return "", nil, errors.New("no lookup module specified")
+	}
+	return module, domains, nil
 }

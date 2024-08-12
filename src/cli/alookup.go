@@ -30,10 +30,9 @@ var alookupCmd = &cobra.Command{
 the information that exists in a single record.
 
 Specifically, alookup acts similar to nslookup and will follow CNAME records.`,
-	Args: cobra.MatchAll(cobra.ExactArgs(0), cobra.OnlyValidArgs),
 	Run: func(cmd *cobra.Command, args []string) {
 		GC.Module = strings.ToUpper("alookup")
-		Run(GC, cmd.Flags())
+		Run(GC, cmd.Flags(), args)
 	},
 }
 
