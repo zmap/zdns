@@ -464,6 +464,11 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryRe
 	if err != nil {
 		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w. Correct format IPv4 1.1.1.1:53 or IPv6 [::1]:53", dstServer, err)
 	}
+	if util.IsIPv6(&dstServerIP) && r.connInfoIPv6 == nil {
+		return nil, nil, StatusIllegalInput, fmt.Errorf("IPv6 external lookup requested for domain %s but no IPv6 local addresses provided to resolver", q.Name)
+	} else if dstServerIP.To4() != nil && r.connInfoIPv4 == nil {
+		return nil, nil, StatusIllegalInput, fmt.Errorf("IPv4 external lookup requested for domain %s but no IPv4 local addresses provided to resolver", q.Name)
+	}
 	// check that local address and dstServer's don't have a loopback mismatch
 	if dstServerIP.To4() != nil && r.connInfoIPv4.localAddr.IsLoopback() != dstServerIP.IsLoopback() {
 		return nil, nil, StatusIllegalInput, errors.New("cannot mix loopback and non-loopback addresses")
