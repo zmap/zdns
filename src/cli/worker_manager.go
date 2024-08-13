@@ -272,10 +272,16 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 			log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(util.Concat(v4NameServers, v6NameServers), ", "))
 		}
 		if config.IPVersionMode != zdns.IPv6Only {
+			if len(v4NameServers) == 0 {
+				return nil, errors.New("no IPv4 nameservers found. Please specify desired nameservers with --name-servers")
+			}
 			config.ExternalNameServersV4 = v4NameServers
 			config.RootNameServersV4 = v4NameServers
 		}
 		if config.IPVersionMode != zdns.IPv4Only {
+			if len(v6NameServers) == 0 {
+				return nil, errors.New("no IPv6 nameservers found. Please specify desired nameservers with --name-servers")
+			}
 			config.ExternalNameServersV6 = v6NameServers
 			config.RootNameServersV6 = v6NameServers
 		}
