@@ -92,7 +92,9 @@ func checkGlueHelper(server, ansType string, result SingleQueryResult) (SingleQu
 		if !ok {
 			continue
 		}
-		if ans.Type == ansType && strings.TrimSuffix(ans.Name, ".") == server {
+		// sanitize case and trailing dot
+		// RFC 4343 - states DNS names are case-insensitive
+		if ans.Type == ansType && strings.EqualFold(strings.TrimSuffix(ans.Name, "."), server) {
 			var retv SingleQueryResult
 			retv.Authorities = make([]interface{}, 0)
 			retv.Answers = make([]interface{}, 0, 1)
@@ -150,10 +152,12 @@ func TranslateDNSErrorCode(err int) Status {
 }
 
 // handleStatus is a helper function to deal with a status and error. Error is only returned if the status is an
-// Iterative Timeout
+// Iterative Timeout or NoNeededGlueRecord
 func handleStatus(status Status, err error) (Status, error) {
 	switch status {
 	case StatusIterTimeout:
+		return status, err
+	case StatusNoNeededGlue:
 		return status, err
 	case StatusNXDomain:
 		return status, nil

@@ -47,8 +47,8 @@ class Tests(unittest.TestCase):
         c = "A --iterative --6=true --4=false"
         name = "esrg.stanford.edu"
         cmd, res = self.run_zdns(c, name)
-        # esrg.stanford.edu is hosted on NS's that do not have an IPv6 address. Therefore, this will fail.
-        self.assertServFail(res, cmd)
+        # esrg.stanford.edu is hosted on NS's that do not have an IPv6 address. Therefore, the lookup won't get sufficient glue records to resolve the query.
+        self.assertEqual(res["status"], "NONEEDEDGLUE", cmd)
 
     def test_ipv6_external_lookup_unreachable_nameserver(self):
         c = "A --6=true --4=false --name-servers=1.1.1.1"
