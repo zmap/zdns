@@ -37,14 +37,14 @@ class Tests(unittest.TestCase):
                                                          json.dumps(b, indent=4), json.dumps(a, indent=4))
 
     def test_a_ipv6(self):
-        c = "A --6=true --name-servers=[2001:4860:4860::8888]:53"
+        c = "A --name-servers=[2001:4860:4860::8888]:53"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
 
     def test_ipv6_unreachable(self):
-        c = "A --iterative --6=true --4=false"
+        c = "A --iterative --6"
         name = "esrg.stanford.edu"
         cmd, res = self.run_zdns(c, name)
         # esrg.stanford.edu is hosted on NS's that do not have an IPv6 address. Therefore, the lookup won't get sufficient glue records to resolve the query.
