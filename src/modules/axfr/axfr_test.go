@@ -93,9 +93,10 @@ func InitTest() (*AxfrLookupModule, *zdns.Resolver) {
 	cc := new(cli.CLIConf)
 
 	rc := new(zdns.ResolverConfig)
-	rc.RootNameServers = []string{"127.0.0.53:53"}
-	rc.ExternalNameServers = []string{"127.0.0.53:53"}
-	rc.LocalAddrs = []net.IP{net.ParseIP("127.0.0.1")}
+	rc.RootNameServersV4 = []string{"127.0.0.53:53"}
+	rc.ExternalNameServersV4 = []string{"127.0.0.53:53"}
+	rc.LocalAddrsV4 = []net.IP{net.ParseIP("127.0.0.1")}
+	rc.IPVersionMode = zdns.IPv4Only
 
 	flagSet := new(pflag.FlagSet)
 	flagSet.Bool("ipv4-lookup", false, "Use IPv4")

@@ -11,6 +11,7 @@
  * implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+
 package cli
 
 import (
@@ -40,8 +41,8 @@ Specifically, alookup acts similar to nslookup and will follow CNAME records.`,
 func init() {
 	rootCmd.AddCommand(alookupCmd)
 
-	alookupCmd.PersistentFlags().Bool("ipv4-lookup", false, "perform A lookups for each MX server")
-	alookupCmd.PersistentFlags().Bool("ipv6-lookup", false, "perform AAAA record lookups for each MX server")
+	alookupCmd.PersistentFlags().Bool("ipv4-lookup", false, "perform A lookups for each server")
+	alookupCmd.PersistentFlags().Bool("ipv6-lookup", false, "perform AAAA record lookups for each server")
 
 	util.BindFlags(alookupCmd, viper.GetViper(), util.EnvPrefix)
 }

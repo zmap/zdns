@@ -74,7 +74,30 @@ func SplitHostPort(inaddr string) (net.IP, int, error) {
 	}
 
 	return ip, portInt, nil
+}
 
+// SplitIPv4AndIPv6Addrs splits a list of IP addresses (either with port attached or not) into IPv4 and IPv6 addresses.
+// Returns a slice of IPv4/IPv6 addresses that are guaranteed to be valid. If the port was attached, it'll be included.
+func SplitIPv4AndIPv6Addrs(addrs []string) (ipv4 []string, ipv6 []string, err error) {
+	for _, addr := range addrs {
+		ip, _, err := SplitHostPort(addr)
+		if err != nil {
+			// addr may be an IP without a port
+			ip = net.ParseIP(addr)
+		}
+		if ip == nil {
+			return nil, nil, fmt.Errorf("invalid IP address: %s", addr)
+		}
+		// ip is valid, check if it's IPv4 or IPv6
+		if ip.To4() != nil {
+			ipv4 = append(ipv4, addr)
+		} else if ip.To16() != nil {
+			ipv6 = append(ipv6, addr)
+		} else {
+			return nil, nil, fmt.Errorf("invalid IP address: %s", addr)
+		}
+	}
+	return ipv4, ipv6, nil
 }
 
 // Reference: https://github.com/carolynvs/stingoftheviper/blob/main/main.go
@@ -101,11 +124,6 @@ func BindFlags(cmd *cobra.Command, v *viper.Viper, envPrefix string) {
 			}
 		}
 	})
-}
-
-// getDefaultResolvers returns a slice of default DNS resolvers to be used when no system resolvers could be discovered.
-func GetDefaultResolvers() []string {
-	return []string{"8.8.8.8:53", "8.8.4.4:53", "1.1.1.1:53", "1.0.0.1:53"}
 }
 
 // IsStringValidDomainName checks if the given string is a valid domain name using regex
