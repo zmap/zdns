@@ -58,6 +58,7 @@ type CLIConf struct {
 	ResultVerbosity string
 	IncludeInOutput string
 	OutputGroups    []string
+	QueryTypeString string
 
 	MaxDepth             int
 	CacheSize            int
@@ -109,8 +110,8 @@ ZDNS also includes its own recursive resolution and a cache to further optimize 
 ZDNS can take input in the following ways:
 - file (--input-file)
 - stream (echo "example.com" | ./zdns A)
-- as arguments (./zdns A example.com google.com).`,
-	Args: cobra.MatchAll(cobra.MinimumNArgs(1)), // at least a module name is required, optionally users can provide N domain names similar to dig
+- as arguments (./zdns --type=A example.com google.com).`,
+	Args: cobra.MatchAll(),
 	Run: func(cmd *cobra.Command, args []string) {
 		Run(GC, cmd.Flags(), args)
 	},
@@ -175,6 +176,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&GC.ClientSubnetString, "client-subnet", "", "Client subnet in CIDR format for EDNS0.")
 	rootCmd.PersistentFlags().BoolVar(&GC.Dnssec, "dnssec", false, "Requests DNSSEC records by setting the DNSSEC OK (DO) bit")
 	rootCmd.PersistentFlags().BoolVar(&GC.UseNSID, "nsid", false, "Request NSID.")
+
+	rootCmd.PersistentFlags().StringVar(&GC.QueryTypeString, "type", "", "DNS query type to perform. This is required if passing domains as arguments: zdns example.com google.com --type='A'. Passing a type here will override any types passed in as arguments.")
 
 	rootCmd.PersistentFlags().Bool("ipv4-lookup", false, "Perform an IPv4 Lookup in modules")
 	rootCmd.PersistentFlags().Bool("ipv6-lookup", false, "Perform an IPv6 Lookup in modules")
