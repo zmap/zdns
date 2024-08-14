@@ -582,7 +582,7 @@ class Tests(unittest.TestCase):
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
 
     def test_a_dig_style_args(self):
-        c = "A zdns-testing.com"
+        c = "--type=A zdns-testing.com"
         name = ""
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
