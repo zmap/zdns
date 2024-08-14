@@ -596,7 +596,8 @@ func aggregateMetadata(c <-chan routineMetadata) Metadata {
 // 1+ args as domains, module/query type must be passed in with --type: zdns --type=<module> <domain1> <domain2> ...
 func parseArgs(args []string, queryTypeString string) (module string, domains []string, err error) {
 	if len(args) == 0 && len(queryTypeString) == 0 {
-		return "", nil, errors.New("must provide a lookup module/query type. ex: zdns A or zdns --type=A")
+		// some commands (nslookup) don't require a module, let the caller error check
+		return "", nil, nil
 	}
 	if len(args) > 1 {
 		// pre-alloc the domains slice, we know it will be at most the length of args - 1 for the mandatory module name
