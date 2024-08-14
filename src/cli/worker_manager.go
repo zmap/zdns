@@ -249,6 +249,9 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 // Otherwise, we need to determine the IPVersionMode based on either the OS' default resolver(s) or the user's provided name servers.
 // Note: populateNameServers must be called before this function to ensure the nameservers are populated.
 func populateIPTransportMode(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.ResolverConfig, error) {
+	if gc.IPv4TransportOnly && gc.IPv6TransportOnly {
+		return nil, errors.New("only one of --4 and --6 allowed")
+	}
 	if gc.IPv4TransportOnly {
 		config.IPVersionMode = zdns.IPv4Only
 		return config, nil
