@@ -612,9 +612,7 @@ func parseArgs(args []string, queryTypeString string) (module string, domains []
 			return "", nil, fmt.Errorf("invalid lookup module specified - %s. ex: zdns A or zdns --type=A", queryTypeString)
 		}
 		// alright, found the module, all args are domains
-		for _, arg := range args {
-			domains = append(domains, arg)
-		}
+		domains = append(domains, args...)
 		return module, domains, nil
 	}
 
