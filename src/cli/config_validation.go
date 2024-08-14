@@ -31,10 +31,6 @@ func populateNetworkingConfig(gc *CLIConf) error {
 		return errors.New("--local-addr and --local-interface cannot both be specified")
 	}
 
-	if gc.IPv4Transport && gc.IPv6Transport && gc.PreferIPv4Iteration && gc.PreferIPv6Iteration {
-		return errors.New("both prefer IPv4 and prefer IPv6 iteration cannot both be enabled when using both IPv4 and IPv6 transport")
-	}
-
 	if err := parseNameServers(gc); err != nil {
 		return errors.Wrap(err, "name servers could not be parsed")
 	}

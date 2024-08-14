@@ -165,20 +165,6 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config := zdns.NewResolverConfig()
 
-	config.IPVersionMode = zdns.GetIPVersionMode(gc.IPv4Transport, gc.IPv6Transport)
-	// if we're in IPv4 or IPv6 only mode, set the iteration preference to match
-	// This is used in extractAuthorities where we need to know whether to request A or AAAA records to continue iteration
-	if config.IPVersionMode == zdns.IPv4Only {
-		config.IterationIPPreference = zdns.PreferIPv4
-	} else if config.IPVersionMode == zdns.IPv6Only {
-		config.IterationIPPreference = zdns.PreferIPv6
-	} else if config.IPVersionMode == zdns.IPv4OrIPv6 && !gc.PreferIPv4Iteration && !gc.PreferIPv6Iteration {
-		// need to specify some type of preference, we'll default to IPv4 and inform the user
-		log.Info("No iteration IP preference specified, defaulting to IPv4 preferred. See --prefer-ipv4-iteration and --prefer-ipv6-iteration for more info")
-		config.IterationIPPreference = zdns.PreferIPv4
-	} else {
-		config.IterationIPPreference = zdns.GetIterationIPPreference(gc.PreferIPv4Iteration, gc.PreferIPv6Iteration)
-	}
 	config.TransportMode = zdns.GetTransportMode(gc.UDPOnly, gc.TCPOnly)
 
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
@@ -210,7 +196,27 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 		}
 	}
 	// This must occur after setting the DNSConfigFilePath above, so that ZDNS knows where to fetch the DNS Config
-	config, err := populateNameServers(gc, config)
+	config, err := populateIPTransportMode(gc, config)
+	if err != nil {
+		log.Fatal("could not populate IP transport mode: ", err)
+	}
+	// This is used in extractAuthorities where we need to know whether to request A or AAAA records to continue iteration
+	// Must be set after populating IPTransportMode
+	if config.IPVersionMode == zdns.IPv4Only {
+		config.IterationIPPreference = zdns.PreferIPv4
+	} else if config.IPVersionMode == zdns.IPv6Only {
+		config.IterationIPPreference = zdns.PreferIPv6
+	} else if config.IPVersionMode == zdns.IPv4OrIPv6 && !gc.PreferIPv4Iteration && !gc.PreferIPv6Iteration {
+		// need to specify some type of preference, we'll default to IPv4 and inform the user
+		log.Info("No iteration IP preference specified, defaulting to IPv4 preferred. See --prefer-ipv4-iteration and --prefer-ipv6-iteration for more info")
+		config.IterationIPPreference = zdns.PreferIPv4
+	} else if config.IPVersionMode == zdns.IPv4OrIPv6 && gc.PreferIPv4Iteration && gc.PreferIPv6Iteration {
+		log.Fatal("Cannot specify both --prefer-ipv4-iteration and --prefer-ipv6-iteration")
+	} else {
+		config.IterationIPPreference = zdns.GetIterationIPPreference(gc.PreferIPv4Iteration, gc.PreferIPv6Iteration)
+	}
+	// This must occur after setting the DNSConfigFilePath above, so that ZDNS knows where to fetch the DNS Config
+	config, err = populateNameServers(gc, config)
 	if err != nil {
 		log.Fatal("could not populate name servers: ", err)
 	}
@@ -220,11 +226,88 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config.ExternalNameServersV6 = util.RemoveDuplicates(config.ExternalNameServersV6)
 	config.RootNameServersV6 = util.RemoveDuplicates(config.RootNameServersV6)
 
+	if config.IPVersionMode == zdns.IPv4Only {
+		// Drop any IPv6 nameservers
+		config.ExternalNameServersV6 = []string{}
+		config.RootNameServersV6 = []string{}
+	}
+	if config.IPVersionMode == zdns.IPv6Only {
+		// Drop any IPv4 nameservers
+		config.ExternalNameServersV4 = []string{}
+		config.RootNameServersV4 = []string{}
+	}
+
 	config, err = populateLocalAddresses(gc, config)
 	if err != nil {
 		log.Fatal("could not populate local addresses: ", err)
 	}
 	return config
+}
+
+// populateIPTransportMode populates the IPTransportMode field of the ResolverConfig
+// If user sets --4 (IPv4 Only) or --6 (IPv6 Only), we'll set the IPVersionMode to IPv4Only or IPv6Only, respectively.
+// Otherwise, we need to determine the IPVersionMode based on either the OS' default resolver(s) or the user's provided name servers.
+// Note: populateNameServers must be called before this function to ensure the nameservers are populated.
+func populateIPTransportMode(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.ResolverConfig, error) {
+	if gc.IPv4TransportOnly {
+		config.IPVersionMode = zdns.IPv4Only
+		return config, nil
+	}
+	if gc.IPv6TransportOnly {
+		config.IPVersionMode = zdns.IPv6Only
+		return config, nil
+	}
+	nameServersSupportIPv4 := false
+	nameServersSupportIPv6 := false
+	// Check if user provided nameservers
+	if len(gc.NameServers) != 0 {
+		// Check that the nameservers have a port and append one if necessary
+		portValidatedNSs := make([]string, 0, len(gc.NameServers))
+		// check that the nameservers have a port and append one if necessary
+		for _, ns := range gc.NameServers {
+			portNS, err := util.AddDefaultPortToDNSServerName(ns)
+			if err != nil {
+				return nil, fmt.Errorf("could not parse name server: %s. Correct IPv4 format: 1.1.1.1:53 or IPv6 format: [::1]:53", ns)
+			}
+			portValidatedNSs = append(portValidatedNSs, portNS)
+		}
+		v4NameServers, v6NameServers, err := util.SplitIPv4AndIPv6Addrs(portValidatedNSs)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not split IPv4 and IPv6 addresses for nameservers")
+		}
+		if len(v4NameServers) != 0 {
+			nameServersSupportIPv4 = true
+		}
+		if len(v6NameServers) != 0 {
+			nameServersSupportIPv6 = true
+		}
+	} else {
+		// User did not provide nameservers, check the OS' default resolver(s)
+		v4NameServers, v6NameServers, err := zdns.GetDNSServers(config.DNSConfigFilePath)
+		if err != nil {
+			log.Warn("Unable to parse resolvers file to determine if IPv4 or IPv6 is supported. Defaulting to IPv4")
+			config.IPVersionMode = zdns.IPv4Only
+			return config, nil
+		}
+		if len(v4NameServers) != 0 {
+			nameServersSupportIPv4 = true
+		}
+		if len(v6NameServers) != 0 {
+			nameServersSupportIPv6 = true
+		}
+	}
+	if nameServersSupportIPv4 && nameServersSupportIPv6 {
+		config.IPVersionMode = zdns.IPv4OrIPv6
+		return config, nil
+	} else if nameServersSupportIPv4 {
+		config.IPVersionMode = zdns.IPv4Only
+		return config, nil
+	} else if nameServersSupportIPv6 {
+		config.IPVersionMode = zdns.IPv6Only
+		return config, nil
+	} else {
+		return nil, errors.New("no nameservers found with OS defaults. Please specify desired nameservers with --name-servers")
+	}
 }
 
 func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.ResolverConfig, error) {
@@ -253,14 +336,11 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 		if err != nil {
 			return nil, errors.Wrap(err, "could not split IPv4 and IPv6 addresses for nameservers")
 		}
-		if config.IPVersionMode != zdns.IPv6Only {
-			config.ExternalNameServersV4 = v4NameServers
-			config.RootNameServersV4 = v4NameServers
-		}
-		if config.IPVersionMode != zdns.IPv4Only {
-			config.ExternalNameServersV6 = v6NameServers
-			config.RootNameServersV6 = v6NameServers
-		}
+		// The resolver will ignore IPv6 nameservers if we're doing IPv4 only lookups, and vice versa so this is fine
+		config.ExternalNameServersV4 = v4NameServers
+		config.RootNameServersV4 = v4NameServers
+		config.ExternalNameServersV6 = v6NameServers
+		config.RootNameServersV6 = v6NameServers
 		return config, nil
 	}
 	// User did not provide nameservers
