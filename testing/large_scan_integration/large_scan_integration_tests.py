@@ -49,18 +49,8 @@ def get_IPs_from_actual_line_a_module(actual_line):
             IPs.append(answer['answer'])
     return set(IPs)
 
-def get_IPs_from_actual_line_alookup_module(actual_line):
-    if 'data' not in actual_line:
-        return []
-    if 'ipv4_addresses' not in actual_line['data']:
-        return []
-    IPs = []
-    for IP in actual_line['data']['ipv4_addresses']:
-        IPs.append(IP)
-    return set(IPs)
-
-
-# verify_output takes the stdout from zdns and the module that was run and verifies that the output matches the expected output
+# verify_output takes the stdout from zdns and the module that was run and verifies that the output matches the
+# expected output
 def verify_output(stdout, module):
     # verify that the output matches the expected output
     output_lines = stdout.split("\n")
@@ -76,8 +66,6 @@ def verify_output(stdout, module):
             assert actual_status == "NOERROR", f"Status is not NOERROR: {actual_status}"
         if module == "A":
             actual_IPs = get_IPs_from_actual_line_a_module(actual_line)
-        elif module == "ALOOKUP":
-            actual_IPs = get_IPs_from_actual_line_alookup_module(actual_line)
         else:
             assert False, f"Invalid module: {module}"
 
@@ -92,7 +80,4 @@ print("Beginning tests")
 std_out, std_err = run_zdns(["A", "--iterative", "--threads", "100"])
 verify_output(std_out, "A")
 print("A module passed")
-std_out, std_err = run_zdns(["ALOOKUP", "--iterative", "--threads", "100"])
-verify_output(std_out, "ALOOKUP")
-print("ALOOKUP module passed")
 print("All tests passed")

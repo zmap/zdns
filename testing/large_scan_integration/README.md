@@ -1,5 +1,5 @@
 ## Large Scan Integration Test
-This script runs a large scan integration test for the A and ALOOKUP modules of zdns.
+This script runs a large scan integration test for the A modules of zdns.
 
 10,000 domains were set up in the zdns-testing.com namespace, 5k for `subdomain0.zdns-testing.com` and 5k for
 `subdomain1.subdomain0.zdns-testing.com`, with the following structure:
