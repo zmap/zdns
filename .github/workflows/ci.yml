@@ -37,7 +37,7 @@ jobs:
           sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
           python --version
           pip install -r testing/requirements.txt
-          ./testing/integration_tests.py
+          pytest -n 1 ./testing/integration_tests.py
   lint:
     runs-on: ubuntu-latest
     steps:
