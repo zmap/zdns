@@ -24,9 +24,7 @@ import (
 
 // DoTargetedLookup performs a lookup of the given domain name against the given nameserver, looking up both IPv4 and IPv6 addresses
 // Will follow CNAME records as well as A/AAAA records to get IP addresses
-func (r *Resolver) DoTargetedLookup(name, nameServer string, ipMode IPVersionMode, isIterative bool) (*IPResult, Trace, Status, error) {
-	lookupIPv4 := ipMode == IPv4Only || ipMode == IPv4OrIPv6
-	lookupIPv6 := ipMode == IPv6Only || ipMode == IPv4OrIPv6
+func (r *Resolver) DoTargetedLookup(name, nameServer string, isIterative, lookupA, lookupAAAA bool) (*IPResult, Trace, Status, error) {
 	name = strings.ToLower(name)
 	res := IPResult{}
 	candidateSet := map[string][]Answer{}
@@ -39,7 +37,7 @@ func (r *Resolver) DoTargetedLookup(name, nameServer string, ipMode IPVersionMod
 	var ipv4status Status
 	var ipv6status Status
 
-	if lookupIPv4 {
+	if lookupA {
 		ipv4, ipv4Trace, ipv4status, _ = recursiveIPLookup(r, name, nameServer, dns.TypeA, candidateSet, cnameSet, dnameSet, name, 0, isIterative)
 		if len(ipv4) > 0 {
 			ipv4 = Unique(ipv4)
@@ -49,8 +47,7 @@ func (r *Resolver) DoTargetedLookup(name, nameServer string, ipMode IPVersionMod
 	}
 	candidateSet = map[string][]Answer{}
 	cnameSet = map[string][]Answer{}
-	dnameSet = map[string][]Answer{}
-	if lookupIPv6 {
+	if lookupAAAA {
 		ipv6, ipv6Trace, ipv6status, _ = recursiveIPLookup(r, name, nameServer, dns.TypeAAAA, candidateSet, cnameSet, dnameSet, name, 0, isIterative)
 		if len(ipv6) > 0 {
 			ipv6 = Unique(ipv6)
@@ -64,9 +61,9 @@ func (r *Resolver) DoTargetedLookup(name, nameServer string, ipMode IPVersionMod
 	// In case we get no IPs and a non-NOERROR status from either
 	// IPv4 or IPv6 lookup, we return that status.
 	if len(res.IPv4Addresses) == 0 && len(res.IPv6Addresses) == 0 {
-		if lookupIPv4 && !SafeStatus(ipv4status) {
+		if lookupA && !SafeStatus(ipv4status) {
 			return nil, combinedTrace, ipv4status, nil
-		} else if lookupIPv6 && !SafeStatus(ipv6status) {
+		} else if lookupAAAA && !SafeStatus(ipv6status) {
 			return nil, combinedTrace, ipv6status, nil
 		} else {
 			return &res, combinedTrace, StatusNoError, nil

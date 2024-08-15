@@ -51,9 +51,10 @@ const (
 	StatusTimeout      Status = "TIMEOUT"
 	StatusIterTimeout  Status = "ITERATIVE_TIMEOUT"
 	StatusNoAuth       Status = "NOAUTH"
+	StatusNoNeededGlue Status = "NONEEDEDGLUE" // When a nameserver is authoritative for itself and the parent nameserver doesn't provide the glue to look it up
 )
 
-var RootServersV4 = [...]string{
+var RootServersV4 = []string{
 	"198.41.0.4:53",     // A
 	"170.247.170.2:53",  // B - Changed several times, this is current as of July '24
 	"192.33.4.12:53",    // C
@@ -68,7 +69,7 @@ var RootServersV4 = [...]string{
 	"199.7.83.42:53",    // L
 	"202.12.27.33:53"}   // M
 
-var RootServersV6 = [...]string{
+var RootServersV6 = []string{
 	"[2001:503:ba3e::2:30]:53", // A
 	"[2801:1b8:10::b]:53",      // B
 	"[2001:500:2::c]:53",       // C
@@ -82,4 +83,18 @@ var RootServersV6 = [...]string{
 	"[2001:7fd::1]:53",         // K
 	"[2001:500:9f::42]:53",     // L
 	"[2001:dc3::35]:53",        // M
+}
+
+var DefaultExternalResolversV4 = []string{
+	"8.8.8.8:53",
+	"8.8.4.4:53",
+	"1.1.1.1:53",
+	"1.0.0.1:53",
+}
+
+var DefaultExternalResolversV6 = []string{
+	"[2001:4860:4860::8888]:53",
+	"[2001:4860:4860::8844]:53",
+	"[2606:4700:4700::1111]:53",
+	"[2606:4700:4700::1001]:53",
 }

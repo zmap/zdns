@@ -110,7 +110,7 @@ func (mxMod *MXLookupModule) lookupIPs(r *zdns.Resolver, name, nameServer string
 		return res.(CachedAddresses), zdns.Trace{}
 	}
 	retv := CachedAddresses{}
-	result, trace, status, _ := r.DoTargetedLookup(name, nameServer, ipMode, mxMod.IsIterative)
+	result, trace, status, _ := r.DoTargetedLookup(name, nameServer, mxMod.IsIterative, mxMod.IPv4Lookup, mxMod.IPv6Lookup)
 	if status == zdns.StatusNoError && result != nil {
 		retv.IPv4Addresses = result.IPv4Addresses
 		retv.IPv6Addresses = result.IPv6Addresses

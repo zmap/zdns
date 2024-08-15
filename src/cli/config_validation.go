@@ -39,6 +39,7 @@ func populateNetworkingConfig(gc *CLIConf) error {
 		return errors.Wrap(err, "client subnet did not pass validation")
 	}
 
+	// local address - the user can enter both IPv4 and IPv6 addresses. We'll differentiate them later
 	if GC.LocalAddrString != "" {
 		for _, la := range strings.Split(GC.LocalAddrString, ",") {
 			ip := net.ParseIP(la)
@@ -51,6 +52,7 @@ func populateNetworkingConfig(gc *CLIConf) error {
 		gc.LocalAddrSpecified = true
 	}
 
+	// local interface - same as local addresses, an interface could have both IPv4 and IPv6 addresses, we'll differentiate them later
 	if gc.LocalIfaceString != "" {
 		li, err := net.InterfaceByName(gc.LocalIfaceString)
 		if err != nil {
@@ -114,7 +116,7 @@ func parseNameServers(gc *CLIConf) error {
 		if gc.NameServerMode {
 			log.Fatal("name servers cannot be specified on command line in --name-server-mode")
 		}
-		var ns []string
+		var nses []string
 		if (gc.NameServersString)[0] == '@' {
 			filepath := (gc.NameServersString)[1:]
 			f, err := os.ReadFile(filepath)
@@ -124,11 +126,16 @@ func parseNameServers(gc *CLIConf) error {
 			if len(f) == 0 {
 				log.Fatalf("Empty file (%s)", filepath)
 			}
-			ns = strings.Split(strings.Trim(string(f), "\n"), "\n")
+			nses = strings.Split(strings.Trim(string(f), "\n"), "\n")
 		} else {
-			ns = strings.Split(gc.NameServersString, ",")
+			nses = strings.Split(gc.NameServersString, ",")
+			trimmedNSes := make([]string, 0, len(nses))
+			for _, ns := range nses {
+				trimmedNSes = append(trimmedNSes, strings.TrimSpace(ns))
+			}
+			nses = trimmedNSes
 		}
-		gc.NameServers = ns
+		gc.NameServers = nses
 	}
 	return nil
 }
