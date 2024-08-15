@@ -935,6 +935,20 @@ class Tests(unittest.TestCase):
         self.assertEqual(res["data"]["resolver"], "8.8.8.8:53")
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
 
+    def test_type_option_server_mode_a_lookup_ipv4(self):
+        c = "--type=A --override-name=www.zdns-testing.com --name-server-mode"
+        name = "8.8.8.8"
+        cmd, res = self.run_zdns(c, name)
+        self.assertEqual(res["data"]["resolver"], "8.8.8.8:53")
+        self.assertEqualAnswers(res, self.WWW_CNAME_AND_A_ANSWERS, cmd)
+
+    def test_dig_style_type_option_server_mode_a_lookup_ipv4(self):
+        c = "--type=A 8.8.8.8 --override-name=www.zdns-testing.com --name-server-mode"
+        name = ""
+        cmd, res = self.run_zdns(c, name)
+        self.assertEqual(res["data"]["resolver"], "8.8.8.8:53")
+        self.assertEqualAnswers(res, self.WWW_CNAME_AND_A_ANSWERS, cmd)
+
     def test_mixed_mode_a_lookup_ipv4(self):
         c = "A --name-servers=0.0.0.0"
         name = "zdns-testing.com,8.8.8.8:53"
@@ -1037,6 +1051,10 @@ class Tests(unittest.TestCase):
         # microseconds should be non-zero since we called with --nanoseconds. There is a chance it happens to be 0,
         # but it is very unlikely. (1 in 1,000,000). Python's datetime.date's smallest unit of time is microseconds,
         # so that's why we're using this in place of nanoseconds. It should not affect the test's validity.
+
+    # def test_name_server_mode(self):
+    #     c = "A --name-server-mode"
+    #     name = "
 
 
 if __name__ == "__main__":
