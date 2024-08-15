@@ -463,7 +463,7 @@ class Tests(unittest.TestCase):
 
     SPF_ANSWER = {
         "data": {
-            "spf": "v=spf1 mx include:_spf.google.com -all"
+            "spf": "v=spf1 mx include:spf.google.com -all"
         }
     }
 
