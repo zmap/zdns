@@ -420,7 +420,6 @@ class Tests(unittest.TestCase):
         }
     ]
 
-
     CNAME_LOOP_ANSWERS = [
         {
             "type": "CNAME",
@@ -643,6 +642,13 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.WWW_CNAME_ANSWERS, cmd)
+
+    def test_cname_loop_iterative(self):
+        c = "A --iterative"
+        name = "cname-loop.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.CNAME_LOOP_ANSWERS, cmd)
 
     def test_a_behind_cname(self):
         c = "A"
