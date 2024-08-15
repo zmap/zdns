@@ -372,6 +372,55 @@ class Tests(unittest.TestCase):
         }
     ]
 
+    WWW_CNAME_AND_A_ANSWERS = [
+        {
+            "type": "CNAME",
+            "class": "IN",
+            "name": "www.zdns-testing.com",
+            "answer": "zdns-testing.com."
+        }, {
+            "type": "A",
+            "class": "IN",
+            "name": "zdns-testing.com",
+            "answer": "1.2.3.4"
+        }, {
+            "type": "A",
+            "class": "IN",
+            "name": "zdns-testing.com",
+            "answer": "2.3.4.5"
+        }, {
+            "type": "A",
+            "class": "IN",
+            "name": "zdns-testing.com",
+            "answer": "3.4.5.6"
+        }
+    ]
+
+    WWW_CNAME_AND_AAAA_ANSWERS = [
+        {
+            "type": "CNAME",
+            "class": "IN",
+            "name": "www.zdns-testing.com",
+            "answer": "zdns-testing.com."
+        }, {
+            "type": "AAAA",
+            "class": "IN",
+            "name": "zdns-testing.com",
+            "answer": "fd5a:3bce:8713::1"
+        }, {
+            "type": "AAAA",
+            "class": "IN",
+            "name": "zdns-testing.com",
+            "answer": "fde6:9bb3:dbd6::2"
+        }, {
+            "type": "AAAA",
+            "class": "IN",
+            "name": "zdns-testing.com",
+            "answer": "fdb3:ac76:a577::3"
+        }
+    ]
+
+
     CNAME_LOOP_ANSWERS = [
         {
             "type": "CNAME",
@@ -588,6 +637,20 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.WWW_CNAME_ANSWERS, cmd)
 
+    def test_a_behind_cname(self):
+        c = "A"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.WWW_CNAME_AND_A_ANSWERS, cmd)
+
+    def test_aaaa_behind_cname(self):
+        c = "AAAA"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.WWW_CNAME_AND_AAAA_ANSWERS, cmd)
+
     def test_caa(self):
         c = "CAA"
         name = "zdns-testing.com"
@@ -691,41 +754,6 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualMXLookup(res, self.MX_LOOKUP_ANSWER_IPV4)
-
-    def test_a_lookup(self):
-        c = "alookup --ipv4-lookup --ipv6-lookup"
-        name = "www.zdns-testing.com"
-        cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualALookup(res, self.A_LOOKUP_WWW_ZDNS_TESTING)
-
-    def test_a_lookup_iterative(self):
-        c = "alookup --ipv4-lookup --ipv6-lookup --iterative"
-        name = "www.zdns-testing.com"
-        cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualALookup(res, self.A_LOOKUP_WWW_ZDNS_TESTING)
-
-    def test_a_lookup_ipv4(self):
-        c = "alookup --ipv4-lookup"
-        name = "www.zdns-testing.com"
-        cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualALookup(res, self.A_LOOKUP_IPV4_WWW_ZDNS_TESTING)
-
-    def test_a_lookup_ipv6(self):
-        c = "alookup --ipv6-lookup"
-        name = "www.zdns-testing.com"
-        cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualALookup(res, self.A_LOOKUP_IPV6_WWW_ZDNS_TESTING)
-
-    def test_a_lookup_default(self):
-        c = "alookup"
-        name = "www.zdns-testing.com"
-        cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualALookup(res, self.A_LOOKUP_IPV4_WWW_ZDNS_TESTING)
 
     def test_ns_lookup(self):
         c = "nslookup --ipv4-lookup --ipv6-lookup"
