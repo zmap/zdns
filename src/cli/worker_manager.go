@@ -455,7 +455,7 @@ func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Res
 
 func Run(gc CLIConf, flags *pflag.FlagSet, args []string) {
 	// User can provide both a module and a list of domains to query as inputs, similar to dig
-	module, domains, err := parseArgs(args, gc.QueryTypeString)
+	module, domains, err := parseArgs(args, gc.ModuleString)
 	if err != nil {
 		log.Fatal("could not parse arguments: ", err)
 	}
@@ -715,8 +715,8 @@ func aggregateMetadata(c <-chan routineMetadata) Metadata {
 // Valid usages of ZDNS are:
 // Single arg as module/query type, input is taken from std. in: zdns <module>
 // 1+ args as domains, module/query type must be passed in with --type: zdns --type=<module> <domain1> <domain2> ...
-func parseArgs(args []string, queryTypeString string) (module string, domains []string, err error) {
-	if len(args) == 0 && len(queryTypeString) == 0 {
+func parseArgs(args []string, moduleString string) (module string, domains []string, err error) {
+	if len(args) == 0 && len(moduleString) == 0 {
 		// some commands (nslookup) don't require a module, let the caller error check
 		return "", nil, nil
 	}
@@ -727,11 +727,11 @@ func parseArgs(args []string, queryTypeString string) (module string, domains []
 
 	// --type takes precedence
 	validLookupModulesMap := GetValidLookups()
-	if len(queryTypeString) != 0 {
-		module = strings.ToUpper(queryTypeString)
+	if len(moduleString) != 0 {
+		module = strings.ToUpper(moduleString)
 		_, ok := validLookupModulesMap[module]
 		if !ok {
-			return "", nil, fmt.Errorf("invalid lookup module specified - %s. ex: zdns A or zdns --type=A", queryTypeString)
+			return "", nil, fmt.Errorf("invalid lookup module specified - %s. ex: zdns A or zdns --type=A", moduleString)
 		}
 		// alright, found the module, all args are domains
 		domains = append(domains, args...)
@@ -740,13 +740,13 @@ func parseArgs(args []string, queryTypeString string) (module string, domains []
 
 	// no --type, so we must have a module name as the first arg
 	if len(args) > 1 {
-		return "", nil, errors.New("invalid args. Valid usages are 1) zdns <module> (where domains come from std. in) or 2) zdns --type=<module> <domain1> <domain2> ...")
+		return "", nil, errors.New("invalid args. Valid usages are 1) zdns <module> (where domains come from std. in) or 2) zdns --module=<module> <domain1> <domain2> ...")
 	}
 
 	// only one arg, must be a module name
 	module = strings.ToUpper(args[0])
 	if _, ok := validLookupModulesMap[module]; !ok {
-		return "", nil, fmt.Errorf("invalid lookup module specified - %s. ex: zdns A or zdns --type=A", args[0])
+		return "", nil, fmt.Errorf("invalid lookup module specified - %s. ex: zdns A or zdns --module=A", args[0])
 	}
 	return module, nil, nil
 }
