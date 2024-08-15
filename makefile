@@ -11,6 +11,8 @@ install: zdns
 
 test: zdns
 	go test -v ./...
+	pip3 install -r testing/requirements.txt
+	pytest -n auto testing/integration_tests.py
 
 integration-tests: zdns
 	pip3 install -r testing/requirements.txt
