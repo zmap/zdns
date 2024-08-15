@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import copy
+import os
 import subprocess
 import json
 import unittest
-import tempfile
 import datetime
 from dateutil import parser
 from ipaddress import ip_address
@@ -52,18 +52,6 @@ class Tests(unittest.TestCase):
         c = f"echo '{name}' | {executable} {flags}"
         o = subprocess.check_output(c, shell=True)
         return c, json.loads(o.rstrip())
-
-    def run_zdns_multiline(self, flags, names, executable=ZDNS_EXECUTABLE):
-        d = tempfile.mkdtemp
-        f = "/".join([d, "temp"])
-        with open(f) as fd:
-            for name in names:
-                fd.writeline(name)
-        flags = flags + " --threads=10"
-        c = f"cat '{f}' | {executable} {flags}"
-        o = subprocess.check_output(c, shell=True)
-        os.rm(f)
-        return c, [json.loads(l.rstrip()) for l in o]
 
     ROOT_A = {"1.2.3.4", "2.3.4.5", "3.4.5.6"}
 
@@ -419,7 +407,6 @@ class Tests(unittest.TestCase):
             "answer": "fdb3:ac76:a577::3"
         }
     ]
-
 
     CNAME_LOOP_ANSWERS = [
         {
@@ -1030,6 +1017,27 @@ class Tests(unittest.TestCase):
         # microseconds should be non-zero since we called with --nanoseconds. There is a chance it happens to be 0,
         # but it is very unlikely. (1 in 1,000,000). Python's datetime.date's smallest unit of time is microseconds,
         # so that's why we're using this in place of nanoseconds. It should not affect the test's validity.
+
+    # test_metadata_file test the `--metadata-file` flag which saves a summary of a scan's metadata output to a file
+    def test_metadata_file(self):
+        f_name = "temp-metadata.json"
+        c = "google.com yahoo.com cloudflare.com zdns-testing.com --type=A --metadata-file=" + f_name + " --threads=10"
+        name = ""
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        # Attempt to read the metadata file
+
+        metadata = None
+        with open(f_name) as f:
+            metadata = json.load(f)
+        self.assertEqual(metadata["names"], 4)
+        self.assertEqual(metadata["statuses"]["NOERROR"], 4)
+        self.assertEqual(metadata["conf"]["Threads"], 10)
+        if metadata["start_time"] is None or metadata["end_time"] is None:
+            self.fail("Start or end time not recorded")
+        if metadata["zdns_version"] is None:
+            self.fail("ZDNS version not recorded")
+        os.remove(f_name)
 
 
 if __name__ == "__main__":
