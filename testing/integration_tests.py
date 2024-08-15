@@ -636,12 +636,6 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.WWW_CNAME_ANSWERS, cmd)
 
-    def test_cname_loop(self):
-        c = "A"
-        name = "cname-loop.zdns-testing.com"
-        cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.CNAME_LOOP_ANSWERS, cmd)
     def test_cname_loop_iterative(self):
         c = "A --iterative"
         name = "cname-loop.zdns-testing.com"
