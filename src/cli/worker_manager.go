@@ -714,7 +714,7 @@ func aggregateMetadata(c <-chan routineMetadata) Metadata {
 // parseArgs parses and validates the command line arguments to ZDNS
 // Valid usages of ZDNS are:
 // Single arg as module/query type, input is taken from std. in: zdns <module>
-// 1+ args as domains, module/query type must be passed in with --type: zdns --type=<module> <domain1> <domain2> ...
+// 1+ args as domains, module/query type must be passed in with --module: zdns --module=<module> <domain1> <domain2> ...
 func parseArgs(args []string, moduleString string) (module string, domains []string, err error) {
 	if len(args) == 0 && len(moduleString) == 0 {
 		// some commands (nslookup) don't require a module, let the caller error check
@@ -725,20 +725,20 @@ func parseArgs(args []string, moduleString string) (module string, domains []str
 		domains = make([]string, 0, len(args)-1)
 	}
 
-	// --type takes precedence
+	// --module takes precedence
 	validLookupModulesMap := GetValidLookups()
 	if len(moduleString) != 0 {
 		module = strings.ToUpper(moduleString)
 		_, ok := validLookupModulesMap[module]
 		if !ok {
-			return "", nil, fmt.Errorf("invalid lookup module specified - %s. ex: zdns A or zdns --type=A", moduleString)
+			return "", nil, fmt.Errorf("invalid lookup module specified - %s. ex: zdns A or zdns --module=A", moduleString)
 		}
 		// alright, found the module, all args are domains
 		domains = append(domains, args...)
 		return module, domains, nil
 	}
 
-	// no --type, so we must have a module name as the first arg
+	// no --module, so we must have a module name as the first arg
 	if len(args) > 1 {
 		return "", nil, errors.New("invalid args. Valid usages are 1) zdns <module> (where domains come from std. in) or 2) zdns --module=<module> <domain1> <domain2> ...")
 	}

@@ -630,7 +630,7 @@ class Tests(unittest.TestCase):
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
 
     def test_a_dig_style_args(self):
-        c = "--type=A zdns-testing.com"
+        c = "--module=A zdns-testing.com"
         name = ""
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
@@ -942,14 +942,14 @@ class Tests(unittest.TestCase):
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
 
     def test_type_option_server_mode_a_lookup_ipv4(self):
-        c = "--type=A --override-name=www.zdns-testing.com --name-server-mode"
+        c = "--module=A --override-name=www.zdns-testing.com --name-server-mode"
         name = "8.8.8.8"
         cmd, res = self.run_zdns(c, name)
         self.assertEqual(res["data"]["resolver"], "8.8.8.8:53")
         self.assertEqualAnswers(res, self.WWW_CNAME_AND_A_ANSWERS, cmd)
 
     def test_dig_style_type_option_server_mode_a_lookup_ipv4(self):
-        c = "--type=A 8.8.8.8 --override-name=www.zdns-testing.com --name-server-mode"
+        c = "--module=A 8.8.8.8 --override-name=www.zdns-testing.com --name-server-mode"
         name = ""
         cmd, res = self.run_zdns(c, name)
         self.assertEqual(res["data"]["resolver"], "8.8.8.8:53")

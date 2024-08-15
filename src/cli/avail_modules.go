@@ -16,8 +16,9 @@ package cli
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"sort"
+
+	"github.com/spf13/cobra"
 )
 
 const (
