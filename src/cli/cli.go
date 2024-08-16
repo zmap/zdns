@@ -196,7 +196,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&GC.ClientSubnetString, "client-subnet", "", "Client subnet in CIDR format for EDNS0.")
 	rootCmd.PersistentFlags().BoolVar(&GC.Dnssec, "dnssec", false, "Requests DNSSEC records by setting the DNSSEC OK (DO) bit")
 	rootCmd.PersistentFlags().BoolVar(&GC.UseNSID, "nsid", false, "Request NSID.")
-	rootCmd.PersistentFlags().StringVar(&GC.ModuleString, "module", "", "DNS module to use, can be any DNS query type or one of the modules that provides extra processing (see zdns avail-modules for a complete list). This is required if passing domains as arguments: zdns example.com google.com --module='A'.")
+	rootCmd.PersistentFlags().StringVar(&GC.ModuleString, "module", "", "DNS module to use, can be any DNS query type or one of the modules that provides extra processing (see zdns --help for a complete list). This is required if passing domains as arguments: zdns example.com google.com --module='A'.")
 
 	rootCmd.PersistentFlags().Bool("ipv4-lookup", false, "Perform an IPv4 Lookup (requests A records) in modules")
 	rootCmd.PersistentFlags().Bool("ipv6-lookup", false, "Perform an IPv6 Lookup (requests AAAA recoreds) in modules")
@@ -262,7 +262,7 @@ ZDNS can take input (usually domains and a module name) in the following ways:
 		}
 	}
 
-	// If the number of modules isn't a multiple of 4, ensure a final newline
+	// If the number of modules isn't a multiple of ModulesPerRow, ensure a final newline
 	if len(modules)%ModulesPerRow != 0 {
 		fmt.Println()
 		rootCmdLongText += "\n"

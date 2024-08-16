@@ -1058,10 +1058,6 @@ class Tests(unittest.TestCase):
         # but it is very unlikely. (1 in 1,000,000). Python's datetime.date's smallest unit of time is microseconds,
         # so that's why we're using this in place of nanoseconds. It should not affect the test's validity.
 
-    # def test_name_server_mode(self):
-    #     c = "A --name-server-mode"
-    #     name = "
-
 
 if __name__ == "__main__":
     unittest.main()

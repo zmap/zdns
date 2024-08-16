@@ -731,7 +731,7 @@ func parseArgs(args []string, moduleString string) (module string, domains []str
 		module = strings.ToUpper(moduleString)
 		_, ok := validLookupModulesMap[module]
 		if !ok {
-			return "", nil, fmt.Errorf("invalid lookup module specified - %s. ex: zdns A or zdns --module=A. See 'zdns avail-modules' for more", moduleString)
+			return "", nil, fmt.Errorf("invalid lookup module specified - %s. ex: zdns A or zdns --module=A. See 'zdns --help' for applicable modules", moduleString)
 		}
 		// check if --module is one of the special commands which should be called directly.
 		if _, ok = cmds[module]; ok {
@@ -750,7 +750,7 @@ func parseArgs(args []string, moduleString string) (module string, domains []str
 	// only one arg, must be a module name
 	module = strings.ToUpper(args[0])
 	if _, ok := validLookupModulesMap[module]; !ok {
-		return "", nil, fmt.Errorf("invalid lookup module specified - %s. ex: zdns A or zdns --module=A. See 'zdns avail-modules' for more", args[0])
+		return "", nil, fmt.Errorf("invalid lookup module specified - %s. ex: zdns A or zdns --module=A. See 'zdns --help' for applicable modules", args[0])
 	}
 	return module, nil, nil
 }
