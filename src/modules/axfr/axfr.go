@@ -32,6 +32,10 @@ import (
 	"github.com/zmap/zdns/src/zdns"
 )
 
+const (
+	axfr = "AXFR"
+)
+
 type AxfrLookupModule struct {
 	cli.BasicLookupModule
 	NSModule      nslookup.NSLookupModule
@@ -52,8 +56,9 @@ type AXFRResult struct {
 }
 
 func init() {
-	axfr := new(AxfrLookupModule)
-	cli.RegisterLookupModule("AXFR", axfr)
+	axfrMod := new(AxfrLookupModule)
+	axfrMod.ModuleName = axfr
+	cli.RegisterLookupModule(axfr, axfrMod)
 }
 
 func dotName(name string) string {

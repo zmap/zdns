@@ -32,9 +32,12 @@ type CachedAddresses struct {
 	IPv6Addresses []string
 }
 
+const mxlookup = "MXLOOKUP"
+
 func init() {
 	mx := new(MXLookupModule)
-	cli.RegisterLookupModule("MXLOOKUP", mx)
+	mx.ModuleName = mxlookup
+	cli.RegisterLookupModule(mxlookup, mx)
 }
 
 type MXRecord struct {

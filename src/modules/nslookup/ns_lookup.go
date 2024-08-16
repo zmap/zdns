@@ -23,9 +23,12 @@ import (
 	"github.com/zmap/zdns/src/zdns"
 )
 
+const nslookup = "NSLOOKUP"
+
 func init() {
-	ns := new(NSLookupModule)
-	cli.RegisterLookupModule("NSLOOKUP", ns)
+	nsMod := new(NSLookupModule)
+	nsMod.ModuleName = nslookup
+	cli.RegisterLookupModule("NSLOOKUP", nsMod)
 }
 
 type NSLookupModule struct {

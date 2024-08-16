@@ -593,7 +593,10 @@ func doLookupWorker(gc *CLIConf, lookups []LookupModule, rc *zdns.ResolverConfig
 	metadata.Status = make(map[zdns.Status]int)
 	for line := range input {
 		for _, lookup := range lookups {
-			var res zdns.Result
+			res := zdns.Result{
+				Module: lookup.GetModuleName(),
+				Class:  dns.Class(gc.Class).String(),
+			}
 			var innerRes interface{}
 			var trace zdns.Trace
 			var status zdns.Status
@@ -623,14 +626,12 @@ func doLookupWorker(gc *CLIConf, lookups []LookupModule, rc *zdns.ResolverConfig
 				res.AlteredName = lookupName
 			}
 			res.Name = rawName
-			res.Class = dns.Class(gc.Class).String()
 
 			startTime := time.Now()
 			innerRes, trace, status, err = lookup.Lookup(resolver, lookupName, nameServer)
 
 			res.Timestamp = time.Now().Format(gc.TimeFormat)
 			res.Duration = time.Since(startTime).Seconds()
-			res.Module = lookupName
 			if status != zdns.StatusNoOutput {
 				res.Status = string(status)
 				res.Data = innerRes

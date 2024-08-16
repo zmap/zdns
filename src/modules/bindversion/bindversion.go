@@ -24,6 +24,7 @@ import (
 
 const (
 	BindVersionQueryName = "VERSION.BIND"
+	BindVersion          = "BINDVERSION"
 )
 
 // result to be returned by scan of host
@@ -38,7 +39,8 @@ type BindVersionLookupModule struct {
 
 func init() {
 	b := new(BindVersionLookupModule)
-	cli.RegisterLookupModule("BINDVERSION", b)
+	b.ModuleName = BindVersion
+	cli.RegisterLookupModule(BindVersion, b)
 }
 
 // CLIInit initializes the BindVersion lookup module

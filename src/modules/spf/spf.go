@@ -24,7 +24,10 @@ import (
 	"github.com/zmap/zdns/src/zdns"
 )
 
-const spfPrefixRegexp = "(?i)^v=spf1"
+const (
+	spfPrefixRegexp = "(?i)^v=spf1"
+	spf             = "SPF"
+)
 
 // result to be returned by scan of host
 type Result struct {
@@ -32,8 +35,9 @@ type Result struct {
 }
 
 func init() {
-	spf := new(SpfLookupModule)
-	cli.RegisterLookupModule("SPF", spf)
+	spfMod := new(SpfLookupModule)
+	spfMod.ModuleName = spf
+	cli.RegisterLookupModule(spf, spfMod)
 }
 
 type SpfLookupModule struct {
