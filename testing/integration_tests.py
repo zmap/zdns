@@ -629,7 +629,7 @@ class Tests(unittest.TestCase):
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
 
     def test_a_dig_style_args(self):
-        c = "--module=A zdns-testing.com"
+        c = "--modules=A zdns-testing.com"
         name = ""
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
@@ -941,14 +941,14 @@ class Tests(unittest.TestCase):
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
 
     def test_type_option_server_mode_a_lookup_ipv4(self):
-        c = "--module=A --override-name=www.zdns-testing.com --name-server-mode"
+        c = "--modules=A --override-name=www.zdns-testing.com --name-server-mode"
         name = "8.8.8.8"
         cmd, res = self.run_zdns(c, name)
         self.assertEqual(res["data"]["resolver"], "8.8.8.8:53")
         self.assertEqualAnswers(res, self.WWW_CNAME_AND_A_ANSWERS, cmd)
 
     def test_dig_style_type_option_server_mode_a_lookup_ipv4(self):
-        c = "--module=A 8.8.8.8 --override-name=www.zdns-testing.com --name-server-mode"
+        c = "--modules=A 8.8.8.8 --override-name=www.zdns-testing.com --name-server-mode"
         name = ""
         cmd, res = self.run_zdns(c, name)
         self.assertEqual(res["data"]["resolver"], "8.8.8.8:53")
@@ -1071,7 +1071,7 @@ class Tests(unittest.TestCase):
                 self.fail("Unexpected module")
 
     def test_multiple_queries_dig_style(self):
-        c = "--module=A,AAAA zdns-testing.com"
+        c = "--modules=A,AAAA zdns-testing.com"
         name = ""
         cmd, reses = self.run_zdns_multiline_output(c, name)
         for res in reses:

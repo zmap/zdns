@@ -45,7 +45,7 @@ var allModules = []string{
 	"SSHFP", "SVCB", "TALINK", "TKEY", "TLSA", "TXT", "UID", "UINFO", "UNSPEC", "URI",
 }
 
-// cmds is a set of commands, special "modules" with their own flags. They should not be printed as "modules" or used with --module
+// cmds is a set of commands, special "modules" with their own flags. They should not be printed as "modules" or used with --modules
 var cmds = map[string]struct{}{
 	"MXLOOKUP": {},
 	"NSLOOKUP": {},
@@ -196,7 +196,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&GC.ClientSubnetString, "client-subnet", "", "Client subnet in CIDR format for EDNS0.")
 	rootCmd.PersistentFlags().BoolVar(&GC.Dnssec, "dnssec", false, "Requests DNSSEC records by setting the DNSSEC OK (DO) bit")
 	rootCmd.PersistentFlags().BoolVar(&GC.UseNSID, "nsid", false, "Request NSID.")
-	rootCmd.PersistentFlags().StringVar(&GC.ModuleString, "module", "", "DNS module to use, can be any DNS query type or one of the modules that provides extra processing (see zdns --help for a complete list). This is required if passing domains as arguments: zdns example.com google.com --module='A'.")
+	rootCmd.PersistentFlags().StringVar(&GC.ModuleString, "modules", "", "DNS module(s) to use, can be any DNS query type or one of the modules that provides extra processing (see zdns --help for a complete list). This is required if passing domains as arguments: zdns example.com google.com --modules='A'.")
 
 	rootCmd.PersistentFlags().Bool("ipv4-lookup", false, "Perform an IPv4 Lookup (requests A records) in modules")
 	rootCmd.PersistentFlags().Bool("ipv6-lookup", false, "Perform an IPv6 Lookup (requests AAAA recoreds) in modules")
@@ -241,7 +241,7 @@ ZDNS also includes its own recursive resolution and a cache to further optimize 
 ZDNS can take input (usually domains and 1+ module name(s)) in the following ways:
 - file (./zdns A --input-file=domains.txt)
 - stream (echo "example.com" | ./zdns A)
-- as arguments (./zdns --module=A example.com google.com).
+- as arguments (./zdns --modules=A example.com google.com).
 
 Multiple modules can be passed in either:
 - as a comma-delimited --modules flag (./zdns --modules=A,AAAA example.com)

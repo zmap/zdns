@@ -727,44 +727,44 @@ func aggregateMetadata(c <-chan routineMetadata) Metadata {
 //
 //	Multiple modules can be passed in space-seperated format: zdns <module1> <module2> ...
 //
-// 1+ args as domains, module/query type must be passed in with --module: zdns --module=<module(s)> <domain1> <domain2> ...
+// 1+ args as domains, module/query type must be passed in with --modules: zdns --module=<module(s)> <domain1> <domain2> ...
 //
-//	Multiple modules can be passed in comma-seperated format: zdns --module=<module1,module2> <domain1> <domain2> ...
+//	Multiple modules can be passed in comma-seperated format: zdns --modules=<module1,module2> <domain1> <domain2> ...
 func parseArgs(args []string, moduleString string) (modules []string, domains []string, err error) {
 	if len(args) == 0 && len(moduleString) == 0 {
 		// some commands (nslookup) don't require a module, let the caller error check
 		return nil, nil, nil
 	}
 	validLookupModulesMap := GetValidLookups()
-	// --module takes precedence
+	// --modules takes precedence
 	if len(moduleString) != 0 {
-		// --module specified, modules are comma-seperated
+		// --modules specified, modules are comma-seperated
 		modules = strings.Split(moduleString, ",")
 		for _, module := range modules {
 			caseSanitizedModule := strings.ToUpper(module)
 			_, ok := validLookupModulesMap[caseSanitizedModule]
 			if !ok {
-				return nil, nil, fmt.Errorf("invalid lookup module specified - %s. See 'zdns --help' for applicable modules and --module flag for guidance on passing in modules", caseSanitizedModule)
+				return nil, nil, fmt.Errorf("invalid lookup module specified - %s. See 'zdns --help' for applicable modules and --modules flag for guidance on passing in modules", caseSanitizedModule)
 			}
-			// module is valid, check if --module is one of the special commands which should be called directly.
+			// module is valid, check if --modules is one of the special commands which should be called directly.
 			if _, ok = cmds[module]; ok {
-				return nil, nil, fmt.Errorf("the module specified (--module=%s) has its own arguements and must be called with 'zdns %s'. See 'zdns %s --help' for more", module, module, module)
+				return nil, nil, fmt.Errorf("the module specified (--modules=%s) has its own arguements and must be called with 'zdns %s'. See 'zdns %s --help' for more", module, module, module)
 			}
 		}
 		// alright, found the module, all args are domains
 		return modules, args, nil
 	}
 
-	// no --module, so we must have a module name(s) as the args
+	// no --modules, so we must have a module name(s) as the args
 	for _, module := range args {
 		caseSanitizedModule := strings.ToUpper(module)
 		_, ok := validLookupModulesMap[caseSanitizedModule]
 		if !ok {
 			return nil, nil, fmt.Errorf("invalid lookup module specified - %s. See 'zdns --help' for applicable modules and ensure modules are space-seperated", caseSanitizedModule)
 		}
-		// module is valid, check if --module is one of the special commands which should be called directly.
+		// module is valid, check if --modules is one of the special commands which should be called directly.
 		if _, ok = cmds[module]; ok && len(args) > 1 {
-			return nil, nil, fmt.Errorf("the module specified (--module=%s) has its own arguements and must be called wihtout other modules with 'zdns %s'. See 'zdns %s --help' for more", module, module, module)
+			return nil, nil, fmt.Errorf("the module specified (--modules=%s) has its own arguements and must be called wihtout other modules with 'zdns %s'. See 'zdns %s --help' for more", module, module, module)
 		}
 
 	}
