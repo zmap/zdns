@@ -1058,6 +1058,24 @@ class Tests(unittest.TestCase):
         # but it is very unlikely. (1 in 1,000,000). Python's datetime.date's smallest unit of time is microseconds,
         # so that's why we're using this in place of nanoseconds. It should not affect the test's validity.
 
+    def test_multiple_queries(self):
+        c = "A AAAA"
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        # TODO Need to disambiguate which response goes with what query
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+        self.assertEqualAnswers(res, self.ROOT_AAAA_ANSWERS, cmd)
+
+    def test_multiple_queries_dig_style(self):
+        c = "--module=A,AAAA zdns-testing.com"
+        name = ""
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        # TODO Need to disambiguate which response goes with what query
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+        self.assertEqualAnswers(res, self.ROOT_AAAA_ANSWERS, cmd)
+
 
 if __name__ == "__main__":
     unittest.main()
