@@ -114,8 +114,8 @@ type CLIConf struct {
 	NameServerMode bool
 	FollowCNAMEs   bool
 
-	Module string
-	Class  uint16
+	Modules []string
+	Class   uint16
 }
 
 var cfgFile string

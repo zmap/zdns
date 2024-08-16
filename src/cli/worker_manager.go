@@ -141,7 +141,7 @@ func populateCLIConfig(gc *CLIConf, domains []string) *CLIConf {
 	if gc.NameServerMode && gc.MetadataFormat {
 		log.Fatal("Metadata mode is incompatible with name server mode")
 	}
-	if gc.NameServerMode && gc.NameOverride == "" && gc.Module != BINDVERSION {
+	if gc.NameServerMode && gc.NameOverride == "" && len(gc.Modules) == 1 && gc.Modules[0] != BINDVERSION {
 		log.Fatal("Static Name must be defined with --override-name in --name-server-mode unless DNS module does not expect names (e.g., BINDVERSION).")
 	}
 	// Output Groups are defined by a base + any additional fields that the user wants
@@ -455,16 +455,16 @@ func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Res
 
 func Run(gc CLIConf, flags *pflag.FlagSet, args []string) {
 	// User can provide both a module and a list of domains to query as inputs, similar to dig
-	module, domains, err := parseArgs(args, gc.ModuleString)
+	modules, domains, err := parseArgs(args, gc.ModuleString)
 	if err != nil {
 		log.Fatal("could not parse arguments: ", err)
 	}
-	if len(gc.Module) == 0 && len(module) == 0 {
+	if len(gc.Modules) == 0 && len(modules) == 0 {
 		// no module specified by either user or command, we cannot continue
 		log.Fatal("No valid DNS lookup module specified. Please provide a module to run.")
-	} else if len(gc.Module) == 0 {
+	} else if len(gc.Modules) == 0 {
 		// Some commands set gc.Module, but most don't. If it's not set, set with module from parsing args
-		gc.Module = strings.ToUpper(module)
+		gc.Modules = modules
 	}
 
 	gc = *populateCLIConfig(&gc, domains)
@@ -475,13 +475,18 @@ func Run(gc CLIConf, flags *pflag.FlagSet, args []string) {
 	if err != nil {
 		log.Fatalf("resolver config did not pass validation: %v", err)
 	}
-	lookupModule, err := GetLookupModule(gc.Module)
-	if err != nil {
-		log.Fatalf("could not get lookup module %s: %v", gc.Module, err)
-	}
-	err = lookupModule.CLIInit(&gc, resolverConfig, flags)
-	if err != nil {
-		log.Fatalf("could not initialize lookup module (type: %s): %v", gc.Module, err)
+	// Init all lookup modules
+	lookupModules := make([]LookupModule, 0, len(gc.Modules))
+	for _, module := range gc.Modules {
+		lookupModule, err := GetLookupModule(module)
+		if err != nil {
+			log.Fatalf("could not get lookup module %s: %v", module, err)
+		}
+		err = lookupModule.CLIInit(&gc, resolverConfig, flags)
+		if err != nil {
+			log.Fatalf("could not initialize lookup module (type: %s): %v", module, err)
+		}
+		lookupModules = append(lookupModules, lookupModule)
 	}
 	// DoLookup:
 	//	- n threads that do processing from in and place results in out
@@ -526,7 +531,7 @@ func Run(gc CLIConf, flags *pflag.FlagSet, args []string) {
 	for i := 0; i < gc.Threads; i++ {
 		i := i
 		go func(threadID int) {
-			initWorkerErr := doLookupWorker(&gc, lookupModule, resolverConfig, inChan, outChan, metaChan, &lookupWG)
+			initWorkerErr := doLookupWorker(&gc, lookupModules, resolverConfig, inChan, outChan, metaChan, &lookupWG)
 			if initWorkerErr != nil {
 				log.Fatalf("could not start lookup worker #%d: %v", i, initWorkerErr)
 			}
@@ -577,7 +582,8 @@ func Run(gc CLIConf, flags *pflag.FlagSet, args []string) {
 }
 
 // doLookupWorker is a single worker thread that processes lookups from the input channel. It calls wg.Done when it is finished.
-func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, input <-chan string, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
+// if multiple LookupModules are provided, this function will look them up sequentially. Parallelism is per-domain, not per-lookup.
+func doLookupWorker(gc *CLIConf, lookups []LookupModule, rc *zdns.ResolverConfig, input <-chan string, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	resolver, err := zdns.InitResolver(rc)
 	if err != nil {
@@ -586,67 +592,70 @@ func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, i
 	var metadata routineMetadata
 	metadata.Status = make(map[zdns.Status]int)
 	for line := range input {
-		var res zdns.Result
-		var innerRes interface{}
-		var trace zdns.Trace
-		var status zdns.Status
-		var err error
-		var changed bool
-		var lookupName string
-		rawName := ""
-		nameServer := ""
-		var rank int
-		var entryMetadata string
-		if gc.AlexaFormat {
-			rawName, rank = parseAlexa(line)
-			res.AlexaRank = rank
-		} else if gc.MetadataFormat {
-			rawName, entryMetadata = parseMetadataInputLine(line)
-			res.Metadata = entryMetadata
-		} else if gc.NameServerMode {
-			nameServer, err = util.AddDefaultPortToDNSServerName(line)
-			if err != nil {
-				log.Fatal("unable to parse name server: ", line)
+		for _, lookup := range lookups {
+			var res zdns.Result
+			var innerRes interface{}
+			var trace zdns.Trace
+			var status zdns.Status
+			var err error
+			var changed bool
+			var lookupName string
+			rawName := ""
+			nameServer := ""
+			var rank int
+			var entryMetadata string
+			if gc.AlexaFormat {
+				rawName, rank = parseAlexa(line)
+				res.AlexaRank = rank
+			} else if gc.MetadataFormat {
+				rawName, entryMetadata = parseMetadataInputLine(line)
+				res.Metadata = entryMetadata
+			} else if gc.NameServerMode {
+				nameServer, err = util.AddDefaultPortToDNSServerName(line)
+				if err != nil {
+					log.Fatal("unable to parse name server: ", line)
+				}
+			} else {
+				rawName, nameServer = parseNormalInputLine(line)
 			}
-		} else {
-			rawName, nameServer = parseNormalInputLine(line)
-		}
-		lookupName, changed = makeName(rawName, gc.NamePrefix, gc.NameOverride)
-		if changed {
-			res.AlteredName = lookupName
-		}
-		res.Name = rawName
-		res.Class = dns.Class(gc.Class).String()
+			lookupName, changed = makeName(rawName, gc.NamePrefix, gc.NameOverride)
+			if changed {
+				res.AlteredName = lookupName
+			}
+			res.Name = rawName
+			res.Class = dns.Class(gc.Class).String()
 
-		startTime := time.Now()
-		innerRes, trace, status, err = lookup.Lookup(resolver, lookupName, nameServer)
+			startTime := time.Now()
+			innerRes, trace, status, err = lookup.Lookup(resolver, lookupName, nameServer)
 
-		res.Timestamp = time.Now().Format(gc.TimeFormat)
-		res.Duration = time.Since(startTime).Seconds()
-		if status != zdns.StatusNoOutput {
-			res.Status = string(status)
-			res.Data = innerRes
-			res.Trace = trace
-			if err != nil {
-				res.Error = err.Error()
+			res.Timestamp = time.Now().Format(gc.TimeFormat)
+			res.Duration = time.Since(startTime).Seconds()
+			res.Module = lookupName
+			if status != zdns.StatusNoOutput {
+				res.Status = string(status)
+				res.Data = innerRes
+				res.Trace = trace
+				if err != nil {
+					res.Error = err.Error()
+				}
+				v, _ := version.NewVersion("0.0.0")
+				o := &sheriff.Options{
+					Groups:     gc.OutputGroups,
+					ApiVersion: v,
+				}
+				data, err := sheriff.Marshal(o, res)
+				if err != nil {
+					log.Fatalf("unable to marshal result to JSON: %v", err)
+				}
+				jsonRes, err := json.Marshal(data)
+				if err != nil {
+					log.Fatalf("unable to marshal JSON result: %v", err)
+				}
+				output <- string(jsonRes)
 			}
-			v, _ := version.NewVersion("0.0.0")
-			o := &sheriff.Options{
-				Groups:     gc.OutputGroups,
-				ApiVersion: v,
-			}
-			data, err := sheriff.Marshal(o, res)
-			if err != nil {
-				log.Fatalf("unable to marshal result to JSON: %v", err)
-			}
-			jsonRes, err := json.Marshal(data)
-			if err != nil {
-				log.Fatalf("unable to marshal JSON result: %v", err)
-			}
-			output <- string(jsonRes)
+			metadata.Names++
+			metadata.Status[status]++
 		}
-		metadata.Names++
-		metadata.Status[status]++
 	}
 	metaChan <- metadata
 	return nil
@@ -713,44 +722,50 @@ func aggregateMetadata(c <-chan routineMetadata) Metadata {
 
 // parseArgs parses and validates the command line arguments to ZDNS
 // Valid usages of ZDNS are:
-// Single arg as module/query type, input is taken from std. in: zdns <module>
-// 1+ args as domains, module/query type must be passed in with --module: zdns --module=<module> <domain1> <domain2> ...
-func parseArgs(args []string, moduleString string) (module string, domains []string, err error) {
+// Single arg as module/query type(s), input is taken from std. in: zdns <module>
+//
+//	Multiple modules can be passed in space-seperated format: zdns <module1> <module2> ...
+//
+// 1+ args as domains, module/query type must be passed in with --module: zdns --module=<module(s)> <domain1> <domain2> ...
+//
+//	Multiple modules can be passed in comma-seperated format: zdns --module=<module1,module2> <domain1> <domain2> ...
+func parseArgs(args []string, moduleString string) (modules []string, domains []string, err error) {
 	if len(args) == 0 && len(moduleString) == 0 {
 		// some commands (nslookup) don't require a module, let the caller error check
-		return "", nil, nil
+		return nil, nil, nil
 	}
-	if len(args) > 1 {
-		// pre-alloc the domains slice, we know it will be at most the length of args - 1 for the mandatory module name
-		domains = make([]string, 0, len(args)-1)
-	}
-
-	// --module takes precedence
 	validLookupModulesMap := GetValidLookups()
+	// --module takes precedence
 	if len(moduleString) != 0 {
-		module = strings.ToUpper(moduleString)
-		_, ok := validLookupModulesMap[module]
-		if !ok {
-			return "", nil, fmt.Errorf("invalid lookup module specified - %s. ex: zdns A or zdns --module=A. See 'zdns --help' for applicable modules", moduleString)
-		}
-		// check if --module is one of the special commands which should be called directly.
-		if _, ok = cmds[module]; ok {
-			return "", nil, fmt.Errorf("the module specified (--module=%s) has its own arguements and must be called with 'zdns %s'. See 'zdns %s --help' for more", module, module, module)
+		// --module specified, modules are comma-seperated
+		modules = strings.Split(moduleString, ",")
+		for _, module := range modules {
+			caseSanitizedModule := strings.ToUpper(module)
+			_, ok := validLookupModulesMap[caseSanitizedModule]
+			if !ok {
+				return nil, nil, fmt.Errorf("invalid lookup module specified - %s. See 'zdns --help' for applicable modules and --module flag for guidance on passing in modules", caseSanitizedModule)
+			}
+			// module is valid, check if --module is one of the special commands which should be called directly.
+			if _, ok = cmds[module]; ok {
+				return nil, nil, fmt.Errorf("the module specified (--module=%s) has its own arguements and must be called with 'zdns %s'. See 'zdns %s --help' for more", module, module, module)
+			}
 		}
 		// alright, found the module, all args are domains
-		domains = append(domains, args...)
-		return module, domains, nil
+		return modules, args, nil
 	}
 
-	// no --module, so we must have a module name as the first arg
-	if len(args) > 1 {
-		return "", nil, errors.New("invalid args. Valid usages are 1) zdns <module> (where domains come from std. in) or 2) zdns --module=<module> <domain1> <domain2> ...")
-	}
+	// no --module, so we must have a module name(s) as the args
+	for _, module := range args {
+		caseSanitizedModule := strings.ToUpper(module)
+		_, ok := validLookupModulesMap[caseSanitizedModule]
+		if !ok {
+			return nil, nil, fmt.Errorf("invalid lookup module specified - %s. See 'zdns --help' for applicable modules and ensure modules are space-seperated", caseSanitizedModule)
+		}
+		// module is valid, check if --module is one of the special commands which should be called directly.
+		if _, ok = cmds[module]; ok && len(args) > 1 {
+			return nil, nil, fmt.Errorf("the module specified (--module=%s) has its own arguements and must be called wihtout other modules with 'zdns %s'. See 'zdns %s --help' for more", module, module, module)
+		}
 
-	// only one arg, must be a module name
-	module = strings.ToUpper(args[0])
-	if _, ok := validLookupModulesMap[module]; !ok {
-		return "", nil, fmt.Errorf("invalid lookup module specified - %s. ex: zdns A or zdns --module=A. See 'zdns --help' for applicable modules", args[0])
 	}
-	return module, nil, nil
+	return args, nil, nil
 }

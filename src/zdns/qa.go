@@ -60,6 +60,7 @@ type Result struct {
 	Duration    float64     `json:"duration,omitempty" groups:"short,normal,long,trace"` // in seconds
 	Data        interface{} `json:"data,omitempty" groups:"short,normal,long,trace"`
 	Trace       Trace       `json:"trace,omitempty" groups:"trace"`
+	Module      string      `json:"module,omitempty" groups:"short,normal,long,trace"` // ZDNS module that produced this result
 }
 
 // SingleQueryResult contains the results of a single DNS query

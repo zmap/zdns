@@ -28,6 +28,7 @@ type LookupModule interface {
 	CLIInit(gc *CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error
 	Lookup(resolver *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)
 	Help() string
+	//GetModuleName() string
 }
 
 const (
@@ -114,6 +115,7 @@ func RegisterLookupModule(name string, lm LookupModule) {
 }
 
 type BasicLookupModule struct {
+	ModuleName           string
 	IsIterative          bool
 	LookupAllNameServers bool
 	DNSType              uint16
@@ -144,6 +146,10 @@ func (lm *BasicLookupModule) Lookup(resolver *zdns.Resolver, lookupName, nameSer
 		return resolver.IterativeLookup(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass})
 	}
 	return resolver.ExternalLookup(&zdns.Question{Type: lm.DNSType, Class: lm.DNSClass, Name: lookupName}, nameServer)
+}
+
+func (lm *BasicLookupModule) GetModuleName() string {
+	return lm.ModuleName
 }
 
 func GetLookupModule(name string) (LookupModule, error) {

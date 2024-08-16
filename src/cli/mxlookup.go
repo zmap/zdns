@@ -30,7 +30,7 @@ var mxlookupCmd = &cobra.Command{
 	Long: `mxlookup will additionally do an A lookup for the IP addresses that
 correspond with an exchange record.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		GC.Module = strings.ToUpper("mxlookup")
+		GC.Modules = []string{strings.ToUpper("mxlookup")}
 		Run(GC, cmd.Flags(), args)
 	},
 }
