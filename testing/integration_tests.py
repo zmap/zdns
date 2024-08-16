@@ -40,6 +40,7 @@ def recursiveSort(obj):
 class Tests(unittest.TestCase):
     maxDiff = None
     ZDNS_EXECUTABLE = "./zdns"
+    ADDITIONAL_FLAGS = " --threads=10"  # flags used with every test
 
     def run_zdns_check_failure(self, flags, name, expected_err, executable=ZDNS_EXECUTABLE):
         flags = flags + " --threads=10"
@@ -48,22 +49,20 @@ class Tests(unittest.TestCase):
         self.assertEqual(expected_err in o.decode(), True)
 
     def run_zdns(self, flags, name, executable=ZDNS_EXECUTABLE):
-        flags = flags + " --threads=10"
+        flags = flags + self.ADDITIONAL_FLAGS
         c = f"echo '{name}' | {executable} {flags}"
         o = subprocess.check_output(c, shell=True)
         return c, json.loads(o.rstrip())
 
-    def run_zdns_multiline(self, flags, names, executable=ZDNS_EXECUTABLE):
-        d = tempfile.mkdtemp
-        f = "/".join([d, "temp"])
-        with open(f) as fd:
-            for name in names:
-                fd.writeline(name)
-        flags = flags + " --threads=10"
-        c = f"cat '{f}' | {executable} {flags}"
+    # Runs zdns with a given name(s) input and flags, returns the command and JSON objects from the piped JSON-Lines output
+    # Used when running a ZDNS command that should return multiple lines of output, and you want those in a list
+    def run_zdns_multiline_output(self, flags, name, executable=ZDNS_EXECUTABLE):
+        flags = flags + self.ADDITIONAL_FLAGS
+        c = f"echo '{name}' | {executable} {flags}"
         o = subprocess.check_output(c, shell=True)
-        os.rm(f)
-        return c, [json.loads(l.rstrip()) for l in o]
+        output_lines = o.decode('utf-8').strip().splitlines()
+        json_objects = [json.loads(line.rstrip()) for line in output_lines]
+        return c, json_objects
 
     ROOT_A = {"1.2.3.4", "2.3.4.5", "3.4.5.6"}
 
@@ -1061,20 +1060,45 @@ class Tests(unittest.TestCase):
     def test_multiple_queries(self):
         c = "A AAAA"
         name = "zdns-testing.com"
-        cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        # TODO Need to disambiguate which response goes with what query
-        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
-        self.assertEqualAnswers(res, self.ROOT_AAAA_ANSWERS, cmd)
+        cmd, reses = self.run_zdns_multiline_output(c, name)
+        for res in reses:
+            self.assertSuccess(res, cmd)
+            if res["module"] == "A":
+                self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+            elif res["module"] == "AAAA":
+                self.assertEqualAnswers(res, self.ROOT_AAAA_ANSWERS, cmd)
+            else:
+                self.fail("Unexpected module")
 
     def test_multiple_queries_dig_style(self):
         c = "--module=A,AAAA zdns-testing.com"
         name = ""
-        cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        # TODO Need to disambiguate which response goes with what query
-        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
-        self.assertEqualAnswers(res, self.ROOT_AAAA_ANSWERS, cmd)
+        cmd, reses = self.run_zdns_multiline_output(c, name)
+        for res in reses:
+            self.assertSuccess(res, cmd)
+            if res["module"] == "A":
+                self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+            elif res["module"] == "AAAA":
+                self.assertEqualAnswers(res, self.ROOT_AAAA_ANSWERS, cmd)
+            else:
+                self.fail("Unexpected module")
+
+    def test_multiple_queries_multiple_domains(self):
+        c = "A AAAA"
+        name = "zdns-testing.com\nwww.zdns-testing.com"
+        cmd, reses = self.run_zdns_multiline_output(c, name)
+        for res in reses:
+            self.assertSuccess(res, cmd)
+            if res["name"] == "zdns-testing.com" and res["module"] == "A":
+                self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+            elif res["name"] == "zdns-testing.com" and res["module"] == "AAAA":
+                self.assertEqualAnswers(res, self.ROOT_AAAA_ANSWERS, cmd)
+            elif res["name"] == "www.zdns-testing.com" and res["module"] == "A":
+                self.assertEqualAnswers(res, self.WWW_CNAME_AND_A_ANSWERS, cmd)
+            elif res["name"] == "www.zdns-testing.com" and res["module"] == "AAAA":
+                self.assertEqualAnswers(res, self.WWW_CNAME_AND_AAAA_ANSWERS, cmd)
+            else:
+                self.fail("Unexpected name or module")
 
 
 if __name__ == "__main__":
