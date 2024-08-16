@@ -471,14 +471,14 @@ func Run(gc CLIConf, flags *pflag.FlagSet, args []string) {
 	resolverConfig := populateResolverConfig(&gc)
 	// Log any information about the resolver configuration, according to log level
 	resolverConfig.PrintInfo()
-	err = resolverConfig.Validate()
-	if err != nil {
+	if err = resolverConfig.Validate(); err != nil {
 		log.Fatalf("resolver config did not pass validation: %v", err)
 	}
 	// Init all lookup modules
 	lookupModules := make([]LookupModule, 0, len(gc.Modules))
+	var lookupModule LookupModule
 	for _, module := range gc.Modules {
-		lookupModule, err := GetLookupModule(module)
+		lookupModule, err = GetLookupModule(module)
 		if err != nil {
 			log.Fatalf("could not get lookup module %s: %v", module, err)
 		}
