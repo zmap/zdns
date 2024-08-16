@@ -238,10 +238,14 @@ and parsing raw DNS packets.
 
 ZDNS also includes its own recursive resolution and a cache to further optimize performance.
 
-ZDNS can take input (usually domains and a module name) in the following ways:
+ZDNS can take input (usually domains and 1+ module name(s)) in the following ways:
 - file (./zdns A --input-file=domains.txt)
 - stream (echo "example.com" | ./zdns A)
-- as arguments (./zdns --module=A example.com google.com).`
+- as arguments (./zdns --module=A example.com google.com).
+
+Multiple modules can be passed in either:
+- as a comma-delimited --modules flag (./zdns --modules=A,AAAA example.com)
+- as space-delimited args (cat "domains.txt" | ./zdns A AAAA).`
 
 	modules := make([]string, 0, len(allModules))
 	for _, module := range allModules {
