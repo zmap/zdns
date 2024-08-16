@@ -22,10 +22,7 @@ import (
 	"github.com/zmap/zdns/src/zdns"
 )
 
-const (
-	BindVersionQueryName = "VERSION.BIND"
-	BindVersion          = "BINDVERSION"
-)
+const BindVersionQueryName = "VERSION.BIND"
 
 // result to be returned by scan of host
 type Result struct {
@@ -39,8 +36,7 @@ type BindVersionLookupModule struct {
 
 func init() {
 	b := new(BindVersionLookupModule)
-	b.ModuleName = BindVersion
-	cli.RegisterLookupModule(BindVersion, b)
+	cli.RegisterLookupModule("BINDVERSION", b)
 }
 
 // CLIInit initializes the BindVersion lookup module

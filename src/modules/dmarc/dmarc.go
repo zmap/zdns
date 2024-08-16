@@ -24,10 +24,7 @@ import (
 	"github.com/zmap/zdns/src/zdns"
 )
 
-const (
-	dmarcPrefixRegexp = "^[vV][\x09\x20]*=[\x09\x20]*DMARC1[\x09\x20]*;[\x09\x20]*"
-	dmarc             = "DMARC"
-)
+const dmarcPrefixRegexp = "^[vV][\x09\x20]*=[\x09\x20]*DMARC1[\x09\x20]*;[\x09\x20]*"
 
 // result to be returned by scan of host
 type Result struct {
@@ -36,8 +33,7 @@ type Result struct {
 
 func init() {
 	dmarcMod := new(DmarcLookupModule)
-	dmarcMod.ModuleName = dmarc
-	cli.RegisterLookupModule(dmarc, dmarcMod)
+	cli.RegisterLookupModule("DMARC", dmarcMod)
 }
 
 type DmarcLookupModule struct {
