@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sort"
 	"sync"
 
 	"github.com/spf13/cobra"
@@ -28,8 +29,27 @@ import (
 )
 
 const (
-	zdnsCLIVersion = "1.1.0"
+	zdnsCLIVersion  = "1.1.0"
+	ModulesColWidth = 14
+	ModulesPerRow   = 6
 )
+
+// Unfortunately, we can't use the moduleToLookupModule map here, as it's not available at runtime yet.
+// Variables get initialized and then init() gets run (where modules are registered), so we'll have to hardcode the list.
+var allModules = []string{
+	"A", "AAAA", "AFSDB", "ANY", "ATMA", "AVC", "AXFR", "BINDVERSION", "CAA", "CDNSKEY", "CDS", "CERT",
+	"CNAME", "CSYNC", "DHCID", "DMARC", "DNAME", "DNSKEY", "DS", "EID", "EUI48", "EUI64", "GID", "GPOS",
+	"HINFO", "HIP", "HTTPS", "ISDN", "KEY", "KX", "L32", "L64", "LOC", "LP", "MB", "MD", "MF", "MG",
+	"MR", "MX", "MXLOOKUP", "NAPTR", "NID", "NIMLOC", "NINFO", "NS", "NSAPPTR", "NSEC", "NSEC3", "NSEC3PARAM",
+	"NSLOOKUP", "NULL", "NXT", "OPENPGPKEY", "PTR", "PX", "RP", "RRSIG", "RT", "SMIMEA", "SOA", "SPF", "SRV",
+	"SSHFP", "SVCB", "TALINK", "TKEY", "TLSA", "TXT", "UID", "UINFO", "UNSPEC", "URI",
+}
+
+// cmds is a set of commands, special "modules" with their own flags. They should not be printed as "modules" or used with --module
+var cmds = map[string]struct{}{
+	"MXLOOKUP": {},
+	"NSLOOKUP": {},
+}
 
 type InputHandler interface {
 	FeedChannel(in chan<- string, wg *sync.WaitGroup) error
@@ -105,17 +125,8 @@ var GC CLIConf
 var rootCmd = &cobra.Command{
 	Use:   "zdns",
 	Short: "High-speed, low-drag DNS lookups",
-	Long: `ZDNS is a library and CLI tool for making very fast DNS requests. It's built upon
-https://github.com/zmap/dns (and in turn https://github.com/miekg/dns) for constructing
-and parsing raw DNS packets.
-
-ZDNS also includes its own recursive resolution and a cache to further optimize performance.
-
-ZDNS can take input (usually domains and a module name) in the following ways:
-- file (./zdns A --input-file=domains.txt)
-- stream (echo "example.com" | ./zdns A)
-- as arguments (./zdns --module=A example.com google.com).`,
-	Args: cobra.MatchAll(),
+	Long:  getRootCmdLongText(),
+	Args:  cobra.MatchAll(),
 	Run: func(cmd *cobra.Command, args []string) {
 		Run(GC, cmd.Flags(), args)
 	},
@@ -217,4 +228,44 @@ func initConfig() {
 	}
 	// Bind the current command's flags to viper
 	util.BindFlags(rootCmd, viper.GetViper(), util.EnvPrefix)
+}
+
+// getRootCmdLongText dynamically generates the list of available modules for the long --help text
+func getRootCmdLongText() string {
+	rootCmdLongText := `ZDNS is a library and CLI tool for making very fast DNS requests. It's built upon
+https://github.com/zmap/dns (and in turn https://github.com/miekg/dns) for constructing
+and parsing raw DNS packets.
+
+ZDNS also includes its own recursive resolution and a cache to further optimize performance.
+
+ZDNS can take input (usually domains and a module name) in the following ways:
+- file (./zdns A --input-file=domains.txt)
+- stream (echo "example.com" | ./zdns A)
+- as arguments (./zdns --module=A example.com google.com).`
+
+	modules := make([]string, 0, len(allModules))
+	for _, module := range allModules {
+		if _, ok := cmds[module]; ok {
+			// these are their own command, do not print them as a module
+			continue
+		}
+		modules = append(modules, module)
+	}
+	// sort modules alphabetically
+	sort.Strings(modules)
+	rootCmdLongText += "\n\nAvailable modules:\n"
+	// print in grid format for readability
+	for i, module := range modules {
+		rootCmdLongText += fmt.Sprintf("%-*s", ModulesColWidth, module)
+		if (i+1)%ModulesPerRow == 0 {
+			rootCmdLongText += "\n"
+		}
+	}
+
+	// If the number of modules isn't a multiple of 4, ensure a final newline
+	if len(modules)%ModulesPerRow != 0 {
+		fmt.Println()
+		rootCmdLongText += "\n"
+	}
+	return rootCmdLongText
 }

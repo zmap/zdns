@@ -733,6 +733,10 @@ func parseArgs(args []string, moduleString string) (module string, domains []str
 		if !ok {
 			return "", nil, fmt.Errorf("invalid lookup module specified - %s. ex: zdns A or zdns --module=A. See 'zdns avail-modules' for more", moduleString)
 		}
+		// check if --module is one of the special commands which should be called directly.
+		if _, ok = cmds[module]; ok {
+			return "", nil, fmt.Errorf("the module specified (--module=%s) has its own arguements and must be called with 'zdns %s'. See 'zdns %s --help' for more", module, module, module)
+		}
 		// alright, found the module, all args are domains
 		domains = append(domains, args...)
 		return module, domains, nil
