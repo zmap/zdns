@@ -739,17 +739,18 @@ func parseArgs(args []string, moduleString string) (modules []string, domains []
 	// --modules takes precedence
 	if len(moduleString) != 0 {
 		// --modules specified, modules are comma-seperated
-		modules = strings.Split(moduleString, ",")
-		for _, module := range modules {
+		moduleStrings := strings.Split(moduleString, ",")
+		for _, module := range moduleStrings {
 			caseSanitizedModule := strings.ToUpper(module)
 			_, ok := validLookupModulesMap[caseSanitizedModule]
 			if !ok {
 				return nil, nil, fmt.Errorf("invalid lookup module specified - %s. See 'zdns --help' for applicable modules and --modules flag for guidance on passing in modules", caseSanitizedModule)
 			}
 			// module is valid, check if --modules is one of the special commands which should be called directly.
-			if _, ok = cmds[module]; ok {
+			if _, ok = cmds[caseSanitizedModule]; ok {
 				return nil, nil, fmt.Errorf("the module specified (--modules=%s) has its own arguements and must be called with 'zdns %s'. See 'zdns %s --help' for more", module, module, module)
 			}
+			modules = append(modules, caseSanitizedModule)
 		}
 		// alright, found the module, all args are domains
 		return modules, args, nil
@@ -763,10 +764,11 @@ func parseArgs(args []string, moduleString string) (modules []string, domains []
 			return nil, nil, fmt.Errorf("invalid lookup module specified - %s. See 'zdns --help' for applicable modules and ensure modules are space-seperated", caseSanitizedModule)
 		}
 		// module is valid, check if --modules is one of the special commands which should be called directly.
-		if _, ok = cmds[module]; ok && len(args) > 1 {
+		if _, ok = cmds[caseSanitizedModule]; ok && len(args) > 1 {
 			return nil, nil, fmt.Errorf("the module specified (--modules=%s) has its own arguements and must be called wihtout other modules with 'zdns %s'. See 'zdns %s --help' for more", module, module, module)
 		}
+		modules = append(modules, caseSanitizedModule)
 
 	}
-	return args, nil, nil
+	return modules, nil, nil
 }
