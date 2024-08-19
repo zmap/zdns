@@ -34,16 +34,16 @@ const (
 	ModulesPerRow   = 6
 )
 
-// Unfortunately, we can't use the moduleToLookupModule map here, as it's not available at runtime yet.
-// Variables get initialized and then init() gets run (where modules are registered), so we'll have to hardcode the list.
-var allModules = []string{
-	"A", "AAAA", "AFSDB", "ANY", "ATMA", "AVC", "AXFR", "BINDVERSION", "CAA", "CDNSKEY", "CDS", "CERT",
-	"CNAME", "CSYNC", "DHCID", "DMARC", "DNAME", "DNSKEY", "DS", "EID", "EUI48", "EUI64", "GID", "GPOS",
-	"HINFO", "HIP", "HTTPS", "ISDN", "KEY", "KX", "L32", "L64", "LOC", "LP", "MB", "MD", "MF", "MG",
-	"MR", "MX", "MXLOOKUP", "NAPTR", "NID", "NIMLOC", "NINFO", "NS", "NSAPPTR", "NSEC", "NSEC3", "NSEC3PARAM",
-	"NSLOOKUP", "NULL", "NXT", "OPENPGPKEY", "PTR", "PX", "RP", "RRSIG", "RT", "SMIMEA", "SOA", "SPF", "SRV",
-	"SSHFP", "SVCB", "TALINK", "TKEY", "TLSA", "TXT", "UID", "UINFO", "UNSPEC", "URI",
-}
+//// Unfortunately, we can't use the moduleToLookupModule map here, as it's not available at runtime yet.
+//// Variables get initialized and then init() gets run (where modules are registered), so we'll have to hardcode the list.
+//var allModules = []string{
+//	"A", "AAAA", "AFSDB", "ANY", "ATMA", "AVC", "AXFR", "BINDVERSION", "CAA", "CDNSKEY", "CDS", "CERT",
+//	"CNAME", "CSYNC", "DHCID", "DMARC", "DNAME", "DNSKEY", "DS", "EID", "EUI48", "EUI64", "GID", "GPOS",
+//	"HINFO", "HIP", "HTTPS", "ISDN", "KEY", "KX", "L32", "L64", "LOC", "LP", "MB", "MD", "MF", "MG",
+//	"MR", "MX", "MXLOOKUP", "NAPTR", "NID", "NIMLOC", "NINFO", "NS", "NSAPPTR", "NSEC", "NSEC3", "NSEC3PARAM",
+//	"NSLOOKUP", "NULL", "NXT", "OPENPGPKEY", "PTR", "PX", "RP", "RRSIG", "RT", "SMIMEA", "SOA", "SPF", "SRV",
+//	"SSHFP", "SVCB", "TALINK", "TKEY", "TLSA", "TXT", "UID", "UINFO", "UNSPEC", "URI",
+//}
 
 // cmds is a set of commands, special "modules" with their own flags. They should not be printed as "modules" or used with --module
 var cmds = map[string]struct{}{
@@ -120,18 +120,7 @@ type CLIConf struct {
 
 var cfgFile string
 var GC CLIConf
-
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
-	Use:   "zdns",
-	Short: "High-speed, low-drag DNS lookups",
-	Long:  getRootCmdLongText(),
-	Args:  cobra.MatchAll(),
-	Run: func(cmd *cobra.Command, args []string) {
-		Run(GC, cmd.Flags(), args)
-	},
-	Version: zdnsCLIVersion,
-}
+var rootCmd *cobra.Command
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
@@ -143,6 +132,18 @@ func Execute() {
 }
 
 func init() {
+	// rootCmd represents the base command when called without any subcommands
+	rootCmd = &cobra.Command{
+		Use:   "zdns",
+		Short: "High-speed, low-drag DNS lookups",
+		Long:  getRootCmdLongText(),
+		Args:  cobra.MatchAll(),
+		Run: func(cmd *cobra.Command, args []string) {
+			Run(GC, cmd.Flags(), args)
+		},
+		Version: zdnsCLIVersion,
+	}
+
 	cobra.OnInitialize(initConfig)
 
 	// Here you will define your flags and configuration settings.
@@ -243,8 +244,8 @@ ZDNS can take input (usually domains and a module name) in the following ways:
 - stream (echo "example.com" | ./zdns A)
 - as arguments (./zdns --module=A example.com google.com).`
 
-	modules := make([]string, 0, len(allModules))
-	for _, module := range allModules {
+	modules := make([]string, 0, len(moduleToLookupModule))
+	for module, _ := range moduleToLookupModule {
 		if _, ok := cmds[module]; ok {
 			// these are their own command, do not print them as a module
 			continue

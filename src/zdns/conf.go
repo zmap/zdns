@@ -14,17 +14,6 @@
 
 package zdns
 
-//type Metadata struct {
-//	Names       int            `json:"names"`
-//	Status      map[string]int `json:"statuses"`
-//	StartTime   string         `json:"start_time"`
-//	EndTime     string         `json:"end_time"`
-//	NameServers []string       `json:"name_servers"`
-//	Timeout     int            `json:"timeout"`
-//	Retries     int            `json:"retries"`
-//	Conf        *GlobalConf    `json:"conf"`
-//}
-
 type TargetedDomain struct {
 	Domain      string   `json:"domain"`
 	Nameservers []string `json:"nameservers"`
