@@ -238,7 +238,7 @@ ZDNS can take input (usually domains and a module name) in the following ways:
 - as arguments (./zdns --module=A example.com google.com).`
 
 	modules := make([]string, 0, len(moduleToLookupModule))
-	for module, _ := range moduleToLookupModule {
+	for module := range moduleToLookupModule {
 		if _, ok := cmds[module]; ok {
 			// these are their own command, do not print them as a module
 			continue
