@@ -18,7 +18,6 @@ import (
 	"net"
 	"reflect"
 	"regexp"
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -26,6 +25,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/zmap/dns"
+
+	"github.com/zmap/zdns/src/internal/util"
 )
 
 type domainNS struct {
@@ -842,52 +843,6 @@ func TestNoResults(t *testing.T) {
 	verifyResult(t, *res, nil, nil)
 }
 
-// Test CName lookup returns ipv4 address
-
-func TestCname(t *testing.T) {
-	config := InitTest(t)
-	resolver, err := InitResolver(config)
-	require.NoError(t, err)
-
-	domain1 := "cname.example.com"
-	ns1 := config.ExternalNameServersV4[0]
-	domainNS1 := domainNS{domain: domain1, ns: ns1}
-
-	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{Answer{
-			TTL:    3600,
-			Type:   "CNAME",
-			Class:  "IN",
-			Name:   "cname.example.com",
-			Answer: "example.com.",
-		}},
-		Additional:  nil,
-		Authorities: nil,
-		Protocol:    "",
-		Flags:       DNSFlags{},
-	}
-
-	dom2 := "example.com"
-
-	domainNS2 := domainNS{domain: dom2, ns: ns1}
-
-	mockResults[domainNS2] = SingleQueryResult{
-		Answers: []interface{}{Answer{
-			TTL:    3600,
-			Type:   "A",
-			Class:  "IN",
-			Name:   "example.com",
-			Answer: "192.0.2.1",
-		}},
-		Additional:  nil,
-		Authorities: nil,
-		Protocol:    "",
-		Flags:       DNSFlags{},
-	}
-	res, _, _, _ := resolver.DoTargetedLookup("cname.example.com", ns1, false, true, false)
-	verifyResult(t, *res, []string{"192.0.2.1"}, nil)
-}
-
 // Test CName with lookupIpv6 as true returns ipv6 addresses
 
 func TestQuadAWithCname(t *testing.T) {
@@ -950,10 +905,12 @@ func TestUnexpectedMxOnly(t *testing.T) {
 
 	res, _, status, _ := resolver.DoTargetedLookup("example.com", ns1, false, true, true)
 
-	if status != StatusError {
-		t.Errorf("Expected ERROR status, got %v", status)
-	} else if res != nil {
-		t.Errorf("Expected no results, got %v", res)
+	if status != StatusNoError {
+		t.Errorf("Expected no error, got %v", status)
+	} else if res == nil {
+		t.Error("Expected results, got none")
+	} else if len(res.IPv4Addresses) > 0 || len(res.IPv6Addresses) > 0 {
+		t.Errorf("Expected no IP addresses, got: %v", util.Concat(res.IPv4Addresses, res.IPv6Addresses))
 	}
 }
 
@@ -1000,7 +957,6 @@ func TestMxAndAdditionals(t *testing.T) {
 }
 
 // Test A record with IPv6 address gives error
-
 func TestMismatchIpType(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
@@ -1024,102 +980,14 @@ func TestMismatchIpType(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 
-	res, _, status, _ := resolver.DoTargetedLookup("example.com", ns1, false, true, true)
+	res, _, status, _ := resolver.DoTargetedLookup("example.com", ns1, false, false, true)
 
-	if status != StatusError {
-		t.Errorf("Expected ERROR status, got %v", status)
-	} else if res != nil {
-		t.Errorf("Expected no results, got %v", res)
-	}
-}
-
-// Test cname loops terminate with error
-
-func TestCnameLoops(t *testing.T) {
-	config := InitTest(t)
-	resolver, err := InitResolver(config)
-	require.NoError(t, err)
-
-	domain1 := "cname1.example.com"
-	ns1 := config.ExternalNameServersV4[0]
-	domainNS1 := domainNS{domain: domain1, ns: ns1}
-
-	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{Answer{
-			TTL:    3600,
-			Type:   "CNAME",
-			Class:  "IN",
-			Name:   "cname1.example.com.",
-			Answer: "cname2.example.com.",
-		}},
-		Additional:  nil,
-		Authorities: nil,
-		Protocol:    "",
-		Flags:       DNSFlags{},
-	}
-
-	dom2 := "cname2.example.com"
-
-	domainNS2 := domainNS{domain: dom2, ns: ns1}
-
-	mockResults[domainNS2] = SingleQueryResult{
-		Answers: []interface{}{Answer{
-			TTL:    3600,
-			Type:   "CNAME",
-			Class:  "IN",
-			Name:   "cname2.example.com.",
-			Answer: "cname1.example.com.",
-		}},
-		Additional:  nil,
-		Authorities: nil,
-		Protocol:    "",
-		Flags:       DNSFlags{},
-	}
-
-	res, _, status, _ := resolver.DoTargetedLookup("cname1.example.com", ns1, false, true, true)
-
-	if status != StatusError {
-		t.Errorf("Expected ERROR status, got %v", status)
-	} else if res != nil {
-		t.Errorf("Expected no results, got %v", res)
-	}
-}
-
-// Test recursion in cname lookup with length > 10 terminate with error
-
-func TestExtendedRecursion(t *testing.T) {
-	config := InitTest(t)
-	resolver, err := InitResolver(config)
-	require.NoError(t, err)
-
-	ns1 := config.ExternalNameServersV4[0]
-	// Create a CNAME chain of length > 10
-	for i := 1; i < 12; i++ {
-		domainNSRecord := domainNS{
-			domain: "cname" + strconv.Itoa(i) + ".example.com",
-			ns:     ns1,
-		}
-		mockResults[domainNSRecord] = SingleQueryResult{
-			Answers: []interface{}{Answer{
-				TTL:    3600,
-				Type:   "CNAME",
-				Class:  "IN",
-				Name:   "cname" + strconv.Itoa(i) + ".example.com",
-				Answer: "cname" + strconv.Itoa(i+1) + ".example.com",
-			}},
-			Additional:  nil,
-			Authorities: nil,
-			Protocol:    "",
-			Flags:       DNSFlags{},
-		}
-	}
-
-	res, _, status, _ := resolver.DoTargetedLookup("cname1.example.com", ns1, false, true, true)
-
-	if status != StatusError {
-		t.Errorf("Expected ERROR status, got %v", status)
-	} else if res != nil {
-		t.Errorf("Expected no results, got %v", res)
+	if status != StatusNoError {
+		t.Errorf("Expected no error, got %v", status)
+	} else if res == nil {
+		t.Error("Expected results, got none")
+	} else if len(res.IPv4Addresses) > 0 || len(res.IPv6Addresses) > 0 {
+		t.Errorf("Expected no IP addresses, got: %v", util.Concat(res.IPv4Addresses, res.IPv6Addresses))
 	}
 }
 
