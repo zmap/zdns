@@ -124,7 +124,8 @@ friendlier interface, we also provide several _lookup_ modules: `alookup` and
 
 `mxlookup` will additionally do an A lookup for the IP addresses that
 correspond with an exchange record. `alookup` acts similar to nslookup and will
-follow CNAME records.
+follow CNAME records. `nslookup` will additionally do an A/AAAA lookup for IP 
+addresses that correspond with an NS record
 
 For example,
 
