@@ -761,6 +761,41 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd)
         self.assertEqualMXLookup(res, self.MX_LOOKUP_ANSWER_IPV4)
 
+    def test_a_lookup(self):
+        c = "alookup --ipv4-lookup --ipv6-lookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualALookup(res, self.A_LOOKUP_WWW_ZDNS_TESTING)
+
+    def test_a_lookup_iterative(self):
+        c = "alookup --ipv4-lookup --ipv6-lookup --iterative"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualALookup(res, self.A_LOOKUP_WWW_ZDNS_TESTING)
+
+    def test_a_lookup_ipv4(self):
+        c = "alookup --ipv4-lookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualALookup(res, self.A_LOOKUP_IPV4_WWW_ZDNS_TESTING)
+
+    def test_a_lookup_ipv6(self):
+        c = "alookup --ipv6-lookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualALookup(res, self.A_LOOKUP_IPV6_WWW_ZDNS_TESTING)
+
+    def test_a_lookup_default(self):
+        c = "alookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualALookup(res, self.A_LOOKUP_IPV4_WWW_ZDNS_TESTING)
+
     def test_ns_lookup(self):
         c = "nslookup --ipv4-lookup --ipv6-lookup"
         name = "www.zdns-testing.com"

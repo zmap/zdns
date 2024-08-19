@@ -1424,6 +1424,7 @@ func TestTwoNSInAdditional(t *testing.T) {
 
 func TestAandQuadAInAdditional(t *testing.T) {
 	config := InitTest(t)
+	//config.IPVersionMode = IPv4OrIPv6
 	resolver, err := InitResolver(config)
 	require.NoError(t, err)
 
@@ -1473,6 +1474,7 @@ func TestAandQuadAInAdditional(t *testing.T) {
 
 func TestNsMismatchIpType(t *testing.T) {
 	config := InitTest(t)
+	//config.IPVersionMode = IPv4OrIPv6
 	resolver, err := InitResolver(config)
 	require.NoError(t, err)
 
@@ -1522,6 +1524,7 @@ func TestNsMismatchIpType(t *testing.T) {
 
 func TestAandQuadALookup(t *testing.T) {
 	config := InitTest(t)
+	//config.IPVersionMode = IPv4OrIPv6
 	resolver, err := InitResolver(config)
 	require.NoError(t, err)
 

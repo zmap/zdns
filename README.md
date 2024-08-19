@@ -119,12 +119,12 @@ Lookup Modules
 Raw DNS responses frequently do not provide the data you _want_. For example,
 an MX response may not include the associated A records in the additionals
 section requiring an additional lookup. To address this gap and provide a
-friendlier interface, we also provide several _lookup_ modules: `nslookup` and
+friendlier interface, we also provide several _lookup_ modules: `alookup` and
 `mxlookup`.
 
 `mxlookup` will additionally do an A lookup for the IP addresses that
-correspond with an exchange record. 
-`nslookup` will additionally do an A/AAAA lookup for IP addresses that correspond with an NS record
+correspond with an exchange record. `alookup` acts similar to nslookup and will
+follow CNAME records.
 
 For example,
 
