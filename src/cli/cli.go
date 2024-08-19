@@ -34,18 +34,8 @@ const (
 	ModulesPerRow   = 6
 )
 
-//// Unfortunately, we can't use the moduleToLookupModule map here, as it's not available at runtime yet.
-//// Variables get initialized and then init() gets run (where modules are registered), so we'll have to hardcode the list.
-//var allModules = []string{
-//	"A", "AAAA", "AFSDB", "ANY", "ATMA", "AVC", "AXFR", "BINDVERSION", "CAA", "CDNSKEY", "CDS", "CERT",
-//	"CNAME", "CSYNC", "DHCID", "DMARC", "DNAME", "DNSKEY", "DS", "EID", "EUI48", "EUI64", "GID", "GPOS",
-//	"HINFO", "HIP", "HTTPS", "ISDN", "KEY", "KX", "L32", "L64", "LOC", "LP", "MB", "MD", "MF", "MG",
-//	"MR", "MX", "MXLOOKUP", "NAPTR", "NID", "NIMLOC", "NINFO", "NS", "NSAPPTR", "NSEC", "NSEC3", "NSEC3PARAM",
-//	"NSLOOKUP", "NULL", "NXT", "OPENPGPKEY", "PTR", "PX", "RP", "RRSIG", "RT", "SMIMEA", "SOA", "SPF", "SRV",
-//	"SSHFP", "SVCB", "TALINK", "TKEY", "TLSA", "TXT", "UID", "UINFO", "UNSPEC", "URI",
-//}
-
-// cmds is a set of commands, special "modules" with their own flags. They should not be printed as "modules" or used with --module
+// cmds is a set of commands, special "modules" with their own flags. They should not be printed as "modules" in --help or used with --module
+// They must be used as their own command, e.g. zdns MXLOOKUP
 var cmds = map[string]struct{}{
 	"MXLOOKUP": {},
 	"NSLOOKUP": {},
@@ -120,11 +110,26 @@ type CLIConf struct {
 
 var cfgFile string
 var GC CLIConf
-var rootCmd *cobra.Command
+
+// rootCmd represents the base command when called without any subcommands
+var rootCmd = &cobra.Command{
+	Use:   "zdns",
+	Short: "High-speed, low-drag DNS lookups",
+	// Cannot register Long description here, we'll wait for all modules to register themselves in their init() functions
+	// and then generate the long description during Execute.
+	Args: cobra.MatchAll(),
+	Run: func(cmd *cobra.Command, args []string) {
+		Run(GC, cmd.Flags(), args)
+	},
+	Version: zdnsCLIVersion,
+}
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	// This must be run after all modules are registered in the various init() functions
+	rootCmd.Long = getRootCmdLongText()
+
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
@@ -132,18 +137,6 @@ func Execute() {
 }
 
 func init() {
-	// rootCmd represents the base command when called without any subcommands
-	rootCmd = &cobra.Command{
-		Use:   "zdns",
-		Short: "High-speed, low-drag DNS lookups",
-		Long:  getRootCmdLongText(),
-		Args:  cobra.MatchAll(),
-		Run: func(cmd *cobra.Command, args []string) {
-			Run(GC, cmd.Flags(), args)
-		},
-		Version: zdnsCLIVersion,
-	}
-
 	cobra.OnInitialize(initConfig)
 
 	// Here you will define your flags and configuration settings.

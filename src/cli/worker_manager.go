@@ -454,18 +454,26 @@ func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Res
 }
 
 func Run(gc CLIConf, flags *pflag.FlagSet, args []string) {
-	// User can provide both a module and a list of domains to query as inputs, similar to dig
-	module, domains, err := parseArgs(args, gc.ModuleString)
+	// if this is one of the special commands registered with Cobra, it'll have it's module already set
+	var module string
+	var domains []string
+	var err error
+	if _, ok := cmds[strings.ToUpper(gc.Module)]; ok {
+		domains, err = parseArgsWithCobraCmd(args, gc.ModuleString, gc.Module)
+		module = strings.ToUpper(gc.Module)
+	} else if len(gc.ModuleString) != 0 {
+		module, domains, err = parseArgsWithModuleFlag(args, gc.ModuleString)
+	} else {
+		module, domains, err = parseArgsWithoutModuleFlag(args)
+	}
 	if err != nil {
 		log.Fatal("could not parse arguments: ", err)
 	}
-	if len(gc.Module) == 0 && len(module) == 0 {
-		// no module specified by either user or command, we cannot continue
+	if len(module) == 0 {
+		// no module specified, we cannot continue
 		log.Fatal("No valid DNS lookup module specified. Please provide a module to run.")
-	} else if len(gc.Module) == 0 {
-		// Some commands set gc.Module, but most don't. If it's not set, set with module from parsing args
-		gc.Module = strings.ToUpper(module)
 	}
+	gc.Module = module
 
 	gc = *populateCLIConfig(&gc, domains)
 	resolverConfig := populateResolverConfig(&gc)
@@ -711,46 +719,45 @@ func aggregateMetadata(c <-chan routineMetadata) Metadata {
 	return meta
 }
 
-// parseArgs parses and validates the command line arguments to ZDNS
-// Valid usages of ZDNS are:
-// Single arg as module/query type, input is taken from std. in: zdns <module>
-// 1+ args as domains, module/query type must be passed in with --module: zdns --module=<module> <domain1> <domain2> ...
-func parseArgs(args []string, moduleString string) (module string, domains []string, err error) {
-	if len(args) == 0 && len(moduleString) == 0 {
-		// some commands (nslookup) don't require a module, let the caller error check
-		return "", nil, nil
+func parseArgsWithModuleFlag(args []string, moduleString string) (module string, domains []string, err error) {
+	// --module flag is set, so we must have a module name as the first arg
+	module = strings.ToUpper(moduleString)
+	if _, ok := cmds[module]; ok {
+		return "", nil, fmt.Errorf("the module specified (--module=%s) has its own arguements and must be called with 'zdns %s'. See 'zdns %s --help' for more", module, module, module)
 	}
-	if len(args) > 1 {
-		// pre-alloc the domains slice, we know it will be at most the length of args - 1 for the mandatory module name
-		domains = make([]string, 0, len(args)-1)
+	if _, ok := GetValidLookups()[module]; !ok {
+		return "", nil, fmt.Errorf("invalid lookup module specified - %s. ex: zdns A or zdns --module=A. See 'zdns --help' for applicable modules", moduleString)
 	}
+	// treating all args as domains
+	return module, args, nil
+}
 
-	// --module takes precedence
-	validLookupModulesMap := GetValidLookups()
+// parseArgsWithCobraCmd parses the arguments for a ZDNS command like mxlookup or nslookup, which are registered as Cobra
+// commands and have their own special flags.
+// Other `--modules` are not compatible with these.
+func parseArgsWithCobraCmd(args []string, moduleString, cmd string) (domains []string, err error) {
 	if len(moduleString) != 0 {
-		module = strings.ToUpper(moduleString)
-		_, ok := validLookupModulesMap[module]
-		if !ok {
-			return "", nil, fmt.Errorf("invalid lookup module specified - %s. ex: zdns A or zdns --module=A. See 'zdns --help' for applicable modules", moduleString)
-		}
-		// check if --module is one of the special commands which should be called directly.
-		if _, ok = cmds[module]; ok {
-			return "", nil, fmt.Errorf("the module specified (--module=%s) has its own arguements and must be called with 'zdns %s'. See 'zdns %s --help' for more", module, module, module)
-		}
-		// alright, found the module, all args are domains
-		domains = append(domains, args...)
-		return module, domains, nil
+		return nil, fmt.Errorf("%s command is not compatabile with --modules and should be invoked alone", cmd)
 	}
-
-	// no --module, so we must have a module name as the first arg
-	if len(args) > 1 {
-		return "", nil, errors.New("invalid args. Valid usages are 1) zdns <module> (where domains come from std. in) or 2) zdns --module=<module> <domain1> <domain2> ...")
+	if len(args) == 0 {
+		// no args, we'll read from stdin
+		return nil, nil
 	}
+	// treat args as domains
+	return args, nil
+}
 
-	// only one arg, must be a module name
+func parseArgsWithoutModuleFlag(args []string) (module string, domains []string, err error) {
+	// no --module flag, so we must have a module name as the first arg
+	if len(args) == 0 {
+		return "", nil, errors.New("no module specified. Valid usages are 1) zdns <module> (where domains come from std. in) or 2) zdns --module=<module> <domain1> <domain2> ... See zdns --help for applicable modules")
+	}
 	module = strings.ToUpper(args[0])
-	if _, ok := validLookupModulesMap[module]; !ok {
+	if _, ok := GetValidLookups()[module]; !ok {
 		return "", nil, fmt.Errorf("invalid lookup module specified - %s. ex: zdns A or zdns --module=A. See 'zdns --help' for applicable modules", args[0])
+	}
+	if len(args) > 1 {
+		return "", nil, errors.New("invalid args, cannot mix domains with module in args. Valid usages are 1) zdns <module> (where domains come from std. in) or 2) zdns --module=<module> <domain1> <domain2> ...")
 	}
 	return module, nil, nil
 }
