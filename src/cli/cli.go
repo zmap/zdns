@@ -97,7 +97,6 @@ type CLIConf struct {
 	Class              uint16
 }
 
-// var cfgFile string
 var GC CLIConf
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -120,4 +119,11 @@ func Execute() {
 
 func init() {
 	parser = flags.NewParser(&GC, flags.Default)
+	parser.Name = "zdns"
+	parser.Usage = "command [options] ex: zdns A --iterative"
+	parser.ShortDescription = "High-speed, low-drag DNS lookups"
+	parser.LongDescription = `ZDNS is a library and CLI tool for making very fast DNS requests. It's built upon
+https://github.com/zmap/dns (and in turn https://github.com/miekg/dns) for constructing
+and parsing raw DNS packets.
+ZDNS also includes its own recursive resolution and a cache to further optimize performance.`
 }
