@@ -67,7 +67,7 @@ func TestLookup_DoTxtLookup_Valid_1(t *testing.T) {
 			zdns.Answer{Name: "google.com", Answer: "v=spf1 mx include:_spf.google.com -all"}},
 	}
 	spfModule := SpfLookupModule{}
-	err := spfModule.CLIInit(&cli.CLIConf{}, &zdns.ResolverConfig{LookupClient: MockLookup{}}, nil)
+	err := spfModule.CLIInit(&cli.CLIConf{}, &zdns.ResolverConfig{LookupClient: MockLookup{}})
 	assert.NilError(t, err)
 	res, _, status, _ := spfModule.Lookup(resolver, "google.com", "")
 	assert.Equal(t, queries[0].Class, uint16(dns.ClassINET))
@@ -87,7 +87,7 @@ func TestLookup_DoTxtLookup_Valid_2(t *testing.T) {
 			zdns.Answer{Name: "google.com", Answer: "V=SpF1 mx include:_spf.google.com -all"}},
 	}
 	spfModule := SpfLookupModule{}
-	err := spfModule.CLIInit(&cli.CLIConf{}, &zdns.ResolverConfig{LookupClient: MockLookup{}}, nil)
+	err := spfModule.CLIInit(&cli.CLIConf{}, &zdns.ResolverConfig{LookupClient: MockLookup{}})
 	assert.NilError(t, err)
 	res, _, status, _ := spfModule.Lookup(resolver, "google.com", "")
 	assert.Equal(t, queries[0].Class, uint16(dns.ClassINET))
@@ -107,7 +107,7 @@ func TestLookup_DoTxtLookup_NotValid_1(t *testing.T) {
 			zdns.Answer{Name: "google.com", Answer: "  V  =  SpF1 mx include:_spf.google.com -all"}},
 	}
 	spfModule := SpfLookupModule{}
-	err := spfModule.CLIInit(&cli.CLIConf{}, &zdns.ResolverConfig{LookupClient: MockLookup{}}, nil)
+	err := spfModule.CLIInit(&cli.CLIConf{}, &zdns.ResolverConfig{LookupClient: MockLookup{}})
 	assert.NilError(t, err)
 	res, _, status, _ := spfModule.Lookup(resolver, "google.com", "")
 	assert.Equal(t, queries[0].Class, uint16(dns.ClassINET))
@@ -127,7 +127,7 @@ func TestLookup_DoTxtLookup_NotValid_2(t *testing.T) {
 			zdns.Answer{Name: "google.com", Answer: "some other TXT record but no SPF"}},
 	}
 	spfModule := SpfLookupModule{}
-	err := spfModule.CLIInit(&cli.CLIConf{}, &zdns.ResolverConfig{LookupClient: MockLookup{}}, nil)
+	err := spfModule.CLIInit(&cli.CLIConf{}, &zdns.ResolverConfig{LookupClient: MockLookup{}})
 	assert.NilError(t, err)
 	res, _, status, _ := spfModule.Lookup(resolver, "google.com", "")
 	assert.Equal(t, queries[0].Class, uint16(dns.ClassINET))
@@ -142,7 +142,7 @@ func TestLookup_DoTxtLookup_NotValid_2(t *testing.T) {
 func TestLookup_DoTxtLookup_NoTXT(t *testing.T) {
 	resolver := InitTest(t)
 	spfModule := SpfLookupModule{}
-	err := spfModule.CLIInit(&cli.CLIConf{}, &zdns.ResolverConfig{LookupClient: MockLookup{}}, nil)
+	err := spfModule.CLIInit(&cli.CLIConf{}, &zdns.ResolverConfig{LookupClient: MockLookup{}})
 	assert.NilError(t, err)
 	res, _, status, _ := spfModule.Lookup(resolver, "example.com", "")
 	assert.Equal(t, queries[0].Class, uint16(dns.ClassINET))
