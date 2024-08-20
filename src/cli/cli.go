@@ -106,7 +106,13 @@ var GC CLIConf
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	os.Args[1] = strings.ToUpper(os.Args[1])
+	if len(os.Args) >= 2 {
+		// the below is necessary or else zdns --help is converted to zdns --HELP
+		if _, ok := GetValidLookups()[strings.ToUpper(os.Args[1])]; ok {
+			// we want users to be able to use `zdns nslookup` as well as `zdns NSLOOKUP`
+			os.Args[1] = strings.ToUpper(os.Args[1])
+		}
+	}
 	_, moduleType, _, err := parser.ParseCommandLine(os.Args[1:])
 	if err != nil {
 		os.Exit(1)
