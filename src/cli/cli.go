@@ -120,7 +120,7 @@ func Execute() {
 func init() {
 	parser = flags.NewParser(&GC, flags.Default)
 	parser.Name = "zdns"
-	parser.Usage = "command [options] ex: zdns A --iterative"
+	parser.Usage = "[options]"
 	parser.ShortDescription = "High-speed, low-drag DNS lookups"
 	parser.LongDescription = `ZDNS is a library and CLI tool for making very fast DNS requests. It's built upon
 https://github.com/zmap/dns (and in turn https://github.com/miekg/dns) for constructing
