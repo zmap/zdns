@@ -17,10 +17,11 @@ package util
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
 	"net"
 	"regexp"
 	"strconv"
+
+	"github.com/pkg/errors"
 )
 
 const (
