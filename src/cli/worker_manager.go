@@ -170,7 +170,7 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
 	config.LookupAllNameServers = gc.LookupAllNameServers
-	config.FollowCNAMEs = gc.FollowCNAMEs
+	config.FollowCNAMEs = !gc.DisableFollowCNAMEs // ZFlags only allows default-false bool flags. We'll invert here.
 
 	if gc.UseNSID {
 		config.EdnsOptions = append(config.EdnsOptions, new(dns.EDNS0_NSID))
@@ -183,7 +183,7 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config.Retries = gc.Retries
 	config.MaxDepth = gc.MaxDepth
 	config.CheckingDisabledBit = gc.CheckingDisabled
-	config.ShouldRecycleSockets = gc.RecycleSockets
+	config.ShouldRecycleSockets = !gc.DisableRecycleSockets
 	config.DNSSecEnabled = gc.Dnssec
 	config.DNSConfigFilePath = gc.ConfigFilePath
 

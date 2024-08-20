@@ -6,6 +6,7 @@ require (
 	github.com/hashicorp/go-version v1.7.0
 	github.com/liip/sheriff v0.12.0
 	github.com/pkg/errors v0.9.1
+	github.com/schollz/progressbar/v3 v3.14.4
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
@@ -13,6 +14,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/zmap/dns v1.1.59-zdns-4
 	github.com/zmap/go-iptree v0.0.0-20210731043055-d4e632617837
+	github.com/zmap/zflags v1.4.0-beta.1.0.20200204220219-9d95409821b6
 	gotest.tools/v3 v3.5.1
 )
 
@@ -31,7 +33,6 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sagikazarmark/locafero v0.6.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
-	github.com/schollz/progressbar/v3 v3.14.4 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
