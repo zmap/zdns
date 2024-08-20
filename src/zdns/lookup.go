@@ -239,7 +239,7 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 		}
 	}
 	log.Debugf("MIEKG-IN: max recursion depth reached for %s lookup", originalName)
-	return nil, trace, StatusServFail, nil
+	return nil, trace, StatusServFail, errors.New("max recursion depth reached")
 }
 
 // isLookupComplete checks if there's a valid answer using the originalName and following CNAMES

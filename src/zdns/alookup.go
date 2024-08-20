@@ -14,8 +14,9 @@
 package zdns
 
 import (
-	"github.com/pkg/errors"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"github.com/zmap/dns"
 
@@ -34,11 +35,12 @@ func (r *Resolver) DoTargetedLookup(name, nameServer string, isIterative, lookup
 	var ipv6Trace Trace
 	var ipv4status Status
 	var ipv6status Status
+	var err error
 
 	if lookupA && isIterative {
-		singleQueryRes, ipv4Trace, ipv4status, _ = r.IterativeLookup(&Question{Name: name, Type: dns.TypeA, Class: dns.ClassINET})
+		singleQueryRes, ipv4Trace, ipv4status, err = r.IterativeLookup(&Question{Name: name, Type: dns.TypeA, Class: dns.ClassINET})
 	} else if lookupA {
-		singleQueryRes, ipv4Trace, ipv4status, _ = r.ExternalLookup(&Question{Name: name, Type: dns.TypeA, Class: dns.ClassINET}, nameServer)
+		singleQueryRes, ipv4Trace, ipv4status, err = r.ExternalLookup(&Question{Name: name, Type: dns.TypeA, Class: dns.ClassINET}, nameServer)
 	}
 	ipv4, _ = getIPAddressesFromQueryResult(singleQueryRes, "A", name)
 	if len(ipv4) > 0 {
@@ -65,9 +67,9 @@ func (r *Resolver) DoTargetedLookup(name, nameServer string, isIterative, lookup
 	// IPv4 or IPv6 lookup, we return that status.
 	if len(res.IPv4Addresses) == 0 && len(res.IPv6Addresses) == 0 {
 		if lookupA && !SafeStatus(ipv4status) {
-			return nil, combinedTrace, ipv4status, nil
+			return nil, combinedTrace, ipv4status, err
 		} else if lookupAAAA && !SafeStatus(ipv6status) {
-			return nil, combinedTrace, ipv6status, nil
+			return nil, combinedTrace, ipv6status, err
 		} else {
 			return &res, combinedTrace, StatusNoError, nil
 		}
