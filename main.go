@@ -23,6 +23,7 @@ import (
 	"github.com/zmap/zdns/src/cli"
 	// the order of these imports is important, as the modules are registered in the init() functions.
 	// Import modules after the basic cmd pkg
+	_ "github.com/zmap/zdns/src/modules/alookup"
 	_ "github.com/zmap/zdns/src/modules/axfr"
 	_ "github.com/zmap/zdns/src/modules/bindversion"
 	_ "github.com/zmap/zdns/src/modules/dmarc"

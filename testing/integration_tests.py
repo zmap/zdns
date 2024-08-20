@@ -162,6 +162,17 @@ class Tests(unittest.TestCase):
         }
     }
 
+    A_LOOKUP_CNAME_CHAIN_03 = {
+        "name": "cname-chain-03.esrg.stanford.edu",
+        "class": "IN",
+        "status": "NOERROR",
+        "data": {
+            "ipv4_addresses": [
+                "1.2.3.4",
+            ],
+        }
+    }
+
     A_LOOKUP_IPV4_WWW_ZDNS_TESTING = copy.deepcopy(A_LOOKUP_WWW_ZDNS_TESTING)
     del A_LOOKUP_IPV4_WWW_ZDNS_TESTING["data"]["ipv6_addresses"]
     A_LOOKUP_IPV6_WWW_ZDNS_TESTING = copy.deepcopy(A_LOOKUP_WWW_ZDNS_TESTING)
@@ -760,6 +771,69 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualMXLookup(res, self.MX_LOOKUP_ANSWER_IPV4)
+
+    def test_a_lookup(self):
+        c = "alookup --ipv4-lookup --ipv6-lookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualALookup(res, self.A_LOOKUP_WWW_ZDNS_TESTING)
+
+    def test_a_lookup_iterative(self):
+        c = "alookup --ipv4-lookup --ipv6-lookup --iterative"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualALookup(res, self.A_LOOKUP_WWW_ZDNS_TESTING)
+
+    def test_a_lookup_ipv4(self):
+        c = "alookup --ipv4-lookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualALookup(res, self.A_LOOKUP_IPV4_WWW_ZDNS_TESTING)
+
+    def test_a_lookup_ipv6(self):
+        c = "alookup --ipv6-lookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualALookup(res, self.A_LOOKUP_IPV6_WWW_ZDNS_TESTING)
+
+    def test_a_lookup_default(self):
+        c = "alookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualALookup(res, self.A_LOOKUP_IPV4_WWW_ZDNS_TESTING)
+
+    def test_a_lookup_iterative_cname_loop(self):
+        c = "alookup --iterative"
+        name = "cname-loop.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        assert len(res["data"]) == 0
+
+    # There exists DNS records in esrg.stanford.edu and zdns-testing.com of the form:
+    # cname-chain-01.esrg.stanford.edu CNAME cname-chain-02.zdns-testing.com.
+    # cname-chain-02.zdns-testing.com CNAME cname-chain-03.esrg.stanford.edu.
+    # ...
+    # cname-chain-11.esrg.stanford.edu CNAME cname-chain-12.zdns-testing.com.
+    # cname-chain-12.zdns-testing.com A 1.2.3.4
+    # We only follow 10 CNAMEs in a chain, so we should not be able to resolve the A record using cname-chain-01
+    def test_a_lookup_cname_chain_too_long(self):
+        c = "alookup --iterative --ipv4-lookup"
+        name = "cname-chain-01.esrg.stanford.edu"
+        cmd, res = self.run_zdns(c, name)
+        self.assertServFail(res, cmd)
+
+    def test_a_lookup_cname_chain(self):
+        c = "alookup --iterative --ipv4-lookup"
+        name = "cname-chain-03.esrg.stanford.edu"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualALookup(res, self.A_LOOKUP_CNAME_CHAIN_03)
+
 
     def test_ns_lookup(self):
         c = "nslookup --ipv4-lookup --ipv6-lookup"
