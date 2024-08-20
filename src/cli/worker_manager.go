@@ -29,7 +29,6 @@ import (
 	"github.com/liip/sheriff"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/src/cli/iohandlers"
@@ -61,7 +60,7 @@ type Metadata struct {
 	ZDNSVersion string         `json:"zdns_version"`
 }
 
-func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
+func populateCLIConfig(gc *CLIConf) *CLIConf {
 	if gc.LogFilePath != "" && gc.LogFilePath != "-" {
 		f, err := os.OpenFile(gc.LogFilePath, os.O_WRONLY|os.O_CREATE, util.DefaultFilePermissions)
 		if err != nil {
@@ -452,8 +451,8 @@ func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Res
 	return config, nil
 }
 
-func Run(gc CLIConf, flags *pflag.FlagSet) {
-	gc = *populateCLIConfig(&gc, flags)
+func Run(gc CLIConf) {
+	gc = *populateCLIConfig(&gc)
 	resolverConfig := populateResolverConfig(&gc)
 	// Log any information about the resolver configuration, according to log level
 	resolverConfig.PrintInfo()
@@ -465,7 +464,7 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 	if err != nil {
 		log.Fatal("could not get lookup module: ", err)
 	}
-	err = lookupModule.CLIInit(&gc, resolverConfig, flags)
+	err = lookupModule.CLIInit(&gc, resolverConfig)
 	if err != nil {
 		log.Fatalf("could not initialize lookup module (type: %s): %v", gc.Module, err)
 	}

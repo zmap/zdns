@@ -15,7 +15,6 @@
 package bindversion
 
 import (
-	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/src/cli"
@@ -42,8 +41,8 @@ func init() {
 }
 
 // CLIInit initializes the BindVersion lookup module
-func (bindVersionMod *BindVersionLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
-	return bindVersionMod.BasicLookupModule.CLIInit(gc, rc, flags)
+func (bindVersionMod *BindVersionLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig) error {
+	return bindVersionMod.BasicLookupModule.CLIInit(gc, rc)
 }
 
 func (bindVersionMod *BindVersionLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {

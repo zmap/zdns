@@ -19,7 +19,6 @@ import (
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/src/cli"
@@ -52,52 +51,37 @@ type MXResult struct {
 }
 
 type MXLookupModule struct {
-	IPv4Lookup  bool
-	IPv6Lookup  bool
-	MXCacheSize int
+	IPv4Lookup  bool `long:"ipv4-lookup" description:"perform A lookups for each MX server"`
+	IPv6Lookup  bool `long:"ipv6-lookup" description:"perform AAAA record lookups for each MX server"`
+	MXCacheSize int  `long:"mx-cache-size" default:"1000" description:"number of records to store in MX -> A/AAAA cache"`
 	CacheHash   *cachehash.CacheHash
 	CHmu        sync.Mutex
 	cli.BasicLookupModule
 }
 
 // CLIInit initializes the MXLookupModule with the given parameters, used to call MXLookup from the command line
-func (mxMod *MXLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig, f *pflag.FlagSet) error {
-	ipv4Lookup, err := f.GetBool("ipv4-lookup")
-	if err != nil {
-		return errors.Wrap(err, "failed to get ipv4-lookup flag")
-	}
-	ipv6Lookup, err := f.GetBool("ipv6-lookup")
-	if err != nil {
-		return errors.Wrap(err, "failed to get ipv6-lookup flag")
-	}
-	mxCacheSize, err := f.GetInt("mx-cache-size")
-	if err != nil {
-		return errors.Wrap(err, "failed to get mx-cache-size flag")
-	}
-	if !ipv4Lookup && !ipv6Lookup {
+func (mxMod *MXLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig) error {
+	if !mxMod.IPv4Lookup && !mxMod.IPv6Lookup {
 		// need to use one of the two
-		ipv4Lookup = true
+		mxMod.IPv4Lookup = true
 	}
-	mxMod.Init(ipv4Lookup, ipv6Lookup, mxCacheSize)
-	if err = mxMod.BasicLookupModule.CLIInit(gc, rc, f); err != nil {
+	mxMod.Init()
+	if err := mxMod.BasicLookupModule.CLIInit(gc, rc); err != nil {
 		return errors.Wrap(err, "failed to initialize BasicLookupModule")
 	}
 	return nil
 }
 
 // Init initializes the MXLookupModule with the given parameters, used to call MXLookup programmatically
-func (mxMod *MXLookupModule) Init(ipv4Lookup, ipv6Lookup bool, mxCacheSize int) {
-	if !ipv4Lookup && !ipv6Lookup {
+func (mxMod *MXLookupModule) Init() {
+	if !mxMod.IPv4Lookup && !mxMod.IPv6Lookup {
 		log.Fatal("At least one of ipv4-lookup or ipv6-lookup must be true")
 	}
-	if mxCacheSize <= 0 {
-		log.Fatal("mxCacheSize must be greater than 0, got ", mxCacheSize)
+	if mxMod.MXCacheSize <= 0 {
+		log.Fatal("mxCacheSize must be greater than 0, got ", mxMod.MXCacheSize)
 	}
-	mxMod.IPv4Lookup = ipv4Lookup || !ipv6Lookup
-	mxMod.IPv6Lookup = ipv6Lookup
-	mxMod.MXCacheSize = mxCacheSize
 	mxMod.CacheHash = new(cachehash.CacheHash)
-	mxMod.CacheHash.Init(mxCacheSize)
+	mxMod.CacheHash.Init(mxMod.MXCacheSize)
 }
 
 func (mxMod *MXLookupModule) lookupIPs(r *zdns.Resolver, name, nameServer string, ipMode zdns.IPVersionMode) (CachedAddresses, zdns.Trace) {
@@ -154,4 +138,8 @@ func (mxMod *MXLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer str
 // Help returns the module's help string
 func (mxMod *MXLookupModule) Help() string {
 	return ""
+}
+
+func (mxMod *MXLookupModule) Description() string {
+	return "MXLOOKUP will additionally do an A lookup for the IP addresses that correspond with an exchange record."
 }
