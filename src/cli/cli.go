@@ -101,6 +101,7 @@ type CLIConf struct {
 	OutputGroups       []string
 	TimeFormat         string
 	NameServers        []string // recursive resolvers if not in iterative mode, root servers/servers to start iteration if in iterative mode
+	Domains            []string // if user provides domain names as arguments, dig-style
 	LocalAddrSpecified bool
 	LocalAddrs         []net.IP
 	ClientSubnet       *dns.EDNS0_SUBNET
@@ -148,7 +149,7 @@ func parseArgs() {
 	}
 	parser.SubcommandsOptional = false
 	parser.Options = flags.Default
-	_, moduleType, _, err := parser.ParseCommandLine(os.Args[1:])
+	args, moduleType, _, err := parser.ParseCommandLine(os.Args[1:])
 	if err != nil {
 		var flagErr *flags.Error
 		if errors.As(err, &flagErr) {
@@ -158,6 +159,9 @@ func parseArgs() {
 		// exit and print
 		log.Fatal(err)
 	}
+	if len(args) != 0 {
+		GC.Domains = args
+	}
 	GC.Module = strings.ToUpper(moduleType)
 }
 
@@ -165,11 +169,17 @@ func init() {
 	parser = flags.NewParser(nil, flags.None) // options set in Execute()
 	parser.Command.SubcommandsOptional = true // without this, the user must use a command, makes ./zdns --version impossible, we'll enforce specifying modules ourselves
 	parser.Name = "zdns"
+	// ZFlags will pre-pend the parser.Name and append "<command>" to the Usage string. So this is a work-around to indicate
+	// to users that [DOMAINS] must come after the command. ex: "./zdns A google.com yahoo.com
+	parser.Usage = "[OPTIONS] <command> [DOMAINS]\n  zdns [OPTIONS]"
 	parser.ShortDescription = "High-speed, low-drag DNS lookups"
 	parser.LongDescription = `ZDNS is a library and CLI tool for making very fast DNS requests. It's built upon
 https://github.com/zmap/dns (and in turn https://github.com/miekg/dns) for constructing
 and parsing raw DNS packets.
-ZDNS also includes its own recursive resolution and a cache to further optimize performance.`
+ZDNS also includes its own recursive resolution and a cache to further optimize performance.
+
+Domains can optionally passed into ZDNS similiar to dig, ex: zdns A google.com yahoo.com
+If no domains are passed, ZDNS will read from stdin or the --input-file flag, if specified.`
 	_, err := parser.AddGroup("Application Options", "Options for controlling the behavior of zdns", &GC.ApplicationOptions)
 	if err != nil {
 		log.Fatalf("could not add Application Options group: %v", err)

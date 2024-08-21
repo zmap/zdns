@@ -152,7 +152,10 @@ func populateCLIConfig(gc *CLIConf) *CLIConf {
 	gc.OutputGroups = append(gc.OutputGroups, groups...)
 
 	// setup i/o if not specified
-	if gc.InputHandler == nil {
+	if len(GC.Domains) > 0 {
+		// using domains from command line
+		gc.InputHandler = iohandlers.NewStringSliceInputHandler(GC.Domains)
+	} else if gc.InputHandler == nil {
 		gc.InputHandler = iohandlers.NewFileInputHandler(gc.InputFilePath)
 	}
 	if gc.OutputHandler == nil {
