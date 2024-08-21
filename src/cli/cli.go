@@ -115,6 +115,17 @@ var GC CLIConf
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	parseArgs()
+	Run(GC)
+}
+
+// parseArgs parses the command line arguments and sets the global configuration
+// One limitation of the zflags library is you can't have "command-less" flags like ./zdns --version without turning
+// SubCommandsOptional = true. But then you don't get ZFlag's great command suggestion if you barely mistype a cmd.
+// Ex:./zdns AAAB -> Unknown command `AAAB', did you mean `AAAA'?
+// The below is a workaround to get the best of both worlds where we set SubcommandsOptiional to true, check for any
+// command-less flags, and then re-parse with SubcommandsOptional = false
+func parseArgs() {
 	if len(os.Args) >= 2 {
 		// the below is necessary or else zdns --help is converted to zdns --HELP
 		if _, ok := GetValidLookups()[strings.ToUpper(os.Args[1])]; ok {
@@ -131,20 +142,19 @@ func Execute() {
 		fmt.Println()
 		os.Exit(0)
 	}
-	// subcommands now required, re-parse
 	parser.SubcommandsOptional = false
 	parser.Options = flags.Default
 	_, moduleType, _, err := parser.ParseCommandLine(os.Args[1:])
 	if err != nil {
 		var flagErr *flags.Error
 		if errors.As(err, &flagErr) {
-			//parser already printed error, exit
+			// parser already printed error, exit without printing
 			os.Exit(1)
 		}
+		// exit and print
 		log.Fatal(err)
 	}
 	GC.Module = strings.ToUpper(moduleType)
-	Run(GC)
 }
 
 func init() {
