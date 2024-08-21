@@ -165,7 +165,6 @@ func init() {
 	parser = flags.NewParser(nil, flags.None) // options set in Execute()
 	parser.Command.SubcommandsOptional = true // without this, the user must use a command, makes ./zdns --version impossible, we'll enforce specifying modules ourselves
 	parser.Name = "zdns"
-	//parser.Usage = "[options]"
 	parser.ShortDescription = "High-speed, low-drag DNS lookups"
 	parser.LongDescription = `ZDNS is a library and CLI tool for making very fast DNS requests. It's built upon
 https://github.com/zmap/dns (and in turn https://github.com/miekg/dns) for constructing
