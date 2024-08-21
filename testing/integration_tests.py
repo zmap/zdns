@@ -640,6 +640,13 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
 
+    def test_a_dig_style_args(self):
+        c = "A zdns-testing.com"
+        name = ""
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd)
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+
     def test_cname(self):
         c = "CNAME"
         name = "www.zdns-testing.com"
@@ -834,6 +841,19 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd)
         self.assertEqualALookup(res, self.A_LOOKUP_CNAME_CHAIN_03)
 
+    def test_type_option_server_mode_a_lookup_ipv4(self):
+        c = "A --override-name=www.zdns-testing.com --name-server-mode"
+        name = "8.8.8.8"
+        cmd, res = self.run_zdns(c, name)
+        self.assertEqual(res["data"]["resolver"], "8.8.8.8:53")
+        self.assertEqualAnswers(res, self.WWW_CNAME_AND_A_ANSWERS, cmd)
+
+    def test_dig_style_type_option_server_mode_a_lookup_ipv4(self):
+        c = "A 8.8.8.8 --override-name=www.zdns-testing.com --name-server-mode"
+        name = ""
+        cmd, res = self.run_zdns(c, name)
+        self.assertEqual(res["data"]["resolver"], "8.8.8.8:53")
+        self.assertEqualAnswers(res, self.WWW_CNAME_AND_A_ANSWERS, cmd)
 
     def test_ns_lookup(self):
         c = "nslookup --ipv4-lookup --ipv6-lookup"
