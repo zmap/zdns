@@ -126,11 +126,15 @@ func Execute() {
 // The below is a workaround to get the best of both worlds where we set SubcommandsOptiional to true, check for any
 // command-less flags, and then re-parse with SubcommandsOptional = false
 func parseArgs() {
-	if len(os.Args) >= 2 {
-		// the below is necessary or else zdns --help is converted to zdns --HELP
-		if _, ok := GetValidLookups()[strings.ToUpper(os.Args[1])]; ok {
-			// we want users to be able to use `zdns nslookup` as well as `zdns NSLOOKUP`
-			os.Args[1] = strings.ToUpper(os.Args[1])
+	if len(os.Args) >= 0 {
+		for i, arg := range os.Args {
+			// the below is necessary or else zdns --help is converted to zdns --HELP
+			if _, ok := GetValidLookups()[strings.ToUpper(arg)]; ok {
+				// we want users to be able to use `zdns nslookup` as well as `zdns NSLOOKUP`
+				os.Args[i] = strings.ToUpper(os.Args[i])
+				break // only capitalize the module, following strings could be domains
+			}
+
 		}
 	}
 	// setting this to true, only to get those flags that don't need a module (--version)
@@ -161,7 +165,7 @@ func init() {
 	parser = flags.NewParser(nil, flags.None) // options set in Execute()
 	parser.Command.SubcommandsOptional = true // without this, the user must use a command, makes ./zdns --version impossible, we'll enforce specifying modules ourselves
 	parser.Name = "zdns"
-	parser.Usage = "[options]"
+	//parser.Usage = "[options]"
 	parser.ShortDescription = "High-speed, low-drag DNS lookups"
 	parser.LongDescription = `ZDNS is a library and CLI tool for making very fast DNS requests. It's built upon
 https://github.com/zmap/dns (and in turn https://github.com/miekg/dns) for constructing
