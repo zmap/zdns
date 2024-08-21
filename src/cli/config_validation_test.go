@@ -22,7 +22,7 @@ import (
 func TestValidateNetworkingConfig(t *testing.T) {
 	t.Run("LocalAddr and LocalInterface both specified", func(t *testing.T) {
 		gc := &CLIConf{
-			ApplicationOptions: ApplicationOptions{
+			NetworkOptions: NetworkOptions{
 				LocalAddrString:   "1.1.1.1",
 				LocalIfaceString:  "eth0",
 				IPv4TransportOnly: true,
@@ -33,7 +33,7 @@ func TestValidateNetworkingConfig(t *testing.T) {
 	})
 	t.Run("Using invalid interface", func(t *testing.T) {
 		gc := &CLIConf{
-			ApplicationOptions: ApplicationOptions{
+			NetworkOptions: NetworkOptions{
 				LocalIfaceString:  "invalid_interface",
 				IPv4TransportOnly: true,
 			},
@@ -43,9 +43,11 @@ func TestValidateNetworkingConfig(t *testing.T) {
 	})
 	t.Run("Using nameserver with port", func(t *testing.T) {
 		gc := &CLIConf{
+			NetworkOptions: NetworkOptions{
+				IPv4TransportOnly: true,
+			},
 			ApplicationOptions: ApplicationOptions{
 				NameServersString: "127.0.0.1:53",
-				IPv4TransportOnly: true,
 			},
 		}
 		err := populateNetworkingConfig(gc)
