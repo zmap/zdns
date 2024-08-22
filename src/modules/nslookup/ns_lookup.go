@@ -76,7 +76,6 @@ func (nsMod *NSLookupModule) Help() string {
 	return ""
 }
 
-// Validate checks that the module's arguments are valid
 func (nsMod *NSLookupModule) Validate(args []string) error {
 	return nil
 }
@@ -89,7 +88,6 @@ func (nsMod *NSLookupModule) Description() string {
 	return "Run a more exhaustive ns lookup, will additionally do an A/AAAA lookup for the IP addresses that correspond with name server records."
 }
 
-// NewFlags returns an empty Flags object. Necessary to satisfy the ZFlags interface requirements
 func (nsMod *NSLookupModule) NewFlags() interface{} {
 	return nsMod
 }

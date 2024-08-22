@@ -135,7 +135,6 @@ func (mxMod *MXLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer str
 	return &retv, trace, zdns.StatusNoError, nil
 }
 
-// Help returns the module's help string
 func (mxMod *MXLookupModule) Help() string {
 	return ""
 }
@@ -148,7 +147,6 @@ func (mxMod *MXLookupModule) Description() string {
 	return "MXLOOKUP will additionally do an A lookup for the IP addresses that correspond with an exchange record."
 }
 
-// NewFlags returns an empty Flags object. Necessary to satisfy the ZFlags interface requirements
 func (mxMod *MXLookupModule) NewFlags() interface{} {
 	return mxMod
 }

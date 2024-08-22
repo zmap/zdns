@@ -74,7 +74,6 @@ func (spfMod *SpfLookupModule) Description() string {
 	return ""
 }
 
-// NewFlags - necessary to satisfy the ZFlags interface requirements
 func (spfMod *SpfLookupModule) NewFlags() interface{} {
 	return spfMod
 }

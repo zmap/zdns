@@ -53,7 +53,6 @@ func (aMod *ALookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer strin
 	return ipResult, trace, status, err
 }
 
-// Help returns the module's help string
 func (aMod *ALookupModule) Help() string {
 	return ""
 }
@@ -62,12 +61,10 @@ func (aMod *ALookupModule) Validate(args []string) error {
 	return nil
 }
 
-// NewFlags returns an empty Flags object. Necessary to satisfy the ZFlags interface requirements
 func (aMod *ALookupModule) NewFlags() interface{} {
 	return aMod
 }
 
-// Description returns the module's description
 func (aMod *ALookupModule) Description() string {
 	return "alookup will get the information that is typically desired, instead of just the information that exists in a single record. Specifically, alookup acts similar to nslookup and will follow CNAME records."
 }

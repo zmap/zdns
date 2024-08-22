@@ -637,6 +637,7 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, o
 				output <- string(jsonRes)
 			}
 			metadata.Status[status]++
+			metadata.Lookups++
 		}
 		metadata.Names++
 	}

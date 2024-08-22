@@ -83,10 +83,9 @@ type NetworkOptions struct {
 
 // InputOutputOptions options for controlling the input and output behavior of zdns. Applicable to all modules.
 type InputOutputOptions struct {
-	AlexaFormat       bool   `long:"alexa" description:"is input file from Alexa Top Million download"`
-	BlacklistFilePath string `long:"blacklist-file" description:"blacklist file for servers to exclude from lookups"`
-	DNSConfigFilePath string `long:"conf-file" default:"/etc/resolv.conf" description:"config file for DNS servers"`
-	// TODO might want to add a default, like assuming we're launching from within zdns directory, find the one in src/cli/multiple.ini
+	AlexaFormat                  bool   `long:"alexa" description:"is input file from Alexa Top Million download"`
+	BlacklistFilePath            string `long:"blacklist-file" description:"blacklist file for servers to exclude from lookups"`
+	DNSConfigFilePath            string `long:"conf-file" default:"/etc/resolv.conf" description:"config file for DNS servers"`
 	MultipleModuleConfigFilePath string `short:"c" long:"multi-config-file" description:"config file path for multiple module"`
 	IncludeInOutput              string `long:"include-fields" description:"Comma separated list of fields to additionally output beyond result verbosity. Options: class, protocol, ttl, resolver, flags"`
 	InputFilePath                string `short:"f" long:"input-file" default:"-" description:"names to read, defaults to stdin"`
@@ -151,10 +150,10 @@ func handleMultipleModule(GC *CLIConf) error {
 	ini := flags.NewIniParser(parser)
 	moduleStrings, modules, err := ini.ParseFile(GC.MultipleModuleConfigFilePath)
 	if err != nil {
-		return fmt.Errorf("error in ini parse: %v", err)
+		return fmt.Errorf("could not parse multi-module file: %v", err)
 	}
 	if len(moduleStrings) != len(modules) {
-		return errors.New("error in ini parse: number of module names does not match number of modules")
+		return errors.New("number of module names does not match number of modules retrieved from file")
 	}
 	GC.ActiveModuleNames = moduleStrings
 	GC.ActiveModules = make(map[string]LookupModule, len(moduleStrings))
@@ -250,6 +249,7 @@ ZDNS also includes its own recursive resolution and a cache to further optimize 
 	if err != nil {
 		log.Fatalf("could not add Input/Output Options group: %v", err)
 	}
+	// this is necessary since the .ini file parser expects that all global options are a part of Application Options
 	appOptions, err := parser.AddGroup("Application Options", "Hidden group including all global options", &GC)
 	if err != nil {
 		log.Fatalf("could not add Application Options group: %v", err)

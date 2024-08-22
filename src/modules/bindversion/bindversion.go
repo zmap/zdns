@@ -60,22 +60,18 @@ func (bindVersionMod *BindVersionLookupModule) Lookup(r *zdns.Resolver, lookupNa
 	return res, trace, resStatus, err
 }
 
-// Help returns the module's help string
 func (bindVersionMod *BindVersionLookupModule) Help() string {
 	return ""
 }
 
-// Description returns the module's description
 func (bindVersionMod *BindVersionLookupModule) Description() string {
 	return ""
 }
 
-// Validate checks that the module's arguments are valid
 func (bindVersionMod *BindVersionLookupModule) Validate(args []string) error {
 	return nil
 }
 
-// NewFlags returns an empty Flags object. Necessary to satisfy the ZFlags interface requirements
 func (bindVersionMod *BindVersionLookupModule) NewFlags() interface{} {
 	return bindVersionMod
 }

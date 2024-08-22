@@ -26,8 +26,8 @@ import (
 type LookupModule interface {
 	CLIInit(gc *CLIConf, rc *zdns.ResolverConfig) error
 	Lookup(resolver *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)
-	Help() string                 // needed to satisfy the ZCommander interface in ZFlags
-	Description() string          // needed to add a command to the parser, printed to the user
+	Help() string                 // needed to satisfy the ZCommander interface in ZFlags.
+	Description() string          // needed to add a command to the parser, printed to the user. Printed to the user when they run the help command for a given module
 	Validate(args []string) error // needed to satisfy the ZCommander interface in ZFlags
 	NewFlags() interface{}        // needed to satisfy the ZModule interface in ZFlags
 }
@@ -116,7 +116,7 @@ func RegisterLookupModule(name string, lm LookupModule) {
 	moduleToLookupModule[name] = lm
 	_, err := parser.AddCommand(name, "", lm.Description(), lm)
 	if err != nil {
-		log.Fatalf("could not add parser command: %v", err)
+		log.Fatalf("could not add command: %v", err)
 	}
 }
 
@@ -151,7 +151,6 @@ func (lm *BasicLookupModule) Validate(args []string) error {
 	return nil
 }
 
-// NewFlags returns an empty Flags object. Necessary to satisfy the ZFlags interface requirements
 func (lm *BasicLookupModule) NewFlags() interface{} {
 	return lm
 }
