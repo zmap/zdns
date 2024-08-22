@@ -32,7 +32,6 @@ const (
 )
 
 var parser *flags.Parser
-var iniParser *flags.Parser
 
 type InputHandler interface {
 	FeedChannel(in chan<- string, wg *sync.WaitGroup) error
@@ -41,9 +40,9 @@ type OutputHandler interface {
 	WriteResults(results <-chan string, wg *sync.WaitGroup) error
 }
 
-// ApplicationOptions core options for all ZDNS modules
+// GeneralOptions core options for all ZDNS modules
 // Order here is the order they'll be printed to the user, so preserve alphabetical order
-type ApplicationOptions struct {
+type GeneralOptions struct {
 	LookupAllNameServers bool   `long:"all-nameservers" description:"Perform the lookup via all the nameservers for the domain."`
 	CacheSize            int    `long:"cache-size" default:"10000" description:"how many items can be stored in internal recursive cache"`
 	CheckingDisabled     bool   `long:"checking-disabled" description:"Sends DNS packets with the CD bit set"`
@@ -65,7 +64,16 @@ type ApplicationOptions struct {
 	Version              bool   `long:"version" short:"v" description:"Print the version of zdns and exit"`
 }
 
-// NetworkOptions options for controlling the network behavior of zdns
+// QueryOptions affect the fields of the actual DNS queries. Applicable to all modules.
+type QueryOptions struct {
+	CheckingDisabled   bool   `long:"checking-disabled" description:"Sends DNS packets with the CD bit set"`
+	ClassString        string `long:"class" default:"INET" description:"DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY."`
+	ClientSubnetString string `long:"client-subnet" description:"Client subnet in CIDR format for EDNS0."`
+	Dnssec             bool   `long:"dnssec" description:"Requests DNSSEC records by setting the DNSSEC OK (DO) bit"`
+	UseNSID            bool   `long:"nsid" description:"Request NSID."`
+}
+
+// NetworkOptions options for controlling the network behavior. Applicable to all modules.
 type NetworkOptions struct {
 	IPv4TransportOnly     bool   `long:"4" description:"utilize IPv4 query transport only, incompatible with --6"`
 	IPv6TransportOnly     bool   `long:"6" description:"utilize IPv6 query transport only, incompatible with --4"`
@@ -78,7 +86,7 @@ type NetworkOptions struct {
 	UDPOnly               bool   `long:"udp-only" description:"Only perform lookups over UDP"`
 }
 
-// InputOutpueOptions options for controlling the input and output behavior of zdns
+// InputOutputOptions options for controlling the input and output behavior of zdns. Applicable to all modules.
 type InputOutputOptions struct {
 	AlexaFormat       bool   `long:"alexa" description:"is input file from Alexa Top Million download"`
 	BlacklistFilePath string `long:"blacklist-file" description:"blacklist file for servers to exclude from lookups"`
@@ -98,9 +106,10 @@ type InputOutputOptions struct {
 }
 
 type CLIConf struct {
-	ApplicationOptions
+	GeneralOptions
 	NetworkOptions
 	InputOutputOptions
+	QueryOptions
 	OutputGroups       []string
 	TimeFormat         string
 	NameServers        []string // recursive resolvers if not in iterative mode, root servers/servers to start iteration if in iterative mode
@@ -201,8 +210,14 @@ ZDNS also includes its own recursive resolution and a cache to further optimize 
 Domains can optionally passed into ZDNS similiar to dig, ex: zdns A google.com yahoo.com
 If no domains are passed, ZDNS will read from stdin or the --input-file flag, if specified.`
 	_, err := parser.AddGroup("ZDNS Options", "Options for controlling the behavior of zdns", &GC.ApplicationOptions)
+ZDNS also includes its own recursive resolution and a cache to further optimize performance.`
+	_, err := parser.AddGroup("General Options", "General options for controlling the behavior of zdns", &GC.GeneralOptions)
 	if err != nil {
 		log.Fatalf("could not add ZDNS Options group: %v", err)
+	}
+	_, err = parser.AddGroup("Query Options", "Options for controlling the fields of the actual DNS queries", &GC.QueryOptions)
+	if err != nil {
+		log.Fatalf("could not add Query Options group: %v", err)
 	}
 	_, err = parser.AddGroup("Network Options", "Options for controlling the network behavior of zdns", &GC.NetworkOptions)
 	if err != nil {
@@ -212,24 +227,5 @@ If no domains are passed, ZDNS will read from stdin or the --input-file flag, if
 	if err != nil {
 		log.Fatalf("could not add Input/Output Options group: %v", err)
 	}
-	group, err := parser.AddGroup("Application Options", "All options for all modules", &GC)
-	if err != nil {
-		log.Fatalf("could not add Application Options group: %v", err)
-	}
-	group.Hidden = true
-	_, err = parser.AddCommand("MULTIPLE", "Perform multiple lookups in parallel", "Perform multiple lookups in parallel. Must be used with a .ini file, see src/cli/multiple.ini for an example", &GC)
-	if err != nil {
-		log.Fatalf("could not add multiple command: %v", err)
-	}
-	// ZFlags doesn't seem to be able to parse when we split Application Options into groups like this. Since we just
-	// did it for printing a nice --help msg, we'll lump them together in the iniParser
-	_, err = iniParser.AddGroup("Application Options", "Options for controlling the behavior of zdns", &GC)
-	if err != nil {
-		log.Fatalf("could not add Application Options group to iniParser: %v", err)
-	}
 
-	// TODO
-	/*
-		Tomorrow, Phillip, look at grouping all groups into a hidden "Application Options" group so that we can only have one parser, may work!
-	*/
 }
