@@ -15,7 +15,6 @@ package cli
 
 import (
 	"fmt"
-
 	log "github.com/sirupsen/logrus"
 
 	"github.com/pkg/errors"
@@ -114,10 +113,13 @@ func init() {
 func RegisterLookupModule(name string, lm LookupModule) {
 	moduleToLookupModule[name] = lm
 	_, err := parser.AddCommand(name, "", lm.Description(), lm)
-	_, err = iniParser.AddCommand(name, "", lm.Description(), lm)
 	if err != nil {
-		log.Fatalf("could not add ini parser command: %v", err)
+		log.Fatalf("could not add parser command: %v", err)
 	}
+	//_, err = iniParser.AddCommand(name, "", lm.Description(), lm)
+	//if err != nil {
+	//	log.Fatalf("could not add ini parser command: %v", err)
+	//}
 }
 
 type BasicLookupModule struct {

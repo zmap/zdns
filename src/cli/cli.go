@@ -45,10 +45,6 @@ type OutputHandler interface {
 type GeneralOptions struct {
 	LookupAllNameServers bool   `long:"all-nameservers" description:"Perform the lookup via all the nameservers for the domain."`
 	CacheSize            int    `long:"cache-size" default:"10000" description:"how many items can be stored in internal recursive cache"`
-	CheckingDisabled     bool   `long:"checking-disabled" description:"Sends DNS packets with the CD bit set"`
-	ClassString          string `long:"class" default:"INET" description:"DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY."`
-	ClientSubnetString   string `long:"client-subnet" description:"Client subnet in CIDR format for EDNS0."`
-	Dnssec               bool   `long:"dnssec" description:"Requests DNSSEC records by setting the DNSSEC OK (DO) bit"`
 	GoMaxProcs           int    `long:"go-processes" default:"0" description:"number of OS processes (GOMAXPROCS by default)"`
 	IterationTimeout     int    `long:"iteration-timeout" default:"4" description:"timeout for a single iterative step in an iterative query, in seconds. Only applicable with --iterative"`
 	IterativeResolution  bool   `long:"iterative" description:"Perform own iteration instead of relying on recursive resolver"`
@@ -57,7 +53,6 @@ type GeneralOptions struct {
 	NameServersString    string `long:"name-servers" description:"List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53."`
 	UseNanoseconds       bool   `long:"nanoseconds" description:"Use nanosecond resolution timestamps in output"`
 	DisableFollowCNAMEs  bool   `long:"no-follow-cnames" description:"do not follow CNAMEs/DNAMEs in the lookup process"`
-	UseNSID              bool   `long:"nsid" description:"Request NSID."`
 	Retries              int    `long:"retries" default:"1" description:"how many times should zdns retry query if timeout or temporary failure"`
 	Threads              int    `short:"t" long:"threads" default:"1000" description:"number of lightweight go threads"`
 	Timeout              int    `long:"timeout" default:"15" description:"timeout for resolving a individual name, in seconds"`
@@ -140,7 +135,7 @@ func handleMultipleModule() {
 	if GC.MultipleModuleConfigFilePath == "" {
 		log.Fatal("must specify a config file for the multiple module, see -c")
 	}
-	ini := flags.NewIniParser(iniParser)
+	ini := flags.NewIniParser(parser)
 	parse, i, err := ini.ParseFile(GC.MultipleModuleConfigFilePath)
 	if err != nil {
 		log.Fatalf("error in ini parse")
@@ -195,7 +190,6 @@ func parseArgs() {
 
 func init() {
 	parser = flags.NewParser(nil, flags.None) // options set in Execute()
-	iniParser = flags.NewParser(nil, flags.None)
 	parser.Command.SubcommandsOptional = true // without this, the user must use a command, makes ./zdns --version impossible, we'll enforce specifying modules ourselves
 	parser.Name = "zdns"
 	// ZFlags will pre-pend the parser.Name and append "<command>" to the Usage string. So this is a work-around to indicate
@@ -208,9 +202,10 @@ and parsing raw DNS packets.
 ZDNS also includes its own recursive resolution and a cache to further optimize performance.
 
 Domains can optionally passed into ZDNS similiar to dig, ex: zdns A google.com yahoo.com
-If no domains are passed, ZDNS will read from stdin or the --input-file flag, if specified.`
-	_, err := parser.AddGroup("ZDNS Options", "Options for controlling the behavior of zdns", &GC.ApplicationOptions)
+If no domains are passed, ZDNS will read from stdin or the --input-file flag, if specified.
+
 ZDNS also includes its own recursive resolution and a cache to further optimize performance.`
+
 	_, err := parser.AddGroup("General Options", "General options for controlling the behavior of zdns", &GC.GeneralOptions)
 	if err != nil {
 		log.Fatalf("could not add ZDNS Options group: %v", err)
@@ -227,5 +222,9 @@ ZDNS also includes its own recursive resolution and a cache to further optimize 
 	if err != nil {
 		log.Fatalf("could not add Input/Output Options group: %v", err)
 	}
-
+	appOptions, err := parser.AddGroup("Application Options", "Hidden group including all global options", &GC)
+	if err != nil {
+		log.Fatalf("could not add Application Options group: %v", err)
+	}
+	appOptions.Hidden = true
 }
