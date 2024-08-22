@@ -31,11 +31,11 @@ Usage
 =====
 
 ZDNS was originally built as a CLI tool only. Work has been done to convert
-this [library](github.com/zmap/zdns/src/zdns) into a standalone library and a separate [CLI](github.com/zmap/zdns/src/cli) wraps the library.
+this [library](github.com/zmap/zdns/src/zdns) into a standalone library and let a separate [CLI](github.com/zmap/zdns/src/cli) wrap the library.
 
 The library consists of a `ResolverConfig` struct which will contain all config options for all lookups made.
-The `ResolverConfig` is used to create a `Resolver` struct which will make all lookups. A `Resolver`
-should only make a single lookup at a time and multiple `Resolver` structs should be
+The `ResolverConfig` is used to create 1+ `Resolver` struct(s) which will make all lookups. A `Resolver`
+should only make a single lookup at a time (it is not thread-safe) and multiple `Resolver` structs should be
 used for parallelism. See our [examples](github.com/zmap/zdns/examples) for how to use the
 library. [Modules](github.com/zmap/zdns/src/modules) are used to define the behavior of the lookups.
 
@@ -292,6 +292,8 @@ Multiple Lookup Modules
 ZDNS supports using multiple lookup modules in a single invocation. For example, let's say you want to perform an A, 
 AAAA, and MXLOOKUP for a set of domains and you want to perform them with iterative resolution. You will need to use the
 `MULTIPLE` module and provide a config file with the modules and module-specific flags you want to use. 
+
+Please see `./zdns --help` and `./zdns <MODULE_NAME> --help` for Global and Module-specific options that can be used in the config file.
 
 For example:
 
