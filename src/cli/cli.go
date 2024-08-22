@@ -114,7 +114,9 @@ type CLIConf struct {
 	ClientSubnet       *dns.EDNS0_SUBNET
 	InputHandler       InputHandler
 	OutputHandler      OutputHandler
-	Module             string
+	CLIModule          string                  // the module name as passed in by the user
+	ActiveModuleNames  []string                // names of modules that are active in this invocation of zdns. Mostly used with MULTIPLE
+	ActiveModules      map[string]LookupModule // map of module names to modules
 	Class              uint16
 }
 
@@ -124,23 +126,41 @@ var GC CLIConf
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	parseArgs()
-	if strings.EqualFold(GC.Module, "MULTIPLE") {
-		handleMultipleModule()
+	if strings.EqualFold(GC.CLIModule, "MULTIPLE") {
+		handleMultipleModule(&GC)
+	} else {
+		lookupModule, err := GetLookupModule(GC.CLIModule)
+		if err != nil {
+			log.Fatal("could not get lookup module: ", err)
+		}
+		GC.ActiveModules[GC.CLIModule] = lookupModule
+		GC.ActiveModuleNames = append(GC.ActiveModuleNames, GC.CLIModule)
 	}
 	Run(GC)
 }
 
-func handleMultipleModule() {
+func handleMultipleModule(GC *CLIConf) {
 	// need to parse the multiple module config file first
 	if GC.MultipleModuleConfigFilePath == "" {
 		log.Fatal("must specify a config file for the multiple module, see -c")
 	}
 	ini := flags.NewIniParser(parser)
-	parse, i, err := ini.ParseFile(GC.MultipleModuleConfigFilePath)
+	moduleStrings, modules, err := ini.ParseFile(GC.MultipleModuleConfigFilePath)
 	if err != nil {
 		log.Fatalf("error in ini parse: %v", err)
 	}
-	log.Warn(parse, i)
+	if len(moduleStrings) != len(modules) {
+		log.Fatal("error in ini parse: number of module names does not match number of modules")
+	}
+	GC.ActiveModuleNames = moduleStrings
+	GC.ActiveModules = make(map[string]LookupModule, len(moduleStrings))
+	for i, name := range moduleStrings {
+		lm, ok := modules[i].(LookupModule)
+		if !ok {
+			log.Fatalf("module %s is not a LookupModule", name)
+		}
+		GC.ActiveModules[name] = lm
+	}
 }
 
 // parseArgs parses the command line arguments and sets the global configuration
@@ -185,7 +205,7 @@ func parseArgs() {
 	if len(args) != 0 {
 		GC.Domains = args
 	}
-	GC.Module = strings.ToUpper(moduleType)
+	GC.CLIModule = strings.ToUpper(moduleType)
 }
 
 func init() {

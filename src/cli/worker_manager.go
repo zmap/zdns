@@ -44,12 +44,14 @@ const (
 )
 
 type routineMetadata struct {
-	Names  int
-	Status map[zdns.Status]int
+	Names   int // number of domain names processed
+	Lookups int // number of lookups performed
+	Status  map[zdns.Status]int
 }
 
 type Metadata struct {
 	Names       int            `json:"names"`
+	Lookups     int            `json:"lookups"`
 	Status      map[string]int `json:"statuses"`
 	StartTime   string         `json:"start_time"`
 	EndTime     string         `json:"end_time"`
@@ -139,7 +141,7 @@ func populateCLIConfig(gc *CLIConf) *CLIConf {
 	if gc.NameServerMode && gc.MetadataFormat {
 		log.Fatal("Metadata mode is incompatible with name server mode")
 	}
-	if gc.NameServerMode && gc.NameOverride == "" && gc.Module != BINDVERSION {
+	if gc.NameServerMode && gc.NameOverride == "" && gc.CLIModule != BINDVERSION {
 		log.Fatal("Static Name must be defined with --override-name in --name-server-mode unless DNS module does not expect names (e.g., BINDVERSION).")
 	}
 	// Output Groups are defined by a base + any additional fields that the user wants
@@ -463,13 +465,12 @@ func Run(gc CLIConf) {
 	if err != nil {
 		log.Fatalf("resolver config did not pass validation: %v", err)
 	}
-	lookupModule, err := GetLookupModule(gc.Module)
-	if err != nil {
-		log.Fatal("could not get lookup module: ", err)
-	}
-	err = lookupModule.CLIInit(&gc, resolverConfig)
-	if err != nil {
-		log.Fatalf("could not initialize lookup module (type: %s): %v", gc.Module, err)
+	for _, module := range gc.ActiveModules {
+		// init all modules
+		err = module.CLIInit(&gc, resolverConfig)
+		if err != nil {
+			log.Fatalf("could not initialize lookup module (type: %s): %v", gc.CLIModule, err)
+		}
 	}
 	// DoLookup:
 	//	- n threads that do processing from in and place results in out
@@ -514,7 +515,7 @@ func Run(gc CLIConf) {
 	for i := 0; i < gc.Threads; i++ {
 		i := i
 		go func(threadID int) {
-			initWorkerErr := doLookupWorker(&gc, lookupModule, resolverConfig, inChan, outChan, metaChan, &lookupWG)
+			initWorkerErr := doLookupWorker(&gc, resolverConfig, inChan, outChan, metaChan, &lookupWG)
 			if initWorkerErr != nil {
 				log.Fatalf("could not start lookup worker #%d: %v", i, initWorkerErr)
 			}
@@ -565,7 +566,7 @@ func Run(gc CLIConf) {
 }
 
 // doLookupWorker is a single worker thread that processes lookups from the input channel. It calls wg.Done when it is finished.
-func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, input <-chan string, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
+func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	resolver, err := zdns.InitResolver(rc)
 	if err != nil {
@@ -574,67 +575,70 @@ func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, i
 	var metadata routineMetadata
 	metadata.Status = make(map[zdns.Status]int)
 	for line := range input {
-		var res zdns.Result
-		var innerRes interface{}
-		var trace zdns.Trace
-		var status zdns.Status
-		var err error
-		var changed bool
-		var lookupName string
-		rawName := ""
-		nameServer := ""
-		var rank int
-		var entryMetadata string
-		if gc.AlexaFormat {
-			rawName, rank = parseAlexa(line)
-			res.AlexaRank = rank
-		} else if gc.MetadataFormat {
-			rawName, entryMetadata = parseMetadataInputLine(line)
-			res.Metadata = entryMetadata
-		} else if gc.NameServerMode {
-			nameServer, err = util.AddDefaultPortToDNSServerName(line)
-			if err != nil {
-				log.Fatal("unable to parse name server: ", line)
+		// we'll process each module sequentially, parallelism is per-domain
+		for moduleName, module := range gc.ActiveModules {
+			res := zdns.Result{Module: moduleName}
+			var innerRes interface{}
+			var trace zdns.Trace
+			var status zdns.Status
+			var err error
+			var changed bool
+			var lookupName string
+			rawName := ""
+			nameServer := ""
+			var rank int
+			var entryMetadata string
+			if gc.AlexaFormat {
+				rawName, rank = parseAlexa(line)
+				res.AlexaRank = rank
+			} else if gc.MetadataFormat {
+				rawName, entryMetadata = parseMetadataInputLine(line)
+				res.Metadata = entryMetadata
+			} else if gc.NameServerMode {
+				nameServer, err = util.AddDefaultPortToDNSServerName(line)
+				if err != nil {
+					log.Fatal("unable to parse name server: ", line)
+				}
+			} else {
+				rawName, nameServer = parseNormalInputLine(line)
 			}
-		} else {
-			rawName, nameServer = parseNormalInputLine(line)
-		}
-		lookupName, changed = makeName(rawName, gc.NamePrefix, gc.NameOverride)
-		if changed {
-			res.AlteredName = lookupName
-		}
-		res.Name = rawName
-		res.Class = dns.Class(gc.Class).String()
+			lookupName, changed = makeName(rawName, gc.NamePrefix, gc.NameOverride)
+			if changed {
+				res.AlteredName = lookupName
+			}
+			res.Name = rawName
+			res.Class = dns.Class(gc.Class).String()
 
-		startTime := time.Now()
-		innerRes, trace, status, err = lookup.Lookup(resolver, lookupName, nameServer)
+			startTime := time.Now()
+			innerRes, trace, status, err = module.Lookup(resolver, lookupName, nameServer)
 
-		res.Timestamp = time.Now().Format(gc.TimeFormat)
-		res.Duration = time.Since(startTime).Seconds()
-		if status != zdns.StatusNoOutput {
-			res.Status = string(status)
-			res.Data = innerRes
-			res.Trace = trace
-			if err != nil {
-				res.Error = err.Error()
+			res.Timestamp = time.Now().Format(gc.TimeFormat)
+			res.Duration = time.Since(startTime).Seconds()
+			if status != zdns.StatusNoOutput {
+				res.Status = string(status)
+				res.Data = innerRes
+				res.Trace = trace
+				if err != nil {
+					res.Error = err.Error()
+				}
+				v, _ := version.NewVersion("0.0.0")
+				o := &sheriff.Options{
+					Groups:     gc.OutputGroups,
+					ApiVersion: v,
+				}
+				data, err := sheriff.Marshal(o, res)
+				if err != nil {
+					log.Fatalf("unable to marshal result to JSON: %v", err)
+				}
+				jsonRes, err := json.Marshal(data)
+				if err != nil {
+					log.Fatalf("unable to marshal JSON result: %v", err)
+				}
+				output <- string(jsonRes)
 			}
-			v, _ := version.NewVersion("0.0.0")
-			o := &sheriff.Options{
-				Groups:     gc.OutputGroups,
-				ApiVersion: v,
-			}
-			data, err := sheriff.Marshal(o, res)
-			if err != nil {
-				log.Fatalf("unable to marshal result to JSON: %v", err)
-			}
-			jsonRes, err := json.Marshal(data)
-			if err != nil {
-				log.Fatalf("unable to marshal JSON result: %v", err)
-			}
-			output <- string(jsonRes)
+			metadata.Status[status]++
 		}
 		metadata.Names++
-		metadata.Status[status]++
 	}
 	metaChan <- metadata
 	return nil
@@ -692,6 +696,7 @@ func aggregateMetadata(c <-chan routineMetadata) Metadata {
 	meta.Status = make(map[string]int)
 	for m := range c {
 		meta.Names += m.Names
+		meta.Lookups += m.Lookups
 		for k, v := range m.Status {
 			meta.Status[string(k)] += v
 		}

@@ -54,6 +54,7 @@ type Result struct {
 	Class       string      `json:"class,omitempty" groups:"long,trace"`
 	AlexaRank   int         `json:"alexa_rank,omitempty" groups:"short,normal,long,trace"`
 	Metadata    string      `json:"metadata,omitempty" groups:"short,normal,long,trace"`
+	Module      string      `json:"lookup_module,omitempty" groups:"short,normal,long,trace"`
 	Status      string      `json:"status,omitempty" groups:"short,normal,long,trace"`
 	Error       string      `json:"error,omitempty" groups:"short,normal,long,trace"`
 	Timestamp   string      `json:"timestamp,omitempty" groups:"short,normal,long,trace"`
