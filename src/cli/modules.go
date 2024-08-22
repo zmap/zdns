@@ -108,13 +108,15 @@ func init() {
 	RegisterLookupModule("UNSPEC", &BasicLookupModule{DNSType: dns.TypeUNSPEC, DNSClass: dns.ClassINET})
 	RegisterLookupModule("URI", &BasicLookupModule{DNSType: dns.TypeURI, DNSClass: dns.ClassINET})
 	RegisterLookupModule("ANY", &BasicLookupModule{DNSType: dns.TypeANY, DNSClass: dns.ClassINET})
+	RegisterLookupModule("MULTIPLE", &BasicLookupModule{DNSType: dns.TypeANY, DNSClass: dns.ClassINET})
 }
 
 func RegisterLookupModule(name string, lm LookupModule) {
 	moduleToLookupModule[name] = lm
 	_, err := parser.AddCommand(name, "", lm.Description(), lm)
+	_, err = iniParser.AddCommand(name, "", lm.Description(), lm)
 	if err != nil {
-		log.Fatalf("could not add command: %v", err)
+		log.Fatalf("could not add ini parser command: %v", err)
 	}
 }
 

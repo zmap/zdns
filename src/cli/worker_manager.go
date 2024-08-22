@@ -187,7 +187,7 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config.CheckingDisabledBit = gc.CheckingDisabled
 	config.ShouldRecycleSockets = !gc.DisableRecycleSockets
 	config.DNSSecEnabled = gc.Dnssec
-	config.DNSConfigFilePath = gc.ConfigFilePath
+	config.DNSConfigFilePath = gc.DNSConfigFilePath
 
 	config.LogLevel = log.Level(gc.Verbosity)
 

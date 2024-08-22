@@ -32,6 +32,7 @@ const (
 )
 
 var parser *flags.Parser
+var iniParser *flags.Parser
 
 type InputHandler interface {
 	FeedChannel(in chan<- string, wg *sync.WaitGroup) error
@@ -81,17 +82,19 @@ type NetworkOptions struct {
 type InputOutputOptions struct {
 	AlexaFormat       bool   `long:"alexa" description:"is input file from Alexa Top Million download"`
 	BlacklistFilePath string `long:"blacklist-file" description:"blacklist file for servers to exclude from lookups"`
-	ConfigFilePath    string `long:"conf-file" default:"/etc/resolv.conf" description:"config file for DNS servers"`
-	IncludeInOutput   string `long:"include-fields" description:"Comma separated list of fields to additionally output beyond result verbosity. Options: class, protocol, ttl, resolver, flags"`
-	InputFilePath     string `short:"f" long:"input-file" default:"-" description:"names to read, defaults to stdin"`
-	LogFilePath       string `long:"log-file" default:"-" description:"where should JSON logs be saved, defaults to stderr"`
-	MetadataFilePath  string `long:"metadata-file" description:"where should JSON metadata be saved, defaults to no metadata output. Use '-' for stderr."`
-	MetadataFormat    bool   `long:"metadata-passthrough" description:"if input records have the form 'name,METADATA', METADATA will be propagated to the output"`
-	OutputFilePath    string `short:"o" long:"output-file" default:"-" description:"where should JSON output be saved, defaults to stdout"`
-	NameOverride      string `long:"override-name" description:"name overrides all passed in names. Commonly used with --name-server-mode."`
-	NamePrefix        string `long:"prefix" description:"name to be prepended to what's passed in (e.g., www.)"`
-	ResultVerbosity   string `long:"result-verbosity" default:"normal" description:"Sets verbosity of each output record. Options: short, normal, long, trace"`
-	Verbosity         int    `long:"verbosity" default:"3" description:"log verbosity: 1 (lowest)--5 (highest)"`
+	DNSConfigFilePath string `long:"conf-file" default:"/etc/resolv.conf" description:"config file for DNS servers"`
+	// TODO might want to add a default, like assuming we're launching from within zdns directory, find the one in src/cli/multiple.ini
+	MultipleModuleConfigFilePath string `short:"c" long:"multi-config-file" description:"config file path for multiple module"`
+	IncludeInOutput              string `long:"include-fields" description:"Comma separated list of fields to additionally output beyond result verbosity. Options: class, protocol, ttl, resolver, flags"`
+	InputFilePath                string `short:"f" long:"input-file" default:"-" description:"names to read, defaults to stdin"`
+	LogFilePath                  string `long:"log-file" default:"-" description:"where should JSON logs be saved, defaults to stderr"`
+	MetadataFilePath             string `long:"metadata-file" description:"where should JSON metadata be saved, defaults to no metadata output. Use '-' for stderr."`
+	MetadataFormat               bool   `long:"metadata-passthrough" description:"if input records have the form 'name,METADATA', METADATA will be propagated to the output"`
+	OutputFilePath               string `short:"o" long:"output-file" default:"-" description:"where should JSON output be saved, defaults to stdout"`
+	NameOverride                 string `long:"override-name" description:"name overrides all passed in names. Commonly used with --name-server-mode."`
+	NamePrefix                   string `long:"prefix" description:"name to be prepended to what's passed in (e.g., www.)"`
+	ResultVerbosity              string `long:"result-verbosity" default:"normal" description:"Sets verbosity of each output record. Options: short, normal, long, trace"`
+	Verbosity                    int    `long:"verbosity" default:"3" description:"log verbosity: 1 (lowest)--5 (highest)"`
 }
 
 type CLIConf struct {
@@ -117,7 +120,23 @@ var GC CLIConf
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	parseArgs()
+	if strings.EqualFold(GC.Module, "MULTIPLE") {
+		handleMultipleModule()
+	}
 	Run(GC)
+}
+
+func handleMultipleModule() {
+	// need to parse the multiple module config file first
+	if GC.MultipleModuleConfigFilePath == "" {
+		log.Fatal("must specify a config file for the multiple module, see -c")
+	}
+	ini := flags.NewIniParser(iniParser)
+	parse, i, err := ini.ParseFile(GC.MultipleModuleConfigFilePath)
+	if err != nil {
+		log.Fatalf("error in ini parse")
+	}
+	log.Warn(parse, i)
 }
 
 // parseArgs parses the command line arguments and sets the global configuration
@@ -167,6 +186,7 @@ func parseArgs() {
 
 func init() {
 	parser = flags.NewParser(nil, flags.None) // options set in Execute()
+	iniParser = flags.NewParser(nil, flags.None)
 	parser.Command.SubcommandsOptional = true // without this, the user must use a command, makes ./zdns --version impossible, we'll enforce specifying modules ourselves
 	parser.Name = "zdns"
 	// ZFlags will pre-pend the parser.Name and append "<command>" to the Usage string. So this is a work-around to indicate
@@ -180,9 +200,9 @@ ZDNS also includes its own recursive resolution and a cache to further optimize 
 
 Domains can optionally passed into ZDNS similiar to dig, ex: zdns A google.com yahoo.com
 If no domains are passed, ZDNS will read from stdin or the --input-file flag, if specified.`
-	_, err := parser.AddGroup("Application Options", "Options for controlling the behavior of zdns", &GC.ApplicationOptions)
+	_, err := parser.AddGroup("ZDNS Options", "Options for controlling the behavior of zdns", &GC.ApplicationOptions)
 	if err != nil {
-		log.Fatalf("could not add Application Options group: %v", err)
+		log.Fatalf("could not add ZDNS Options group: %v", err)
 	}
 	_, err = parser.AddGroup("Network Options", "Options for controlling the network behavior of zdns", &GC.NetworkOptions)
 	if err != nil {
@@ -192,4 +212,24 @@ If no domains are passed, ZDNS will read from stdin or the --input-file flag, if
 	if err != nil {
 		log.Fatalf("could not add Input/Output Options group: %v", err)
 	}
+	group, err := parser.AddGroup("Application Options", "All options for all modules", &GC)
+	if err != nil {
+		log.Fatalf("could not add Application Options group: %v", err)
+	}
+	group.Hidden = true
+	_, err = parser.AddCommand("MULTIPLE", "Perform multiple lookups in parallel", "Perform multiple lookups in parallel. Must be used with a .ini file, see src/cli/multiple.ini for an example", &GC)
+	if err != nil {
+		log.Fatalf("could not add multiple command: %v", err)
+	}
+	// ZFlags doesn't seem to be able to parse when we split Application Options into groups like this. Since we just
+	// did it for printing a nice --help msg, we'll lump them together in the iniParser
+	_, err = iniParser.AddGroup("Application Options", "Options for controlling the behavior of zdns", &GC)
+	if err != nil {
+		log.Fatalf("could not add Application Options group to iniParser: %v", err)
+	}
+
+	// TODO
+	/*
+		Tomorrow, Phillip, look at grouping all groups into a hidden "Application Options" group so that we can only have one parser, may work!
+	*/
 }
