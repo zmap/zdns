@@ -40,15 +40,11 @@ type OutputHandler interface {
 	WriteResults(results <-chan string, wg *sync.WaitGroup) error
 }
 
-// ApplicationOptions core options for all ZDNS modules
+// GeneralOptions core options for all ZDNS modules
 // Order here is the order they'll be printed to the user, so preserve alphabetical order
-type ApplicationOptions struct {
+type GeneralOptions struct {
 	LookupAllNameServers bool   `long:"all-nameservers" description:"Perform the lookup via all the nameservers for the domain."`
 	CacheSize            int    `long:"cache-size" default:"10000" description:"how many items can be stored in internal recursive cache"`
-	CheckingDisabled     bool   `long:"checking-disabled" description:"Sends DNS packets with the CD bit set"`
-	ClassString          string `long:"class" default:"INET" description:"DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY."`
-	ClientSubnetString   string `long:"client-subnet" description:"Client subnet in CIDR format for EDNS0."`
-	Dnssec               bool   `long:"dnssec" description:"Requests DNSSEC records by setting the DNSSEC OK (DO) bit"`
 	GoMaxProcs           int    `long:"go-processes" default:"0" description:"number of OS processes (GOMAXPROCS by default)"`
 	IterationTimeout     int    `long:"iteration-timeout" default:"4" description:"timeout for a single iterative step in an iterative query, in seconds. Only applicable with --iterative"`
 	IterativeResolution  bool   `long:"iterative" description:"Perform own iteration instead of relying on recursive resolver"`
@@ -57,14 +53,22 @@ type ApplicationOptions struct {
 	NameServersString    string `long:"name-servers" description:"List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53."`
 	UseNanoseconds       bool   `long:"nanoseconds" description:"Use nanosecond resolution timestamps in output"`
 	DisableFollowCNAMEs  bool   `long:"no-follow-cnames" description:"do not follow CNAMEs/DNAMEs in the lookup process"`
-	UseNSID              bool   `long:"nsid" description:"Request NSID."`
 	Retries              int    `long:"retries" default:"1" description:"how many times should zdns retry query if timeout or temporary failure"`
 	Threads              int    `short:"t" long:"threads" default:"1000" description:"number of lightweight go threads"`
 	Timeout              int    `long:"timeout" default:"15" description:"timeout for resolving a individual name, in seconds"`
 	Version              bool   `long:"version" short:"v" description:"Print the version of zdns and exit"`
 }
 
-// NetworkOptions options for controlling the network behavior of zdns
+// QueryOptions affect the fields of the actual DNS queries. Applicable to all modules.
+type QueryOptions struct {
+	CheckingDisabled   bool   `long:"checking-disabled" description:"Sends DNS packets with the CD bit set"`
+	ClassString        string `long:"class" default:"INET" description:"DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY."`
+	ClientSubnetString string `long:"client-subnet" description:"Client subnet in CIDR format for EDNS0."`
+	Dnssec             bool   `long:"dnssec" description:"Requests DNSSEC records by setting the DNSSEC OK (DO) bit"`
+	UseNSID            bool   `long:"nsid" description:"Request NSID."`
+}
+
+// NetworkOptions options for controlling the network behavior. Applicable to all modules.
 type NetworkOptions struct {
 	IPv4TransportOnly     bool   `long:"4" description:"utilize IPv4 query transport only, incompatible with --6"`
 	IPv6TransportOnly     bool   `long:"6" description:"utilize IPv6 query transport only, incompatible with --4"`
@@ -77,7 +81,7 @@ type NetworkOptions struct {
 	UDPOnly               bool   `long:"udp-only" description:"Only perform lookups over UDP"`
 }
 
-// InputOutpueOptions options for controlling the input and output behavior of zdns
+// InputOutputOptions options for controlling the input and output behavior of zdns. Applicable to all modules.
 type InputOutputOptions struct {
 	AlexaFormat       bool   `long:"alexa" description:"is input file from Alexa Top Million download"`
 	BlacklistFilePath string `long:"blacklist-file" description:"blacklist file for servers to exclude from lookups"`
@@ -95,9 +99,10 @@ type InputOutputOptions struct {
 }
 
 type CLIConf struct {
-	ApplicationOptions
+	GeneralOptions
 	NetworkOptions
 	InputOutputOptions
+	QueryOptions
 	OutputGroups       []string
 	TimeFormat         string
 	NameServers        []string // recursive resolvers if not in iterative mode, root servers/servers to start iteration if in iterative mode
@@ -170,9 +175,13 @@ func init() {
 https://github.com/zmap/dns (and in turn https://github.com/miekg/dns) for constructing
 and parsing raw DNS packets.
 ZDNS also includes its own recursive resolution and a cache to further optimize performance.`
-	_, err := parser.AddGroup("Application Options", "Options for controlling the behavior of zdns", &GC.ApplicationOptions)
+	_, err := parser.AddGroup("General Options", "General options for controlling the behavior of zdns", &GC.GeneralOptions)
 	if err != nil {
-		log.Fatalf("could not add Application Options group: %v", err)
+		log.Fatalf("could not add ZDNS Options group: %v", err)
+	}
+	_, err = parser.AddGroup("Query Options", "Options for controlling the fields of the actual DNS queries", &GC.QueryOptions)
+	if err != nil {
+		log.Fatalf("could not add Query Options group: %v", err)
 	}
 	_, err = parser.AddGroup("Network Options", "Options for controlling the network behavior of zdns", &GC.NetworkOptions)
 	if err != nil {
@@ -182,4 +191,5 @@ ZDNS also includes its own recursive resolution and a cache to further optimize 
 	if err != nil {
 		log.Fatalf("could not add Input/Output Options group: %v", err)
 	}
+
 }

@@ -46,7 +46,7 @@ func TestValidateNetworkingConfig(t *testing.T) {
 			NetworkOptions: NetworkOptions{
 				IPv4TransportOnly: true,
 			},
-			ApplicationOptions: ApplicationOptions{
+			GeneralOptions: GeneralOptions{
 				NameServersString: "127.0.0.1:53",
 			},
 		}
