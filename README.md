@@ -31,11 +31,10 @@ Usage
 =====
 
 ZDNS was originally built as a CLI tool only. Work has been done to convert
-this into a library with a CLI that calls this library. Currently, the [library](github.com/zmap/zdns/src/zdns)
-has been separated out and a new, separate [CLI](github.com/zmap/zdns/src/cli) has been added. 
+this [library](github.com/zmap/zdns/src/zdns) into a standalone library and a separate [CLI](github.com/zmap/zdns/src/cli) wraps the library.
 
-The library consists of a `ResolverConfig` struct which will contain all config options for all lookups made. The `ResolverConfig` is
-used to create a `Resolver` struct which will be used to make all lookups. A `Resolver`
+The library consists of a `ResolverConfig` struct which will contain all config options for all lookups made.
+The `ResolverConfig` is used to create a `Resolver` struct which will make all lookups. A `Resolver`
 should only make a single lookup at a time and multiple `Resolver` structs should be
 used for parallelism. See our [examples](github.com/zmap/zdns/examples) for how to use the
 library. [Modules](github.com/zmap/zdns/src/modules) are used to define the behavior of the lookups.
@@ -284,7 +283,9 @@ Similiar to dig, zdns can take a domain as input and perform a lookup on it.  Th
 the first argument and domains follow.
 For example:
 
-```./zdns A google.com```
+```
+./zdns A google.com
+```
 
 Multiple Lookup Modules
 -----------------------
