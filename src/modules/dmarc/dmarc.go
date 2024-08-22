@@ -67,7 +67,7 @@ func (dmarcMod *DmarcLookupModule) Validate(args []string) error {
 	return nil
 }
 
-func (dmarcMod *DmarcLookupModule) Description() string {
+func (dmarcMod *DmarcLookupModule) GetDescription() string {
 	return ""
 }
 

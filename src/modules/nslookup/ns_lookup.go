@@ -84,7 +84,7 @@ func (nsMod *NSLookupModule) WithTestingLookup(f func(r *zdns.Resolver, lookupNa
 	nsMod.testingLookup = f
 }
 
-func (nsMod *NSLookupModule) Description() string {
+func (nsMod *NSLookupModule) GetDescription() string {
 	return "Run a more exhaustive ns lookup, will additionally do an A/AAAA lookup for the IP addresses that correspond with name server records."
 }
 

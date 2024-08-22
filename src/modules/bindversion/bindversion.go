@@ -64,7 +64,7 @@ func (bindVersionMod *BindVersionLookupModule) Help() string {
 	return ""
 }
 
-func (bindVersionMod *BindVersionLookupModule) Description() string {
+func (bindVersionMod *BindVersionLookupModule) GetDescription() string {
 	return ""
 }
 

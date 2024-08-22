@@ -135,7 +135,7 @@ func (axfrMod *AxfrLookupModule) NewFlags() interface{} {
 	return axfrMod
 }
 
-func (axfrMod *AxfrLookupModule) Description() string {
+func (axfrMod *AxfrLookupModule) GetDescription() string {
 	return ""
 }
 

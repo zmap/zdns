@@ -70,7 +70,7 @@ func (spfMod *SpfLookupModule) Validate(args []string) error {
 }
 
 // Description
-func (spfMod *SpfLookupModule) Description() string {
+func (spfMod *SpfLookupModule) GetDescription() string {
 	return ""
 }
 
