@@ -26,8 +26,10 @@ import (
 type LookupModule interface {
 	CLIInit(gc *CLIConf, rc *zdns.ResolverConfig) error
 	Lookup(resolver *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)
-	Help() string
-	Description() string
+	Help() string                 // needed to satisfy the ZCommander interface in ZFlags
+	Description() string          // needed to add a command to the parser, printed to the user
+	Validate(args []string) error // needed to satisfy the ZCommander interface in ZFlags
+	NewFlags() interface{}        // needed to satisfy the ZModule interface in ZFlags
 }
 
 const (
@@ -116,10 +118,6 @@ func RegisterLookupModule(name string, lm LookupModule) {
 	if err != nil {
 		log.Fatalf("could not add parser command: %v", err)
 	}
-	//_, err = iniParser.AddCommand(name, "", lm.Description(), lm)
-	//if err != nil {
-	//	log.Fatalf("could not add ini parser command: %v", err)
-	//}
 }
 
 type BasicLookupModule struct {

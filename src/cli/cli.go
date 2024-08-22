@@ -127,7 +127,10 @@ var GC CLIConf
 func Execute() {
 	parseArgs()
 	if strings.EqualFold(GC.CLIModule, "MULTIPLE") {
-		handleMultipleModule(&GC)
+		err := handleMultipleModule(&GC)
+		if err != nil {
+			log.Fatalf("error in handling multiple modules: %v", err)
+		}
 	} else {
 		lookupModule, err := GetLookupModule(GC.CLIModule)
 		if err != nil {
@@ -140,28 +143,32 @@ func Execute() {
 	Run(GC)
 }
 
-func handleMultipleModule(GC *CLIConf) {
+func handleMultipleModule(GC *CLIConf) error {
 	// need to parse the multiple module config file first
 	if GC.MultipleModuleConfigFilePath == "" {
-		log.Fatal("must specify a config file for the multiple module, see -c")
+		return errors.New("must specify a config file for the multiple module, see -c")
 	}
 	ini := flags.NewIniParser(parser)
 	moduleStrings, modules, err := ini.ParseFile(GC.MultipleModuleConfigFilePath)
 	if err != nil {
-		log.Fatalf("error in ini parse: %v", err)
+		return fmt.Errorf("error in ini parse: %v", err)
 	}
 	if len(moduleStrings) != len(modules) {
-		log.Fatal("error in ini parse: number of module names does not match number of modules")
+		return errors.New("error in ini parse: number of module names does not match number of modules")
 	}
 	GC.ActiveModuleNames = moduleStrings
 	GC.ActiveModules = make(map[string]LookupModule, len(moduleStrings))
 	for i, name := range moduleStrings {
 		lm, ok := modules[i].(LookupModule)
 		if !ok {
-			log.Fatalf("module %s is not a LookupModule", name)
+			return fmt.Errorf("module %s is not a LookupModule", name)
+		}
+		if _, ok = GC.ActiveModules[name]; ok {
+			return fmt.Errorf("module %s is defined multiple times in the config file", name)
 		}
 		GC.ActiveModules[name] = lm
 	}
+	return nil
 }
 
 // parseArgs parses the command line arguments and sets the global configuration
