@@ -15,9 +15,9 @@ package cli
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/src/zdns"
