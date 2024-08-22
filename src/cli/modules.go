@@ -16,18 +16,19 @@ package cli
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
-	"github.com/spf13/pflag"
+	log "github.com/sirupsen/logrus"
 
+	"github.com/pkg/errors"
 	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/src/zdns"
 )
 
 type LookupModule interface {
-	CLIInit(gc *CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error
+	CLIInit(gc *CLIConf, rc *zdns.ResolverConfig) error
 	Lookup(resolver *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)
 	Help() string
+	Description() string
 }
 
 const (
@@ -111,6 +112,10 @@ func init() {
 
 func RegisterLookupModule(name string, lm LookupModule) {
 	moduleToLookupModule[name] = lm
+	_, err := parser.AddCommand(name, "", lm.Description(), lm)
+	if err != nil {
+		log.Fatalf("could not add command: %v", err)
+	}
 }
 
 type BasicLookupModule struct {
@@ -120,7 +125,7 @@ type BasicLookupModule struct {
 	DNSClass             uint16
 }
 
-func (lm *BasicLookupModule) CLIInit(gc *CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
+func (lm *BasicLookupModule) CLIInit(gc *CLIConf, rc *zdns.ResolverConfig) error {
 	if gc == nil {
 		return errors.New("CLIConf cannot be nil")
 	}
@@ -133,6 +138,10 @@ func (lm *BasicLookupModule) CLIInit(gc *CLIConf, rc *zdns.ResolverConfig, flags
 }
 
 func (lm *BasicLookupModule) Help() string {
+	return ""
+}
+
+func (lm *BasicLookupModule) Description() string {
 	return ""
 }
 
@@ -154,10 +163,10 @@ func GetLookupModule(name string) (LookupModule, error) {
 	return module, nil
 }
 
-func GetValidLookups() []string {
-	lookups := make([]string, 0, len(moduleToLookupModule))
+func GetValidLookups() map[string]struct{} {
+	lookups := make(map[string]struct{}, len(moduleToLookupModule))
 	for lookup := range moduleToLookupModule {
-		lookups = append(lookups, lookup)
+		lookups[lookup] = struct{}{}
 	}
 	return lookups
 }

@@ -22,25 +22,33 @@ import (
 func TestValidateNetworkingConfig(t *testing.T) {
 	t.Run("LocalAddr and LocalInterface both specified", func(t *testing.T) {
 		gc := &CLIConf{
-			LocalAddrString:   "1.1.1.1",
-			LocalIfaceString:  "eth0",
-			IPv4TransportOnly: true,
+			NetworkOptions: NetworkOptions{
+				LocalAddrString:   "1.1.1.1",
+				LocalIfaceString:  "eth0",
+				IPv4TransportOnly: true,
+			},
 		}
 		err := populateNetworkingConfig(gc)
 		require.NotNil(t, err, "Expected an error but got nil")
 	})
 	t.Run("Using invalid interface", func(t *testing.T) {
 		gc := &CLIConf{
-			LocalIfaceString:  "invalid_interface",
-			IPv4TransportOnly: true,
+			NetworkOptions: NetworkOptions{
+				LocalIfaceString:  "invalid_interface",
+				IPv4TransportOnly: true,
+			},
 		}
 		err := populateNetworkingConfig(gc)
 		require.NotNil(t, err, "Expected an error but got nil")
 	})
 	t.Run("Using nameserver with port", func(t *testing.T) {
 		gc := &CLIConf{
-			NameServersString: "127.0.0.1:53",
-			IPv4TransportOnly: true,
+			NetworkOptions: NetworkOptions{
+				IPv4TransportOnly: true,
+			},
+			GeneralOptions: GeneralOptions{
+				NameServersString: "127.0.0.1:53",
+			},
 		}
 		err := populateNetworkingConfig(gc)
 		require.Nil(t, err, "Expected no error but got %v", err)
