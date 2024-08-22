@@ -76,6 +76,11 @@ func (nsMod *NSLookupModule) Help() string {
 	return ""
 }
 
+// Validate checks that the module's arguments are valid
+func (nsMod *NSLookupModule) Validate(args []string) error {
+	return nil
+}
+
 func (nsMod *NSLookupModule) WithTestingLookup(f func(r *zdns.Resolver, lookupName string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)) {
 	nsMod.testingLookup = f
 }

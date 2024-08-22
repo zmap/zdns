@@ -63,3 +63,13 @@ func (dmarcMod *DmarcLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServ
 func (dmarcMod *DmarcLookupModule) Help() string {
 	return ""
 }
+
+// Validate - fulfills the ZFlags interface requirements
+func (dmarcMod *DmarcLookupModule) Validate(args []string) error {
+	return nil
+}
+
+// Description
+func (dmarcMod *DmarcLookupModule) Description() string {
+	return ""
+}

@@ -63,3 +63,13 @@ func (spfMod *SpfLookupModule) Lookup(r *zdns.Resolver, name, resolver string) (
 func (spfMod *SpfLookupModule) Help() string {
 	return ""
 }
+
+// Validate
+func (spfMod *SpfLookupModule) Validate(args []string) error {
+	return nil
+}
+
+// Description
+func (spfMod *SpfLookupModule) Description() string {
+	return ""
+}

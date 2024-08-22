@@ -129,6 +129,15 @@ func (axfrMod *AxfrLookupModule) Help() string {
 	return ""
 }
 
+func (axfrMod *AxfrLookupModule) Validate(args []string) error {
+	return nil
+}
+
+// NewFlags returns an empty Flags object. Necessary to satisfy the ZFlags interface requirements
+func (axfrMod *AxfrLookupModule) NewFlags() interface{} {
+	return axfrMod
+}
+
 // CLIInit initializes the AxfrLookupModule with the given parameters, used to call AXFR from the command line
 func (axfrMod *AxfrLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig) error {
 	if gc == nil {

@@ -149,6 +149,15 @@ func (lm *BasicLookupModule) Description() string {
 	return ""
 }
 
+func (lm *BasicLookupModule) Validate(args []string) error {
+	return nil
+}
+
+// NewFlags returns an empty Flags object. Necessary to satisfy the ZFlags interface requirements
+func (lm *BasicLookupModule) NewFlags() interface{} {
+	return lm
+}
+
 func (lm *BasicLookupModule) Lookup(resolver *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
 	if lm.LookupAllNameServers {
 		return resolver.LookupAllNameservers(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass}, nameServer)

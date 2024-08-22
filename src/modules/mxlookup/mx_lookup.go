@@ -140,6 +140,10 @@ func (mxMod *MXLookupModule) Help() string {
 	return ""
 }
 
+func (mxMod *MXLookupModule) Validate(args []string) error {
+	return nil
+}
+
 func (mxMod *MXLookupModule) Description() string {
 	return "MXLOOKUP will additionally do an A lookup for the IP addresses that correspond with an exchange record."
 }

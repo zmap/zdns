@@ -138,7 +138,7 @@ func handleMultipleModule() {
 	ini := flags.NewIniParser(parser)
 	parse, i, err := ini.ParseFile(GC.MultipleModuleConfigFilePath)
 	if err != nil {
-		log.Fatalf("error in ini parse")
+		log.Fatalf("error in ini parse: %v", err)
 	}
 	log.Warn(parse, i)
 }
