@@ -39,36 +39,40 @@ def recursiveSort(obj):
 
 class Tests(unittest.TestCase):
     maxDiff = None
-    ZDNS_EXECUTABLE = "./zdns"
+    ZDNS_EXECUTABLE = "../zdns"
+    ADDITIONAL_FLAGS = " --threads=10"  # flags used with every test
 
     def run_zdns_check_failure(self, flags, name, expected_err, executable=ZDNS_EXECUTABLE):
-        flags = flags + " --threads=10"
+        flags = flags + self.ADDITIONAL_FLAGS
         c = f"echo '{name}' | {executable} {flags}; exit 0"
         o = subprocess.check_output(c, shell=True, stderr=subprocess.STDOUT)
         self.assertEqual(expected_err in o.decode(), True)
 
     def run_zdns(self, flags, name, executable=ZDNS_EXECUTABLE):
-        flags = flags + " --threads=10"
+        flags = flags + self.ADDITIONAL_FLAGS
         c = f"echo '{name}' | {executable} {flags}"
         o = subprocess.check_output(c, shell=True)
         return c, json.loads(o.rstrip())
 
-    def run_zdns_multiline(self, flags, names, executable=ZDNS_EXECUTABLE):
-        d = tempfile.mkdtemp
-        f = "/".join([d, "temp"])
-        with open(f) as fd:
-            for name in names:
-                fd.writeline(name)
-        flags = flags + " --threads=10"
-        c = f"cat '{f}' | {executable} {flags}"
+    # Runs zdns with a given name(s) input and flags, returns the command and JSON objects from the piped JSON-Lines output
+    # Used when running a ZDNS command that should return multiple lines of output, and you want those in a list
+    def run_zdns_multiline_output(self, flags, name, executable=ZDNS_EXECUTABLE):
+        flags = flags + self.ADDITIONAL_FLAGS
+        c = f"echo '{name}' | {executable} {flags}"
         o = subprocess.check_output(c, shell=True)
-        os.rm(f)
-        return c, [json.loads(l.rstrip()) for l in o]
+        output_lines = o.decode('utf-8').strip().splitlines()
+        json_objects = [json.loads(line.rstrip()) for line in output_lines]
+        return c, json_objects
 
-    ROOT_A = {"1.2.3.4", "2.3.4.5", "3.4.5.6"}
+    ROOT_A_ZDNS_TESTING_COM = {"1.2.3.4", "2.3.4.5", "3.4.5.6"}  # zdns-testing.com
+
+    ROOT_A_A_ZDNS_TESTING_COM = {"21.9.87.65"}  # a.zdns-testing.com
 
     ROOT_A_ANSWERS = [{"type": "A", "class": "IN", "answer": x,
-                       "name": "zdns-testing.com"} for x in ROOT_A]
+                       "name": "zdns-testing.com"} for x in ROOT_A_ZDNS_TESTING_COM]
+
+    ROOT_A_A_ZDNS_TESTING_COM_ANSWERS = [{"type": "A", "class": "IN", "answer": x,
+                                          "name": "a.zdns-testing.com"} for x in ROOT_A_A_ZDNS_TESTING_COM]
 
     ROOT_AAAA = {"fd5a:3bce:8713::1", "fde6:9bb3:dbd6::2", "fdb3:ac76:a577::3"}
 
@@ -80,6 +84,15 @@ class Tests(unittest.TestCase):
         {"answer": "mx2.zdns-testing.com.", "preference": 5, "type": "MX", "class": "IN", 'name': 'zdns-testing.com'},
         {"answer": "mx1.censys.io.", "preference": 10, "type": "MX", "class": "IN", 'name': 'zdns-testing.com'},
     ]
+
+    A_MX1_ZDNS_TESTING_COM = {"1.2.3.4", "2.3.4.5"}
+
+    AAAA_MX1_ZDNS_TESTING_COM = {"fdb3:ac76:a577::4", "fdb3:ac76:a577::5"}
+
+    A_MX1_ZDNS_TESTING_COM_ANSWERS = [{"type": "A", "class": "IN", "answer": x, "name": "mx1.zdns-testing.com"}
+                              for x in A_MX1_ZDNS_TESTING_COM]
+    AAAA_MX1_ZDNS_TESTING_COM_ANSWERS = [{"type": "AAAA", "class": "IN", "answer": x, "name": "mx1.zdns-testing.com"}
+                              for x in AAAA_MX1_ZDNS_TESTING_COM]
 
     NS_SERVERS = [
         {"type": "NS", "class": "IN", "name": "zdns-testing.com",
@@ -154,6 +167,19 @@ class Tests(unittest.TestCase):
                 "2.3.4.5",
                 "3.4.5.6"
             ],
+            "ipv6_addresses": [
+                "fde6:9bb3:dbd6::2",
+                "fd5a:3bce:8713::1",
+                "fdb3:ac76:a577::3"
+            ]
+        }
+    }
+
+    A_LOOKUP_WWW_ZDNS_TESTING_IPv6 = {
+        "name": "www.zdns-testing.com",
+        "class": "IN",
+        "status": "NOERROR",
+        "data": {
             "ipv6_addresses": [
                 "fde6:9bb3:dbd6::2",
                 "fd5a:3bce:8713::1",
@@ -646,6 +672,98 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd)
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+
+    def test_a_multiple_domains_dig_style(self):
+        c = "A zdns-testing.com a.zdns-testing.com --iterative"
+        name = ""
+        cmd, res = self.run_zdns_multiline_output(c, name)
+        self.assertSuccess(res[0], cmd)
+        self.assertSuccess(res[1], cmd)
+        if res[0]["name"] == "zdns-testing.com":
+            self.assertEqualAnswers(res[0], self.ROOT_A_ANSWERS, cmd)
+            self.assertEqualAnswers(res[1], self.ROOT_A_A_ZDNS_TESTING_COM_ANSWERS, cmd)
+        else:
+            self.assertEqualAnswers(res[0], self.ROOT_A_A_ZDNS_TESTING_COM_ANSWERS, cmd)
+            self.assertEqualAnswers(res[1], self.ROOT_A_ANSWERS, cmd)
+
+    def test_multiple_modules(self):
+        iniFileContents = """
+        [Application Options]
+        name-servers = "1.1.1.1"
+        [A]
+        [AAAA]
+        """
+        file_name = "./test_multiple_modules.ini"
+        with open(file_name, "w") as f:
+            f.write(iniFileContents)
+        c = "MULTIPLE -c " + file_name
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns_multiline_output(c, name)
+        self.assertSuccess(res[0], cmd)
+        self.assertSuccess(res[1], cmd)
+        if res[0]["lookup_module"] == "A":
+            self.assertEqualAnswers(res[0], self.ROOT_A_ANSWERS, cmd)
+            self.assertEqualAnswers(res[1], self.ROOT_AAAA_ANSWERS, cmd)
+        else:
+            self.assertEqualAnswers(res[0], self.ROOT_AAAA_ANSWERS, cmd)
+            self.assertEqualAnswers(res[1], self.ROOT_A_ANSWERS, cmd)
+        # delete file
+        cmd = f"rm {file_name}"
+        subprocess.check_output(cmd, shell=True)
+
+    def test_multiple_modules_multiple_domains(self):
+        iniFileContents = """
+        [Application Options]
+        name-servers = "1.1.1.1"
+        [A]
+        [AAAA]
+        """
+        file_name = "./test_multiple_modules_multiple_domains.ini"
+        with open(file_name, "w") as f:
+            f.write(iniFileContents)
+        c = "MULTIPLE -c " + file_name + " zdns-testing.com mx1.zdns-testing.com"
+        name = ""
+
+        cmd, res = self.run_zdns_multiline_output(c, name)
+        self.assertSuccess(res[0], cmd)
+        self.assertSuccess(res[1], cmd)
+        for r in res:
+            if r["data"]["resolver"] != "1.1.1.1:53":
+                self.fail("Unexpected resolver")
+            if r["name"] == "zdns-testing.com" and r["lookup_module"] == "A":
+                self.assertEqualAnswers(r, self.ROOT_A_ANSWERS, cmd)
+            elif r["name"] == "zdns-testing.com" and r["lookup_module"] == "AAAA":
+                self.assertEqualAnswers(r, self.ROOT_AAAA_ANSWERS, cmd)
+            elif r["name"] == "mx1.zdns-testing.com" and r["lookup_module"] == "A":
+                self.assertEqualAnswers(r, self.A_MX1_ZDNS_TESTING_COM_ANSWERS, cmd)
+            elif r["name"] == "mx1.zdns-testing.com" and r["lookup_module"] == "AAAA":
+                self.assertEqualAnswers(r, self.AAAA_MX1_ZDNS_TESTING_COM_ANSWERS, cmd)
+            else:
+                self.fail("Unexpected response")
+        # delete file
+        cmd = f"rm {file_name}"
+        subprocess.check_output(cmd, shell=True)
+
+    def test_multiple_modules_with_special_modules(self):
+        iniFileContents = """
+        [Application Options]
+        name-servers = "1.1.1.1"
+        [ALOOKUP]
+        ipv4-lookup=false
+        ipv6-lookup = true
+        """
+        file_name = "./test_multiple_modules.ini"
+        with open(file_name, "w") as f:
+            f.write(iniFileContents)
+        c = "MULTIPLE -c " + file_name
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns_multiline_output(c, name)
+        self.assertSuccess(res[0], cmd)
+        self.assertEqualALookup(res[0], self.A_LOOKUP_WWW_ZDNS_TESTING_IPv6)
+        # delete file
+        cmd = f"rm {file_name}"
+        subprocess.check_output(cmd, shell=True)
+
 
     def test_cname(self):
         c = "CNAME"
