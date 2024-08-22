@@ -74,3 +74,8 @@ func (bindVersionMod *BindVersionLookupModule) Description() string {
 func (bindVersionMod *BindVersionLookupModule) Validate(args []string) error {
 	return nil
 }
+
+// NewFlags returns an empty Flags object. Necessary to satisfy the ZFlags interface requirements
+func (bindVersionMod *BindVersionLookupModule) NewFlags() interface{} {
+	return bindVersionMod
+}

@@ -88,3 +88,8 @@ func (nsMod *NSLookupModule) WithTestingLookup(f func(r *zdns.Resolver, lookupNa
 func (nsMod *NSLookupModule) Description() string {
 	return "Run a more exhaustive ns lookup, will additionally do an A/AAAA lookup for the IP addresses that correspond with name server records."
 }
+
+// NewFlags returns an empty Flags object. Necessary to satisfy the ZFlags interface requirements
+func (nsMod *NSLookupModule) NewFlags() interface{} {
+	return nsMod
+}

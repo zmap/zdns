@@ -133,8 +133,9 @@ func Execute() {
 		if err != nil {
 			log.Fatal("could not get lookup module: ", err)
 		}
+		GC.ActiveModules = make(map[string]LookupModule)
 		GC.ActiveModules[GC.CLIModule] = lookupModule
-		GC.ActiveModuleNames = append(GC.ActiveModuleNames, GC.CLIModule)
+		GC.ActiveModuleNames = []string{GC.CLIModule}
 	}
 	Run(GC)
 }

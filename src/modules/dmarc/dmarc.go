@@ -73,3 +73,8 @@ func (dmarcMod *DmarcLookupModule) Validate(args []string) error {
 func (dmarcMod *DmarcLookupModule) Description() string {
 	return ""
 }
+
+// NewFlags returns an empty Flags object. Necessary to satisfy the ZFlags interface requirements
+func (dmarcMod *DmarcLookupModule) NewFlags() interface{} {
+	return dmarcMod
+}

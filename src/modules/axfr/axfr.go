@@ -138,6 +138,10 @@ func (axfrMod *AxfrLookupModule) NewFlags() interface{} {
 	return axfrMod
 }
 
+func (axfrMod *AxfrLookupModule) Description() string {
+	return ""
+}
+
 // CLIInit initializes the AxfrLookupModule with the given parameters, used to call AXFR from the command line
 func (axfrMod *AxfrLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig) error {
 	if gc == nil {

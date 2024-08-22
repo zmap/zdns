@@ -147,3 +147,8 @@ func (mxMod *MXLookupModule) Validate(args []string) error {
 func (mxMod *MXLookupModule) Description() string {
 	return "MXLOOKUP will additionally do an A lookup for the IP addresses that correspond with an exchange record."
 }
+
+// NewFlags returns an empty Flags object. Necessary to satisfy the ZFlags interface requirements
+func (mxMod *MXLookupModule) NewFlags() interface{} {
+	return mxMod
+}
