@@ -46,21 +46,25 @@ type TraceStep struct {
 	Try        int               `json:"try" groups:"trace"`
 }
 
-// Result contains all the metadata from a complete lookup, potentailly after following many CNAMEs/etc.
+// Result contains all the metadata from a complete lookup(s) for a domain. Results is keyed with the ModuleName.
 type Result struct {
-	AlteredName string      `json:"altered_name,omitempty" groups:"short,normal,long,trace"`
-	Name        string      `json:"name,omitempty" groups:"short,normal,long,trace"`
-	Nameserver  string      `json:"nameserver,omitempty" groups:"normal,long,trace"`
-	Class       string      `json:"class,omitempty" groups:"long,trace"`
-	AlexaRank   int         `json:"alexa_rank,omitempty" groups:"short,normal,long,trace"`
-	Metadata    string      `json:"metadata,omitempty" groups:"short,normal,long,trace"`
-	Module      string      `json:"lookup_module,omitempty" groups:"short,normal,long,trace"`
-	Status      string      `json:"status,omitempty" groups:"short,normal,long,trace"`
-	Error       string      `json:"error,omitempty" groups:"short,normal,long,trace"`
-	Timestamp   string      `json:"timestamp,omitempty" groups:"short,normal,long,trace"`
-	Duration    float64     `json:"duration,omitempty" groups:"short,normal,long,trace"` // in seconds
-	Data        interface{} `json:"data,omitempty" groups:"short,normal,long,trace"`
-	Trace       Trace       `json:"trace,omitempty" groups:"trace"`
+	AlteredName string                        `json:"altered_name,omitempty" groups:"short,normal,long,trace"`
+	Name        string                        `json:"name,omitempty" groups:"short,normal,long,trace"`
+	Nameserver  string                        `json:"nameserver,omitempty" groups:"normal,long,trace"`
+	Class       string                        `json:"class,omitempty" groups:"long,trace"`
+	AlexaRank   int                           `json:"alexa_rank,omitempty" groups:"short,normal,long,trace"`
+	Metadata    string                        `json:"metadata,omitempty" groups:"short,normal,long,trace"`
+	Results     map[string]SingleModuleResult `json:"results,omitempty" groups:"short,normal,long,trace"`
+}
+
+// SingleModuleResult contains all the metadata from a complete lookup for a domain, potentially after following many CNAMEs/etc.
+type SingleModuleResult struct {
+	Status    string      `json:"status,omitempty" groups:"short,normal,long,trace"`
+	Error     string      `json:"error,omitempty" groups:"short,normal,long,trace"`
+	Timestamp string      `json:"timestamp,omitempty" groups:"short,normal,long,trace"`
+	Duration  float64     `json:"duration,omitempty" groups:"short,normal,long,trace"` // in seconds
+	Data      interface{} `json:"data,omitempty" groups:"short,normal,long,trace"`
+	Trace     Trace       `json:"trace,omitempty" groups:"trace"`
 }
 
 // SingleQueryResult contains the results of a single DNS query
