@@ -142,6 +142,7 @@ func (lm *BasicLookupModule) CLIInit(gc *CLIConf, rc *zdns.ResolverConfig) error
 	}
 	lm.LookupAllNameServers = rc.LookupAllNameServers
 	lm.IsIterative = gc.IterativeResolution
+	lm.DNSClass = gc.Class
 	return nil
 }
 
