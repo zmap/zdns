@@ -71,40 +71,42 @@ For example, the command:
 returns:
 ```json
 {
-  "name": "censys.io",
-  "class": "IN",
-  "status": "NOERROR",
-  "data": {
-    "answers": [
-      {
-        "ttl": 300,
-        "type": "A",
-        "class": "IN",
-        "name": "censys.io",
-        "data": "216.239.38.21"
+   "name": "censys.io",
+   "results": {
+      "A": {
+         "data": {
+            "additionals": [
+               {
+                  "flags": "",
+                  "type": "EDNS0",
+                  "udpsize": 512,
+                  "version": 0
+               }
+            ],
+            "answers": [
+               {
+                  "answer": "104.18.10.85",
+                  "class": "IN",
+                  "name": "censys.io",
+                  "ttl": 300,
+                  "type": "A"
+               },
+               {
+                  "answer": "104.18.11.85",
+                  "class": "IN",
+                  "name": "censys.io",
+                  "ttl": 300,
+                  "type": "A"
+               }
+            ],
+            "protocol": "udp",
+            "resolver": "[2603:6013:9d00:3302::1]:53"
+         },
+         "duration": 0.285295416,
+         "status": "NOERROR",
+         "timestamp": "2024-08-23T13:12:43-04:00"
       }
-    ],
-    "additionals": [
-      {
-        "ttl": 34563,
-        "type": "A",
-        "class": "IN",
-        "name": "ns-cloud-e1.googledomains.com",
-        "data": "216.239.32.110"
-      },
-    ],
-    "authorities": [
-      {
-        "ttl": 53110,
-        "type": "NS",
-        "class": "IN",
-        "name": "censys.io",
-        "data": "ns-cloud-e1.googledomains.com."
-      },
-    ],
-    "protocol": "udp",
-    "resolver": "30.128.52.190:53"
-  }
+   }
 }
 ```
 
@@ -128,32 +130,38 @@ For example,
 returns:
 ```json
 {
-  "name": "censys.io",
-  "status": "NOERROR",
-  "data": {
-    "exchanges": [
-      {
-        "name": "aspmx.l.google.com",
-        "type": "MX",
-        "class": "IN",
-        "preference": 1,
-        "ipv4_addresses": [
-          "74.125.28.26"
-        ],
-        "ttl": 288
-      },
-      {
-        "name": "alt1.aspmx.l.google.com",
-        "type": "MX",
-        "class": "IN",
-        "preference": 5,
-        "ipv4_addresses": [
-          "64.233.182.26"
-        ],
-        "ttl": 288
+   "name": "censys.io",
+   "results": {
+      "MXLOOKUP": {
+         "data": {
+            "exchanges": [
+               {
+                  "class": "IN",
+                  "ipv4_addresses": [
+                     "209.85.202.27"
+                  ],
+                  "name": "alt1.aspmx.l.google.com",
+                  "preference": 5,
+                  "ttl": 300,
+                  "type": "MX"
+               },
+               {
+                  "class": "IN",
+                  "ipv4_addresses": [
+                     "142.250.31.26"
+                  ],
+                  "name": "aspmx.l.google.com",
+                  "preference": 1,
+                  "ttl": 300,
+                  "type": "MX"
+               }
+            ]
+         },
+         "duration": 0.154786958,
+         "status": "NOERROR",
+         "timestamp": "2024-08-23T13:10:11-04:00"
       }
-    ]
-  }
+   }
 }
 ```
 
