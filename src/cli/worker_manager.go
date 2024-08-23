@@ -577,7 +577,11 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, o
 	for line := range input {
 		// we'll process each module sequentially, parallelism is per-domain
 		for moduleName, module := range gc.ActiveModules {
-			res := zdns.Result{Module: moduleName}
+			var res zdns.Result
+			if len(gc.ActiveModules) > 1 {
+				// if we have multiple modules, give module to allow user to disambiguate
+				res.Module = moduleName
+			}
 			var innerRes interface{}
 			var trace zdns.Trace
 			var status zdns.Status
