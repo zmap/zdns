@@ -141,6 +141,10 @@ func (lm *BasicLookupModule) CLIInit(gc *CLIConf, rc *zdns.ResolverConfig) error
 		return errors.New("ResolverConfig cannot be nil")
 	}
 	lm.LookupAllNameServers = rc.LookupAllNameServers
+	if gc.Class != 0 {
+		// if the user has specified a class, use it
+		lm.DNSClass = gc.Class
+	}
 	lm.IsIterative = gc.IterativeResolution
 	return nil
 }
