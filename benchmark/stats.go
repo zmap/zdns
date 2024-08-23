@@ -135,8 +135,7 @@ func updateStats(line string, s *Stats) {
 		log.Panicf("failed to unmarshal JSON (%s): %v", line, err)
 	}
 	domainName := res.Name
-	// Assuming we only run a single module
-	// TODO - this will only work for a single module
+	// TODO - this will only work for a single module benchmark, we'll need to adjust this if we want to benchmark multi-module
 	var duration float64
 	var status zdns.Status
 	for _, moduleResult := range res.Results {
