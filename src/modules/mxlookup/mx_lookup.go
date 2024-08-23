@@ -135,11 +135,18 @@ func (mxMod *MXLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer str
 	return &retv, trace, zdns.StatusNoError, nil
 }
 
-// Help returns the module's help string
 func (mxMod *MXLookupModule) Help() string {
 	return ""
 }
 
-func (mxMod *MXLookupModule) Description() string {
+func (mxMod *MXLookupModule) Validate(args []string) error {
+	return nil
+}
+
+func (mxMod *MXLookupModule) GetDescription() string {
 	return "MXLOOKUP will additionally do an A lookup for the IP addresses that correspond with an exchange record."
+}
+
+func (mxMod *MXLookupModule) NewFlags() interface{} {
+	return mxMod
 }

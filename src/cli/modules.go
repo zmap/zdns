@@ -16,9 +16,8 @@ package cli
 import (
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/src/zdns"
@@ -27,8 +26,10 @@ import (
 type LookupModule interface {
 	CLIInit(gc *CLIConf, rc *zdns.ResolverConfig) error
 	Lookup(resolver *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)
-	Help() string
-	Description() string
+	Help() string                 // needed to satisfy the ZCommander interface in ZFlags.
+	GetDescription() string       // needed to add a command to the parser, printed to the user. Printed to the user when they run the help command for a given module
+	Validate(args []string) error // needed to satisfy the ZCommander interface in ZFlags
+	NewFlags() interface{}        // needed to satisfy the ZModule interface in ZFlags
 }
 
 const (
@@ -108,11 +109,17 @@ func init() {
 	RegisterLookupModule("UNSPEC", &BasicLookupModule{DNSType: dns.TypeUNSPEC, DNSClass: dns.ClassINET})
 	RegisterLookupModule("URI", &BasicLookupModule{DNSType: dns.TypeURI, DNSClass: dns.ClassINET})
 	RegisterLookupModule("ANY", &BasicLookupModule{DNSType: dns.TypeANY, DNSClass: dns.ClassINET})
+	RegisterLookupModule("MULTIPLE", &BasicLookupModule{
+		DNSType:  dns.TypeANY,
+		DNSClass: dns.ClassINET,
+		Description: "MULTIPLE is a lookup module used from the CLI to use multiple lookup modules at once with the " +
+			"help of a configuration file provided with --multi-config-file/-c. See README.md/Multiple Lookup Modules " +
+			"for more information."})
 }
 
 func RegisterLookupModule(name string, lm LookupModule) {
 	moduleToLookupModule[name] = lm
-	_, err := parser.AddCommand(name, "", lm.Description(), lm)
+	_, err := parser.AddCommand(name, "", lm.GetDescription(), lm)
 	if err != nil {
 		log.Fatalf("could not add command: %v", err)
 	}
@@ -123,6 +130,7 @@ type BasicLookupModule struct {
 	LookupAllNameServers bool
 	DNSType              uint16
 	DNSClass             uint16
+	Description          string
 }
 
 func (lm *BasicLookupModule) CLIInit(gc *CLIConf, rc *zdns.ResolverConfig) error {
@@ -141,8 +149,16 @@ func (lm *BasicLookupModule) Help() string {
 	return ""
 }
 
-func (lm *BasicLookupModule) Description() string {
-	return ""
+func (lm *BasicLookupModule) GetDescription() string {
+	return lm.Description
+}
+
+func (lm *BasicLookupModule) Validate(args []string) error {
+	return nil
+}
+
+func (lm *BasicLookupModule) NewFlags() interface{} {
+	return lm
 }
 
 func (lm *BasicLookupModule) Lookup(resolver *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {

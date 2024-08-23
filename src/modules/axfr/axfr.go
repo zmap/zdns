@@ -123,9 +123,19 @@ func (axfrMod *AxfrLookupModule) Lookup(resolver *zdns.Resolver, name, nameServe
 	return retv, nil, zdns.StatusNoError, nil
 }
 
-// Command-line Help Documentation. This is the descriptive text what is
-// returned when you run zdns module --help
 func (axfrMod *AxfrLookupModule) Help() string {
+	return ""
+}
+
+func (axfrMod *AxfrLookupModule) Validate(args []string) error {
+	return nil
+}
+
+func (axfrMod *AxfrLookupModule) NewFlags() interface{} {
+	return axfrMod
+}
+
+func (axfrMod *AxfrLookupModule) GetDescription() string {
 	return ""
 }
 

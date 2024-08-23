@@ -59,7 +59,18 @@ func (dmarcMod *DmarcLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServ
 	return res, trace, resStatus, err
 }
 
-// Help
 func (dmarcMod *DmarcLookupModule) Help() string {
 	return ""
+}
+
+func (dmarcMod *DmarcLookupModule) Validate(args []string) error {
+	return nil
+}
+
+func (dmarcMod *DmarcLookupModule) GetDescription() string {
+	return ""
+}
+
+func (dmarcMod *DmarcLookupModule) NewFlags() interface{} {
+	return dmarcMod
 }

@@ -135,7 +135,14 @@ func updateStats(line string, s *Stats) {
 		log.Panicf("failed to unmarshal JSON (%s): %v", line, err)
 	}
 	domainName := res.Name
-	resolveTime := time.Duration(res.Duration * float64(time.Second))
+	// TODO - this will only work for a single module benchmark, we'll need to adjust this if we want to benchmark multi-module
+	var duration float64
+	var status zdns.Status
+	for _, moduleResult := range res.Results {
+		duration = moduleResult.Duration
+		status = zdns.Status(moduleResult.Status)
+	}
+	resolveTime := time.Duration(duration * float64(time.Second))
 
 	if resolveTime < s.MinResolveTime || s.MinResolveTime == 0 {
 		s.MinResolveTime = resolveTime
@@ -173,7 +180,6 @@ func updateStats(line string, s *Stats) {
 	}
 	s.numberOfResolutions++
 
-	status := zdns.Status(res.Status)
 	if status == zdns.StatusNoError {
 		s.SuccessfulResolutions++
 	} else if status == zdns.StatusTimeout || status == zdns.StatusIterTimeout {

@@ -31,19 +31,13 @@ Usage
 =====
 
 ZDNS was originally built as a CLI tool only. Work has been done to convert
-this into a library with a CLI that calls this library. Currently, the library
-has been separated out and a new, separate CLI has been added. Work is ongoing
-to clean up the interface between the CLI (or any other client program of the
-ZDNS library) and the ZDNS library itself.
+this [library](github.com/zmap/zdns/src/zdns) into a standalone library and let a separate [CLI](github.com/zmap/zdns/src/cli) wrap the library.
 
-The ZDNS library lives in `github.com/zmap/zdns/pkg/zdns`. A function there,
-`zdns.Run()`, is used to start the ZDNS tool and do the requested lookups.
-Currently, this tool is intended to accept a `zdns.GlobalConf` object, `plfag`
-flags, and other information, but this interface is undergoing revisions to be
-more generally usable and continue to decouple the CLI from the library.
-
-The CLI for this library lives in `github.com/zmap/zdns` under the main
-package. Its functionality is described below.
+The library consists of a `ResolverConfig` struct which will contain all config options for all lookups made.
+The `ResolverConfig` is used to create 1+ `Resolver` struct(s) which will make all lookups. A `Resolver`
+should only make a single lookup at a time (it is not thread-safe) and multiple `Resolver` structs should be
+used for parallelism. See our [examples](github.com/zmap/zdns/examples) for how to use the
+library. [Modules](github.com/zmap/zdns/src/modules) are used to define the behavior of the lookups.
 
 ZDNS provides several types of modules:
 
@@ -51,7 +45,8 @@ ZDNS provides several types of modules:
   but in JSON. There is a module for (nearly) every type of DNS record
 
 - *Lookup modules* provide more helpful responses when multiple queries are
-  required (e.g., completing additional `A` lookup if a `CNAME` is received)
+  required (e.g., completing additional `A` lookup for IP addresses if a `NS` is 
+  received in `NSLOOKUP`)
 
 - *Misc modules* provide other additional means of querying servers (e.g.,
   `bind.version`)
@@ -76,40 +71,42 @@ For example, the command:
 returns:
 ```json
 {
-  "name": "censys.io",
-  "class": "IN",
-  "status": "NOERROR",
-  "data": {
-    "answers": [
-      {
-        "ttl": 300,
-        "type": "A",
-        "class": "IN",
-        "name": "censys.io",
-        "data": "216.239.38.21"
+   "name": "censys.io",
+   "results": {
+      "A": {
+         "data": {
+            "additionals": [
+               {
+                  "flags": "",
+                  "type": "EDNS0",
+                  "udpsize": 512,
+                  "version": 0
+               }
+            ],
+            "answers": [
+               {
+                  "answer": "104.18.10.85",
+                  "class": "IN",
+                  "name": "censys.io",
+                  "ttl": 300,
+                  "type": "A"
+               },
+               {
+                  "answer": "104.18.11.85",
+                  "class": "IN",
+                  "name": "censys.io",
+                  "ttl": 300,
+                  "type": "A"
+               }
+            ],
+            "protocol": "udp",
+            "resolver": "[2603:6013:9d00:3302::1]:53"
+         },
+         "duration": 0.285295416,
+         "status": "NOERROR",
+         "timestamp": "2024-08-23T13:12:43-04:00"
       }
-    ],
-    "additionals": [
-      {
-        "ttl": 34563,
-        "type": "A",
-        "class": "IN",
-        "name": "ns-cloud-e1.googledomains.com",
-        "data": "216.239.32.110"
-      },
-    ],
-    "authorities": [
-      {
-        "ttl": 53110,
-        "type": "NS",
-        "class": "IN",
-        "name": "censys.io",
-        "data": "ns-cloud-e1.googledomains.com."
-      },
-    ],
-    "protocol": "udp",
-    "resolver": "30.128.52.190:53"
-  }
+   }
 }
 ```
 
@@ -119,13 +116,12 @@ Lookup Modules
 Raw DNS responses frequently do not provide the data you _want_. For example,
 an MX response may not include the associated A records in the additionals
 section requiring an additional lookup. To address this gap and provide a
-friendlier interface, we also provide several _lookup_ modules: `alookup` and
-`mxlookup`.
+friendlier interface, we also provide several _lookup_ modules: `alookup`,
+`mxlookup`, and `nslookup`.
 
-`mxlookup` will additionally do an A lookup for the IP addresses that
-correspond with an exchange record. `alookup` acts similar to nslookup and will
-follow CNAME records. `nslookup` will additionally do an A/AAAA lookup for IP 
-addresses that correspond with an NS record
+`alookup` acts similar to nslookup and will follow CNAME records. 
+`mxlookup` will additionally do an A lookup for the IP addresses that correspond with an exchange record. 
+`nslookup` will additionally do an A/AAAA lookup for IP addresses that correspond with an NS record
 
 For example,
 
@@ -134,32 +130,38 @@ For example,
 returns:
 ```json
 {
-  "name": "censys.io",
-  "status": "NOERROR",
-  "data": {
-    "exchanges": [
-      {
-        "name": "aspmx.l.google.com",
-        "type": "MX",
-        "class": "IN",
-        "preference": 1,
-        "ipv4_addresses": [
-          "74.125.28.26"
-        ],
-        "ttl": 288
-      },
-      {
-        "name": "alt1.aspmx.l.google.com",
-        "type": "MX",
-        "class": "IN",
-        "preference": 5,
-        "ipv4_addresses": [
-          "64.233.182.26"
-        ],
-        "ttl": 288
+   "name": "censys.io",
+   "results": {
+      "MXLOOKUP": {
+         "data": {
+            "exchanges": [
+               {
+                  "class": "IN",
+                  "ipv4_addresses": [
+                     "209.85.202.27"
+                  ],
+                  "name": "alt1.aspmx.l.google.com",
+                  "preference": 5,
+                  "ttl": 300,
+                  "type": "MX"
+               },
+               {
+                  "class": "IN",
+                  "ipv4_addresses": [
+                     "142.250.31.26"
+                  ],
+                  "name": "aspmx.l.google.com",
+                  "preference": 1,
+                  "ttl": 300,
+                  "type": "MX"
+               }
+            ]
+         },
+         "duration": 0.154786958,
+         "status": "NOERROR",
+         "timestamp": "2024-08-23T13:10:11-04:00"
       }
-    ]
-  }
+   }
 }
 ```
 
@@ -282,6 +284,44 @@ Querying all Nameservers
 There is a feature available to perform a certain DNS query against all nameservers. For example, you might want to get the A records from all nameservers of a certain domain. To do so, you can do:
 
 ```echo "google.com" | ./zdns A --all-nameservers```
+
+Dig-style Domain Input
+----------------------
+Similiar to dig, zdns can take a domain as input and perform a lookup on it.  The only requirement is that the module is
+the first argument and domains follow.
+For example:
+
+```
+./zdns A google.com
+```
+
+Multiple Lookup Modules
+-----------------------
+ZDNS supports using multiple lookup modules in a single invocation. For example, let's say you want to perform an A, 
+AAAA, and MXLOOKUP for a set of domains and you want to perform them with iterative resolution. You will need to use the
+`MULTIPLE` module and provide a config file with the modules and module-specific flags you want to use. 
+
+Please see `./zdns --help` and `./zdns <MODULE_NAME> --help` for Global and Module-specific options that can be used in the config file.
+
+For example:
+
+```
+cat 1000k_domains.txt | ./zdns MULTIPLE --multi-config-file="./multiple.ini"
+```
+Where `multiple.ini` is a file that looks like:
+```
+; Specify Global Options here
+[Application Options]
+iterative=true
+; List out modules and their respective module-specific options here. A module can only be listed once
+[MXLOOKUP]
+ipv4-lookup = true
+; You can use default values and just list modules if you don't need to specify any options
+[A]
+[AAAA]
+```
+
+A sample `multiple.ini` file is provided in [github.com/zmap/zdns/cli/multiple.ini](github.com/zmap/zdns/cli/multiple.ini)
 
 Running ZDNS
 ------------

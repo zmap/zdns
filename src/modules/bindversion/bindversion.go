@@ -59,3 +59,19 @@ func (bindVersionMod *BindVersionLookupModule) Lookup(r *zdns.Resolver, lookupNa
 	res := Result{BindVersion: resString}
 	return res, trace, resStatus, err
 }
+
+func (bindVersionMod *BindVersionLookupModule) Help() string {
+	return ""
+}
+
+func (bindVersionMod *BindVersionLookupModule) GetDescription() string {
+	return ""
+}
+
+func (bindVersionMod *BindVersionLookupModule) Validate(args []string) error {
+	return nil
+}
+
+func (bindVersionMod *BindVersionLookupModule) NewFlags() interface{} {
+	return bindVersionMod
+}

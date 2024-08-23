@@ -76,10 +76,18 @@ func (nsMod *NSLookupModule) Help() string {
 	return ""
 }
 
+func (nsMod *NSLookupModule) Validate(args []string) error {
+	return nil
+}
+
 func (nsMod *NSLookupModule) WithTestingLookup(f func(r *zdns.Resolver, lookupName string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)) {
 	nsMod.testingLookup = f
 }
 
-func (nsMod *NSLookupModule) Description() string {
+func (nsMod *NSLookupModule) GetDescription() string {
 	return "Run a more exhaustive ns lookup, will additionally do an A/AAAA lookup for the IP addresses that correspond with name server records."
+}
+
+func (nsMod *NSLookupModule) NewFlags() interface{} {
+	return nsMod
 }
