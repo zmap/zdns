@@ -576,68 +576,75 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, o
 	metadata.Status = make(map[zdns.Status]int)
 	for line := range input {
 		// we'll process each module sequentially, parallelism is per-domain
+		res := zdns.Result{Results: make(map[string]zdns.SingleModuleResult, len(gc.ActiveModules))}
+		// get the fields that won't change for each lookup module
+		rawName := ""
+		nameServer := ""
+		var rank int
+		var entryMetadata string
+		if gc.AlexaFormat {
+			rawName, rank = parseAlexa(line)
+			res.AlexaRank = rank
+		} else if gc.MetadataFormat {
+			rawName, entryMetadata = parseMetadataInputLine(line)
+			res.Metadata = entryMetadata
+		} else if gc.NameServerMode {
+			nameServer, err = util.AddDefaultPortToDNSServerName(line)
+			if err != nil {
+				log.Fatal("unable to parse name server: ", line)
+			}
+		} else {
+			rawName, nameServer = parseNormalInputLine(line)
+		}
+		res.Name = rawName
+		// handle per-module lookups
 		for moduleName, module := range gc.ActiveModules {
-			res := zdns.Result{Module: moduleName}
 			var innerRes interface{}
 			var trace zdns.Trace
 			var status zdns.Status
 			var err error
 			var changed bool
 			var lookupName string
-			rawName := ""
-			nameServer := ""
-			var rank int
-			var entryMetadata string
-			if gc.AlexaFormat {
-				rawName, rank = parseAlexa(line)
-				res.AlexaRank = rank
-			} else if gc.MetadataFormat {
-				rawName, entryMetadata = parseMetadataInputLine(line)
-				res.Metadata = entryMetadata
-			} else if gc.NameServerMode {
-				nameServer, err = util.AddDefaultPortToDNSServerName(line)
-				if err != nil {
-					log.Fatal("unable to parse name server: ", line)
-				}
-			} else {
-				rawName, nameServer = parseNormalInputLine(line)
-			}
 			lookupName, changed = makeName(rawName, gc.NamePrefix, gc.NameOverride)
 			if changed {
 				res.AlteredName = lookupName
 			}
-			res.Name = rawName
 			res.Class = dns.Class(gc.Class).String()
 
 			startTime := time.Now()
 			innerRes, trace, status, err = module.Lookup(resolver, lookupName, nameServer)
 
-			res.Timestamp = time.Now().Format(gc.TimeFormat)
-			res.Duration = time.Since(startTime).Seconds()
+			lookupRes := zdns.SingleModuleResult{
+				Timestamp: time.Now().Format(gc.TimeFormat),
+				Duration:  time.Since(startTime).Seconds(),
+			}
 			if status != zdns.StatusNoOutput {
-				res.Status = string(status)
-				res.Data = innerRes
-				res.Trace = trace
+				lookupRes.Status = string(status)
+				lookupRes.Data = innerRes
+				lookupRes.Trace = trace
 				if err != nil {
-					res.Error = err.Error()
+					lookupRes.Error = err.Error()
 				}
-				v, _ := version.NewVersion("0.0.0")
-				o := &sheriff.Options{
-					Groups:     gc.OutputGroups,
-					ApiVersion: v,
-				}
-				data, err := sheriff.Marshal(o, res)
-				if err != nil {
-					log.Fatalf("unable to marshal result to JSON: %v", err)
-				}
-				jsonRes, err := json.Marshal(data)
-				if err != nil {
-					log.Fatalf("unable to marshal JSON result: %v", err)
-				}
-				output <- string(jsonRes)
+				res.Results[moduleName] = lookupRes
 			}
 			metadata.Status[status]++
 			metadata.Lookups++
+		}
+		if len(res.Results) > 0 {
+			v, _ := version.NewVersion("0.0.0")
+			o := &sheriff.Options{
+				Groups:     gc.OutputGroups,
+				ApiVersion: v,
+			}
+			data, err := sheriff.Marshal(o, res)
+			if err != nil {
+				log.Fatalf("unable to marshal result to JSON: %v", err)
+			}
+			jsonRes, err := json.Marshal(data)
+			if err != nil {
+				log.Fatalf("unable to marshal JSON result: %v", err)
+			}
+			output <- string(jsonRes)
 		}
 		metadata.Names++
 	}
