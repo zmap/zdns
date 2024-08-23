@@ -17,8 +17,6 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"github.com/hashicorp/go-version"
-	"github.com/liip/sheriff"
 	"net"
 	"os"
 	"runtime"
@@ -27,6 +25,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-version"
+	"github.com/liip/sheriff"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
