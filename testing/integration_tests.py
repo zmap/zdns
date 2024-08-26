@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import copy
+import os
 import subprocess
 import json
 import unittest
-import tempfile
 import datetime
 from dateutil import parser
 from ipaddress import ip_address
@@ -90,9 +90,9 @@ class Tests(unittest.TestCase):
     AAAA_MX1_ZDNS_TESTING_COM = {"fdb3:ac76:a577::4", "fdb3:ac76:a577::5"}
 
     A_MX1_ZDNS_TESTING_COM_ANSWERS = [{"type": "A", "class": "IN", "answer": x, "name": "mx1.zdns-testing.com"}
-                              for x in A_MX1_ZDNS_TESTING_COM]
+                                      for x in A_MX1_ZDNS_TESTING_COM]
     AAAA_MX1_ZDNS_TESTING_COM_ANSWERS = [{"type": "AAAA", "class": "IN", "answer": x, "name": "mx1.zdns-testing.com"}
-                              for x in AAAA_MX1_ZDNS_TESTING_COM]
+                                         for x in AAAA_MX1_ZDNS_TESTING_COM]
 
     NS_SERVERS = [
         {"type": "NS", "class": "IN", "name": "zdns-testing.com",
@@ -616,7 +616,8 @@ class Tests(unittest.TestCase):
         self.assertEqual(res["results"]["MXLOOKUP"]["status"], correct["results"]["MXLOOKUP"]["status"])
         for exchange in res["results"]["MXLOOKUP"]["data"]["exchanges"]:
             del exchange["ttl"]
-        self.assertEqual(recursiveSort(res["results"]["MXLOOKUP"]["data"]["exchanges"]), recursiveSort(correct["results"]["MXLOOKUP"]["data"]["exchanges"]))
+        self.assertEqual(recursiveSort(res["results"]["MXLOOKUP"]["data"]["exchanges"]),
+                         recursiveSort(correct["results"]["MXLOOKUP"]["data"]["exchanges"]))
 
     def assertEqualALookup(self, res, correct, query_type):
         self.assertEqual(res["name"], correct["name"])
@@ -639,7 +640,8 @@ class Tests(unittest.TestCase):
         self.assertEqual(res["results"]["NSLOOKUP"]["status"], correct["results"]["NSLOOKUP"]["status"])
         for server in res["results"]["NSLOOKUP"]["data"]["servers"]:
             del server["ttl"]
-        self.assertEqual(recursiveSort(res["results"]["NSLOOKUP"]["data"]["servers"]), recursiveSort(correct["results"]["NSLOOKUP"]["data"]["servers"]))
+        self.assertEqual(recursiveSort(res["results"]["NSLOOKUP"]["data"]["servers"]),
+                         recursiveSort(correct["results"]["NSLOOKUP"]["data"]["servers"]))
 
     def assertEqualTypes(self, res, list):
         res_types = set()
@@ -709,7 +711,7 @@ class Tests(unittest.TestCase):
             self.assertEqualAnswers(res[1], self.ROOT_A_ANSWERS, cmd, "A")
 
     def test_multiple_modules(self):
-        iniFileContents = """
+        ini_file_contents = """
         [Application Options]
         name-servers = "1.1.1.1"
         [A]
@@ -717,7 +719,7 @@ class Tests(unittest.TestCase):
         """
         file_name = "./test_multiple_modules.ini"
         with open(file_name, "w") as f:
-            f.write(iniFileContents)
+            f.write(ini_file_contents)
         c = "MULTIPLE -c " + file_name
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
@@ -726,11 +728,10 @@ class Tests(unittest.TestCase):
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
         self.assertEqualAnswers(res, self.ROOT_AAAA_ANSWERS, cmd, "AAAA")
         # delete file
-        cmd = f"rm {file_name}"
-        subprocess.check_output(cmd, shell=True)
+        os.remove(file_name)
 
     def test_multiple_modules_multiple_domains(self):
-        iniFileContents = """
+        ini_file_contents = """
         [Application Options]
         name-servers = "1.1.1.1"
         [A]
@@ -738,7 +739,7 @@ class Tests(unittest.TestCase):
         """
         file_name = "./test_multiple_modules_multiple_domains.ini"
         with open(file_name, "w") as f:
-            f.write(iniFileContents)
+            f.write(ini_file_contents)
         c = "MULTIPLE -c " + file_name + " zdns-testing.com mx1.zdns-testing.com"
         name = ""
 
@@ -766,7 +767,7 @@ class Tests(unittest.TestCase):
         subprocess.check_output(cmd, shell=True)
 
     def test_multiple_modules_with_special_modules(self):
-        iniFileContents = """
+        ini_file_contents = """
         [Application Options]
         name-servers = "1.1.1.1"
         [ALOOKUP]
@@ -775,7 +776,7 @@ class Tests(unittest.TestCase):
         """
         file_name = "./test_multiple_modules.ini"
         with open(file_name, "w") as f:
-            f.write(iniFileContents)
+            f.write(ini_file_contents)
         c = "MULTIPLE -c " + file_name
         name = "www.zdns-testing.com"
         cmd, res = self.run_zdns_multiline_output(c, name)
@@ -784,7 +785,6 @@ class Tests(unittest.TestCase):
         # delete file
         cmd = f"rm {file_name}"
         subprocess.check_output(cmd, shell=True)
-
 
     def test_cname(self):
         c = "CNAME"
@@ -1082,7 +1082,8 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd, "AXFR")
         f = open("testing/axfr.json")
         axfr_answer = json.load(f)
-        self.assertEqualAxfrLookup(res["results"]["AXFR"]["data"]["servers"][0]["records"], axfr_answer["data"]["servers"][0]["records"])
+        self.assertEqualAxfrLookup(res["results"]["AXFR"]["data"]["servers"][0]["records"],
+                                   axfr_answer["data"]["servers"][0]["records"])
         f.close()
 
     def test_soa(self):
@@ -1097,7 +1098,7 @@ class Tests(unittest.TestCase):
         name = "_sip._udp.sip.voice.google.com"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd, c)
-        self.assertEqualAnswers(res, self.SRV_ANSWERS, cmd,c, key="target")
+        self.assertEqualAnswers(res, self.SRV_ANSWERS, cmd, c, key="target")
 
     def test_tlsa(self):
         c = "TLSA"
@@ -1249,6 +1250,57 @@ class Tests(unittest.TestCase):
         # microseconds should be non-zero since we called with --nanoseconds. There is a chance it happens to be 0,
         # but it is very unlikely. (1 in 1,000,000). Python's datetime.date's smallest unit of time is microseconds,
         # so that's why we're using this in place of nanoseconds. It should not affect the test's validity.
+
+    # test_metadata_file test the `--metadata-file` flag which saves a summary of a scan's metadata output to a file
+    def test_metadata_file(self):
+        f_name = "temp-metadata.json"
+        c = "A google.com yahoo.com cloudflare.com zdns-testing.com --metadata-file=" + f_name
+        name = ""
+        cmd, res = self.run_zdns_multiline_output(c, name)
+        for r in res:
+            self.assertSuccess(r, cmd, "A")
+        # Attempt to read the metadata file
+
+        metadata = None
+        with open(f_name) as f:
+            metadata = json.load(f)
+        self.assertEqual(metadata["names"], 4)
+        self.assertEqual(metadata["lookups"], 4)
+        self.assertEqual(metadata["statuses"]["NOERROR"], 4)
+        self.assertEqual(metadata["conf"]["Threads"], 10)
+        if metadata["start_time"] is None or metadata["end_time"] is None:
+            self.fail("Start or end time not recorded")
+        if metadata["zdns_version"] is None:
+            self.fail("ZDNS version not recorded")
+        os.remove(f_name)
+
+    def test_metadata_file_multi_module(self):
+        ini_file_contents = """
+        [Application Options]
+        name-servers = "1.1.1.1"
+        [A]
+        [AAAA]
+        """
+        metadata_file_name = "temp-metadata.json"
+        ini_file_name = "./test_multiple_modules.ini"
+        with open(ini_file_name, "w") as f:
+            f.write(ini_file_contents)
+        c = ("MULTIPLE -c " + ini_file_name + " google.com yahoo.com cloudflare.com zdns-testing.com --metadata-file="
+             + metadata_file_name)
+        name = ""
+        cmd, res = self.run_zdns_multiline_output(c, name)
+        for r in res:
+            self.assertSuccess(r, cmd, "A")
+            self.assertSuccess(r, cmd, "AAAA")
+        # Attempt to read the metadata file
+        metadata = None
+        with open(metadata_file_name) as f:
+            metadata = json.load(f)
+        self.assertEqual(metadata["names"], 4)
+        self.assertEqual(metadata["lookups"], 8)
+        self.assertEqual(metadata["statuses"]["NOERROR"], 8)
+        os.remove(metadata_file_name)
+        os.remove(ini_file_name)
 
 
 if __name__ == "__main__":
