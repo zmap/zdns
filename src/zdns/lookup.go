@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"regexp"
 	"strings"
 
@@ -457,13 +458,54 @@ func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer st
 		if util.HasCtxExpired(&ctx) {
 			return SingleQueryResult{}, StatusTimeout, i + 1, nil
 		}
-		result, status, err := wireLookup(ctx, connInfo.udpClient, connInfo.tcpClient, connInfo.conn, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
+		var result SingleQueryResult
+		var status Status
+		if r.dnsOverHTTPSEnabled {
+			result, status, err = doDoHLookup(ctx, connInfo.httpsClient, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
+		} else {
+			result, status, err = wireLookup(ctx, connInfo.udpClient, connInfo.tcpClient, connInfo.conn, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
+		}
 		if status != StatusTimeout || i == r.retries {
 			return result, status, i + 1, err
 		}
 
 	}
 	return SingleQueryResult{}, "", 0, errors.New("retry loop didn't exit properly")
+}
+
+func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameServer string, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (SingleQueryResult, Status, error) {
+	m := new(dns.Msg)
+	m.SetQuestion(dotName(q.Name), q.Type)
+	m.Question[0].Qclass = q.Class
+	m.RecursionDesired = recursive
+	m.CheckingDisabled = checkingDisabled
+
+	m.SetEdns0(1232, dnssec)
+	if ednsOpt := m.IsEdns0(); ednsOpt != nil {
+		ednsOpt.Option = append(ednsOpt.Option, ednsOptions...)
+	}
+	bytes, err := m.Pack()
+	if err != nil {
+		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not pack DNS message")
+	}
+	if !strings.Contains(nameServer, "https://") {
+		nameServer = "https://" + nameServer
+	}
+	nameServer += "/dns-query"
+	req, err := http.NewRequest("POST", nameServer, strings.NewReader(string(bytes)))
+	if err != nil {
+		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not create HTTP request")
+	}
+	req.Header.Set("Content-Type", "application/dns-message")
+	req.Header.Set("Accept", "application/dns-message")
+	req = req.WithContext(ctx)
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not perform HTTP request")
+	}
+
+	log.Warn("response - ", resp.Body)
+	return SingleQueryResult{}, StatusError, nil
 }
 
 // wireLookup performs a DNS lookup on-the-wire with the given parameters

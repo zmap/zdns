@@ -15,6 +15,8 @@
 package zdns
 
 import (
+	"context"
+	"crypto/tls"
 	"fmt"
 	"math/rand"
 	"net"
@@ -82,7 +84,9 @@ type ResolverConfig struct {
 	DNSConfigFilePath     string   // path to the DNS config file, ex: /etc/resolv.conf
 
 	DNSSecEnabled       bool
-	DNSOverHTTPS        bool // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
+	DNSOverHTTPS        bool         // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
+	HTTPSClientIPv4     *http.Client // for DoH, per docs should be shared amongst requests
+	HTTPSClientIPv6     *http.Client // for DoH, per docs should be shared amongst requests
 	EdnsOptions         []dns.EDNS0
 	CheckingDisabledBit bool
 }
@@ -241,6 +245,41 @@ func (rc *ResolverConfig) PrintInfo() {
 	log.Infof("for iterative lookups, using nameservers: %s", strings.Join(util.Concat(rc.RootNameServersV4, rc.RootNameServersV6), ", "))
 }
 
+// SetupDoHClient sets up the HTTPS client for DoH queries. This should be called after setting the local addresses for
+// the resolver config. An http.Client will be setup that will cycle thru the local addresses for each request.
+// It is required to call this function in order to use DoH queries.
+// TODO probably want to give some error if the client isn't setup and a DoH query is attempted
+func (rc *ResolverConfig) SetupDoHClient() error {
+	if !rc.DNSOverHTTPS {
+		return errors.New("DoH is not enabled")
+	}
+	// Custom DialContext function to select a local IP
+	dialer := &net.Dialer{
+		Timeout: rc.Timeout,
+	}
+
+	var index int
+	dialContext := func(ctx context.Context, network, addr string) (net.Conn, error) {
+		localAddr, err := net.ResolveTCPAddr(network, rc.LocalAddrsV4[index].String())
+		if err != nil {
+			return nil, err
+		}
+		dialer.LocalAddr = localAddr
+		index = (index + 1) % len(rc.LocalAddrsV4) // Cycle to the next IP
+		return dialer.DialContext(ctx, network, addr)
+	}
+
+	// Create an http.Client with the custom transport
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: dialContext,
+		},
+		Timeout: 10 * time.Second,
+	}
+	rc.HTTPSClientIPv4 = client
+	return nil
+}
+
 // NewResolverConfig creates a new ResolverConfig with default values.
 func NewResolverConfig() *ResolverConfig {
 	c := new(Cache)
@@ -307,6 +346,7 @@ type Resolver struct {
 	followCNAMEs         bool // whether iterative lookups should follow CNAMEs/DNAMEs
 
 	dnsSecEnabled       bool
+	dnsOverHTTPSEnabled bool // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
 	ednsOptions         []dns.EDNS0
 	checkingDisabledBit bool
 	isClosed            bool // true if the resolver has been closed, lookup will panic if called after Close
@@ -348,6 +388,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 
 		timeout: config.Timeout,
 
+		dnsOverHTTPSEnabled: config.DNSOverHTTPS,
 		dnsSecEnabled:       config.DNSSecEnabled,
 		ednsOptions:         config.EdnsOptions,
 		checkingDisabledBit: config.CheckingDisabledBit,
@@ -355,7 +396,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	log.SetLevel(r.logLevel)
 	if config.IPVersionMode != IPv6Only {
 		// create connection info for IPv4
-		connInfo, err := getConnectionInfo(config.LocalAddrsV4, config.TransportMode, config.Timeout, config.ShouldRecycleSockets)
+		connInfo, err := getConnectionInfo(config.LocalAddrsV4, config.TransportMode, config.Timeout, config.ShouldRecycleSockets, config.DNSOverHTTPS)
 		if err != nil {
 			return nil, fmt.Errorf("could not create connection info for IPv4: %w", err)
 		}
@@ -363,7 +404,8 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	}
 	if config.IPVersionMode != IPv4Only {
 		// create connection info for IPv6
-		connInfo, err := getConnectionInfo(config.LocalAddrsV6, config.TransportMode, config.Timeout, config.ShouldRecycleSockets)
+		// TODO handle DoH for IPv6
+		connInfo, err := getConnectionInfo(config.LocalAddrsV6, config.TransportMode, config.Timeout, config.ShouldRecycleSockets, config.DNSOverHTTPS)
 		if err != nil {
 			return nil, fmt.Errorf("could not create connection info for IPv6: %w", err)
 		}
@@ -408,7 +450,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	return r, nil
 }
 
-func getConnectionInfo(localAddr []net.IP, transportMode transportMode, timeout time.Duration, shouldRecycleSockets bool) (*ConnectionInfo, error) {
+func getConnectionInfo(localAddr []net.IP, transportMode transportMode, timeout time.Duration, shouldRecycleSockets, shouldSetupHTTPClient bool) (*ConnectionInfo, error) {
 	connInfo := &ConnectionInfo{
 		localAddr: localAddr[rand.Intn(len(localAddr))],
 	}
@@ -441,6 +483,44 @@ func getConnectionInfo(localAddr []net.IP, transportMode transportMode, timeout 
 			LocalAddr: &net.TCPAddr{IP: connInfo.localAddr},
 		}
 	}
+
+	if shouldSetupHTTPClient {
+		// Create an http.Client with the custom transport
+		// TODO - will need to bind to local address, just getting this working
+		// TODO - will be more efficient, but harder to use, to setup a single client in RC that all clients share
+		connInfo.httpsClient = &http.Client{
+			Transport: &http.Transport{
+				DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+					localTCPAddr := &net.TCPAddr{
+						IP:   net.ParseIP(connInfo.localAddr.String()),
+						Port: 0,
+					}
+
+					// Custom dialer with local address binding
+					dialer := &net.Dialer{
+						Timeout:   30 * time.Second,
+						KeepAlive: 30 * time.Second,
+						LocalAddr: localTCPAddr,
+					}
+					conn, err := dialer.DialContext(ctx, network, addr)
+					if err != nil {
+						return nil, err
+					}
+					// Now wrap the connection with TLS
+					tlsConn := tls.Client(conn, &tls.Config{
+						InsecureSkipVerify: true, // TODO - this is insecure, we'll fix later
+					})
+					err = tlsConn.Handshake()
+					if err != nil {
+						conn.Close()
+						return nil, err
+					}
+					return tlsConn, nil
+				},
+			},
+			Timeout: 10 * time.Second,
+		}
+	}
 	return connInfo, nil
 }
 
@@ -460,7 +540,7 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryRe
 		dstServer = r.randomExternalNameServer()
 		log.Info("no name server provided for external lookup, using  random external name server: ", dstServer)
 	}
-	dstServerWithPort, err := util.AddDefaultPortToDNSServerName(dstServer)
+	dstServerWithPort, err := util.AddDefaultPortToDNSServerName(dstServer, r.dnsOverHTTPSEnabled)
 	if err != nil {
 		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w. Correct format IPv4 1.1.1.1:53 or IPv6 [::1]:53", dstServer, err)
 	}
