@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"net/http"
 	"strings"
 	"time"
 
@@ -81,6 +82,7 @@ type ResolverConfig struct {
 	DNSConfigFilePath     string   // path to the DNS config file, ex: /etc/resolv.conf
 
 	DNSSecEnabled       bool
+	DNSOverHTTPS        bool // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
 	EdnsOptions         []dns.EDNS0
 	CheckingDisabledBit bool
 }
@@ -96,6 +98,10 @@ func (rc *ResolverConfig) Validate() error {
 	}
 	if rc.Cache != nil && rc.CacheSize != 0 {
 		return errors.New("cannot use both cache and cacheSize")
+	}
+
+	if rc.TransportMode == UDPOnly && rc.DNSOverHTTPS {
+		return errors.New("cannot use DNS over HTTPS with UDP only transport mode")
 	}
 
 	// External Nameservers
@@ -267,10 +273,11 @@ func NewResolverConfig() *ResolverConfig {
 }
 
 type ConnectionInfo struct {
-	udpClient *dns.Client
-	tcpClient *dns.Client
-	conn      *dns.Conn
-	localAddr net.IP
+	udpClient   *dns.Client
+	tcpClient   *dns.Client
+	conn        *dns.Conn
+	httpsClient *http.Client // for DoH
+	localAddr   net.IP
 }
 
 // Resolver is a struct that holds the state of a DNS resolver. It is used to perform DNS lookups.

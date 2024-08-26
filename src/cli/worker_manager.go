@@ -170,6 +170,7 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config := zdns.NewResolverConfig()
 
 	config.TransportMode = zdns.GetTransportMode(gc.UDPOnly, gc.TCPOnly)
+	config.DNSOverHTTPS = gc.DNSOverHTTPS
 
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)

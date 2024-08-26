@@ -79,6 +79,7 @@ type NetworkOptions struct {
 	PreferIPv6Iteration   bool   `long:"prefer-ipv6-iteration" description:"Prefer IPv6/AAAA record lookups during iterative resolution. Ignored unless used with both IPv4 and IPv6 query transport"`
 	TCPOnly               bool   `long:"tcp-only" description:"Only perform lookups over TCP"`
 	UDPOnly               bool   `long:"udp-only" description:"Only perform lookups over UDP"`
+	DNSOverHTTPS          bool   `long:"https" description:"Use DNS over HTTPS for lookups, mutually exclusive with --udp-only and --iterative"`
 }
 
 // InputOutputOptions options for controlling the input and output behavior of zdns. Applicable to all modules.
