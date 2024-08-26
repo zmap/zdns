@@ -16,6 +16,7 @@ package zdns
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"regexp"
@@ -503,9 +504,25 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 	if err != nil {
 		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not perform HTTP request")
 	}
+	defer resp.Body.Close()
+	bytes, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not read HTTP response")
+	}
 
-	log.Warn("response - ", resp.Body)
-	return SingleQueryResult{}, StatusError, nil
+	r := new(dns.Msg)
+	err = r.Unpack(bytes)
+	if err != nil {
+		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not unpack DNS message")
+	}
+	res := SingleQueryResult{
+		Resolver:    nameServer,
+		Protocol:    "DoH",
+		Answers:     []interface{}{},
+		Authorities: []interface{}{},
+		Additional:  []interface{}{},
+	}
+	return constructSingleQueryResultFromDNSMsg(res, r)
 }
 
 // wireLookup performs a DNS lookup on-the-wire with the given parameters
@@ -556,6 +573,11 @@ func wireLookup(ctx context.Context, udp *dns.Client, tcp *dns.Client, conn *dns
 		return res, StatusError, err
 	}
 
+	return constructSingleQueryResultFromDNSMsg(res, r)
+}
+
+// fills out all the fields in a SingleQueryResult from a dns.Msg directly.
+func constructSingleQueryResultFromDNSMsg(res SingleQueryResult, r *dns.Msg) (SingleQueryResult, Status, error) {
 	if r.Rcode != dns.RcodeSuccess {
 		for _, ans := range r.Extra {
 			inner := ParseAnswer(ans)
