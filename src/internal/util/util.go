@@ -20,14 +20,8 @@ import (
 	"net"
 	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/pkg/errors"
-
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -98,32 +92,6 @@ func SplitIPv4AndIPv6Addrs(addrs []string) (ipv4 []string, ipv6 []string, err er
 		}
 	}
 	return ipv4, ipv6, nil
-}
-
-// Reference: https://github.com/carolynvs/stingoftheviper/blob/main/main.go
-// For how to make cobra/viper sync up, and still use custom struct
-// Bind each cobra flag to its associated viper configuration (config file and environment variable)
-func BindFlags(cmd *cobra.Command, v *viper.Viper, envPrefix string) {
-	cmd.Flags().VisitAll(func(f *pflag.Flag) {
-		// Environment variables can't have dashes in them, so bind them to their equivalent
-		// keys with underscores, e.g. --alexa to ZDNS_ALEXA
-		if strings.Contains(f.Name, "-") {
-			envVarSuffix := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
-			err := v.BindEnv(f.Name, fmt.Sprintf("%s_%s", envPrefix, envVarSuffix))
-			if err != nil {
-				log.Fatal("failed to bind environment variable to flag: ", err)
-			}
-		}
-
-		// Apply the viper config value to the flag when the flag is not set and viper has a value
-		if !f.Changed && v.IsSet(f.Name) {
-			val := v.Get(f.Name)
-			err := cmd.Flags().Set(f.Name, fmt.Sprintf("%v", val))
-			if err != nil {
-				log.Fatalf("failed to set flag (%s) value: %v", f.Name, err)
-			}
-		}
-	})
 }
 
 // IsStringValidDomainName checks if the given string is a valid domain name using regex

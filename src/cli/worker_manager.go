@@ -29,7 +29,6 @@ import (
 	"github.com/liip/sheriff"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/src/cli/iohandlers"
@@ -45,12 +44,14 @@ const (
 )
 
 type routineMetadata struct {
-	Names  int
-	Status map[zdns.Status]int
+	Names   int // number of domain names processed
+	Lookups int // number of lookups performed
+	Status  map[zdns.Status]int
 }
 
 type Metadata struct {
 	Names       int            `json:"names"`
+	Lookups     int            `json:"lookups"`
 	Status      map[string]int `json:"statuses"`
 	StartTime   string         `json:"start_time"`
 	EndTime     string         `json:"end_time"`
@@ -61,7 +62,7 @@ type Metadata struct {
 	ZDNSVersion string         `json:"zdns_version"`
 }
 
-func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
+func populateCLIConfig(gc *CLIConf) *CLIConf {
 	if gc.LogFilePath != "" && gc.LogFilePath != "-" {
 		f, err := os.OpenFile(gc.LogFilePath, os.O_WRONLY|os.O_CREATE, util.DefaultFilePermissions)
 		if err != nil {
@@ -140,7 +141,7 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 	if gc.NameServerMode && gc.MetadataFormat {
 		log.Fatal("Metadata mode is incompatible with name server mode")
 	}
-	if gc.NameServerMode && gc.NameOverride == "" && gc.Module != BINDVERSION {
+	if gc.NameServerMode && gc.NameOverride == "" && gc.CLIModule != BINDVERSION {
 		log.Fatal("Static Name must be defined with --override-name in --name-server-mode unless DNS module does not expect names (e.g., BINDVERSION).")
 	}
 	// Output Groups are defined by a base + any additional fields that the user wants
@@ -153,7 +154,10 @@ func populateCLIConfig(gc *CLIConf, flags *pflag.FlagSet) *CLIConf {
 	gc.OutputGroups = append(gc.OutputGroups, groups...)
 
 	// setup i/o if not specified
-	if gc.InputHandler == nil {
+	if len(GC.Domains) > 0 {
+		// using domains from command line
+		gc.InputHandler = iohandlers.NewStringSliceInputHandler(GC.Domains)
+	} else if gc.InputHandler == nil {
 		gc.InputHandler = iohandlers.NewFileInputHandler(gc.InputFilePath)
 	}
 	if gc.OutputHandler == nil {
@@ -170,7 +174,7 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
 	config.LookupAllNameServers = gc.LookupAllNameServers
-	config.FollowCNAMEs = gc.FollowCNAMEs
+	config.FollowCNAMEs = !gc.DisableFollowCNAMEs // ZFlags only allows default-false bool flags. We'll invert here.
 
 	if gc.UseNSID {
 		config.EdnsOptions = append(config.EdnsOptions, new(dns.EDNS0_NSID))
@@ -183,9 +187,9 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config.Retries = gc.Retries
 	config.MaxDepth = gc.MaxDepth
 	config.CheckingDisabledBit = gc.CheckingDisabled
-	config.ShouldRecycleSockets = gc.RecycleSockets
+	config.ShouldRecycleSockets = !gc.DisableRecycleSockets
 	config.DNSSecEnabled = gc.Dnssec
-	config.DNSConfigFilePath = gc.ConfigFilePath
+	config.DNSConfigFilePath = gc.DNSConfigFilePath
 
 	config.LogLevel = log.Level(gc.Verbosity)
 
@@ -452,8 +456,8 @@ func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Res
 	return config, nil
 }
 
-func Run(gc CLIConf, flags *pflag.FlagSet) {
-	gc = *populateCLIConfig(&gc, flags)
+func Run(gc CLIConf) {
+	gc = *populateCLIConfig(&gc)
 	resolverConfig := populateResolverConfig(&gc)
 	// Log any information about the resolver configuration, according to log level
 	resolverConfig.PrintInfo()
@@ -461,13 +465,12 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 	if err != nil {
 		log.Fatalf("resolver config did not pass validation: %v", err)
 	}
-	lookupModule, err := GetLookupModule(gc.Module)
-	if err != nil {
-		log.Fatal("could not get lookup module: ", err)
-	}
-	err = lookupModule.CLIInit(&gc, resolverConfig, flags)
-	if err != nil {
-		log.Fatalf("could not initialize lookup module (type: %s): %v", gc.Module, err)
+	for _, module := range gc.ActiveModules {
+		// init all modules
+		err = module.CLIInit(&gc, resolverConfig)
+		if err != nil {
+			log.Fatalf("could not initialize lookup module (type: %s): %v", gc.CLIModule, err)
+		}
 	}
 	// DoLookup:
 	//	- n threads that do processing from in and place results in out
@@ -512,7 +515,7 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 	for i := 0; i < gc.Threads; i++ {
 		i := i
 		go func(threadID int) {
-			initWorkerErr := doLookupWorker(&gc, lookupModule, resolverConfig, inChan, outChan, metaChan, &lookupWG)
+			initWorkerErr := doLookupWorker(&gc, resolverConfig, inChan, outChan, metaChan, &lookupWG)
 			if initWorkerErr != nil {
 				log.Fatalf("could not start lookup worker #%d: %v", i, initWorkerErr)
 			}
@@ -563,7 +566,7 @@ func Run(gc CLIConf, flags *pflag.FlagSet) {
 }
 
 // doLookupWorker is a single worker thread that processes lookups from the input channel. It calls wg.Done when it is finished.
-func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, input <-chan string, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
+func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	resolver, err := zdns.InitResolver(rc)
 	if err != nil {
@@ -572,13 +575,9 @@ func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, i
 	var metadata routineMetadata
 	metadata.Status = make(map[zdns.Status]int)
 	for line := range input {
-		var res zdns.Result
-		var innerRes interface{}
-		var trace zdns.Trace
-		var status zdns.Status
-		var err error
-		var changed bool
-		var lookupName string
+		// we'll process each module sequentially, parallelism is per-domain
+		res := zdns.Result{Results: make(map[string]zdns.SingleModuleResult, len(gc.ActiveModules))}
+		// get the fields that won't change for each lookup module
 		rawName := ""
 		nameServer := ""
 		var rank int
@@ -597,25 +596,41 @@ func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, i
 		} else {
 			rawName, nameServer = parseNormalInputLine(line)
 		}
-		lookupName, changed = makeName(rawName, gc.NamePrefix, gc.NameOverride)
-		if changed {
-			res.AlteredName = lookupName
-		}
 		res.Name = rawName
-		res.Class = dns.Class(gc.Class).String()
-
-		startTime := time.Now()
-		innerRes, trace, status, err = lookup.Lookup(resolver, lookupName, nameServer)
-
-		res.Timestamp = time.Now().Format(gc.TimeFormat)
-		res.Duration = time.Since(startTime).Seconds()
-		if status != zdns.StatusNoOutput {
-			res.Status = string(status)
-			res.Data = innerRes
-			res.Trace = trace
-			if err != nil {
-				res.Error = err.Error()
+		// handle per-module lookups
+		for moduleName, module := range gc.ActiveModules {
+			var innerRes interface{}
+			var trace zdns.Trace
+			var status zdns.Status
+			var err error
+			var changed bool
+			var lookupName string
+			lookupName, changed = makeName(rawName, gc.NamePrefix, gc.NameOverride)
+			if changed {
+				res.AlteredName = lookupName
 			}
+			res.Class = dns.Class(gc.Class).String()
+
+			startTime := time.Now()
+			innerRes, trace, status, err = module.Lookup(resolver, lookupName, nameServer)
+
+			lookupRes := zdns.SingleModuleResult{
+				Timestamp: time.Now().Format(gc.TimeFormat),
+				Duration:  time.Since(startTime).Seconds(),
+			}
+			if status != zdns.StatusNoOutput {
+				lookupRes.Status = string(status)
+				lookupRes.Data = innerRes
+				lookupRes.Trace = trace
+				if err != nil {
+					lookupRes.Error = err.Error()
+				}
+				res.Results[moduleName] = lookupRes
+			}
+			metadata.Status[status]++
+			metadata.Lookups++
+		}
+		if len(res.Results) > 0 {
 			v, _ := version.NewVersion("0.0.0")
 			o := &sheriff.Options{
 				Groups:     gc.OutputGroups,
@@ -632,7 +647,6 @@ func doLookupWorker(gc *CLIConf, lookup LookupModule, rc *zdns.ResolverConfig, i
 			output <- string(jsonRes)
 		}
 		metadata.Names++
-		metadata.Status[status]++
 	}
 	metaChan <- metadata
 	return nil
@@ -690,6 +704,7 @@ func aggregateMetadata(c <-chan routineMetadata) Metadata {
 	meta.Status = make(map[string]int)
 	for m := range c {
 		meta.Names += m.Names
+		meta.Lookups += m.Lookups
 		for k, v := range m.Status {
 			meta.Status[string(k)] += v
 		}

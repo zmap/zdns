@@ -25,8 +25,6 @@ import (
 	"github.com/zmap/zdns/src/modules/nslookup"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
-
 	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/src/zdns"
@@ -35,7 +33,7 @@ import (
 type AxfrLookupModule struct {
 	cli.BasicLookupModule
 	NSModule      nslookup.NSLookupModule
-	BlacklistPath string
+	BlacklistPath string `long:"blacklist-file" description:"path to blacklist file" default:""`
 	Blacklist     *safeblacklist.SafeBlacklist
 	dns.Transfer
 }
@@ -125,42 +123,45 @@ func (axfrMod *AxfrLookupModule) Lookup(resolver *zdns.Resolver, name, nameServe
 	return retv, nil, zdns.StatusNoError, nil
 }
 
-// Command-line Help Documentation. This is the descriptive text what is
-// returned when you run zdns module --help
 func (axfrMod *AxfrLookupModule) Help() string {
 	return ""
 }
 
+func (axfrMod *AxfrLookupModule) Validate(args []string) error {
+	return nil
+}
+
+func (axfrMod *AxfrLookupModule) NewFlags() interface{} {
+	return axfrMod
+}
+
+func (axfrMod *AxfrLookupModule) GetDescription() string {
+	return ""
+}
+
 // CLIInit initializes the AxfrLookupModule with the given parameters, used to call AXFR from the command line
-func (axfrMod *AxfrLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
+func (axfrMod *AxfrLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig) error {
 	if gc == nil {
 		return errors.New("CLIConfig is nil")
 	}
 	if rc == nil {
 		return errors.New("ResolverConfig is nil")
 	}
-	if flags == nil {
-		return errors.New("FlagSet is nil")
-	}
 	if gc.IterativeResolution {
 		log.Fatal("AXFR module does not support iterative resolution")
 	}
 	var err error
-	axfrMod.BlacklistPath, err = flags.GetString("blacklist-file")
-	if err != nil {
-		return errors.Wrap(err, "failed to get blacklist-file flag")
-	}
 	if axfrMod.BlacklistPath != "" {
 		axfrMod.Blacklist = safeblacklist.New()
 		if err = axfrMod.Blacklist.ParseFromFile(axfrMod.BlacklistPath); err != nil {
 			return errors.Wrap(err, "failed to parse blacklist")
 		}
 	}
-	err = axfrMod.NSModule.CLIInit(gc, rc, flags)
+	err = axfrMod.NSModule.CLIInit(gc, rc)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize NSLookupModule as apart of axfrModule")
 	}
-	if err = axfrMod.BasicLookupModule.CLIInit(gc, rc, flags); err != nil {
+	if err = axfrMod.BasicLookupModule.CLIInit(gc, rc); err != nil {
 		return errors.Wrap(err, "failed to initialize basic lookup module")
 	}
 	return nil

@@ -19,7 +19,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
 	"gotest.tools/v3/assert"
 
@@ -98,12 +97,8 @@ func InitTest() (*AxfrLookupModule, *zdns.Resolver) {
 	rc.LocalAddrsV4 = []net.IP{net.ParseIP("127.0.0.1")}
 	rc.IPVersionMode = zdns.IPv4Only
 
-	flagSet := new(pflag.FlagSet)
-	flagSet.Bool("ipv4-lookup", false, "Use IPv4")
-	flagSet.Bool("ipv6-lookup", false, "Use IPv6")
-	flagSet.String("blacklist-file", "", "Blacklist")
 	axfrMod := new(AxfrLookupModule)
-	err := axfrMod.CLIInit(cc, rc, flagSet)
+	err := axfrMod.CLIInit(cc, rc)
 	if err != nil {
 		panic("failed to initialize axfr test lookup with error: " + err.Error())
 	}

@@ -40,23 +40,39 @@ def recursiveSort(obj):
 class Tests(unittest.TestCase):
     maxDiff = None
     ZDNS_EXECUTABLE = "./zdns"
+    ADDITIONAL_FLAGS = " --threads=10"  # flags used with every test
 
     def run_zdns_check_failure(self, flags, name, expected_err, executable=ZDNS_EXECUTABLE):
-        flags = flags + " --threads=10"
+        flags = flags + self.ADDITIONAL_FLAGS
         c = f"echo '{name}' | {executable} {flags}; exit 0"
         o = subprocess.check_output(c, shell=True, stderr=subprocess.STDOUT)
         self.assertEqual(expected_err in o.decode(), True)
 
     def run_zdns(self, flags, name, executable=ZDNS_EXECUTABLE):
-        flags = flags + " --threads=10"
+        flags = flags + self.ADDITIONAL_FLAGS
         c = f"echo '{name}' | {executable} {flags}"
         o = subprocess.check_output(c, shell=True)
         return c, json.loads(o.rstrip())
 
-    ROOT_A = {"1.2.3.4", "2.3.4.5", "3.4.5.6"}
+    # Runs zdns with a given name(s) input and flags, returns the command and JSON objects from the piped JSON-Lines output
+    # Used when running a ZDNS command that should return multiple lines of output, and you want those in a list
+    def run_zdns_multiline_output(self, flags, name, executable=ZDNS_EXECUTABLE):
+        flags = flags + self.ADDITIONAL_FLAGS
+        c = f"echo '{name}' | {executable} {flags}"
+        o = subprocess.check_output(c, shell=True)
+        output_lines = o.decode('utf-8').strip().splitlines()
+        json_objects = [json.loads(line.rstrip()) for line in output_lines]
+        return c, json_objects
+
+    ROOT_A_ZDNS_TESTING_COM = {"1.2.3.4", "2.3.4.5", "3.4.5.6"}  # zdns-testing.com
+
+    ROOT_A_A_ZDNS_TESTING_COM = {"21.9.87.65"}  # a.zdns-testing.com
 
     ROOT_A_ANSWERS = [{"type": "A", "class": "IN", "answer": x,
-                       "name": "zdns-testing.com"} for x in ROOT_A]
+                       "name": "zdns-testing.com"} for x in ROOT_A_ZDNS_TESTING_COM]
+
+    ROOT_A_A_ZDNS_TESTING_COM_ANSWERS = [{"type": "A", "class": "IN", "answer": x,
+                                          "name": "a.zdns-testing.com"} for x in ROOT_A_A_ZDNS_TESTING_COM]
 
     ROOT_AAAA = {"fd5a:3bce:8713::1", "fde6:9bb3:dbd6::2", "fdb3:ac76:a577::3"}
 
@@ -68,6 +84,15 @@ class Tests(unittest.TestCase):
         {"answer": "mx2.zdns-testing.com.", "preference": 5, "type": "MX", "class": "IN", 'name': 'zdns-testing.com'},
         {"answer": "mx1.censys.io.", "preference": 10, "type": "MX", "class": "IN", 'name': 'zdns-testing.com'},
     ]
+
+    A_MX1_ZDNS_TESTING_COM = {"1.2.3.4", "2.3.4.5"}
+
+    AAAA_MX1_ZDNS_TESTING_COM = {"fdb3:ac76:a577::4", "fdb3:ac76:a577::5"}
+
+    A_MX1_ZDNS_TESTING_COM_ANSWERS = [{"type": "A", "class": "IN", "answer": x, "name": "mx1.zdns-testing.com"}
+                              for x in A_MX1_ZDNS_TESTING_COM]
+    AAAA_MX1_ZDNS_TESTING_COM_ANSWERS = [{"type": "AAAA", "class": "IN", "answer": x, "name": "mx1.zdns-testing.com"}
+                              for x in AAAA_MX1_ZDNS_TESTING_COM]
 
     NS_SERVERS = [
         {"type": "NS", "class": "IN", "name": "zdns-testing.com",
@@ -88,127 +113,171 @@ class Tests(unittest.TestCase):
 
     MX_LOOKUP_ANSWER = {
         "name": "zdns-testing.com",
-        "class": "IN",
-        "status": "NOERROR",
-        "data": {
-            "exchanges": [
-                {
-                    "name": "mx1.zdns-testing.com",
-                    "type": "MX",
-                    "class": "IN",
-                    "preference": 1,
-                    "ipv4_addresses": [
-                        "1.2.3.4",
-                        "2.3.4.5"
-                    ],
-                    "ipv6_addresses": [
-                        "fdb3:ac76:a577::4",
-                        "fdb3:ac76:a577::5"
-                    ],
+        "results": {
+            "MXLOOKUP": {
+                "class": "IN",
+                "status": "NOERROR",
+                "data": {
+                    "exchanges": [
+                        {
+                            "name": "mx1.zdns-testing.com",
+                            "type": "MX",
+                            "class": "IN",
+                            "preference": 1,
+                            "ipv4_addresses": [
+                                "1.2.3.4",
+                                "2.3.4.5"
+                            ],
+                            "ipv6_addresses": [
+                                "fdb3:ac76:a577::4",
+                                "fdb3:ac76:a577::5"
+                            ],
 
-                },
-                {
-                    "name": "mx2.zdns-testing.com",
-                    "type": "MX",
-                    "class": "IN",
-                    "preference": 5,
-                    "ipv4_addresses": [
-                        "5.6.7.8"
-                    ],
-                },
-                {
-                    "name": "mx1.censys.io",
-                    "type": "MX",
-                    "class": "IN",
-                    "preference": 10,
+                        },
+                        {
+                            "name": "mx2.zdns-testing.com",
+                            "type": "MX",
+                            "class": "IN",
+                            "preference": 5,
+                            "ipv4_addresses": [
+                                "5.6.7.8"
+                            ],
+                        },
+                        {
+                            "name": "mx1.censys.io",
+                            "type": "MX",
+                            "class": "IN",
+                            "preference": 10,
+                        }
+                    ]
                 }
-            ]
+            }
         }
     }
 
     MX_LOOKUP_ANSWER_IPV4 = copy.deepcopy(MX_LOOKUP_ANSWER)
-    del MX_LOOKUP_ANSWER_IPV4["data"]["exchanges"][0]["ipv6_addresses"]
+    del MX_LOOKUP_ANSWER_IPV4["results"]["MXLOOKUP"]["data"]["exchanges"][0]["ipv6_addresses"]
     MX_LOOKUP_ANSWER_IPV6 = copy.deepcopy(MX_LOOKUP_ANSWER)
-    del MX_LOOKUP_ANSWER_IPV6["data"]["exchanges"][0]["ipv4_addresses"]
-    del MX_LOOKUP_ANSWER_IPV6["data"]["exchanges"][1]["ipv4_addresses"]
+    del MX_LOOKUP_ANSWER_IPV6["results"]["MXLOOKUP"]["data"]["exchanges"][0]["ipv4_addresses"]
+    del MX_LOOKUP_ANSWER_IPV6["results"]["MXLOOKUP"]["data"]["exchanges"][1]["ipv4_addresses"]
 
     A_LOOKUP_WWW_ZDNS_TESTING = {
         "name": "www.zdns-testing.com",
-        "class": "IN",
-        "status": "NOERROR",
-        "data": {
-            "ipv4_addresses": [
-                "1.2.3.4",
-                "2.3.4.5",
-                "3.4.5.6"
-            ],
-            "ipv6_addresses": [
-                "fde6:9bb3:dbd6::2",
-                "fd5a:3bce:8713::1",
-                "fdb3:ac76:a577::3"
-            ]
+        "results": {
+            "ALOOKUP": {
+                "class": "IN",
+                "status": "NOERROR",
+                "data": {
+                    "ipv4_addresses": [
+                        "1.2.3.4",
+                        "2.3.4.5",
+                        "3.4.5.6"
+                    ],
+                    "ipv6_addresses": [
+                        "fde6:9bb3:dbd6::2",
+                        "fd5a:3bce:8713::1",
+                        "fdb3:ac76:a577::3"
+                    ]
+                }
+            }
+        }
+    }
+
+    A_LOOKUP_WWW_ZDNS_TESTING_IPv6 = {
+        "name": "www.zdns-testing.com",
+        "results": {
+            "ALOOKUP": {
+                "status": "NOERROR",
+                "class": "IN",
+                "data": {
+                    "ipv6_addresses": [
+                        "fde6:9bb3:dbd6::2",
+                        "fd5a:3bce:8713::1",
+                        "fdb3:ac76:a577::3"
+                    ]
+                }
+            }
+        }
+    }
+
+    A_LOOKUP_CNAME_CHAIN_03 = {
+        "name": "cname-chain-03.esrg.stanford.edu",
+        "results": {
+            "ALOOKUP": {
+                "status": "NOERROR",
+                "class": "IN",
+                "data": {
+                    "ipv4_addresses": [
+                        "1.2.3.4",
+                    ]
+                }
+            }
         }
     }
 
     A_LOOKUP_IPV4_WWW_ZDNS_TESTING = copy.deepcopy(A_LOOKUP_WWW_ZDNS_TESTING)
-    del A_LOOKUP_IPV4_WWW_ZDNS_TESTING["data"]["ipv6_addresses"]
+    del A_LOOKUP_IPV4_WWW_ZDNS_TESTING["results"]["ALOOKUP"]["data"]["ipv6_addresses"]
     A_LOOKUP_IPV6_WWW_ZDNS_TESTING = copy.deepcopy(A_LOOKUP_WWW_ZDNS_TESTING)
-    del A_LOOKUP_IPV6_WWW_ZDNS_TESTING["data"]["ipv4_addresses"]
+    del A_LOOKUP_IPV6_WWW_ZDNS_TESTING["results"]["ALOOKUP"]["data"]["ipv4_addresses"]
 
     NS_LOOKUP_WWW_ZDNS_TESTING = {
         "name": "www.zdns-testing.com",
-        "status": "NOERROR",
-        "data": {
-            "servers": [
-                {
-                    "ipv4_addresses": [
-                        "216.239.34.108"
-                    ],
-                    "ipv6_addresses": [
-                        "2001:4860:4802:34::6c"
-                    ],
-                    "name": "ns-cloud-c2.googledomains.com",
-                    "type": "NS"
-                },
-                {
-                    "ipv4_addresses": [
-                        "216.239.32.108"
-                    ],
-                    "ipv6_addresses": [
-                        "2001:4860:4802:32::6c"
-                    ],
-                    "name": "ns-cloud-c1.googledomains.com",
-                    "type": "NS"
-                },
-                {
-                    "ipv4_addresses": [
-                        "216.239.38.108"
-                    ],
-                    "ipv6_addresses": [
-                        "2001:4860:4802:38::6c"
-                    ],
-                    "name": "ns-cloud-c4.googledomains.com",
-                    "type": "NS"
-                },
-                {
-                    "ipv4_addresses": [
-                        "216.239.36.108"
-                    ],
-                    "ipv6_addresses": [
-                        "2001:4860:4802:36::6c"
-                    ],
-                    "name": "ns-cloud-c3.googledomains.com",
-                    "type": "NS"
+        "results": {
+            "NSLOOKUP": {
+                "status": "NOERROR",
+                "data": {
+                    "servers": [
+                        {
+                            "ipv4_addresses": [
+                                "216.239.34.108"
+                            ],
+                            "ipv6_addresses": [
+                                "2001:4860:4802:34::6c"
+                            ],
+                            "name": "ns-cloud-c2.googledomains.com",
+                            "type": "NS"
+                        },
+                        {
+                            "ipv4_addresses": [
+                                "216.239.32.108"
+                            ],
+                            "ipv6_addresses": [
+                                "2001:4860:4802:32::6c"
+                            ],
+                            "name": "ns-cloud-c1.googledomains.com",
+                            "type": "NS"
+                        },
+                        {
+                            "ipv4_addresses": [
+                                "216.239.38.108"
+                            ],
+                            "ipv6_addresses": [
+                                "2001:4860:4802:38::6c"
+                            ],
+                            "name": "ns-cloud-c4.googledomains.com",
+                            "type": "NS"
+                        },
+                        {
+                            "ipv4_addresses": [
+                                "216.239.36.108"
+                            ],
+                            "ipv6_addresses": [
+                                "2001:4860:4802:36::6c"
+                            ],
+                            "name": "ns-cloud-c3.googledomains.com",
+                            "type": "NS"
+                        }
+                    ]
                 }
-            ]
+            }
         }
     }
 
     NS_LOOKUP_IPV4_WWW_ZDNS_TESTING = copy.deepcopy(NS_LOOKUP_WWW_ZDNS_TESTING)
-    for server in NS_LOOKUP_IPV4_WWW_ZDNS_TESTING["data"]["servers"]:
+    for server in NS_LOOKUP_IPV4_WWW_ZDNS_TESTING["results"]["NSLOOKUP"]["data"]["servers"]:
         del server["ipv6_addresses"]
     NS_LOOKUP_IPV6_WWW_ZDNS_TESTING = copy.deepcopy(NS_LOOKUP_WWW_ZDNS_TESTING)
-    for server in NS_LOOKUP_IPV6_WWW_ZDNS_TESTING["data"]["servers"]:
+    for server in NS_LOOKUP_IPV6_WWW_ZDNS_TESTING["results"]["NSLOOKUP"]["data"]["servers"]:
         del server["ipv4_addresses"]
 
     PTR_LOOKUP_GOOGLE_PUB = [
@@ -510,17 +579,17 @@ class Tests(unittest.TestCase):
         "129.127.149.0/24": "1.2.3.4"
     }
 
-    def assertSuccess(self, res, cmd):
-        self.assertEqual(res["status"], "NOERROR", cmd)
+    def assertSuccess(self, res, cmd, query_type):
+        self.assertEqual(res["results"][query_type]["status"], "NOERROR", cmd)
 
-    def assertServFail(self, res, cmd):
-        self.assertEqual(res["status"], "SERVFAIL", cmd)
+    def assertServFail(self, res, cmd, query_type):
+        self.assertEqual(res["results"][query_type]["status"], "SERVFAIL", cmd)
 
-    def assertEqualAnswers(self, res, correct, cmd, key="answer"):
-        self.assertIn("answers", res["data"])
-        for answer in res["data"]["answers"]:
+    def assertEqualAnswers(self, res, correct, cmd, query_type, key="answer"):
+        self.assertIn("answers", res["results"][query_type]["data"])
+        for answer in res["results"][query_type]["data"]["answers"]:
             del answer["ttl"]
-        a = sorted(res["data"]["answers"], key=lambda x: x[key])
+        a = sorted(res["results"][query_type]["data"]["answers"], key=lambda x: x[key])
         b = sorted(correct, key=lambda x: x[key])
         helptext = "%s\nExpected:\n%s\n\nActual:\n%s" % (cmd,
                                                          json.dumps(b, indent=4), json.dumps(a, indent=4))
@@ -538,37 +607,39 @@ class Tests(unittest.TestCase):
         _lowercase(b)
         self.assertEqual(a, b, helptext)
 
-    def assertEqualNXDOMAIN(self, res, correct):
+    def assertEqualNXDOMAIN(self, res, correct, query_type):
         self.assertEqual(res["name"], correct["name"])
-        self.assertEqual(res["status"], correct["status"])
+        self.assertEqual(res["results"][query_type]["status"], correct["status"])
 
     def assertEqualMXLookup(self, res, correct):
         self.assertEqual(res["name"], correct["name"])
-        self.assertEqual(res["status"], correct["status"])
-        for exchange in res["data"]["exchanges"]:
+        self.assertEqual(res["results"]["MXLOOKUP"]["status"], correct["results"]["MXLOOKUP"]["status"])
+        for exchange in res["results"]["MXLOOKUP"]["data"]["exchanges"]:
             del exchange["ttl"]
-        self.assertEqual(recursiveSort(res["data"]["exchanges"]), recursiveSort(correct["data"]["exchanges"]))
+        self.assertEqual(recursiveSort(res["results"]["MXLOOKUP"]["data"]["exchanges"]), recursiveSort(correct["results"]["MXLOOKUP"]["data"]["exchanges"]))
 
-    def assertEqualALookup(self, res, correct):
+    def assertEqualALookup(self, res, correct, query_type):
         self.assertEqual(res["name"], correct["name"])
-        self.assertEqual(res["status"], correct["status"])
-        if "ipv4_addresses" in correct["data"]:
+        res = res["results"][query_type]
+        correct_A_lookup = correct["results"][query_type]
+        self.assertEqual(res["status"], correct_A_lookup["status"])
+        if "ipv4_addresses" in correct_A_lookup["data"]:
             self.assertIn("ipv4_addresses", res["data"])
-            self.assertEqual(sorted(res["data"]["ipv4_addresses"]), sorted(correct["data"]["ipv4_addresses"]))
+            self.assertEqual(sorted(res["data"]["ipv4_addresses"]), sorted(correct_A_lookup["data"]["ipv4_addresses"]))
         else:
             self.assertNotIn("ipv4_addresses", res["data"])
-        if "ipv6_addresses" in correct["data"]:
+        if "ipv6_addresses" in correct_A_lookup["data"]:
             self.assertIn("ipv6_addresses", res["data"])
-            self.assertEqual(sorted(res["data"]["ipv6_addresses"]), sorted(correct["data"]["ipv6_addresses"]))
+            self.assertEqual(sorted(res["data"]["ipv6_addresses"]), sorted(correct_A_lookup["data"]["ipv6_addresses"]))
         else:
             self.assertNotIn("ipv6_addresses", res["data"])
 
     def assertEqualNSLookup(self, res, correct):
         self.assertEqual(res["name"], correct["name"])
-        self.assertEqual(res["status"], correct["status"])
-        for server in res["data"]["servers"]:
+        self.assertEqual(res["results"]["NSLOOKUP"]["status"], correct["results"]["NSLOOKUP"]["status"])
+        for server in res["results"]["NSLOOKUP"]["data"]["servers"]:
             del server["ttl"]
-        self.assertEqual(recursiveSort(res["data"]["servers"]), recursiveSort(correct["data"]["servers"]))
+        self.assertEqual(recursiveSort(res["results"]["NSLOOKUP"]["data"]["servers"]), recursiveSort(correct["results"]["NSLOOKUP"]["data"]["servers"]))
 
     def assertEqualTypes(self, res, list):
         res_types = set()
@@ -614,238 +685,391 @@ class Tests(unittest.TestCase):
         c = "A"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+        self.assertSuccess(res, cmd, "A")
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
+
+    def test_a_dig_style_args(self):
+        c = "A zdns-testing.com"
+        name = ""
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "A")
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
+
+    def test_a_multiple_domains_dig_style(self):
+        c = "A zdns-testing.com a.zdns-testing.com --iterative"
+        name = ""
+        cmd, res = self.run_zdns_multiline_output(c, name)
+        self.assertSuccess(res[0], cmd, "A")
+        self.assertSuccess(res[1], cmd, "A")
+        if res[0]["name"] == "zdns-testing.com":
+            self.assertEqualAnswers(res[0], self.ROOT_A_ANSWERS, cmd, "A")
+            self.assertEqualAnswers(res[1], self.ROOT_A_A_ZDNS_TESTING_COM_ANSWERS, cmd, "A")
+        else:
+            self.assertEqualAnswers(res[0], self.ROOT_A_A_ZDNS_TESTING_COM_ANSWERS, cmd, "A")
+            self.assertEqualAnswers(res[1], self.ROOT_A_ANSWERS, cmd, "A")
+
+    def test_multiple_modules(self):
+        iniFileContents = """
+        [Application Options]
+        name-servers = "1.1.1.1"
+        [A]
+        [AAAA]
+        """
+        file_name = "./test_multiple_modules.ini"
+        with open(file_name, "w") as f:
+            f.write(iniFileContents)
+        c = "MULTIPLE -c " + file_name
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "A")
+        self.assertSuccess(res, cmd, "AAAA")
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
+        self.assertEqualAnswers(res, self.ROOT_AAAA_ANSWERS, cmd, "AAAA")
+        # delete file
+        cmd = f"rm {file_name}"
+        subprocess.check_output(cmd, shell=True)
+
+    def test_multiple_modules_multiple_domains(self):
+        iniFileContents = """
+        [Application Options]
+        name-servers = "1.1.1.1"
+        [A]
+        [AAAA]
+        """
+        file_name = "./test_multiple_modules_multiple_domains.ini"
+        with open(file_name, "w") as f:
+            f.write(iniFileContents)
+        c = "MULTIPLE -c " + file_name + " zdns-testing.com mx1.zdns-testing.com"
+        name = ""
+
+        cmd, res = self.run_zdns_multiline_output(c, name)
+        self.assertSuccess(res[0], cmd, "A")
+        self.assertSuccess(res[0], cmd, "AAAA")
+        self.assertSuccess(res[1], cmd, "A")
+        self.assertSuccess(res[1], cmd, "AAAA")
+        for r in res:
+            for query_type, query_res in r["results"].items():
+                if query_res["data"]["resolver"] != "1.1.1.1:53":
+                    self.fail("Unexpected resolver")
+                if r["name"] == "zdns-testing.com" and query_type == "A":
+                    self.assertEqualAnswers(r, self.ROOT_A_ANSWERS, cmd, "A")
+                elif r["name"] == "zdns-testing.com" and query_type == "AAAA":
+                    self.assertEqualAnswers(r, self.ROOT_AAAA_ANSWERS, cmd, "AAAA")
+                elif r["name"] == "mx1.zdns-testing.com" and query_type == "A":
+                    self.assertEqualAnswers(r, self.A_MX1_ZDNS_TESTING_COM_ANSWERS, cmd, "A")
+                elif r["name"] == "mx1.zdns-testing.com" and query_type == "AAAA":
+                    self.assertEqualAnswers(r, self.AAAA_MX1_ZDNS_TESTING_COM_ANSWERS, cmd, "AAAA")
+                else:
+                    self.fail("Unexpected response")
+        # delete file
+        cmd = f"rm {file_name}"
+        subprocess.check_output(cmd, shell=True)
+
+    def test_multiple_modules_with_special_modules(self):
+        iniFileContents = """
+        [Application Options]
+        name-servers = "1.1.1.1"
+        [ALOOKUP]
+        ipv4-lookup=false
+        ipv6-lookup = true
+        """
+        file_name = "./test_multiple_modules.ini"
+        with open(file_name, "w") as f:
+            f.write(iniFileContents)
+        c = "MULTIPLE -c " + file_name
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns_multiline_output(c, name)
+        self.assertSuccess(res[0], cmd, "ALOOKUP")
+        self.assertEqualALookup(res[0], self.A_LOOKUP_WWW_ZDNS_TESTING_IPv6, "ALOOKUP")
+        # delete file
+        cmd = f"rm {file_name}"
+        subprocess.check_output(cmd, shell=True)
+
 
     def test_cname(self):
         c = "CNAME"
         name = "www.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.WWW_CNAME_ANSWERS, cmd)
+        self.assertSuccess(res, cmd, "CNAME")
+        self.assertEqualAnswers(res, self.WWW_CNAME_ANSWERS, cmd, "CNAME")
+
+    def test_cname_loop_iterative(self):
+        c = "A --iterative"
+        name = "cname-loop.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "A")
+        self.assertEqualAnswers(res, self.CNAME_LOOP_ANSWERS, cmd, "A")
 
     def test_a_behind_cname(self):
         c = "A"
         name = "www.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.WWW_CNAME_AND_A_ANSWERS, cmd)
+        self.assertSuccess(res, cmd, "A")
+        self.assertEqualAnswers(res, self.WWW_CNAME_AND_A_ANSWERS, cmd, "A")
 
     def test_aaaa_behind_cname(self):
         c = "AAAA"
         name = "www.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.WWW_CNAME_AND_AAAA_ANSWERS, cmd)
+        self.assertSuccess(res, cmd, "AAAA")
+        self.assertEqualAnswers(res, self.WWW_CNAME_AND_AAAA_ANSWERS, cmd, "AAAA")
 
     def test_caa(self):
         c = "CAA"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.CAA_RECORD, cmd, key="name")
+        self.assertSuccess(res, cmd, "CAA")
+        self.assertEqualAnswers(res, self.CAA_RECORD, cmd, key="name", query_type="CAA")
 
     def test_txt(self):
         c = "TXT"
         name = "test_txt.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.TXT_RECORD, cmd)
+        self.assertSuccess(res, cmd, "TXT")
+        self.assertEqualAnswers(res, self.TXT_RECORD, cmd, "TXT")
 
     def test_a_iterative(self):
         c = "A --iterative"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+        self.assertSuccess(res, cmd, "A")
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
 
     def test_a_iterative_nxdomain(self):
         c = "A --iterative"
         name = "zdns-testing-nxdomain.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertEqualNXDOMAIN(res, self.NXDOMAIN_ANSWER)
+        self.assertEqualNXDOMAIN(res, self.NXDOMAIN_ANSWER, "A")
 
     def test_aaaa(self):
         c = "AAAA"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.ROOT_AAAA_ANSWERS, cmd)
+        self.assertSuccess(res, cmd, "AAAA")
+        self.assertEqualAnswers(res, self.ROOT_AAAA_ANSWERS, cmd, "AAAA")
 
     def test_aaaa_iterative(self):
         c = "AAAA --iterative"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.ROOT_AAAA_ANSWERS, cmd)
+        self.assertSuccess(res, cmd, "AAAA")
+        self.assertEqualAnswers(res, self.ROOT_AAAA_ANSWERS, cmd, "AAAA")
 
     def test_mx(self):
         c = "MX"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.MX_SERVERS, cmd)
+        self.assertSuccess(res, cmd, "MX")
+        self.assertEqualAnswers(res, self.MX_SERVERS, cmd, "MX")
 
     def test_mx_iterative(self):
         c = "MX --iterative"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.MX_SERVERS, cmd)
+        self.assertSuccess(res, cmd, "MX")
+        self.assertEqualAnswers(res, self.MX_SERVERS, cmd, "MX")
 
     def test_ns(self):
         c = "NS"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.NS_SERVERS, cmd)
+        self.assertSuccess(res, cmd, "NS")
+        self.assertEqualAnswers(res, self.NS_SERVERS, cmd, "NS")
 
     def test_ns_iterative(self):
         c = "NS --iterative"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.NS_SERVERS, cmd)
+        self.assertSuccess(res, cmd, "NS")
+        self.assertEqualAnswers(res, self.NS_SERVERS, cmd, "NS")
 
     def test_mx_lookup(self):
         c = "mxlookup --ipv4-lookup --ipv6-lookup"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
+        self.assertSuccess(res, cmd, "MXLOOKUP")
         self.assertEqualMXLookup(res, self.MX_LOOKUP_ANSWER)
 
     def test_mx_lookup_iterative(self):
         c = "mxlookup --ipv4-lookup --ipv6-lookup --iterative"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
+        self.assertSuccess(res, cmd, "MXLOOKUP")
         self.assertEqualMXLookup(res, self.MX_LOOKUP_ANSWER)
 
     def test_mx_lookup_ipv4(self):
         c = "mxlookup --ipv4-lookup"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
+        self.assertSuccess(res, cmd, "MXLOOKUP")
         self.assertEqualMXLookup(res, self.MX_LOOKUP_ANSWER_IPV4)
 
     def test_mx_lookup_ipv6(self):
         c = "mxlookup --ipv6-lookup"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
+        self.assertSuccess(res, cmd, "MXLOOKUP")
         self.assertEqualMXLookup(res, self.MX_LOOKUP_ANSWER_IPV6)
 
     def test_mx_lookup_default(self):
         c = "mxlookup"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
+        self.assertSuccess(res, cmd, "MXLOOKUP")
         self.assertEqualMXLookup(res, self.MX_LOOKUP_ANSWER_IPV4)
+
+    def test_a_lookup(self):
+        c = "alookup --ipv4-lookup --ipv6-lookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "ALOOKUP")
+        self.assertEqualALookup(res, self.A_LOOKUP_WWW_ZDNS_TESTING, "ALOOKUP")
+
+    def test_a_lookup_iterative(self):
+        c = "alookup --ipv4-lookup --ipv6-lookup --iterative"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "ALOOKUP")
+        self.assertEqualALookup(res, self.A_LOOKUP_WWW_ZDNS_TESTING, "ALOOKUP")
+
+    def test_a_lookup_ipv4(self):
+        c = "alookup --ipv4-lookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "ALOOKUP")
+        self.assertEqualALookup(res, self.A_LOOKUP_IPV4_WWW_ZDNS_TESTING, "ALOOKUP")
+
+    def test_a_lookup_ipv6(self):
+        c = "alookup --ipv6-lookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "ALOOKUP")
+        self.assertEqualALookup(res, self.A_LOOKUP_IPV6_WWW_ZDNS_TESTING, "ALOOKUP")
+
+    def test_a_lookup_default(self):
+        c = "alookup"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "ALOOKUP")
+        self.assertEqualALookup(res, self.A_LOOKUP_IPV4_WWW_ZDNS_TESTING, "ALOOKUP")
+
+    def test_a_lookup_iterative_cname_loop(self):
+        c = "alookup --iterative"
+        name = "cname-loop.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "ALOOKUP")
+        assert len(res["results"]["ALOOKUP"]["data"]) == 0
+
+    # There exists DNS records in esrg.stanford.edu and zdns-testing.com of the form:
+    # cname-chain-01.esrg.stanford.edu CNAME cname-chain-02.zdns-testing.com.
+    # cname-chain-02.zdns-testing.com CNAME cname-chain-03.esrg.stanford.edu.
+    # ...
+    # cname-chain-11.esrg.stanford.edu CNAME cname-chain-12.zdns-testing.com.
+    # cname-chain-12.zdns-testing.com A 1.2.3.4
+    # We only follow 10 CNAMEs in a chain, so we should not be able to resolve the A record using cname-chain-01
+    def test_a_lookup_cname_chain_too_long(self):
+        c = "alookup --iterative --ipv4-lookup"
+        name = "cname-chain-01.esrg.stanford.edu"
+        cmd, res = self.run_zdns(c, name)
+        self.assertServFail(res, cmd, "ALOOKUP")
+
+    def test_a_lookup_cname_chain(self):
+        c = "alookup --iterative --ipv4-lookup"
+        name = "cname-chain-03.esrg.stanford.edu"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "ALOOKUP")
+        self.assertEqualALookup(res, self.A_LOOKUP_CNAME_CHAIN_03, "ALOOKUP")
+
+    def test_type_option_server_mode_a_lookup_ipv4(self):
+        c = "A --override-name=www.zdns-testing.com --name-server-mode"
+        name = "8.8.8.8"
+        cmd, res = self.run_zdns(c, name)
+        self.assertEqual(res["results"]["A"]["data"]["resolver"], "8.8.8.8:53")
+        self.assertEqualAnswers(res, self.WWW_CNAME_AND_A_ANSWERS, cmd, "A")
+
+    def test_dig_style_type_option_server_mode_a_lookup_ipv4(self):
+        c = "A 8.8.8.8 --override-name=www.zdns-testing.com --name-server-mode"
+        name = ""
+        cmd, res = self.run_zdns(c, name)
+        self.assertEqual(res["results"]["A"]["data"]["resolver"], "8.8.8.8:53")
+        self.assertEqualAnswers(res, self.WWW_CNAME_AND_A_ANSWERS, cmd, "A")
 
     def test_ns_lookup(self):
         c = "nslookup --ipv4-lookup --ipv6-lookup"
         name = "www.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
+        self.assertSuccess(res, cmd, "NSLOOKUP")
         self.assertEqualNSLookup(res, self.NS_LOOKUP_WWW_ZDNS_TESTING)
 
     def test_ns_lookup_iterative(self):
         c = "nslookup --ipv4-lookup --ipv6-lookup --iterative"
         name = "www.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualALookup(res, self.NS_LOOKUP_WWW_ZDNS_TESTING)
+        self.assertSuccess(res, cmd, "NSLOOKUP")
+        self.assertEqualALookup(res, self.NS_LOOKUP_WWW_ZDNS_TESTING, "NSLOOKUP")
 
     def test_ns_lookup_default(self):
         c = "nslookup"
         name = "www.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
+        self.assertSuccess(res, cmd, "NSLOOKUP")
         self.assertEqualNSLookup(res, self.NS_LOOKUP_IPV4_WWW_ZDNS_TESTING)
 
     def test_ns_lookup_ipv4(self):
         c = "nslookup --ipv4-lookup"
         name = "www.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
+        self.assertSuccess(res, cmd, "NSLOOKUP")
         self.assertEqualNSLookup(res, self.NS_LOOKUP_IPV4_WWW_ZDNS_TESTING)
 
     def test_ns_lookup_ipv6(self):
         c = "nslookup --ipv6-lookup"
         name = "www.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
+        self.assertSuccess(res, cmd, "NSLOOKUP")
         self.assertEqualNSLookup(res, self.NS_LOOKUP_IPV6_WWW_ZDNS_TESTING)
 
     def test_spf_lookup(self):
         c = "spf"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqual(res["data"], self.SPF_ANSWER["data"])
+        self.assertSuccess(res, cmd, "SPF")
+        self.assertEqual(res["results"]["SPF"]["data"], self.SPF_ANSWER["data"])
 
     def test_spf_lookup_iterative(self):
         c = "spf --iterative"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqual(res["data"], self.SPF_ANSWER["data"])
+        self.assertSuccess(res, cmd, "SPF")
+        self.assertEqual(res["results"]["SPF"]["data"], self.SPF_ANSWER["data"])
 
     def test_dmarc_lookup(self):
         c = "dmarc"
         name = "_dmarc.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqual(res["data"], self.DMARC_ANSWER["data"])
+        self.assertSuccess(res, cmd, "DMARC")
+        self.assertEqual(res["results"]["DMARC"]["data"], self.DMARC_ANSWER["data"])
 
     def test_dmarc_lookup_iterative(self):
         c = "dmarc --iterative"
         name = "_dmarc.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqual(res["data"], self.DMARC_ANSWER["data"])
+        self.assertSuccess(res, cmd, "DMARC")
+        self.assertEqual(res["results"]["DMARC"]["data"], self.DMARC_ANSWER["data"])
 
     def test_ptr(self):
         c = "PTR"
         name = "8.8.8.8"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.PTR_LOOKUP_GOOGLE_PUB, cmd)
+        self.assertSuccess(res, cmd, "PTR")
+        self.assertEqualAnswers(res, self.PTR_LOOKUP_GOOGLE_PUB, cmd, "PTR")
 
     def test_ptr_iterative(self):
         c = "PTR --iterative"
         name = "8.8.8.8"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.PTR_LOOKUP_GOOGLE_PUB, cmd)
-
-    def test_spf(self):
-        c = "SPF"
-        name = "zdns-testing.com"
-        cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqual(res["data"], self.SPF_ANSWER["data"])
-
-    def test_spf_iterative(self):
-        c = "SPF --iterative"
-        name = "zdns-testing.com"
-        cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqual(res["data"], self.SPF_ANSWER["data"])
-
-    def test_dmarc(self):
-        c = "DMARC"
-        name = "_dmarc.zdns-testing.com"
-        cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqual(res["data"], self.DMARC_ANSWER["data"])
-
-    def test_dmarc_iterative(self):
-        c = "DMARC --iterative"
-        name = "_dmarc.zdns-testing.com"
-        cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqual(res["data"], self.DMARC_ANSWER["data"])
+        self.assertSuccess(res, cmd, "PTR")
+        self.assertEqualAnswers(res, self.PTR_LOOKUP_GOOGLE_PUB, cmd, "PTR")
 
     def test_axfr(self):
         # In this test, we just check for few specific records
@@ -855,72 +1079,72 @@ class Tests(unittest.TestCase):
         c = "axfr"
         name = "zonetransfer.me"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
+        self.assertSuccess(res, cmd, "AXFR")
         f = open("testing/axfr.json")
         axfr_answer = json.load(f)
-        self.assertEqualAxfrLookup(res["data"]["servers"][0]["records"], axfr_answer["data"]["servers"][0]["records"])
+        self.assertEqualAxfrLookup(res["results"]["AXFR"]["data"]["servers"][0]["records"], axfr_answer["data"]["servers"][0]["records"])
         f.close()
 
     def test_soa(self):
         c = "SOA"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.SOA_ANSWERS, cmd, key="serial")
+        self.assertSuccess(res, cmd, c)
+        self.assertEqualAnswers(res, self.SOA_ANSWERS, cmd, c, key="serial")
 
     def test_srv(self):
         c = "SRV"
         name = "_sip._udp.sip.voice.google.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.SRV_ANSWERS, cmd, key="target")
+        self.assertSuccess(res, cmd, c)
+        self.assertEqualAnswers(res, self.SRV_ANSWERS, cmd,c, key="target")
 
     def test_tlsa(self):
         c = "TLSA"
         name = "_25._tcp.mail.ietf.org"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
-        self.assertEqualAnswers(res, self.TLSA_ANSWERS, cmd, key="certificate")
+        self.assertSuccess(res, cmd, c)
+        self.assertEqualAnswers(res, self.TLSA_ANSWERS, cmd, c, key="certificate")
 
     def test_too_big_txt_udp(self):
         c = "TXT --udp-only --name-servers=8.8.8.8:53"
         name = "large-text.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertEqual(res["status"], "TRUNCATED")
-        self.assertEqual(res["data"]["protocol"], "udp")
+        self.assertEqual(res["results"]["TXT"]["status"], "TRUNCATED")
+        self.assertEqual(res["results"]["TXT"]["data"]["protocol"], "udp")
 
     def test_too_big_txt_tcp(self):
         c = "TXT --tcp-only --name-servers=8.8.8.8:53"  # Azure DNS does not provide results.
         name = "large-text.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertEqualAnswers(res, self.TCP_LARGE_TXT_ANSWERS, cmd, key="answer")
+        self.assertEqualAnswers(res, self.TCP_LARGE_TXT_ANSWERS, cmd, "TXT", key="answer")
 
     def test_too_big_txt_all(self):
         c = "TXT --name-servers=8.8.8.8:53"
         name = "large-text.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertEqual(res["data"]["protocol"], "tcp")
-        self.assertEqualAnswers(res, self.TCP_LARGE_TXT_ANSWERS, cmd, key="answer")
+        self.assertEqual(res["results"]["TXT"]["data"]["protocol"], "tcp")
+        self.assertEqualAnswers(res, self.TCP_LARGE_TXT_ANSWERS, cmd, "TXT", key="answer")
 
     def test_override_name(self):
         c = "A --override-name=zdns-testing.com"
         name = "notrealname.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
 
     def test_server_mode_a_lookup_ipv4(self):
         c = "A --override-name=zdns-testing.com --name-server-mode"
         name = "8.8.8.8:53"
         cmd, res = self.run_zdns(c, name)
-        self.assertEqual(res["data"]["resolver"], "8.8.8.8:53")
-        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+        self.assertEqual(res["results"]["A"]["data"]["resolver"], "8.8.8.8:53")
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
 
     def test_mixed_mode_a_lookup_ipv4(self):
         c = "A --name-servers=0.0.0.0"
         name = "zdns-testing.com,8.8.8.8:53"
         cmd, res = self.run_zdns(c, name)
-        self.assertEqual(res["data"]["resolver"], "8.8.8.8:53")
-        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd)
+        self.assertEqual(res["results"]["A"]["data"]["resolver"], "8.8.8.8:53")
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
 
     def test_local_addr_interface_warning(self):
         c = "A --local-addr 192.168.1.5 --local-interface en0"
@@ -933,22 +1157,25 @@ class Tests(unittest.TestCase):
             # Hardcoding a name server that supports ECS; Github's default recursive does not.
             c = f"A --client-subnet {subnet} --name-servers=8.8.8.8:53"
             cmd, res = self.run_zdns(c, name)
-            self.assertSuccess(res, cmd)
+            self.assertSuccess(res, cmd, "A")
             address, netmask = tuple(subnet.split("/"))
             family = 1 if ip_address(address).version == 4 else 2
+            original_res = res
+            res = res["results"]["A"]
             self.assertEqual(address, res["data"]['additionals'][0]['csubnet']['address'])
             self.assertEqual(int(netmask), res["data"]['additionals'][0]['csubnet']["source_netmask"])
             self.assertEqual(family, res["data"]['additionals'][0]['csubnet']['family'])
             self.assertTrue("source_scope" in res["data"]['additionals'][0]['csubnet'])
             correct = [{"type": "A", "class": "IN", "answer": ip_addr, "name": "ecs-geo.zdns-testing.com"}]
-            self.assertEqualAnswers(res, correct, cmd)
+            self.assertEqualAnswers(original_res, correct, cmd, "A")
 
     def test_edns0_nsid(self):
         name = "google.com"
         # using Google Public DNS for testing as its NSID always follows format 'gpdns-<airport code>'
         c = f"A --nsid --name-servers=8.8.8.8:53"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
+        self.assertSuccess(res, cmd, "A")
+        res = res["results"]["A"]
         self.assertTrue("nsid" in res["data"]['additionals'][0])
         self.assertTrue(res["data"]['additionals'][0]['nsid']['nsid'].startswith("gpdns-"))
 
@@ -957,7 +1184,8 @@ class Tests(unittest.TestCase):
         # using Cloudflare Public DNS (1.1.1.1) that implements EDE
         c = f"A --name-servers=1.1.1.1:53"
         cmd, res = self.run_zdns(c, name)
-        self.assertServFail(res, cmd)
+        self.assertServFail(res, cmd, 'A')
+        res = res["results"]["A"]
         self.assertTrue("ede" in res["data"]['additionals'][0])
         ede_obj = res["data"]['additionals'][0]["ede"][0]
         self.assertEqual("DNSKEY Missing", ede_obj["error_text"])
@@ -969,7 +1197,8 @@ class Tests(unittest.TestCase):
         # using Cloudflare Public DNS (1.1.1.1) that implements EDE, checking disabled resulting in NOERROR
         c = f"A --name-servers=1.1.1.1:53 --checking-disabled"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
+        self.assertSuccess(res, cmd, "A")
+        res = res["results"]["A"]
         self.assertTrue("ede" in res["data"]['additionals'][0])
         ede_obj = res["data"]['additionals'][0]["ede"][0]
         self.assertEqual("DNSKEY Missing", ede_obj["error_text"])
@@ -981,7 +1210,8 @@ class Tests(unittest.TestCase):
         c = f"SOA --dnssec --name-servers=8.8.8.8:53"
         name = "."
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
+        self.assertSuccess(res, cmd, "SOA")
+        res = res["results"]["SOA"]
         self.assertEqual('do', res["data"]['additionals'][0]['flags'])
         self.assertEqualTypes(res, ["SOA", "RRSIG"])
 
@@ -989,19 +1219,20 @@ class Tests(unittest.TestCase):
         c = "A --name-servers=8.8.8.8:53"
         name = "dnssec-failed.org"
         cmd, res = self.run_zdns(c, name)
-        self.assertServFail(res, cmd)
+        self.assertServFail(res, cmd, "A")
 
     def test_cd_bit_set(self):
         c = "A --name-servers=8.8.8.8:53 --checking-disabled"
         name = "dnssec-failed.org"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
+        self.assertSuccess(res, cmd, "A")
 
     def test_timetamps(self):
         c = "A"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
+        self.assertSuccess(res, cmd, "A")
+        res = res["results"]["A"]
         assert "timestamp" in res
         date = datetime.datetime.strptime(res["timestamp"], "%Y-%m-%dT%H:%M:%S%z")
         self.assertTrue(date.microsecond == 0)  # microseconds should be 0 since we didn't call with --nanoseconds
@@ -1010,7 +1241,8 @@ class Tests(unittest.TestCase):
         c = "A --nanoseconds"
         name = "zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertSuccess(res, cmd)
+        self.assertSuccess(res, cmd, "A")
+        res = res["results"]["A"]
         assert "timestamp" in res
         date = parser.parse(res["timestamp"])
         self.assertTrue(date.microsecond != 0)

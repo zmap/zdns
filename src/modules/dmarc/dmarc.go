@@ -17,7 +17,6 @@ import (
 	"errors"
 	"regexp"
 
-	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/src/cli"
@@ -42,11 +41,11 @@ type DmarcLookupModule struct {
 }
 
 // CLIInit initializes the DMARC lookup module
-func (dmarcMod *DmarcLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
+func (dmarcMod *DmarcLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig) error {
 	dmarcMod.re = regexp.MustCompile(dmarcPrefixRegexp)
 	dmarcMod.BasicLookupModule.DNSType = dns.TypeTXT
 	dmarcMod.BasicLookupModule.DNSClass = dns.ClassINET
-	return dmarcMod.BasicLookupModule.CLIInit(gc, rc, flags)
+	return dmarcMod.BasicLookupModule.CLIInit(gc, rc)
 }
 
 func (dmarcMod *DmarcLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
@@ -60,7 +59,18 @@ func (dmarcMod *DmarcLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServ
 	return res, trace, resStatus, err
 }
 
-// Help
 func (dmarcMod *DmarcLookupModule) Help() string {
 	return ""
+}
+
+func (dmarcMod *DmarcLookupModule) Validate(args []string) error {
+	return nil
+}
+
+func (dmarcMod *DmarcLookupModule) GetDescription() string {
+	return ""
+}
+
+func (dmarcMod *DmarcLookupModule) NewFlags() interface{} {
+	return dmarcMod
 }

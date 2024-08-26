@@ -17,7 +17,6 @@ package nslookup
 import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
 
 	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/zdns"
@@ -30,31 +29,23 @@ func init() {
 
 type NSLookupModule struct {
 	cli.BasicLookupModule
-	IPv4Lookup bool
-	IPv6Lookup bool
+	IPv4Lookup bool `long:"ipv4-lookup" description:"perform A lookups for each NS server"`
+	IPv6Lookup bool `long:"ipv6-lookup" description:"perform AAAA record lookups for each NS server"`
 	// used for mocking
 	testingLookup func(r *zdns.Resolver, lookupName string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)
 }
 
 // CLIInit initializes the NSLookupModule with the given parameters, used to call NSLookup from the command line
-func (nsMod *NSLookupModule) CLIInit(gc *cli.CLIConf, resolverConf *zdns.ResolverConfig, f *pflag.FlagSet) error {
-	ipv4Lookup, err := f.GetBool("ipv4-lookup")
-	if err != nil {
-		return errors.Wrap(err, "failed to get ipv4-lookup flag")
-	}
-	ipv6Lookup, err := f.GetBool("ipv6-lookup")
-	if err != nil {
-		return errors.Wrap(err, "failed to get ipv6-lookup flag")
-	}
-	if !ipv4Lookup && !ipv6Lookup {
+func (nsMod *NSLookupModule) CLIInit(gc *cli.CLIConf, resolverConf *zdns.ResolverConfig) error {
+	if !nsMod.IPv4Lookup && !nsMod.IPv6Lookup {
 		log.Debug("NSModule: No IP version specified, defaulting to IPv4")
-		ipv4Lookup = true
+		nsMod.IPv4Lookup = true
 	}
-	err = nsMod.BasicLookupModule.CLIInit(gc, resolverConf, f)
+	err := nsMod.BasicLookupModule.CLIInit(gc, resolverConf)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize basic lookup module")
 	}
-	nsMod.Init(ipv4Lookup, ipv6Lookup)
+	nsMod.Init(nsMod.IPv4Lookup, nsMod.IPv6Lookup)
 	return nil
 }
 
@@ -85,6 +76,18 @@ func (nsMod *NSLookupModule) Help() string {
 	return ""
 }
 
+func (nsMod *NSLookupModule) Validate(args []string) error {
+	return nil
+}
+
 func (nsMod *NSLookupModule) WithTestingLookup(f func(r *zdns.Resolver, lookupName string, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)) {
 	nsMod.testingLookup = f
+}
+
+func (nsMod *NSLookupModule) GetDescription() string {
+	return "Run a more exhaustive ns lookup, will additionally do an A/AAAA lookup for the IP addresses that correspond with name server records."
+}
+
+func (nsMod *NSLookupModule) NewFlags() interface{} {
+	return nsMod
 }

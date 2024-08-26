@@ -17,7 +17,6 @@ import (
 	"errors"
 	"regexp"
 
-	"github.com/spf13/pflag"
 	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/src/cli"
@@ -42,11 +41,11 @@ type SpfLookupModule struct {
 }
 
 // CLIInit initializes the SPF lookup module
-func (spfMod *SpfLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig, flags *pflag.FlagSet) error {
+func (spfMod *SpfLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig) error {
 	spfMod.re = regexp.MustCompile(spfPrefixRegexp)
 	spfMod.BasicLookupModule.DNSType = dns.TypeTXT
 	spfMod.BasicLookupModule.DNSClass = dns.ClassINET
-	return spfMod.BasicLookupModule.CLIInit(gc, rc, flags)
+	return spfMod.BasicLookupModule.CLIInit(gc, rc)
 }
 
 func (spfMod *SpfLookupModule) Lookup(r *zdns.Resolver, name, resolver string) (interface{}, zdns.Trace, zdns.Status, error) {
@@ -63,4 +62,18 @@ func (spfMod *SpfLookupModule) Lookup(r *zdns.Resolver, name, resolver string) (
 // Help
 func (spfMod *SpfLookupModule) Help() string {
 	return ""
+}
+
+// Validate
+func (spfMod *SpfLookupModule) Validate(args []string) error {
+	return nil
+}
+
+// Description
+func (spfMod *SpfLookupModule) GetDescription() string {
+	return ""
+}
+
+func (spfMod *SpfLookupModule) NewFlags() interface{} {
+	return spfMod
 }
