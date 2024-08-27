@@ -16,6 +16,7 @@ package zdns
 import (
 	"context"
 	"fmt"
+	"github.com/zmap/zgrab2/lib/output"
 	"io"
 	"net"
 	"regexp"
@@ -208,11 +209,12 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer s
 
 		if isLookupComplete(originalName, candidateSet, cnameSet, dnameSet) {
 			return &SingleQueryResult{
-				Answers:    allAnswerSet,
-				Additional: res.Additional,
-				Protocol:   res.Protocol,
-				Resolver:   res.Resolver,
-				Flags:      res.Flags,
+				Answers:            allAnswerSet,
+				Additional:         res.Additional,
+				Protocol:           res.Protocol,
+				Resolver:           res.Resolver,
+				Flags:              res.Flags,
+				TLSServerHandshake: res.TLSServerHandshake,
 			}, trace, StatusNoError, nil
 		}
 
@@ -521,7 +523,16 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 		Answers:     []interface{}{},
 		Authorities: []interface{}{},
 		Additional:  []interface{}{},
-		//TLSInfo: resp.Request,
+	}
+	if resp.Request != nil && resp.Request.TLSLog != nil {
+		processor := output.Processor{Verbose: false}
+		strippedOutput, stripErr := processor.Process(resp.Request.TLSLog)
+		if stripErr != nil {
+			log.Warnf("Error stripping TLS log: %v", stripErr)
+		} else {
+			res.TLSServerHandshake = strippedOutput
+		}
+		//res.TLSServerHandshake = resp.Request.TLSLog.HandshakeLog
 	}
 	return constructSingleQueryResultFromDNSMsg(res, r)
 }

@@ -17,6 +17,8 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"github.com/hashicorp/go-version"
+	"github.com/liip/sheriff"
 	"net"
 	"os"
 	"runtime"
@@ -25,8 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/go-version"
-	"github.com/liip/sheriff"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
@@ -641,14 +641,16 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, o
 		if len(res.Results) > 0 {
 			v, _ := version.NewVersion("0.0.0")
 			o := &sheriff.Options{
-				Groups:     gc.OutputGroups,
-				ApiVersion: v,
+				Groups:          gc.OutputGroups,
+				ApiVersion:      v,
+				IncludeEmptyTag: true,
 			}
 			data, err := sheriff.Marshal(o, res)
 			if err != nil {
 				log.Fatalf("unable to marshal result to JSON: %v", err)
 			}
 			jsonRes, err := json.Marshal(data)
+			//jsonRes, err := json.Marshal(res)
 			if err != nil {
 				log.Fatalf("unable to marshal JSON result: %v", err)
 			}
