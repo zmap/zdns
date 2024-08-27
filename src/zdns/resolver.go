@@ -16,18 +16,17 @@ package zdns
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"math/rand"
 	"net"
-	"net/http"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
+	"github.com/zmap/zcrypto/tls"
+	"github.com/zmap/zgrab2/lib/http"
 
 	blacklist "github.com/zmap/zdns/src/internal/safeblacklist"
 	"github.com/zmap/zdns/src/internal/util"
@@ -489,8 +488,9 @@ func getConnectionInfo(localAddr []net.IP, transportMode transportMode, timeout 
 		// TODO - will need to bind to local address, just getting this working
 		// TODO - will be more efficient, but harder to use, to setup a single client in RC that all clients share
 		connInfo.httpsClient = &http.Client{
+			UserAgent: "zdns/" + ZDNSVersion,
 			Transport: &http.Transport{
-				DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				DialTLS: func(network, addr string) (net.Conn, error) {
 					localTCPAddr := &net.TCPAddr{
 						IP:   net.ParseIP(connInfo.localAddr.String()),
 						Port: 0,
@@ -502,7 +502,7 @@ func getConnectionInfo(localAddr []net.IP, transportMode transportMode, timeout 
 						KeepAlive: 30 * time.Second,
 						LocalAddr: localTCPAddr,
 					}
-					conn, err := dialer.DialContext(ctx, network, addr)
+					conn, err := dialer.Dial(network, addr)
 					if err != nil {
 						return nil, err
 					}

@@ -18,13 +18,13 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
+	"github.com/zmap/zgrab2/lib/http"
 
 	"github.com/zmap/zdns/src/internal/util"
 )
@@ -521,6 +521,7 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 		Answers:     []interface{}{},
 		Authorities: []interface{}{},
 		Additional:  []interface{}{},
+		//TLSInfo: resp.Request,
 	}
 	return constructSingleQueryResultFromDNSMsg(res, r)
 }

@@ -24,6 +24,8 @@ import (
 	"github.com/zmap/dns"
 )
 
+const ZDNSVersion = "1.1.0"
+
 func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }

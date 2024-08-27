@@ -25,10 +25,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
 	flags "github.com/zmap/zflags"
-)
 
-const (
-	zdnsCLIVersion = "1.1.0"
+	"github.com/zmap/zdns/src/zdns"
 )
 
 var parser *flags.Parser
@@ -194,7 +192,7 @@ func parseArgs() {
 	parser.Options = flags.Default ^ flags.PrintErrors // we'll print errors in the 2nd invocation, otherwise we get the error printed twice
 	_, _, _, _ = parser.ParseCommandLine(os.Args[1:])
 	if GC.Version {
-		fmt.Printf("zdns version %s", zdnsCLIVersion)
+		fmt.Printf("zdns version %s", zdns.ZDNSVersion)
 		fmt.Println()
 		os.Exit(0)
 	}
