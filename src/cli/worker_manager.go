@@ -649,7 +649,8 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, o
 			if err != nil {
 				log.Fatalf("unable to marshal result to JSON: %v", err)
 			}
-			jsonRes, err := json.Marshal(data)
+			cleansedData := replaceIntSliceInterface(data)
+			jsonRes, err := json.Marshal(cleansedData)
 			//jsonRes, err := json.Marshal(res)
 			if err != nil {
 				log.Fatalf("unable to marshal JSON result: %v", err)
