@@ -648,6 +648,8 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, o
 		}
 		metadata.Names++
 	}
+	// close the resolver, freeing up resources
+	resolver.Close()
 	metaChan <- metadata
 	return nil
 }
