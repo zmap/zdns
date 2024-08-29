@@ -60,6 +60,8 @@ func main() {
 	}()
 	wg.Wait()
 	log.Warn("All lookups complete")
+	resolver1.Close()
+	resolver2.Close()
 }
 
 // initializeResolver
