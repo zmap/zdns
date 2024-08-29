@@ -497,12 +497,12 @@ func (r *Resolver) IterativeLookup(q *Question) (*SingleQueryResult, Trace, Stat
 // Close cleans up any resources used by the resolver. This should be called when the resolver is no longer needed.
 // Lookup will panic if called after Close.
 func (r *Resolver) Close() {
-	if r.connInfoIPv4.conn != nil {
+	if r.connInfoIPv4 != nil && r.connInfoIPv4.conn != nil {
 		if err := r.connInfoIPv4.conn.Close(); err != nil {
 			log.Errorf("error closing IPv4 connection: %v", err)
 		}
 	}
-	if r.connInfoIPv6.conn != nil {
+	if r.connInfoIPv6 != nil && r.connInfoIPv6.conn != nil {
 		if err := r.connInfoIPv6.conn.Close(); err != nil {
 			log.Errorf("error closing IPv6 connection: %v", err)
 		}
