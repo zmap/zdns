@@ -53,7 +53,6 @@ func main() {
 	if err != nil {
 		log.Fatal("Error marshalling trace: ", err)
 	}
-	log.Warnf("Trace: %v", string(bytes))
 	log.Warnf("Status: %v", status)
 	resolver.Close()
 }
