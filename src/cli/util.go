@@ -22,38 +22,17 @@ import (
 // TODO this works - but we need to make it applicable to all other types of uints/ints
 func replaceIntSliceInterface(data interface{}) interface{} {
 	// special case
-	if castedData, ok := data.([]uint8); ok {
-		jsonData, err := json.Marshal(castedData)
-		if err != nil {
-			log.Errorf("unable to marshal data: %s", err)
-		}
+	jsonData, err := marshalIntSlice(data)
+	if err != nil {
+		log.Errorf("error marshalling data in int slice: %v", err)
+		return data
+	} else if jsonData != nil {
 		return jsonData
-	}
-	// special case, data is []interface{} where each "interface{}" is a uint8
-	// differs from above with the additional layer of indirection
-	if castedData, ok := data.([]interface{}); ok {
-		if len(castedData) == 0 {
-			return data
-		}
-		if _, ok := castedData[0].(uint8); ok {
-			ret := make([]uint8, len(castedData))
-			for i, v := range castedData {
-				ret[i] = v.(uint8)
-			}
-			jsonData, err := json.Marshal(ret)
-			if err != nil {
-				log.Errorf("unable to marshal data: %s", err)
-			}
-			return jsonData
-		}
 	}
 
 	// map recursive case
 	if castedData, ok := data.(map[string]interface{}); ok {
 		for k, v := range castedData {
-			if "Id" == k {
-				log.Warn("raw")
-			}
 			castedData[k] = replaceIntSliceInterface(v)
 		}
 		return castedData
@@ -69,28 +48,100 @@ func replaceIntSliceInterface(data interface{}) interface{} {
 	return data
 }
 
-func isInt(data interface{}) bool {
-	switch data.(type) {
-	case int:
-		return true
-	case int8:
-		return true
-	case int16:
-		return true
-	case int32:
-		return true
-	case int64:
-		return true
-	case uint:
-		return true
-	case uint8:
-		return true
-	case uint16:
-		return true
-	case uint32:
-		return true
-	case uint64:
-		return true
+// marshalIntSlice marshals a slice of ints, uints, or interfaces containing ints or uints into a JSON byte slice
+// If the input is not a slice of ints, uints, or interfaces containing ints or uints, it returns nil, nil
+func marshalIntSlice(v interface{}) ([]byte, error) {
+	switch v := v.(type) {
+	case []int:
+		return json.Marshal(v)
+	case []int8:
+		return json.Marshal(v)
+	case []int16:
+		return json.Marshal(v)
+	case []int32:
+		return json.Marshal(v)
+	case []int64:
+		return json.Marshal(v)
+	case []uint:
+		return json.Marshal(v)
+	case []uint8:
+		return json.Marshal(v)
+	case []uint16:
+		return json.Marshal(v)
+	case []uint32:
+		return json.Marshal(v)
+	case []uint64:
+		return json.Marshal(v)
+	case []interface{}:
+		if len(v) > 0 {
+			// Check the type of the first element
+			switch v[0].(type) {
+			case int:
+				converted := make([]int, len(v))
+				for i, val := range v {
+					converted[i] = val.(int)
+				}
+				return json.Marshal(converted)
+			case int8:
+				converted := make([]int8, len(v))
+				for i, val := range v {
+					converted[i] = val.(int8)
+				}
+				return json.Marshal(converted)
+			case int16:
+				converted := make([]int16, len(v))
+				for i, val := range v {
+					converted[i] = val.(int16)
+				}
+				return json.Marshal(converted)
+			case int32:
+				converted := make([]int32, len(v))
+				for i, val := range v {
+					converted[i] = val.(int32)
+				}
+				return json.Marshal(converted)
+			case int64:
+				converted := make([]int64, len(v))
+				for i, val := range v {
+					converted[i] = val.(int64)
+				}
+				return json.Marshal(converted)
+			case uint:
+				converted := make([]uint, len(v))
+				for i, val := range v {
+					converted[i] = val.(uint)
+				}
+				return json.Marshal(converted)
+			case uint8:
+				converted := make([]uint8, len(v))
+				for i, val := range v {
+					converted[i] = val.(uint8)
+				}
+				return json.Marshal(converted)
+			case uint16:
+				converted := make([]uint16, len(v))
+				for i, val := range v {
+					converted[i] = val.(uint16)
+				}
+				return json.Marshal(converted)
+			case uint32:
+				converted := make([]uint32, len(v))
+				for i, val := range v {
+					converted[i] = val.(uint32)
+				}
+				return json.Marshal(converted)
+			case uint64:
+				converted := make([]uint64, len(v))
+				for i, val := range v {
+					converted[i] = val.(uint64)
+				}
+				return json.Marshal(converted)
+			default:
+				return nil, nil
+			}
+		}
+		return nil, nil
+	default:
+		return nil, nil
 	}
-	return false
 }
