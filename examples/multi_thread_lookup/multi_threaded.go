@@ -14,11 +14,13 @@
 package main
 
 import (
+	"net"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
 
+	"github.com/zmap/zdns/examples/utils"
 	"github.com/zmap/zdns/src/zdns"
 )
 
@@ -66,6 +68,14 @@ func main() {
 func initializeResolver(cache *zdns.Cache) *zdns.Resolver {
 	// Create a ResolverConfig object
 	resolverConfig := zdns.NewResolverConfig()
+	localAddr, err := utils.GetLocalIPByConnecting()
+	if err != nil {
+		log.Fatal("Error getting local IP: ", err)
+	}
+	resolverConfig.LocalAddrsV4 = []net.IP{localAddr}
+	resolverConfig.ExternalNameServersV4 = []string{"1.1.1.1:53"}
+	resolverConfig.RootNameServersV4 = []string{"198.41.0.4:53"}
+	resolverConfig.IPVersionMode = zdns.IPv4Only
 	// Set any desired options on the ResolverConfig object
 	resolverConfig.Cache = cache
 	// Create a new Resolver object with the ResolverConfig object, it will retain all settings set on the ResolverConfig object

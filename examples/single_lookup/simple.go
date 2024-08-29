@@ -15,15 +15,16 @@ package main
 
 import (
 	"encoding/json"
+	"net"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
 
+	"github.com/zmap/zdns/examples/utils"
 	"github.com/zmap/zdns/src/zdns"
 )
 
 func main() {
-
 	// Perform the lookup
 	domain := "google.com"
 	dnsQuestion := &zdns.Question{Name: domain, Type: dns.TypeA, Class: dns.ClassINET}
@@ -54,13 +55,22 @@ func main() {
 	}
 	log.Warnf("Trace: %v", string(bytes))
 	log.Warnf("Status: %v", status)
+	resolver.Close()
 }
 
 func initializeResolver() *zdns.Resolver {
+	localAddr, err := utils.GetLocalIPByConnecting()
+	if err != nil {
+		log.Fatal("Error getting local IP: ", err)
+	}
 	// Create a ResolverConfig object
 	resolverConfig := zdns.NewResolverConfig()
 	// Set any desired options on the ResolverConfig object
 	resolverConfig.LogLevel = log.InfoLevel
+	resolverConfig.LocalAddrsV4 = []net.IP{localAddr}
+	resolverConfig.ExternalNameServersV4 = []string{"1.1.1.1:53"}
+	resolverConfig.RootNameServersV4 = []string{"198.41.0.4:53"}
+	resolverConfig.IPVersionMode = zdns.IPv4Only
 	// Create a new Resolver object with the ResolverConfig object, it will retain all settings set on the ResolverConfig object
 	resolver, err := zdns.InitResolver(resolverConfig)
 	if err != nil {
