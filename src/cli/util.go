@@ -19,7 +19,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// TODO this works - but we need to make it applicable to all other types of uints/ints
+// replaceIntSliceInterface replaces all slices of ints/uints with a JSON byte slice in the input interface
+// this is needed because if you marshal a slice of interface{}'s, where the interface{} objects are ints, it'll
+// get outputted as a list of numbers instead of a base64 encoded byte slice. This function recursively traverses
+// the input interface and replaces all slices of ints/uints with a JSON byte slice, or leaves the input interface
+// unchanged if it doesn't contain any slices of ints/uints
 func replaceIntSliceInterface(data interface{}) interface{} {
 	// special case
 	jsonData, err := marshalIntSlice(data)
