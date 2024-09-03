@@ -278,9 +278,9 @@ func NewResolverConfig() *ResolverConfig {
 type ConnectionInfo struct {
 	udpClient   *dns.Client
 	tcpClient   *dns.Client
-	conn        *dns.Conn
+	conn        *dns.Conn    // for socket re-use
 	httpsClient *http.Client // for DoH
-	tlsClient   *dns.Client  // for DoT
+	tlsConn     *dns.Conn    // for DoT
 	localAddr   net.IP
 }
 
@@ -506,7 +506,7 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryRe
 		dstServer = r.randomExternalNameServer()
 		log.Info("no name server provided for external lookup, using  random external name server: ", dstServer)
 	}
-	dstServerWithPort, err := util.AddDefaultPortToDNSServerName(dstServer, r.dnsOverHTTPSEnabled)
+	dstServerWithPort, err := util.AddDefaultPortToDNSServerName(dstServer, r.dnsOverHTTPSEnabled, r.dnsOverTLSEnabled)
 	if err != nil {
 		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w. Correct format IPv4 1.1.1.1:53 or IPv6 [::1]:53", dstServer, err)
 	}

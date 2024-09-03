@@ -16,18 +16,16 @@ package zdns
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
+	"github.com/zmap/dns"
 	"github.com/zmap/zcrypto/tls"
+	"github.com/zmap/zgrab2/lib/http"
 	"github.com/zmap/zgrab2/lib/output"
 	"io"
 	"net"
 	"regexp"
 	"strings"
-	"time"
-
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
-	"github.com/zmap/dns"
-	"github.com/zmap/zgrab2/lib/http"
 
 	"github.com/zmap/zdns/src/internal/util"
 )
@@ -468,7 +466,7 @@ func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer st
 		if r.dnsOverHTTPSEnabled {
 			result, status, err = doDoHLookup(ctx, connInfo.httpsClient, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
 		} else if r.dnsOverTLSEnabled {
-			result, status, err = doDoTLookup(ctx, r, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
+			result, status, err = doDoTLookup(ctx, connInfo, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
 		} else {
 			result, status, err = wireLookup(ctx, connInfo.udpClient, connInfo.tcpClient, connInfo.conn, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
 		}
@@ -480,70 +478,55 @@ func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer st
 	return SingleQueryResult{}, "", 0, errors.New("retry loop didn't exit properly")
 }
 
-func doDoTLookup(ctx context.Context, r *Resolver, q Question, nameServer string, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (SingleQueryResult, Status, error) {
+func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer string, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (SingleQueryResult, Status, error) {
 	m := new(dns.Msg)
 	m.SetQuestion(dotName(q.Name), q.Type)
 	m.Question[0].Qclass = q.Class
 	m.RecursionDesired = recursive
 	m.CheckingDisabled = checkingDisabled
+	m.Id = 12345
 
 	m.SetEdns0(1232, dnssec)
 	if ednsOpt := m.IsEdns0(); ednsOpt != nil {
 		ednsOpt.Option = append(ednsOpt.Option, ednsOptions...)
 	}
-	//bytes, err := m.Pack()
-	//if err != nil {
-	//	return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not pack DNS message")
-	//}
-	localTCPAddr := &net.TCPAddr{
-		IP:   net.ParseIP(r.connInfoIPv4.localAddr.String()),
-		Port: 0,
-	}
 
-	// Custom dialer with local address binding
-	dialer := &net.Dialer{
-		Timeout:   30 * time.Second,
-		KeepAlive: 30 * time.Second,
-		LocalAddr: localTCPAddr,
-	}
-	tcpConn, err := dialer.Dial("tcp", nameServer)
-	if err != nil {
-		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not connect to server")
-	}
-	// Now wrap the connection with TLS
-	tlsConn := tls.Client(tcpConn, &tls.Config{
-		InsecureSkipVerify: true, // TODO - this is insecure, we'll fix later
-		ServerName:         "cloudflare-dns.com",
-	})
-	err = tlsConn.Handshake()
-	if err != nil {
-		tlsConn.Close()
-		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not perform TLS handshake")
-	}
+	if connInfo.tlsConn == nil {
+		// first lookup for this resolver, create a new TLS client now
+		// Custom dialer with local address binding
+		dialer := &net.Dialer{
+			LocalAddr: &net.TCPAddr{
+				IP:   connInfo.localAddr,
+				Port: 0,
+			},
+		}
+		tcpConn, err := dialer.DialContext(ctx, "tcp", nameServer)
+		if err != nil {
+			return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not connect to server")
+		}
+		// Now wrap the connection with TLS
+		tlsConn := tls.Client(tcpConn, &tls.Config{
+			InsecureSkipVerify: true, // TODO - this is insecure, we'll fix later
+			//ServerName:         "cloudflare-dns.com",
+		})
+		err = tlsConn.Handshake()
+		if err != nil {
+			err := tlsConn.Close()
+			if err != nil {
+				log.Errorf("error closing TLS connection: %v", err)
+			}
+			return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not perform TLS handshake")
+		}
 
-	conn := &dns.Conn{Conn: tlsConn}
-	err = conn.WriteMsg(m)
-	if err != nil {
-		return SingleQueryResult{}, "", errors.Wrap(err, "could not write to server")
+		connInfo.tlsConn = &dns.Conn{Conn: tlsConn}
 	}
-	responseMsg, err := conn.ReadMsg()
-
-	//_, err = tlsConn.Write(bytes)
-	//if err != nil {
-	//	return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not write to server")
-	//}
-
-	//// Read the server's response
-	//buf := make([]byte, 4096)
-	//bytesRead, err := tlsConn.Read(buf)
-	//if err != nil && err != io.EOF {
-	//	return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not read from server")
-	//}
-	//log.Warn("Read ", bytesRead, " bytes from server")
-	//resp := new(dns.Msg)
-	//err = resp.Unpack(buf)
+	err := connInfo.tlsConn.WriteMsg(m)
 	if err != nil {
-		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not unpack DNS message")
+		return SingleQueryResult{}, "", errors.Wrap(err, "could not write query over DoT to server")
+	}
+	responseMsg, err := connInfo.tlsConn.ReadMsg()
+	if err != nil {
+		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not unpack DNS message from DoT server")
 	}
 	res := SingleQueryResult{
 		Resolver:    nameServer,
@@ -552,16 +535,6 @@ func doDoTLookup(ctx context.Context, r *Resolver, q Question, nameServer string
 		Authorities: []interface{}{},
 		Additional:  []interface{}{},
 	}
-	//if resp.Request != nil && resp.Request.TLSLog != nil {
-	//	processor := output.Processor{Verbose: false}
-	//	strippedOutput, stripErr := processor.Process(resp.Request.TLSLog)
-	//	if stripErr != nil {
-	//		log.Warnf("Error stripping TLS log: %v", stripErr)
-	//	} else {
-	//		res.TLSServerHandshake = strippedOutput
-	//	}
-	//	//res.TLSServerHandshake = resp.Request.TLSLog.HandshakeLog
-	//}
 	return constructSingleQueryResultFromDNSMsg(res, responseMsg)
 }
 
@@ -595,7 +568,12 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 	if err != nil {
 		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not perform HTTP request")
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Errorf("error closing DoH response body: %v", err)
+		}
+	}(resp.Body)
 	bytes, err = io.ReadAll(resp.Body)
 	if err != nil {
 		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not read HTTP response")

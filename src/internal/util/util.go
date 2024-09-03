@@ -29,9 +29,10 @@ const (
 	DefaultFilePermissions = 0644 // rw-r--r--
 	DefaultDNSPort         = "53"
 	DefaultHTTPSPort       = "443"
+	DefaultTLSPort         = "853"
 )
 
-func AddDefaultPortToDNSServerName(inAddr string, usingHTTPS bool) (string, error) {
+func AddDefaultPortToDNSServerName(inAddr string, usingHTTPS, usingTLS bool) (string, error) {
 	// Try to split host and port to see if the port is already specified.
 	host, port, err := net.SplitHostPort(inAddr)
 	if err != nil {
@@ -45,10 +46,14 @@ func AddDefaultPortToDNSServerName(inAddr string, usingHTTPS bool) (string, erro
 		return "", errors.New("invalid IP address")
 	}
 
-	// If the original input does not have a port, specify port 53
 	if port == "" && usingHTTPS {
+		// default HTTPS port is 443
 		port = DefaultHTTPSPort
+	} else if port == "" && usingTLS {
+		// default DoT port is 853
+		port = DefaultTLSPort
 	} else if port == "" {
+		// If the original input does not have a port, specify port 53
 		port = DefaultDNSPort
 
 	}

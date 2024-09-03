@@ -275,7 +275,7 @@ func populateIPTransportMode(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Re
 		portValidatedNSs := make([]string, 0, len(gc.NameServers))
 		// check that the nameservers have a port and append one if necessary
 		for _, ns := range gc.NameServers {
-			portNS, err := util.AddDefaultPortToDNSServerName(ns, gc.DNSOverHTTPS)
+			portNS, err := util.AddDefaultPortToDNSServerName(ns, gc.DNSOverHTTPS, gc.DNSOverTLS)
 			if err != nil {
 				return nil, fmt.Errorf("could not parse name server: %s. Correct IPv4 format: 1.1.1.1:53 or IPv6 format: [::1]:53", ns)
 			}
@@ -336,7 +336,7 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 		portValidatedNSs := make([]string, 0, len(gc.NameServers))
 		// check that the nameservers have a port and append one if necessary
 		for _, ns := range gc.NameServers {
-			portNS, err := util.AddDefaultPortToDNSServerName(ns, gc.DNSOverHTTPS)
+			portNS, err := util.AddDefaultPortToDNSServerName(ns, gc.DNSOverHTTPS, gc.DNSOverTLS)
 			if err != nil {
 				return nil, fmt.Errorf("could not parse name server: %s. Correct IPv4 format: 1.1.1.1:53 or IPv6 format: [::1]:53", ns)
 			}
@@ -592,12 +592,12 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, o
 			rawName, entryMetadata = parseMetadataInputLine(line)
 			res.Metadata = entryMetadata
 		} else if gc.NameServerMode {
-			nameServer, err = util.AddDefaultPortToDNSServerName(line, gc.DNSOverHTTPS)
+			nameServer, err = util.AddDefaultPortToDNSServerName(line, gc.DNSOverHTTPS, gc.DNSOverTLS)
 			if err != nil {
 				log.Fatal("unable to parse name server: ", line)
 			}
 		} else {
-			rawName, nameServer = parseNormalInputLine(line, gc.DNSOverHTTPS)
+			rawName, nameServer = parseNormalInputLine(line, gc.DNSOverHTTPS, gc.DNSOverTLS)
 		}
 		res.Name = rawName
 		// handle per-module lookups
@@ -675,7 +675,7 @@ func parseMetadataInputLine(line string) (string, string) {
 	return s[0], s[1]
 }
 
-func parseNormalInputLine(line string, usingDNSOverHTTPS bool) (string, string) {
+func parseNormalInputLine(line string, usingDNSOverHTTPS, usingDNSOverTLS bool) (string, string) {
 	r := csv.NewReader(strings.NewReader(line))
 	s, err := r.Read()
 	if err != nil || len(s) == 0 {
@@ -684,7 +684,7 @@ func parseNormalInputLine(line string, usingDNSOverHTTPS bool) (string, string) 
 	if len(s) == 1 {
 		return s[0], ""
 	} else {
-		ns, err := util.AddDefaultPortToDNSServerName(s[1], usingDNSOverHTTPS)
+		ns, err := util.AddDefaultPortToDNSServerName(s[1], usingDNSOverHTTPS, usingDNSOverTLS)
 		if err != nil {
 			log.Fatal("unable to parse name server: ", s[1])
 		}
