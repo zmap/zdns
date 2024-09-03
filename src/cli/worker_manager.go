@@ -171,6 +171,7 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 
 	config.TransportMode = zdns.GetTransportMode(gc.UDPOnly, gc.TCPOnly)
 	config.DNSOverHTTPS = gc.DNSOverHTTPS
+	config.DNSOverTLS = gc.DNSOverTLS
 
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
@@ -245,12 +246,6 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config, err = populateLocalAddresses(gc, config)
 	if err != nil {
 		log.Fatal("could not populate local addresses: ", err)
-	}
-
-	if gc.DNSOverHTTPS {
-		if err = config.SetupDoHClient(); err != nil {
-			log.Fatal("could not set up DoH client: ", err)
-		}
 	}
 
 	return config

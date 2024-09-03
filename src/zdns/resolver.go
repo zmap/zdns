@@ -15,7 +15,6 @@
 package zdns
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"net"
@@ -84,6 +83,7 @@ type ResolverConfig struct {
 
 	DNSSecEnabled       bool
 	DNSOverHTTPS        bool         // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
+	DNSOverTLS          bool         // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
 	HTTPSClientIPv4     *http.Client // for DoH, per docs should be shared amongst requests
 	HTTPSClientIPv6     *http.Client // for DoH, per docs should be shared amongst requests
 	EdnsOptions         []dns.EDNS0
@@ -244,41 +244,6 @@ func (rc *ResolverConfig) PrintInfo() {
 	log.Infof("for iterative lookups, using nameservers: %s", strings.Join(util.Concat(rc.RootNameServersV4, rc.RootNameServersV6), ", "))
 }
 
-// SetupDoHClient sets up the HTTPS client for DoH queries. This should be called after setting the local addresses for
-// the resolver config. An http.Client will be setup that will cycle thru the local addresses for each request.
-// It is required to call this function in order to use DoH queries.
-// TODO probably want to give some error if the client isn't setup and a DoH query is attempted
-func (rc *ResolverConfig) SetupDoHClient() error {
-	if !rc.DNSOverHTTPS {
-		return errors.New("DoH is not enabled")
-	}
-	// Custom DialContext function to select a local IP
-	dialer := &net.Dialer{
-		Timeout: rc.Timeout,
-	}
-
-	var index int
-	dialContext := func(ctx context.Context, network, addr string) (net.Conn, error) {
-		localAddr, err := net.ResolveTCPAddr(network, rc.LocalAddrsV4[index].String())
-		if err != nil {
-			return nil, err
-		}
-		dialer.LocalAddr = localAddr
-		index = (index + 1) % len(rc.LocalAddrsV4) // Cycle to the next IP
-		return dialer.DialContext(ctx, network, addr)
-	}
-
-	// Create an http.Client with the custom transport
-	client := &http.Client{
-		Transport: &http.Transport{
-			DialContext: dialContext,
-		},
-		Timeout: 10 * time.Second,
-	}
-	rc.HTTPSClientIPv4 = client
-	return nil
-}
-
 // NewResolverConfig creates a new ResolverConfig with default values.
 func NewResolverConfig() *ResolverConfig {
 	c := new(Cache)
@@ -315,6 +280,7 @@ type ConnectionInfo struct {
 	tcpClient   *dns.Client
 	conn        *dns.Conn
 	httpsClient *http.Client // for DoH
+	tlsClient   *dns.Client  // for DoT
 	localAddr   net.IP
 }
 
@@ -346,6 +312,7 @@ type Resolver struct {
 
 	dnsSecEnabled       bool
 	dnsOverHTTPSEnabled bool // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
+	dnsOverTLSEnabled   bool // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
 	ednsOptions         []dns.EDNS0
 	checkingDisabledBit bool
 	isClosed            bool // true if the resolver has been closed, lookup will panic if called after Close
@@ -388,6 +355,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		timeout: config.Timeout,
 
 		dnsOverHTTPSEnabled: config.DNSOverHTTPS,
+		dnsOverTLSEnabled:   config.DNSOverTLS,
 		dnsSecEnabled:       config.DNSSecEnabled,
 		ednsOptions:         config.EdnsOptions,
 		checkingDisabledBit: config.CheckingDisabledBit,
@@ -484,9 +452,7 @@ func getConnectionInfo(localAddr []net.IP, transportMode transportMode, timeout 
 	}
 
 	if shouldSetupHTTPClient {
-		// Create an http.Client with the custom transport
-		// TODO - will need to bind to local address, just getting this working
-		// TODO - will be more efficient, but harder to use, to setup a single client in RC that all clients share
+		// Create a http.Client with the custom transport
 		connInfo.httpsClient = &http.Client{
 			UserAgent: "zdns/" + ZDNSVersion,
 			Transport: &http.Transport{
