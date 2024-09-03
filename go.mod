@@ -6,7 +6,7 @@ require (
 	github.com/hashicorp/go-version v1.7.0
 	github.com/liip/sheriff v0.12.0
 	github.com/pkg/errors v0.9.1
-	github.com/schollz/progressbar/v3 v3.14.4
+	github.com/schollz/progressbar/v3 v3.14.6
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
 	github.com/zmap/dns v1.1.59-zdns-4
