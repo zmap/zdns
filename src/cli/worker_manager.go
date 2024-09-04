@@ -322,7 +322,7 @@ func populateIPTransportMode(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Re
 func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.ResolverConfig, error) {
 	// Nameservers are populated in this order:
 	// 1. If user provided nameservers, use those
-	// 2. (External Only) If we can get the OS' default recursive resolver nameservers, use those
+	// 2. (External Only and NOT --name-server-mode) If we can get the OS' default recursive resolver nameservers, use those
 	// 3. Use ZDNS defaults
 
 	// Additionally, both Root and External nameservers must be populated, since the Resolver doesn't know we'll only
@@ -353,7 +353,7 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 		return config, nil
 	}
 	// User did not provide nameservers
-	if !gc.IterativeResolution {
+	if !gc.IterativeResolution && !gc.NameServerMode {
 		// Try to get the OS' default recursive resolver nameservers
 		var v4NameServers, v6NameServers []zdns.NameServer
 		v4NameServerStrings, v6NameServersStrings, err := zdns.GetDNSServers(config.DNSConfigFilePath)
