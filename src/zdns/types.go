@@ -147,17 +147,3 @@ func (ns *NameServer) DeepCopy() *NameServer {
 		DomainName: ns.DomainName,
 	}
 }
-
-// Equal method to compare two NameServer structs
-func (ns NameServer) Equal(other NameServer) bool {
-	if !ns.IP.Equal(other.IP) {
-		return false
-	}
-	if ns.Port != other.Port {
-		return false
-	}
-	if ns.DomainName != other.DomainName {
-		return false
-	}
-	return true
-}

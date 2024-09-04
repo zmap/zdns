@@ -110,7 +110,6 @@ func (rc *ResolverConfig) Validate() error {
 
 	// Validate all nameservers have ports and are valid IPs
 	for _, ns := range util.Concat(rc.ExternalNameServersV4, rc.ExternalNameServersV6) {
-		ns.PopulateDefaultPort()
 		if isValid, reason := ns.IsValid(); !isValid {
 			return fmt.Errorf("invalid external name server: %s", reason)
 		}
@@ -127,7 +126,6 @@ func (rc *ResolverConfig) Validate() error {
 
 	// Validate all nameservers have ports and are valid IPs
 	for _, ns := range util.Concat(rc.RootNameServersV4, rc.RootNameServersV6) {
-		ns.PopulateDefaultPort()
 		if isValid, reason := ns.IsValid(); !isValid {
 			return fmt.Errorf("invalid root name server: %s", reason)
 		}
