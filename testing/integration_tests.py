@@ -1289,7 +1289,7 @@ class Tests(unittest.TestCase):
         [A]
         [AAAA]
         """
-        metadata_file_name = "temp-metadata.json"
+        metadata_file_name = "temp-metadata-multi.json"
         ini_file_name = "./test_multiple_modules.ini"
         with open(ini_file_name, "w") as f:
             f.write(ini_file_contents)
