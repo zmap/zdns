@@ -47,8 +47,8 @@ func (ml MockLookup) DoSingleDstServerLookup(r *zdns.Resolver, question zdns.Que
 func InitTest(t *testing.T) *zdns.Resolver {
 	mockResults = make(map[string]*zdns.SingleQueryResult)
 	rc := zdns.ResolverConfig{
-		ExternalNameServersV4: []zdns.NameServer{{IP: net.ParseIP("1.1.1.1:53"), Port: 53}},
-		RootNameServersV4:     []zdns.NameServer{{IP: net.ParseIP("1.1.1.1:53"), Port: 53}},
+		ExternalNameServersV4: []zdns.NameServer{{IP: net.ParseIP("1.1.1.1"), Port: 53}},
+		RootNameServersV4:     []zdns.NameServer{{IP: net.ParseIP("1.1.1.1"), Port: 53}},
 		LocalAddrsV4:          []net.IP{net.ParseIP("192.168.1.1")},
 		IPVersionMode:         zdns.IPv4Only,
 		LookupClient:          MockLookup{}}
@@ -69,7 +69,7 @@ func TestBindVersionLookup_Valid_1(t *testing.T) {
 	assert.Equal(t, queries[0].q.Class, uint16(dns.ClassCHAOS))
 	assert.Equal(t, queries[0].q.Type, dns.TypeTXT)
 	assert.Equal(t, queries[0].q.Name, "VERSION.BIND")
-	assert.Equal(t, queries[0].NameServer, "1.2.3.4:53")
+	assert.Equal(t, queries[0].NameServer.String(), "1.2.3.4:53")
 
 	assert.Equal(t, zdns.StatusNoError, status)
 	assert.Equal(t, res.(Result).BindVersion, "Nominum Vantio 5.4.1.0")
@@ -85,7 +85,7 @@ func TestBindVersionLookup_NotValid_1(t *testing.T) {
 	assert.Equal(t, queries[0].q.Class, uint16(dns.ClassCHAOS))
 	assert.Equal(t, queries[0].q.Type, dns.TypeTXT)
 	assert.Equal(t, queries[0].q.Name, "VERSION.BIND")
-	assert.Equal(t, queries[0].NameServer, "1.2.3.4:53")
+	assert.Equal(t, queries[0].NameServer.String(), "1.2.3.4:53")
 
 	assert.Equal(t, zdns.StatusNoRecord, status)
 	assert.Equal(t, res.(Result).BindVersion, "")
