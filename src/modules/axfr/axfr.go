@@ -62,12 +62,12 @@ type TransferClient struct {
 	dns.Transfer
 }
 
-func (axfrMod *AxfrLookupModule) doAXFR(name, server string) AXFRServerResult {
+func (axfrMod *AxfrLookupModule) doAXFR(name string, server *zdns.NameServer) AXFRServerResult {
 	var retv AXFRServerResult
-	retv.Server = server
+	retv.Server = server.IP.String()
 	// check if the server address is blacklisted and if so, exclude
 	if axfrMod.Blacklist != nil {
-		if blacklisted, err := axfrMod.Blacklist.IsBlacklisted(server); err != nil {
+		if blacklisted, err := axfrMod.Blacklist.IsBlacklisted(server.IP.String()); err != nil {
 			retv.Status = zdns.StatusError
 			retv.Error = "blacklist-error"
 			return retv
@@ -79,7 +79,7 @@ func (axfrMod *AxfrLookupModule) doAXFR(name, server string) AXFRServerResult {
 	}
 	m := new(dns.Msg)
 	m.SetAxfr(dotName(name))
-	if a, err := axfrMod.In(m, net.JoinHostPort(server, "53")); err != nil {
+	if a, err := axfrMod.In(m, net.JoinHostPort(server.IP.String(), "53")); err != nil {
 		retv.Status = zdns.StatusError
 		retv.Error = err.Error()
 		return retv
@@ -101,9 +101,9 @@ func (axfrMod *AxfrLookupModule) doAXFR(name, server string) AXFRServerResult {
 	return retv
 }
 
-func (axfrMod *AxfrLookupModule) Lookup(resolver *zdns.Resolver, name, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+func (axfrMod *AxfrLookupModule) Lookup(resolver *zdns.Resolver, name string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
 	var retv AXFRResult
-	if nameServer == "" {
+	if nameServer == nil {
 		parsedNS, trace, status, err := axfrMod.NSModule.Lookup(resolver, name, nameServer)
 		if status != zdns.StatusNoError {
 			return nil, trace, status, err
@@ -114,7 +114,8 @@ func (axfrMod *AxfrLookupModule) Lookup(resolver *zdns.Resolver, name, nameServe
 		}
 		for _, server := range castedNS.Servers {
 			if len(server.IPv4Addresses) > 0 {
-				retv.Servers = append(retv.Servers, axfrMod.doAXFR(name, server.IPv4Addresses[0]))
+				ns := &zdns.NameServer{IP: net.ParseIP(server.IPv4Addresses[0])}
+				retv.Servers = append(retv.Servers, axfrMod.doAXFR(name, ns))
 			}
 		}
 	} else {

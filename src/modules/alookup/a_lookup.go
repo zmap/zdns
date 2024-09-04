@@ -48,7 +48,7 @@ func (aMod *ALookupModule) Init(ipv4Lookup bool, ipv6Lookup bool) {
 	aMod.IPv6Lookup = ipv6Lookup
 }
 
-func (aMod *ALookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+func (aMod *ALookupModule) Lookup(r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
 	ipResult, trace, status, err := r.DoTargetedLookup(lookupName, nameServer, aMod.baseModule.IsIterative, aMod.IPv4Lookup, aMod.IPv6Lookup)
 	return ipResult, trace, status, err
 }

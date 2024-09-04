@@ -45,7 +45,7 @@ func (bindVersionMod *BindVersionLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns
 	return bindVersionMod.BasicLookupModule.CLIInit(gc, rc)
 }
 
-func (bindVersionMod *BindVersionLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+func (bindVersionMod *BindVersionLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
 	var innerRes *zdns.SingleQueryResult
 	var trace zdns.Trace
 	var status zdns.Status

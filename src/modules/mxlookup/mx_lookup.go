@@ -84,7 +84,7 @@ func (mxMod *MXLookupModule) Init() {
 	mxMod.CacheHash.Init(mxMod.MXCacheSize)
 }
 
-func (mxMod *MXLookupModule) lookupIPs(r *zdns.Resolver, name, nameServer string, ipMode zdns.IPVersionMode) (CachedAddresses, zdns.Trace) {
+func (mxMod *MXLookupModule) lookupIPs(r *zdns.Resolver, name string, nameServer *zdns.NameServer, ipMode zdns.IPVersionMode) (CachedAddresses, zdns.Trace) {
 	mxMod.CHmu.Lock()
 	// TODO - Phillip this comment V is present in the original code and has been there since 2017 IIRC, so ask Zakir what to do
 	// XXX this should be changed to a miekglookup
@@ -105,7 +105,7 @@ func (mxMod *MXLookupModule) lookupIPs(r *zdns.Resolver, name, nameServer string
 	return retv, trace
 }
 
-func (mxMod *MXLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+func (mxMod *MXLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
 	ipMode := zdns.GetIPVersionMode(mxMod.IPv4Lookup, mxMod.IPv6Lookup)
 	retv := MXResult{Servers: []MXRecord{}}
 	var res *zdns.SingleQueryResult
