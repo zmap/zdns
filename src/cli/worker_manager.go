@@ -548,7 +548,7 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, o
 		res := zdns.Result{Results: make(map[string]zdns.SingleModuleResult, len(gc.ActiveModules))}
 		// get the fields that won't change for each lookup module
 		rawName := ""
-		nameServer := &zdns.NameServer{}
+		var nameServer *zdns.NameServer
 		nameServerString := ""
 		var rank int
 		var entryMetadata string
@@ -569,9 +569,11 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, o
 			}
 		} else {
 			rawName, nameServerString = parseNormalInputLine(line)
-			nameServer, err = convertNameServerStringToNameServer(nameServerString)
-			if err != nil {
-				log.Fatal("unable to parse name server: ", line)
+			if len(nameServerString) != 0 {
+				nameServer, err = convertNameServerStringToNameServer(nameServerString)
+				if err != nil {
+					log.Fatal("unable to parse name server: ", line)
+				}
 			}
 		}
 		res.Name = rawName
