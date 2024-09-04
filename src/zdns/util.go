@@ -24,10 +24,6 @@ import (
 	"github.com/zmap/dns"
 )
 
-const (
-	DefaultPort = 53
-)
-
 func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
@@ -187,8 +183,4 @@ func handleStatus(status Status, err error) (Status, error) {
 		var s Status
 		return s, nil
 	}
-}
-
-func GetDefaultPort() uint16 {
-	return DefaultPort
 }

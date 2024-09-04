@@ -28,6 +28,10 @@ const (
 	TCPOnly
 )
 
+const (
+	DefaultPort = 53
+)
+
 func GetTransportMode(useUDP, useTCP bool) transportMode {
 	if useUDP && useTCP {
 		return UDPOrTCP
@@ -118,7 +122,7 @@ func (ns *NameServer) String() string {
 
 func (ns *NameServer) PopulateDefaultPort() {
 	if ns.Port == 0 {
-		ns.Port = GetDefaultPort()
+		ns.Port = DefaultPort
 	}
 }
 

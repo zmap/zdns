@@ -17,6 +17,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net"
 	"os"
 	"runtime"
@@ -300,7 +301,7 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 	if len(gc.NameServers) != 0 {
 		// User provided name servers, use them.
 		var v4NameServers, v6NameServers []zdns.NameServer
-		nses, err := convertNameServerStringSliceToNameServers(gc.NameServers)
+		nses, err := convertNameServerStringSliceToNameServers(gc.NameServers, config.IPVersionMode)
 		if err != nil {
 			return nil, fmt.Errorf("could not parse name server: %v. Correct IPv4 format: 1.1.1.1:53 or IPv6 format: [::1]:53\"", err)
 		}
@@ -330,11 +331,11 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 			log.Warn("Unable to parse resolvers file. Using ZDNS defaults")
 		} else {
 			// convert string slices to NameServers
-			v4NameServers, err = convertNameServerStringSliceToNameServers(v4NameServerStrings)
+			v4NameServers, err = convertNameServerStringSliceToNameServers(v4NameServerStrings, config.IPVersionMode)
 			if err != nil {
 				return nil, fmt.Errorf("could not convert IPv4 nameservers %s to NameServers: %v", strings.Join(v4NameServerStrings, ", "), err)
 			}
-			v6NameServers, err = convertNameServerStringSliceToNameServers(v6NameServersStrings)
+			v6NameServers, err = convertNameServerStringSliceToNameServers(v6NameServersStrings, config.IPVersionMode)
 			if err != nil {
 				return nil, fmt.Errorf("could not convert IPv6 nameservers %s to NameServers: %v", strings.Join(v6NameServersStrings, ", "), err)
 			}
@@ -549,6 +550,7 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, o
 		// get the fields that won't change for each lookup module
 		rawName := ""
 		var nameServer *zdns.NameServer
+		var nameServers []zdns.NameServer
 		nameServerString := ""
 		var rank int
 		var entryMetadata string
@@ -559,21 +561,27 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, o
 			rawName, entryMetadata = parseMetadataInputLine(line)
 			res.Metadata = entryMetadata
 		} else if gc.NameServerMode {
-			nameServerString, err = util.AddDefaultPortToDNSServerName(line)
+			nameServers, err = convertNameServerStringToNameServer(line, rc.IPVersionMode)
 			if err != nil {
 				log.Fatal("unable to parse name server: ", line)
 			}
-			nameServer, err = convertNameServerStringToNameServer(nameServerString)
-			if err != nil {
-				log.Fatal("unable to parse name server: ", line)
+			if len(nameServers) == 0 {
+				log.Fatal("no name servers found in line: ", line)
 			}
+			// if user provides a domain name for the name server (one.one.one.one) we'll pick one of the IPs at random
+			nameServer = &nameServers[rand.Intn(len(nameServers))]
 		} else {
 			rawName, nameServerString = parseNormalInputLine(line)
 			if len(nameServerString) != 0 {
-				nameServer, err = convertNameServerStringToNameServer(nameServerString)
+				nameServers, err = convertNameServerStringToNameServer(nameServerString, rc.IPVersionMode)
 				if err != nil {
 					log.Fatal("unable to parse name server: ", line)
 				}
+				if len(nameServers) == 0 {
+					log.Fatal("no name servers found in line: ", line)
+				}
+				// if user provides a domain name for the name server (one.one.one.one) we'll pick one of the IPs at random
+				nameServer = &nameServers[rand.Intn(len(nameServers))]
 			}
 		}
 		res.Name = rawName
@@ -660,11 +668,7 @@ func parseNormalInputLine(line string) (string, string) {
 	if len(s) == 1 {
 		return s[0], ""
 	} else {
-		ns, err := util.AddDefaultPortToDNSServerName(s[1])
-		if err != nil {
-			log.Fatal("unable to parse name server: ", s[1])
-		}
-		return s[0], ns
+		return s[0], s[1]
 	}
 }
 
@@ -694,31 +698,55 @@ func aggregateMetadata(c <-chan routineMetadata) Metadata {
 	return meta
 }
 
-func convertNameServerStringSliceToNameServers(nameServerStrings []string) ([]zdns.NameServer, error) {
+func convertNameServerStringSliceToNameServers(nameServerStrings []string, mode zdns.IPVersionMode) ([]zdns.NameServer, error) {
 	nameServers := make([]zdns.NameServer, 0, len(nameServerStrings))
 	for _, ns := range nameServerStrings {
-		parsedNS, err := convertNameServerStringToNameServer(ns)
+		parsedNSes, err := convertNameServerStringToNameServer(ns, mode)
 		if err != nil {
 			return nil, fmt.Errorf("could not parse name server %s: %v", ns, err)
 		}
-		nameServers = append(nameServers, *parsedNS)
+		nameServers = append(nameServers, parsedNSes...)
 	}
 	return nameServers, nil
 }
 
-func convertNameServerStringToNameServer(inaddr string) (*zdns.NameServer, error) {
+func convertNameServerStringToNameServer(inaddr string, mode zdns.IPVersionMode) ([]zdns.NameServer, error) {
 	host, port, err := util.SplitHostPort(inaddr)
-	if err == nil {
-		return &zdns.NameServer{IP: host, Port: uint16(port)}, nil
+	if err == nil && host != nil {
+		return []zdns.NameServer{{IP: host, Port: uint16(port)}}, nil
 	}
 
 	// may be a port-less IP
 	ip := net.ParseIP(inaddr)
-	if ip == nil {
-		return nil, errors.Wrap(err, "invalid IP address")
+	if ip != nil {
+		ns := zdns.NameServer{IP: ip}
+		ns.PopulateDefaultPort()
+		return []zdns.NameServer{ns}, nil
 	}
 
-	ns := zdns.NameServer{IP: ip}
-	ns.PopulateDefaultPort()
-	return &ns, nil
+	// may be the domain name of a name server (one.one.one.one)
+	domainAndPort := strings.Split(inaddr, ":")
+	port = 0
+	if len(domainAndPort) == 2 {
+		// domain name with port (one.one.one.one:53)
+		port, err = strconv.Atoi(domainAndPort[1])
+		if err != nil {
+			return nil, fmt.Errorf("invalid port: %s", inaddr)
+		}
+	}
+	ips, err := net.LookupIP(domainAndPort[0])
+	if err != nil {
+		return nil, fmt.Errorf("could not resolve name server: %s", inaddr)
+	}
+	nses := make([]zdns.NameServer, 0, len(ips))
+	for _, resolvedIP := range ips {
+		isIPv6AndCanUseIPv6 := util.IsIPv6(&resolvedIP) && mode != zdns.IPv4Only
+		isIPv4AndCanUseIPv4 := resolvedIP.To4() != nil && mode != zdns.IPv6Only
+		if isIPv4AndCanUseIPv4 || isIPv6AndCanUseIPv6 {
+			ns := zdns.NameServer{IP: resolvedIP, Port: uint16(port)}
+			ns.PopulateDefaultPort()
+			nses = append(nses, ns)
+		}
+	}
+	return nses, nil
 }
