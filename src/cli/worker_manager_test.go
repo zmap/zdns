@@ -103,3 +103,63 @@ func containsExpectedNameServerStrings(t *testing.T, actualNSes []zdns.NameServe
 		}
 	}
 }
+
+func TestRemoveDomainsFromNameServersString(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected []string
+	}{
+		// Test with no name servers (empty list)
+		{
+			input:    "",
+			expected: []string{},
+		},
+		// Test with single IP only
+		{
+			input:    "1.1.1.1",
+			expected: []string{"1.1.1.1"},
+		},
+		// Test with single domain only
+		{
+			input:    "example.com",
+			expected: []string{},
+		},
+		// Test with single IP+Port
+		{
+			input:    "1.1.1.1:53",
+			expected: []string{"1.1.1.1:53"},
+		},
+		// Test with two IPs
+		{
+			input:    "1.1.1.1,8.8.8.8",
+			expected: []string{"1.1.1.1", "8.8.8.8"},
+		},
+		// Test with IP and domain
+		{
+			input:    "1.1.1.1,example.com",
+			expected: []string{"1.1.1.1"},
+		},
+		// Test with IP, IP+Port, and domain
+		{
+			input:    "1.1.1.1,example.com,8.8.8.8:53",
+			expected: []string{"1.1.1.1", "8.8.8.8:53"},
+		},
+		// Test with IPv6, domain, and IPv4
+		{
+			input:    "2001:4860:4860::8888,example.com,8.8.8.8",
+			expected: []string{"2001:4860:4860::8888", "8.8.8.8"},
+		},
+		// Test with IPv6+Port and domain
+		{
+			input:    "[2001:4860:4860::8888]:53,example.com",
+			expected: []string{"[2001:4860:4860::8888]:53"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			result := removeDomainsFromNameServersString(test.input)
+			require.Equal(t, result, test.expected)
+		})
+	}
+}

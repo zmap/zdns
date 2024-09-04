@@ -215,15 +215,15 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	} else {
 		config.IterationIPPreference = zdns.GetIterationIPPreference(gc.PreferIPv4Iteration, gc.PreferIPv6Iteration)
 	}
-	// This must occur after setting the DNSConfigFilePath above, so that ZDNS knows where to fetch the DNS Config
-	config, err := populateNameServers(gc, config)
-	if err != nil {
-		log.Fatal("could not populate name servers: ", err)
-	}
 	// This must occur after setting the DNSConfigFilePath above and NameServers, so that ZDNS knows where to fetch the DNS Config
-	config, err = populateIPTransportMode(gc, config)
+	config, err := populateIPTransportMode(gc, config)
 	if err != nil {
 		log.Fatal("could not populate IP transport mode: ", err)
+	}
+	// This must occur after setting IPTransportMode, so that ZDNS knows whether to use IPv4 or IPv6 nameservers
+	config, err = populateNameServers(gc, config)
+	if err != nil {
+		log.Fatal("could not populate name servers: ", err)
 	}
 	if config.IPVersionMode == zdns.IPv4Only {
 		// Drop any IPv6 nameservers
@@ -237,11 +237,13 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	}
 	noV4NameServers := len(config.ExternalNameServersV4) == 0 && len(config.RootNameServersV4) == 0
 	if config.IPVersionMode != zdns.IPv6Only && noV4NameServers {
-		log.Fatal("no IPv4 nameservers found. Please specify desired nameservers with --name-servers")
+		log.Info("no IPv4 nameservers found. Switching to --6 only")
+		config.IPVersionMode = zdns.IPv6Only
 	}
 	noV6NameServers := len(config.ExternalNameServersV6) == 0 && len(config.RootNameServersV6) == 0
 	if config.IPVersionMode != zdns.IPv4Only && noV6NameServers {
-		log.Fatal("no IPv6 nameservers found. Please specify desired nameservers with --name-servers")
+		log.Info("no IPv6 nameservers found. Switching to --4 only")
+		config.IPVersionMode = zdns.IPv4Only
 	}
 
 	config, err = populateLocalAddresses(gc, config)
@@ -254,7 +256,6 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 // populateIPTransportMode populates the IPTransportMode field of the ResolverConfig
 // If user sets --4 (IPv4 Only) or --6 (IPv6 Only), we'll set the IPVersionMode to IPv4Only or IPv6Only, respectively.
 // Otherwise, we need to determine the IPVersionMode based on either the OS' default resolver(s) or the user's provided name servers.
-// Note: populateNameServers must be called before this function to ensure the nameservers are populated.
 func populateIPTransportMode(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.ResolverConfig, error) {
 	if gc.IPv4TransportOnly && gc.IPv6TransportOnly {
 		return nil, errors.New("only one of --4 and --6 allowed")
@@ -268,23 +269,53 @@ func populateIPTransportMode(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Re
 		return config, nil
 	}
 	// User did not specify IPv4 or IPv6 only transport, so we need to determine the IPVersionMode based on the nameservers
+	var nses []zdns.NameServer
+	var err error
+	var ipv4NSStrings, ipv6NSStrings []string
 	var nameServersSupportIPv4, nameServersSupportIPv6 bool
-	for _, ns := range util.Concat(config.ExternalNameServersV4, config.RootNameServersV4, config.ExternalNameServersV6, config.RootNameServersV6) {
-		if util.IsIPv6(&ns.IP) {
-			nameServersSupportIPv6 = true
-		} else if ns.IP.To4() != nil {
-			nameServersSupportIPv4 = true
+	ipOnlyNSes := removeDomainsFromNameServersString(gc.NameServersString)
+	// User can provide name servers as either IPs, IP+Port, or domain name
+	// For the purposes of determining what IP mode the user's host supports, we'll only consider IPs or IP+Port
+	// Domains could have either A or AAAA and that tells us nothing about the host's IPv4/6 capabilities
+	if gc.NameServersString != "" && len(ipOnlyNSes) > 0 {
+		// User provided name servers, so we can determine the IPVersionMode based on the provided name servers
+		nses, err = convertNameServerStringSliceToNameServers(ipOnlyNSes, zdns.IPv4OrIPv6)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse name servers from --name-server: %v", err)
 		}
+		for _, ns := range nses {
+			if ns.IP.To4() != nil {
+				nameServersSupportIPv4 = true
+			} else if util.IsIPv6(&ns.IP) {
+				nameServersSupportIPv6 = true
+			} else {
+				log.Fatal("Invalid name server: ", ns.String())
+			}
+		}
+		if !nameServersSupportIPv4 && !nameServersSupportIPv6 {
+			return nil, errors.New("no nameservers found with OS defaults. Please specify desired nameservers with --name-servers")
+		}
+		config.IPVersionMode = zdns.GetIPVersionMode(nameServersSupportIPv4, nameServersSupportIPv6)
+		return config, nil
 	}
-	if nameServersSupportIPv4 && nameServersSupportIPv6 {
-		config.IPVersionMode = zdns.IPv4OrIPv6
-	} else if nameServersSupportIPv4 {
-		config.IPVersionMode = zdns.IPv4Only
-	} else if nameServersSupportIPv6 {
-		config.IPVersionMode = zdns.IPv6Only
-	} else {
+	// check OS' default resolver(s) to determine if we support IPv4 or IPv6
+	ipv4NSStrings, ipv6NSStrings, err = zdns.GetDNSServers(config.DNSConfigFilePath)
+	if err != nil {
+		log.Fatal("unable to parse resolvers file, please use '--name-servers': ", err)
+	}
+	if len(ipv4NSStrings) == 0 && len(ipv6NSStrings) == 0 {
 		return nil, errors.New("no nameservers found with OS defaults. Please specify desired nameservers with --name-servers")
 	}
+	if len(ipv4NSStrings) > 0 {
+		nameServersSupportIPv4 = true
+	}
+	if len(ipv6NSStrings) > 0 {
+		nameServersSupportIPv6 = true
+	}
+	if !nameServersSupportIPv4 && !nameServersSupportIPv6 {
+		return nil, errors.New("no nameservers found with OS defaults. Please specify desired nameservers with --name-servers")
+	}
+	config.IPVersionMode = zdns.GetIPVersionMode(nameServersSupportIPv4, nameServersSupportIPv6)
 	return config, nil
 }
 
@@ -749,4 +780,22 @@ func convertNameServerStringToNameServer(inaddr string, mode zdns.IPVersionMode)
 		}
 	}
 	return nses, nil
+}
+
+func removeDomainsFromNameServersString(nameServersString string) []string {
+	// User can provide name servers as either IPs, IP+Port, or domain name
+	// For the purposes of determining what IP mode the user's host supports, we'll only consider IPs or IP+Port
+	// Domains could have either A or AAAA and that tells us nothing about the host's IPv4/6 capabilities
+	// We'll remove any domains from the name servers string
+	nses := strings.Split(nameServersString, ",")
+	ipOnlyNSes := make([]string, 0, len(nses))
+	for _, ns := range nses {
+		if net.ParseIP(ns) != nil {
+			ipOnlyNSes = append(ipOnlyNSes, ns)
+		} else if ip, _, err := net.SplitHostPort(ns); err == nil && net.ParseIP(ip) != nil {
+			ipOnlyNSes = append(ipOnlyNSes, ns)
+		}
+		// else this must be a domain name
+	}
+	return ipOnlyNSes
 }
