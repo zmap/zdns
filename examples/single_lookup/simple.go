@@ -30,7 +30,7 @@ func main() {
 	dnsQuestion := &zdns.Question{Name: domain, Type: dns.TypeA, Class: dns.ClassINET}
 	resolver := initializeResolver()
 
-	result, _, status, err := resolver.ExternalLookup(dnsQuestion, "1.1.1.1:53")
+	result, _, status, err := resolver.ExternalLookup(dnsQuestion, &zdns.NameServer{IP: net.ParseIP("1.1.1.1"), Port: 53})
 	if err != nil {
 		log.Fatal("Error looking up domain: ", err)
 	}
@@ -67,8 +67,8 @@ func initializeResolver() *zdns.Resolver {
 	// Set any desired options on the ResolverConfig object
 	resolverConfig.LogLevel = log.InfoLevel
 	resolverConfig.LocalAddrsV4 = []net.IP{localAddr}
-	resolverConfig.ExternalNameServersV4 = []string{"1.1.1.1:53"}
-	resolverConfig.RootNameServersV4 = []string{"198.41.0.4:53"}
+	resolverConfig.ExternalNameServersV4 = []zdns.NameServer{{IP: net.ParseIP("1.1.1.1"), Port: 53}}
+	resolverConfig.RootNameServersV4 = []zdns.NameServer{{IP: net.ParseIP("198.41.0.4"), Port: 53}}
 	resolverConfig.IPVersionMode = zdns.IPv4Only
 	// Create a new Resolver object with the ResolverConfig object, it will retain all settings set on the ResolverConfig object
 	resolver, err := zdns.InitResolver(resolverConfig)
