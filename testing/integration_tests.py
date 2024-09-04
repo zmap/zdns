@@ -1302,6 +1302,20 @@ class Tests(unittest.TestCase):
         os.remove(metadata_file_name)
         os.remove(ini_file_name)
 
+    def test_a_lookup_domain_as_name_server_string(self):
+        c = "A --name-servers=one.one.one.one"
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "A")
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
+
+    def test_a_lookup_domain_name_server_with_input(self):
+        c = "A"
+        name = "zdns-testing.com,one.one.one.one"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "A")
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
+
 
 if __name__ == "__main__":
     unittest.main()
