@@ -14,6 +14,8 @@
 
 package zdns
 
+import "net"
+
 //type Metadata struct {
 //	Names       int            `json:"names"`
 //	Status      map[string]int `json:"statuses"`
@@ -54,47 +56,48 @@ const (
 	StatusNoNeededGlue Status = "NONEEDEDGLUE" // When a nameserver is authoritative for itself and the parent nameserver doesn't provide the glue to look it up
 )
 
-var RootServersV4 = []string{
-	"198.41.0.4:53",     // A
-	"170.247.170.2:53",  // B - Changed several times, this is current as of July '24
-	"192.33.4.12:53",    // C
-	"199.7.91.13:53",    // D
-	"192.203.230.10:53", // E
-	"192.5.5.241:53",    // F
-	"192.112.36.4:53",   // G
-	"198.97.190.53:53",  // H
-	"192.36.148.17:53",  // I
-	"192.58.128.30:53",  // J
-	"193.0.14.129:53",   // K
-	"199.7.83.42:53",    // L
-	"202.12.27.33:53"}   // M
-
-var RootServersV6 = []string{
-	"[2001:503:ba3e::2:30]:53", // A
-	"[2801:1b8:10::b]:53",      // B
-	"[2001:500:2::c]:53",       // C
-	"[2001:500:2d::d]:53",      // D
-	"[2001:500:a8::e]:53",      // E
-	"[2001:500:2f::f]:53",      // F
-	"[2001:500:12::d0d]:53",    // G
-	"[2001:500:1::53]:53",      // H
-	"[2001:7fe::53]:53",        // I
-	"[2001:503:c27::2:30]:53",  // J
-	"[2001:7fd::1]:53",         // K
-	"[2001:500:9f::42]:53",     // L
-	"[2001:dc3::35]:53",        // M
+var RootServersV4 = []NameServer{
+	{IP: net.ParseIP("198.41.0.4"), Port: 53},     // A
+	{IP: net.ParseIP("170.247.170.2"), Port: 53},  // B - Changed several times, this is current as of July '24
+	{IP: net.ParseIP("192.33.4.12"), Port: 53},    // C
+	{IP: net.ParseIP("199.7.91.13"), Port: 53},    // D
+	{IP: net.ParseIP("192.203.230.10"), Port: 53}, // E
+	{IP: net.ParseIP("192.5.5.241"), Port: 53},    // F
+	{IP: net.ParseIP("192.112.36.4"), Port: 53},   // G
+	{IP: net.ParseIP("198.97.190.53"), Port: 53},  // H
+	{IP: net.ParseIP("192.36.148.17"), Port: 53},  // I
+	{IP: net.ParseIP("192.58.128.30"), Port: 53},  // J
+	{IP: net.ParseIP("193.0.14.129"), Port: 53},   // K
+	{IP: net.ParseIP("199.7.83.42"), Port: 53},    // L
+	{IP: net.ParseIP("202.12.27.33"), Port: 53},   // M
 }
 
-var DefaultExternalResolversV4 = []string{
-	"8.8.8.8:53",
-	"8.8.4.4:53",
-	"1.1.1.1:53",
-	"1.0.0.1:53",
+var RootServersV6 = []NameServer{
+	{IP: net.ParseIP("2001:503:ba3e::2:30"), Port: 53}, // A
+	{IP: net.ParseIP("2801:1b8:10::b"), Port: 53},      // B
+	{IP: net.ParseIP("2001:500:2::c"), Port: 53},       // C
+	{IP: net.ParseIP("2001:500:2d::d"), Port: 53},      // D
+	{IP: net.ParseIP("2001:500:a8::e"), Port: 53},      // E
+	{IP: net.ParseIP("2001:500:2f::f"), Port: 53},      // F
+	{IP: net.ParseIP("2001:500:12::d0d"), Port: 53},    // G
+	{IP: net.ParseIP("2001:500:1::53"), Port: 53},      // H
+	{IP: net.ParseIP("2001:7fe::53"), Port: 53},        // I
+	{IP: net.ParseIP("2001:503:c27::2:30"), Port: 53},  // J
+	{IP: net.ParseIP("2001:7fd::1"), Port: 53},         // K
+	{IP: net.ParseIP("2001:500:9f::42"), Port: 53},     // L
+	{IP: net.ParseIP("2001:dc3::35"), Port: 53},        // M
 }
 
-var DefaultExternalResolversV6 = []string{
-	"[2001:4860:4860::8888]:53",
-	"[2001:4860:4860::8844]:53",
-	"[2606:4700:4700::1111]:53",
-	"[2606:4700:4700::1001]:53",
+var DefaultExternalResolversV4 = []NameServer{
+	{IP: net.ParseIP("8.8.8.8"), Port: 53}, // Google
+	{IP: net.ParseIP("8.8.4.4"), Port: 53}, // Google
+	{IP: net.ParseIP("1.1.1.1"), Port: 53}, // Cloudflare
+	{IP: net.ParseIP("1.0.0.1"), Port: 53}, // Cloudflare
+}
+
+var DefaultExternalResolversV6 = []NameServer{
+	{IP: net.ParseIP("2001:4860:4860::8888"), Port: 53}, // Google
+	{IP: net.ParseIP("2001:4860:4860::8844"), Port: 53}, // Google
+	{IP: net.ParseIP("2606:4700:4700::1111"), Port: 53}, // Cloudflare
+	{IP: net.ParseIP("2606:4700:4700::1001"), Port: 53}, // Cloudflare
 }

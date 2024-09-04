@@ -375,10 +375,8 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	r.rootNameServers = make([]NameServer, 0, len(config.RootNameServersV4)+len(config.RootNameServersV6))
 	if r.ipVersionMode != IPv6Only && len(config.RootNameServersV4) == 0 {
 		// add IPv4 root servers
-		for _, rootNS := range RootServersV4 {
-			ns := NameServer{IP: net.ParseIP(rootNS)}
-			ns.PopulateDefaultPort()
-			r.rootNameServers = append(r.rootNameServers, ns)
+		for _, ns := range RootServersV4 {
+			r.rootNameServers = append(r.rootNameServers, *ns.DeepCopy())
 		}
 	} else if r.ipVersionMode != IPv6Only {
 		for _, ns := range config.RootNameServersV4 {
@@ -387,10 +385,8 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	}
 	if r.ipVersionMode != IPv4Only && len(config.RootNameServersV6) == 0 {
 		// add IPv4 root servers
-		for _, rootNS := range RootServersV6 {
-			ns := NameServer{IP: net.ParseIP(rootNS)}
-			ns.PopulateDefaultPort()
-			r.rootNameServers = append(r.rootNameServers, ns)
+		for _, ns := range RootServersV6 {
+			r.rootNameServers = append(r.rootNameServers, *ns.DeepCopy())
 		}
 	} else if r.ipVersionMode != IPv4Only {
 		for _, ns := range config.RootNameServersV6 {

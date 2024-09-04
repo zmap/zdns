@@ -108,42 +108,6 @@ func TestContains(t *testing.T) {
 	}
 }
 
-func TestRemoveDuplicates(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    []int
-		expected []int
-	}{
-		{
-			name:     "No duplicates",
-			input:    []int{1, 2, 3, 4, 5},
-			expected: []int{1, 2, 3, 4, 5},
-		},
-		{
-			name:     "All duplicates",
-			input:    []int{1, 1, 1, 1, 1},
-			expected: []int{1},
-		},
-		{
-			name:     "Some duplicates",
-			input:    []int{1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5},
-			expected: []int{1, 2, 3, 4, 5},
-		},
-		{
-			name:     "Empty slice",
-			input:    []int{},
-			expected: []int{},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			result := RemoveDuplicates(test.input)
-			require.Equal(t, test.expected, result)
-		})
-	}
-}
-
 func TestConcat(t *testing.T) {
 	inputSlice1 := make([]int, 0, 10)
 	for i := 0; i < 3; i++ {

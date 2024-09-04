@@ -199,11 +199,6 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 			log.Fatal("unable to parse blacklist file: ", err)
 		}
 	}
-	// This must occur after setting the DNSConfigFilePath above, so that ZDNS knows where to fetch the DNS Config
-	config, err := populateIPTransportMode(gc, config)
-	if err != nil {
-		log.Fatal("could not populate IP transport mode: ", err)
-	}
 	// This is used in extractAuthorities where we need to know whether to request A or AAAA records to continue iteration
 	// Must be set after populating IPTransportMode
 	if config.IPVersionMode == zdns.IPv4Only {
@@ -220,25 +215,32 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 		config.IterationIPPreference = zdns.GetIterationIPPreference(gc.PreferIPv4Iteration, gc.PreferIPv6Iteration)
 	}
 	// This must occur after setting the DNSConfigFilePath above, so that ZDNS knows where to fetch the DNS Config
-	config, err = populateNameServers(gc, config)
+	config, err := populateNameServers(gc, config)
 	if err != nil {
 		log.Fatal("could not populate name servers: ", err)
 	}
-	// User/OS defaults could contain duplicates, remove
-	config.ExternalNameServersV4 = util.RemoveDuplicates(config.ExternalNameServersV4)
-	config.RootNameServersV4 = util.RemoveDuplicates(config.RootNameServersV4)
-	config.ExternalNameServersV6 = util.RemoveDuplicates(config.ExternalNameServersV6)
-	config.RootNameServersV6 = util.RemoveDuplicates(config.RootNameServersV6)
-
+	// This must occur after setting the DNSConfigFilePath above and NameServers, so that ZDNS knows where to fetch the DNS Config
+	config, err = populateIPTransportMode(gc, config)
+	if err != nil {
+		log.Fatal("could not populate IP transport mode: ", err)
+	}
 	if config.IPVersionMode == zdns.IPv4Only {
 		// Drop any IPv6 nameservers
-		config.ExternalNameServersV6 = []string{}
-		config.RootNameServersV6 = []string{}
+		config.ExternalNameServersV6 = []zdns.NameServer{}
+		config.RootNameServersV6 = []zdns.NameServer{}
 	}
 	if config.IPVersionMode == zdns.IPv6Only {
 		// Drop any IPv4 nameservers
-		config.ExternalNameServersV4 = []string{}
-		config.RootNameServersV4 = []string{}
+		config.ExternalNameServersV4 = []zdns.NameServer{}
+		config.RootNameServersV4 = []zdns.NameServer{}
+	}
+	noV4NameServers := len(config.ExternalNameServersV4) == 0 && len(config.RootNameServersV4) == 0
+	if config.IPVersionMode != zdns.IPv6Only && noV4NameServers {
+		log.Fatal("no IPv4 nameservers found. Please specify desired nameservers with --name-servers")
+	}
+	noV6NameServers := len(config.ExternalNameServersV6) == 0 && len(config.RootNameServersV6) == 0
+	if config.IPVersionMode != zdns.IPv4Only && noV6NameServers {
+		log.Fatal("no IPv6 nameservers found. Please specify desired nameservers with --name-servers")
 	}
 
 	config, err = populateLocalAddresses(gc, config)
@@ -264,57 +266,25 @@ func populateIPTransportMode(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Re
 		config.IPVersionMode = zdns.IPv6Only
 		return config, nil
 	}
-	nameServersSupportIPv4 := false
-	nameServersSupportIPv6 := false
-	// Check if user provided nameservers
-	if len(gc.NameServers) != 0 {
-		// Check that the nameservers have a port and append one if necessary
-		portValidatedNSs := make([]string, 0, len(gc.NameServers))
-		// check that the nameservers have a port and append one if necessary
-		for _, ns := range gc.NameServers {
-			portNS, err := util.AddDefaultPortToDNSServerName(ns)
-			if err != nil {
-				return nil, fmt.Errorf("could not parse name server: %s. Correct IPv4 format: 1.1.1.1:53 or IPv6 format: [::1]:53", ns)
-			}
-			portValidatedNSs = append(portValidatedNSs, portNS)
-		}
-		v4NameServers, v6NameServers, err := util.SplitIPv4AndIPv6Addrs(portValidatedNSs)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not split IPv4 and IPv6 addresses for nameservers")
-		}
-		if len(v4NameServers) != 0 {
-			nameServersSupportIPv4 = true
-		}
-		if len(v6NameServers) != 0 {
+	// User did not specify IPv4 or IPv6 only transport, so we need to determine the IPVersionMode based on the nameservers
+	var nameServersSupportIPv4, nameServersSupportIPv6 bool
+	for _, ns := range util.Concat(config.ExternalNameServersV4, config.RootNameServersV4, config.ExternalNameServersV6, config.RootNameServersV6) {
+		if util.IsIPv6(&ns.IP) {
 			nameServersSupportIPv6 = true
-		}
-	} else {
-		// User did not provide nameservers, check the OS' default resolver(s)
-		v4NameServers, v6NameServers, err := zdns.GetDNSServers(config.DNSConfigFilePath)
-		if err != nil {
-			log.Warn("Unable to parse resolvers file to determine if IPv4 or IPv6 is supported. Defaulting to IPv4")
-			config.IPVersionMode = zdns.IPv4Only
-			return config, nil
-		}
-		if len(v4NameServers) != 0 {
+		} else if ns.IP.To4() != nil {
 			nameServersSupportIPv4 = true
-		}
-		if len(v6NameServers) != 0 {
-			nameServersSupportIPv6 = true
 		}
 	}
 	if nameServersSupportIPv4 && nameServersSupportIPv6 {
 		config.IPVersionMode = zdns.IPv4OrIPv6
-		return config, nil
 	} else if nameServersSupportIPv4 {
 		config.IPVersionMode = zdns.IPv4Only
-		return config, nil
 	} else if nameServersSupportIPv6 {
 		config.IPVersionMode = zdns.IPv6Only
-		return config, nil
 	} else {
 		return nil, errors.New("no nameservers found with OS defaults. Please specify desired nameservers with --name-servers")
 	}
+	return config, nil
 }
 
 func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.ResolverConfig, error) {
@@ -329,19 +299,19 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 	// IPv4 Name Servers/Local Address only needs to be populated if we're doing IPv4 lookups, same for IPv6
 	if len(gc.NameServers) != 0 {
 		// User provided name servers, use them.
-		// Check that the nameservers have a port and append one if necessary
-		portValidatedNSs := make([]string, 0, len(gc.NameServers))
-		// check that the nameservers have a port and append one if necessary
-		for _, ns := range gc.NameServers {
-			portNS, err := util.AddDefaultPortToDNSServerName(ns)
-			if err != nil {
-				return nil, fmt.Errorf("could not parse name server: %s. Correct IPv4 format: 1.1.1.1:53 or IPv6 format: [::1]:53", ns)
-			}
-			portValidatedNSs = append(portValidatedNSs, portNS)
-		}
-		v4NameServers, v6NameServers, err := util.SplitIPv4AndIPv6Addrs(portValidatedNSs)
+		var v4NameServers, v6NameServers []zdns.NameServer
+		nses, err := convertNameServerStringSliceToNameServers(gc.NameServers)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not split IPv4 and IPv6 addresses for nameservers")
+			return nil, fmt.Errorf("could not parse name server: %v. Correct IPv4 format: 1.1.1.1:53 or IPv6 format: [::1]:53\"", err)
+		}
+		for _, ns := range nses {
+			if ns.IP.To4() != nil {
+				v4NameServers = append(v4NameServers, ns)
+			} else if util.IsIPv6(&ns.IP) {
+				v6NameServers = append(v6NameServers, ns)
+			} else {
+				log.Fatal("Invalid name server: ", ns.String())
+			}
 		}
 		// The resolver will ignore IPv6 nameservers if we're doing IPv4 only lookups, and vice versa so this is fine
 		config.ExternalNameServersV4 = v4NameServers
@@ -353,25 +323,28 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 	// User did not provide nameservers
 	if !gc.IterativeResolution {
 		// Try to get the OS' default recursive resolver nameservers
-		v4NameServers, v6NameServers, err := zdns.GetDNSServers(config.DNSConfigFilePath)
+		var v4NameServers, v6NameServers []zdns.NameServer
+		v4NameServerStrings, v6NameServersStrings, err := zdns.GetDNSServers(config.DNSConfigFilePath)
 		if err != nil {
 			v4NameServers, v6NameServers = zdns.DefaultExternalResolversV4, zdns.DefaultExternalResolversV6
-			log.Warn("Unable to parse resolvers file. Using ZDNS defaults: ", strings.Join(util.Concat(v4NameServers, v6NameServers), ", "))
-		}
-		if config.IPVersionMode != zdns.IPv6Only {
-			if len(v4NameServers) == 0 {
-				return nil, errors.New("no IPv4 nameservers found. Please specify desired nameservers with --name-servers")
+			log.Warn("Unable to parse resolvers file. Using ZDNS defaults")
+		} else {
+			// convert string slices to NameServers
+			v4NameServers, err = convertNameServerStringSliceToNameServers(v4NameServerStrings)
+			if err != nil {
+				return nil, fmt.Errorf("could not convert IPv4 nameservers %s to NameServers: %v", strings.Join(v4NameServerStrings, ", "), err)
 			}
-			config.ExternalNameServersV4 = v4NameServers
-			config.RootNameServersV4 = v4NameServers
-		}
-		if config.IPVersionMode != zdns.IPv4Only {
-			if len(v6NameServers) == 0 {
-				return nil, errors.New("no IPv6 nameservers found. Please specify desired nameservers with --name-servers")
+			v6NameServers, err = convertNameServerStringSliceToNameServers(v6NameServersStrings)
+			if err != nil {
+				return nil, fmt.Errorf("could not convert IPv6 nameservers %s to NameServers: %v", strings.Join(v6NameServersStrings, ", "), err)
 			}
-			config.ExternalNameServersV6 = v6NameServers
-			config.RootNameServersV6 = v6NameServers
 		}
+		// The resolver will ignore IPv6 nameservers if we're doing IPv4 only lookups, and vice versa so this is fine
+		config.ExternalNameServersV4 = v4NameServers
+		config.RootNameServersV4 = v4NameServers
+		config.ExternalNameServersV6 = v6NameServers
+		config.RootNameServersV6 = v6NameServers
+
 		return config, nil
 	}
 	// User did not provide nameservers and we're doing iterative resolution, use ZDNS defaults
@@ -414,11 +387,7 @@ func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Res
 	}
 	anyNameServersLoopack := false
 	for _, ns := range allNameServers {
-		ip, _, err := util.SplitHostPort(ns)
-		if err != nil {
-			return nil, errors.Wrapf(err, "could not split host and port for nameserver: %s", ns)
-		}
-		if ip.IsLoopback() {
+		if ns.IP.IsLoopback() {
 			anyNameServersLoopack = true
 			break
 		}
@@ -579,7 +548,8 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, o
 		res := zdns.Result{Results: make(map[string]zdns.SingleModuleResult, len(gc.ActiveModules))}
 		// get the fields that won't change for each lookup module
 		rawName := ""
-		nameServer := ""
+		nameServer := &zdns.NameServer{}
+		nameServerString := ""
 		var rank int
 		var entryMetadata string
 		if gc.AlexaFormat {
@@ -589,12 +559,20 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, o
 			rawName, entryMetadata = parseMetadataInputLine(line)
 			res.Metadata = entryMetadata
 		} else if gc.NameServerMode {
-			nameServer, err = util.AddDefaultPortToDNSServerName(line)
+			nameServerString, err = util.AddDefaultPortToDNSServerName(line)
+			if err != nil {
+				log.Fatal("unable to parse name server: ", line)
+			}
+			nameServer, err = convertNameServerStringToNameServer(nameServerString)
 			if err != nil {
 				log.Fatal("unable to parse name server: ", line)
 			}
 		} else {
-			rawName, nameServer = parseNormalInputLine(line)
+			rawName, nameServerString = parseNormalInputLine(line)
+			nameServer, err = convertNameServerStringToNameServer(nameServerString)
+			if err != nil {
+				log.Fatal("unable to parse name server: ", line)
+			}
 		}
 		res.Name = rawName
 		// handle per-module lookups
@@ -712,4 +690,33 @@ func aggregateMetadata(c <-chan routineMetadata) Metadata {
 		}
 	}
 	return meta
+}
+
+func convertNameServerStringSliceToNameServers(nameServerStrings []string) ([]zdns.NameServer, error) {
+	nameServers := make([]zdns.NameServer, 0, len(nameServerStrings))
+	for _, ns := range nameServerStrings {
+		parsedNS, err := convertNameServerStringToNameServer(ns)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse name server %s: %v", ns, err)
+		}
+		nameServers = append(nameServers, *parsedNS)
+	}
+	return nameServers, nil
+}
+
+func convertNameServerStringToNameServer(inaddr string) (*zdns.NameServer, error) {
+	host, port, err := util.SplitHostPort(inaddr)
+	if err == nil {
+		return &zdns.NameServer{IP: host, Port: uint16(port)}, nil
+	}
+
+	// may be a port-less IP
+	ip := net.ParseIP(inaddr)
+	if ip == nil {
+		return nil, errors.Wrap(err, "invalid IP address")
+	}
+
+	ns := zdns.NameServer{IP: ip}
+	ns.PopulateDefaultPort()
+	return &ns, nil
 }
