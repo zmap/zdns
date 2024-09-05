@@ -1331,8 +1331,7 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd, "A")
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
-        # TODO add a check that we looked this up with 8.8.8.8
-        self.assertEqual(1, 2)
+        self.assertEqual(res["results"]["A"]["data"]["resolver"], "1.1.1.1:53")
 
     def test_a_lookup_IP_name_server_with_input_flag_mismatch(self):
         c = "A --name-servers=1.1.1.1"
@@ -1340,8 +1339,8 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd, "A")
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
-        # TODO add a check that we looked this up with 8.8.8.8
-        self.assertEqual(1, 2)
+        self.assertEqual(res["results"]["A"]["data"]["resolver"], "8.8.8.8:53", "user-supplied name server with input "
+                                                                                "should take precedence")
 
     def test_a_lookup_IP_name_server_with_input_flag_loopback_mismatch(self):
         c = "A --name-servers=127.0.0.1"
@@ -1349,8 +1348,8 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd, "A")
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
-        # TODO add a check that we looked this up with 8.8.8.8
-        self.assertEqual(1, 2)
+        self.assertEqual(res["results"]["A"]["data"]["resolver"], "8.8.8.8:53", "user-supplied name server with input "
+                                                                                "should take precedence")
 
 
 
