@@ -65,49 +65,4 @@ func TestResolverConfig_Validate(t *testing.T) {
 		err := rc.Validate()
 		require.NotNil(t, err)
 	})
-	t.Run("Missing local addr", func(t *testing.T) {
-		rc := &ResolverConfig{
-			ExternalNameServersV4: []NameServer{{IP: net.ParseIP("127.0.0.53"), Port: 53}},
-			RootNameServersV4:     []NameServer{{IP: net.ParseIP("127.0.0.53"), Port: 53}},
-		}
-		err := rc.Validate()
-		require.NotNil(t, err)
-	})
-
-	t.Run("Cannot mix loopback addresses in nameservers", func(t *testing.T) {
-		rc := &ResolverConfig{
-			ExternalNameServersV4: []NameServer{{IP: net.ParseIP("127.0.0.53"), Port: 53}, {IP: net.ParseIP("1.1.1.1"), Port: 53}},
-			RootNameServersV4:     []NameServer{{IP: net.ParseIP("127.0.0.53"), Port: 53}},
-			LocalAddrsV4:          []net.IP{net.ParseIP("127.0.0.1")},
-		}
-		err := rc.Validate()
-		require.NotNil(t, err)
-	})
-	t.Run("Cannot mix loopback addresses among nameservers", func(t *testing.T) {
-		rc := &ResolverConfig{
-			ExternalNameServersV4: []NameServer{{IP: net.ParseIP("1.1.1.1"), Port: 53}},
-			RootNameServersV4:     []NameServer{{IP: net.ParseIP("127.0.0.53"), Port: 53}},
-			LocalAddrsV4:          []net.IP{net.ParseIP("127.0.0.1")},
-		}
-		err := rc.Validate()
-		require.NotNil(t, err)
-	})
-	t.Run("Cannot reach loopback NSes from non-loopback local address", func(t *testing.T) {
-		rc := &ResolverConfig{
-			ExternalNameServersV4: []NameServer{{IP: net.ParseIP("127.0.0.53"), Port: 53}},
-			RootNameServersV4:     []NameServer{{IP: net.ParseIP("127.0.0.53"), Port: 53}},
-			LocalAddrsV4:          []net.IP{net.ParseIP("192.168.1.2")},
-		}
-		err := rc.Validate()
-		require.NotNil(t, err)
-	})
-	t.Run("Cannot reach non-loopback NSes from loopback local address", func(t *testing.T) {
-		rc := &ResolverConfig{
-			ExternalNameServersV4: []NameServer{{IP: net.ParseIP("1.1.1.1"), Port: 53}},
-			RootNameServersV4:     []NameServer{{IP: net.ParseIP("1.1.1.1"), Port: 53}},
-			LocalAddrsV4:          []net.IP{net.ParseIP("127.0.0.1")},
-		}
-		err := rc.Validate()
-		require.NotNil(t, err)
-	})
 }

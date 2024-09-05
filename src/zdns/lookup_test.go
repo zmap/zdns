@@ -1980,13 +1980,6 @@ func TestInvalidInputsLookup(t *testing.T) {
 		_, _, _, err := resolver.ExternalLookup(&q, &NameServer{IP: net.ParseIP("127.0.0.53")})
 		assert.Nil(t, err)
 	})
-	t.Run("using a loopback local addr with non-loopback nameserver", func(t *testing.T) {
-		result, trace, status, err := resolver.ExternalLookup(&q, &NameServer{IP: net.ParseIP("1.1.1.1"), Port: 53})
-		assert.Nil(t, result)
-		assert.Nil(t, trace)
-		assert.Equal(t, StatusIllegalInput, status)
-		assert.NotNil(t, err)
-	})
 	t.Run("invalid nameserver address", func(t *testing.T) {
 		result, trace, status, err := resolver.ExternalLookup(&q, &NameServer{IP: net.ParseIP("987.987.987.987"), Port: 53})
 		assert.Nil(t, result)

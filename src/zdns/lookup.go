@@ -427,21 +427,13 @@ func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer *N
 	if nameServer == nil {
 		return SingleQueryResult{}, StatusIllegalInput, 0, errors.New("no nameserver specified")
 	}
-	var connInfo *ConnectionInfo
-	if nameServer.IP.To4() != nil {
-		connInfo = r.connInfoIPv4
-	} else if util.IsIPv6(&nameServer.IP) {
-		connInfo = r.connInfoIPv6
-	} else {
-		return SingleQueryResult{}, StatusError, 0, fmt.Errorf("could not determine IP version of nameserver: %s", nameServer)
+	connInfo, err := r.getConnectionInfo(nameServer)
+	if err != nil {
+		return SingleQueryResult{}, StatusError, 0, fmt.Errorf("could not get a connection info to query nameserver %s: %v", nameServer, err)
 	}
 	// check that our connection info is valid
 	if connInfo == nil {
 		return SingleQueryResult{}, StatusError, 0, fmt.Errorf("no connection info for nameserver: %s", nameServer)
-	}
-	// check loopback consistency
-	if nameServer.IP.IsLoopback() != connInfo.localAddr.IsLoopback() {
-		return SingleQueryResult{}, StatusIllegalInput, 0, fmt.Errorf("nameserver %s must be reachable from the local address %s, ie. both must be loopback or not loopback", nameServer, connInfo.localAddr.String())
 	}
 	r.verboseLog(1, "****WIRE LOOKUP*** ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
 	for i := 0; i <= r.retries; i++ {

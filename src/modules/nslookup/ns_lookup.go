@@ -38,7 +38,7 @@ type NSLookupModule struct {
 // CLIInit initializes the NSLookupModule with the given parameters, used to call NSLookup from the command line
 func (nsMod *NSLookupModule) CLIInit(gc *cli.CLIConf, resolverConf *zdns.ResolverConfig) error {
 	if !nsMod.IPv4Lookup && !nsMod.IPv6Lookup {
-		log.Debug("NSModule: No IP version specified, defaulting to IPv4")
+		log.Debug("NSModule: neither --ipv4-lookup nor --ipv6-lookup specified, will only request A records for each NS server")
 		nsMod.IPv4Lookup = true
 	}
 	err := nsMod.BasicLookupModule.CLIInit(gc, resolverConf)
