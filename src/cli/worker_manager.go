@@ -215,7 +215,7 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	} else {
 		config.IterationIPPreference = zdns.GetIterationIPPreference(gc.PreferIPv4Iteration, gc.PreferIPv6Iteration)
 	}
-	// This must occur after setting the DNSConfigFilePath above and NameServers, so that ZDNS knows where to fetch the DNS Config
+	// This must occur after setting the DNSConfigFilePath above, so that ZDNS knows where to fetch the DNS Config
 	config, err := populateIPTransportMode(gc, config)
 	if err != nil {
 		log.Fatal("could not populate IP transport mode: ", err)
@@ -289,11 +289,11 @@ func populateIPTransportMode(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Re
 			} else if util.IsIPv6(&ns.IP) {
 				nameServersSupportIPv6 = true
 			} else {
-				log.Fatal("Invalid name server: ", ns.String())
+				log.Fatal("invalid name server: ", ns.String())
 			}
 		}
 		if !nameServersSupportIPv4 && !nameServersSupportIPv6 {
-			return nil, errors.New("no nameservers found with OS defaults. Please specify desired nameservers with --name-servers")
+			return nil, errors.New("no nameservers found. Please specify desired nameservers with --name-servers")
 		}
 		config.IPVersionMode = zdns.GetIPVersionMode(nameServersSupportIPv4, nameServersSupportIPv6)
 		return config, nil
@@ -311,9 +311,6 @@ func populateIPTransportMode(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Re
 	}
 	if len(ipv6NSStrings) > 0 {
 		nameServersSupportIPv6 = true
-	}
-	if !nameServersSupportIPv4 && !nameServersSupportIPv6 {
-		return nil, errors.New("no nameservers found with OS defaults. Please specify desired nameservers with --name-servers")
 	}
 	config.IPVersionMode = zdns.GetIPVersionMode(nameServersSupportIPv4, nameServersSupportIPv6)
 	return config, nil
