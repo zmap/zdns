@@ -25,7 +25,7 @@ import (
 
 // DoTargetedLookup performs a lookup of the given domain name against the given nameserver, looking up both IPv4 and IPv6 addresses
 // Will follow CNAME records as well as A/AAAA records to get IP addresses
-func (r *Resolver) DoTargetedLookup(name, nameServer string, isIterative, lookupA, lookupAAAA bool) (*IPResult, Trace, Status, error) {
+func (r *Resolver) DoTargetedLookup(name string, nameServer *NameServer, isIterative, lookupA, lookupAAAA bool) (*IPResult, Trace, Status, error) {
 	name = strings.ToLower(name)
 	res := IPResult{}
 	singleQueryRes := &SingleQueryResult{}

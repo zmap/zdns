@@ -48,7 +48,7 @@ func (spfMod *SpfLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig)
 	return spfMod.BasicLookupModule.CLIInit(gc, rc)
 }
 
-func (spfMod *SpfLookupModule) Lookup(r *zdns.Resolver, name, resolver string) (interface{}, zdns.Trace, zdns.Status, error) {
+func (spfMod *SpfLookupModule) Lookup(r *zdns.Resolver, name string, resolver *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
 	innerRes, trace, status, err := spfMod.BasicLookupModule.Lookup(r, name, resolver)
 	castedInnerRes, ok := innerRes.(*zdns.SingleQueryResult)
 	if !ok {

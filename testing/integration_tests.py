@@ -782,7 +782,7 @@ class Tests(unittest.TestCase):
         ipv4-lookup=false
         ipv6-lookup = true
         """
-        file_name = "./test_multiple_modules.ini"
+        file_name = "./test_multiple_modules_special_modules.ini"
         with open(file_name, "w") as f:
             f.write(ini_file_contents)
         c = "MULTIPLE -c " + file_name
@@ -1289,8 +1289,8 @@ class Tests(unittest.TestCase):
         [A]
         [AAAA]
         """
-        metadata_file_name = "temp-metadata.json"
-        ini_file_name = "./test_multiple_modules.ini"
+        metadata_file_name = "temp-metadata-multi.json"
+        ini_file_name = "test_metadata_file_multiple_modules.ini"
         with open(ini_file_name, "w") as f:
             f.write(ini_file_contents)
         c = ("MULTIPLE -c " + ini_file_name + " google.com yahoo.com cloudflare.com zdns-testing.com --metadata-file="
@@ -1309,6 +1309,20 @@ class Tests(unittest.TestCase):
         self.assertEqual(metadata["statuses"]["NOERROR"], 8)
         os.remove(metadata_file_name)
         os.remove(ini_file_name)
+
+    def test_a_lookup_domain_as_name_server_string(self):
+        c = "A --name-servers=one.one.one.one"
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "A")
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
+
+    def test_a_lookup_domain_name_server_with_input(self):
+        c = "A"
+        name = "zdns-testing.com,one.one.one.one"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "A")
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
 
 
 if __name__ == "__main__":

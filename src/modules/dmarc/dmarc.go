@@ -48,7 +48,7 @@ func (dmarcMod *DmarcLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverCon
 	return dmarcMod.BasicLookupModule.CLIInit(gc, rc)
 }
 
-func (dmarcMod *DmarcLookupModule) Lookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+func (dmarcMod *DmarcLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
 	innerRes, trace, status, err := dmarcMod.BasicLookupModule.Lookup(r, lookupName, nameServer)
 	castedInnerRes, ok := innerRes.(*zdns.SingleQueryResult)
 	if !ok {
