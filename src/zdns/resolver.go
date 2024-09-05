@@ -49,7 +49,7 @@ const (
 	DefaultNameServerConfigFile  = "/etc/resolv.conf"
 	defaultLookupAllNameServers  = false
 	DefaultLoopbackIPv4Addr      = "127.0.0.1"
-	DefaultLoopbackIPv6Addr      = "[::1]"
+	DefaultLoopbackIPv6Addr      = "::1"
 )
 
 // ResolverConfig is a struct that holds all the configuration options for a Resolver. It is used to create a new Resolver.
@@ -365,11 +365,11 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 	// check if we have a pre-existing conn info
 	if isNSIPv6 && isLoopback && r.connInfoIPv6Loopback != nil {
 		return r.connInfoIPv6Loopback, nil
-	} else if isNSIPv6 && r.connInfoIPv6Internet != nil {
+	} else if isNSIPv6 && !isLoopback && r.connInfoIPv6Internet != nil {
 		return r.connInfoIPv6Internet, nil
-	} else if isLoopback && r.connInfoIPv4Loopback != nil {
+	} else if !isNSIPv6 && isLoopback && r.connInfoIPv4Loopback != nil {
 		return r.connInfoIPv4Loopback, nil
-	} else if r.connInfoIPv4Internet != nil {
+	} else if !isNSIPv6 && !isLoopback && r.connInfoIPv4Internet != nil {
 		// must be IPv4 non-loopback
 		return r.connInfoIPv4Internet, nil
 	}
