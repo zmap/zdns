@@ -48,6 +48,8 @@ const (
 	defaultIterationIPPreference = PreferIPv4
 	DefaultNameServerConfigFile  = "/etc/resolv.conf"
 	defaultLookupAllNameServers  = false
+	DefaultLoopbackIPv4Addr      = "127.0.0.1"
+	DefaultLoopbackIPv6Addr      = "[::1]"
 )
 
 // ResolverConfig is a struct that holds all the configuration options for a Resolver. It is used to create a new Resolver.
@@ -177,37 +179,6 @@ func (rc *ResolverConfig) Validate() error {
 		}
 	}
 
-	if err := rc.validateLoopbackConsistency(); err != nil {
-		return errors.Wrap(err, "could not validate loopback consistency")
-	}
-
-	return nil
-}
-
-// validateLoopbackConsistency checks that the following is true
-// - either all nameservers AND all local addresses are loopback, or none are
-func (rc *ResolverConfig) validateLoopbackConsistency() error {
-	allLocalAddrs := util.Concat(rc.LocalAddrsV4, rc.LocalAddrsV6)
-	allExternalNameServers := util.Concat(rc.ExternalNameServersV4, rc.ExternalNameServersV6)
-	allRootNameServers := util.Concat(rc.RootNameServersV4, rc.RootNameServersV6)
-	allIPsLength := len(allLocalAddrs) + len(allExternalNameServers) + len(allRootNameServers)
-	allIPs := make([]net.IP, 0, allIPsLength)
-	allIPs = append(allIPs, allLocalAddrs...)
-	for _, ns := range util.Concat(allExternalNameServers, allRootNameServers) {
-		allIPs = append(allIPs, ns.IP)
-	}
-	allIPsLoopback := true
-	noneIPsLoopback := true
-	for _, ip := range allIPs {
-		if ip.IsLoopback() {
-			noneIPsLoopback = false
-		} else {
-			allIPsLoopback = false
-		}
-	}
-	if allIPsLoopback == noneIPsLoopback {
-		return fmt.Errorf("cannot mix loopback and non-loopback local addresses (%v) and name servers (%v)", allLocalAddrs, util.Concat(allExternalNameServers, allRootNameServers))
-	}
 	return nil
 }
 
@@ -270,10 +241,13 @@ type Resolver struct {
 	cache        *Cache
 	lookupClient Lookuper // either a functional or mock Lookuper client for testing
 
-	blacklist *blacklist.SafeBlacklist
-
-	connInfoIPv4 *ConnectionInfo
-	connInfoIPv6 *ConnectionInfo
+	blacklist                   *blacklist.SafeBlacklist
+	userPreferredIPv4LocalAddrs []net.IP        // user-supplied local IPv4 addresses, we'll prefer to use these
+	userPreferredIPv6LocalAddrs []net.IP        // user-supplied local IPv6 addresses, we'll prefer to use these
+	connInfoIPv4Internet        *ConnectionInfo // used for IPv4 lookups to Internet-facing nameservers
+	connInfoIPv6Internet        *ConnectionInfo // used for IPv6 lookups to Internet-facing nameservers
+	connInfoIPv4Loopback        *ConnectionInfo // used for IPv4 lookups to loopback nameservers
+	connInfoIPv6Loopback        *ConnectionInfo // used for IPv6 lookups to loopback nameservers
 
 	retries  int
 	logLevel log.Level
@@ -338,22 +312,9 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		checkingDisabledBit: config.CheckingDisabledBit,
 	}
 	log.SetLevel(r.logLevel)
-	if config.IPVersionMode != IPv6Only {
-		// create connection info for IPv4
-		connInfo, err := getConnectionInfo(config.LocalAddrsV4, config.TransportMode, config.Timeout, config.ShouldRecycleSockets)
-		if err != nil {
-			return nil, fmt.Errorf("could not create connection info for IPv4: %w", err)
-		}
-		r.connInfoIPv4 = connInfo
-	}
-	if config.IPVersionMode != IPv4Only {
-		// create connection info for IPv6
-		connInfo, err := getConnectionInfo(config.LocalAddrsV6, config.TransportMode, config.Timeout, config.ShouldRecycleSockets)
-		if err != nil {
-			return nil, fmt.Errorf("could not create connection info for IPv6: %w", err)
-		}
-		r.connInfoIPv6 = connInfo
-	}
+	// Deep copy local address so Resolver is independent of the config
+	r.userPreferredIPv4LocalAddrs = DeepCopyIPs(config.LocalAddrsV4)
+	r.userPreferredIPv6LocalAddrs = DeepCopyIPs(config.LocalAddrsV6)
 	// need to deep-copy here so we're not reliant on the state of the resolver config post-resolver creation
 	r.externalNameServers = make([]NameServer, 0, len(config.ExternalNameServersV4)+len(config.ExternalNameServersV6))
 	if config.IPVersionMode == IPv4Only || config.IPVersionMode == IPv4OrIPv6 {
@@ -394,11 +355,77 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	return r, nil
 }
 
-func getConnectionInfo(localAddr []net.IP, transportMode transportMode, timeout time.Duration, shouldRecycleSockets bool) (*ConnectionInfo, error) {
-	connInfo := &ConnectionInfo{
-		localAddr: localAddr[rand.Intn(len(localAddr))],
+// getConnectionInfo uses the name server to determine if a loopback vs. non-loopback or IPv4/v6 connection should be used
+// If the Resolver does not have a connection info for the name server, it will create one.
+// ConnectionInfo objects are created on an as-needed basis
+func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, error) {
+	// what local addresses should we use?
+	isNSIPv6 := util.IsIPv6(&nameServer.IP)
+	isLoopback := nameServer.IP.IsLoopback()
+	// check if we have a pre-existing conn info
+	if isNSIPv6 && isLoopback && r.connInfoIPv6Loopback != nil {
+		return r.connInfoIPv6Loopback, nil
+	} else if isNSIPv6 && r.connInfoIPv6Internet != nil {
+		return r.connInfoIPv6Internet, nil
+	} else if isLoopback && r.connInfoIPv4Loopback != nil {
+		return r.connInfoIPv4Loopback, nil
+	} else if r.connInfoIPv4Internet != nil {
+		// must be IPv4 non-loopback
+		return r.connInfoIPv4Internet, nil
 	}
-	if shouldRecycleSockets {
+
+	// no existing ConnInfo, create a new one
+	// r.localAddrs contain either user-supplied or default local addresses
+	// If one satisfying our conditions is available, use it.
+	var userIPs []net.IP
+	if isNSIPv6 {
+		userIPs = r.userPreferredIPv6LocalAddrs
+	} else {
+		userIPs = r.userPreferredIPv4LocalAddrs
+	}
+	// Shuffle the slice in random order so that we don't always use the same local address
+	rand.Shuffle(len(userIPs), func(i, j int) {
+		userIPs[i], userIPs[j] = userIPs[j], userIPs[i]
+	})
+	var localAddr *net.IP
+	for _, ip := range userIPs {
+		if isLoopback == ip.IsLoopback() {
+			localAddr = &ip
+			break
+		}
+	}
+
+	if localAddr == nil {
+		// none of the user-supplied IPs match the conditions, we need to select one
+		if isLoopback && isNSIPv6 {
+			ip := net.ParseIP(DefaultLoopbackIPv6Addr)
+			localAddr = &ip
+		} else if isLoopback {
+			ip := net.ParseIP(DefaultLoopbackIPv4Addr)
+			localAddr = &ip
+		} else {
+			// non-loopback, attempt to reach the nameserver from the internet and get the local addr. used
+			conn, err := net.Dial("udp", nameServer.String())
+			if err != nil {
+				return nil, fmt.Errorf("unable to find default IP address to open socket: %w", err)
+			}
+			localAddr = &conn.LocalAddr().(*net.UDPAddr).IP
+			// cleanup socket
+			if err = conn.Close(); err != nil {
+				log.Error("unable to close test connection to Google public DNS: ", err)
+			}
+		}
+		if localAddr != nil {
+			log.Infof("none of the user-supplied local addresses could connect to name server %s, using local address %s", nameServer.String(), localAddr.String())
+		}
+	}
+	if localAddr == nil {
+		return nil, errors.New("unable to find local address for connection")
+	}
+	connInfo := &ConnectionInfo{
+		localAddr: *localAddr,
+	}
+	if r.shouldRecycleSockets {
 		// create persistent connection
 		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: connInfo.localAddr})
 		if err != nil {
@@ -408,24 +435,34 @@ func getConnectionInfo(localAddr []net.IP, transportMode transportMode, timeout 
 		connInfo.conn.Conn = conn
 	}
 
-	usingUDP := transportMode == UDPOrTCP || transportMode == UDPOnly
+	usingUDP := r.transportMode == UDPOrTCP || r.transportMode == UDPOnly
 	if usingUDP {
 		connInfo.udpClient = new(dns.Client)
-		connInfo.udpClient.Timeout = timeout
+		connInfo.udpClient.Timeout = r.timeout
 		connInfo.udpClient.Dialer = &net.Dialer{
-			Timeout:   timeout,
+			Timeout:   r.timeout,
 			LocalAddr: &net.UDPAddr{IP: connInfo.localAddr},
 		}
 	}
-	usingTCP := transportMode == UDPOrTCP || transportMode == TCPOnly
+	usingTCP := r.transportMode == UDPOrTCP || r.transportMode == TCPOnly
 	if usingTCP {
 		connInfo.tcpClient = new(dns.Client)
 		connInfo.tcpClient.Net = "tcp"
-		connInfo.tcpClient.Timeout = timeout
+		connInfo.tcpClient.Timeout = r.timeout
 		connInfo.tcpClient.Dialer = &net.Dialer{
-			Timeout:   timeout,
+			Timeout:   r.timeout,
 			LocalAddr: &net.TCPAddr{IP: connInfo.localAddr},
 		}
+	}
+	// save the connection info for future use
+	if isNSIPv6 && isLoopback {
+		r.connInfoIPv6Loopback = connInfo
+	} else if isNSIPv6 {
+		r.connInfoIPv6Internet = connInfo
+	} else if isLoopback {
+		r.connInfoIPv4Loopback = connInfo
+	} else {
+		r.connInfoIPv4Internet = connInfo
 	}
 	return connInfo, nil
 }
@@ -450,17 +487,6 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer *NameServer) (*SingleQu
 	if isValid, reason := dstServer.IsValid(); !isValid {
 		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %s", dstServer.String(), reason)
 	}
-	if util.IsIPv6(&dstServer.IP) && r.connInfoIPv6 == nil {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("IPv6 external lookup requested for domain %s but no IPv6 local addresses provided to resolver", q.Name)
-	} else if dstServer.IP.To4() != nil && r.connInfoIPv4 == nil {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("IPv4 external lookup requested for domain %s but no IPv4 local addresses provided to resolver", q.Name)
-	}
-	// check that local address and dstServer's don't have a loopback mismatch
-	if dstServer.IP.To4() != nil && r.connInfoIPv4.localAddr.IsLoopback() != dstServer.IP.IsLoopback() {
-		return nil, nil, StatusIllegalInput, errors.New("cannot mix loopback and non-loopback addresses")
-	} else if util.IsIPv6(&dstServer.IP) && r.connInfoIPv6.localAddr.IsLoopback() != dstServer.IP.IsLoopback() {
-		return nil, nil, StatusIllegalInput, errors.New("cannot mix loopback and non-loopback addresses")
-	}
 	// dstServer has been validated and has a port, continue with lookup
 	lookup, trace, status, err := r.lookupClient.DoSingleDstServerLookup(r, *q, dstServer, false)
 	return lookup, trace, status, err
@@ -482,14 +508,24 @@ func (r *Resolver) IterativeLookup(q *Question) (*SingleQueryResult, Trace, Stat
 // Close cleans up any resources used by the resolver. This should be called when the resolver is no longer needed.
 // Lookup will panic if called after Close.
 func (r *Resolver) Close() {
-	if r.connInfoIPv4 != nil && r.connInfoIPv4.conn != nil {
-		if err := r.connInfoIPv4.conn.Close(); err != nil {
+	if r.connInfoIPv4Internet != nil && r.connInfoIPv4Internet.conn != nil {
+		if err := r.connInfoIPv4Internet.conn.Close(); err != nil {
 			log.Errorf("error closing IPv4 connection: %v", err)
 		}
 	}
-	if r.connInfoIPv6 != nil && r.connInfoIPv6.conn != nil {
-		if err := r.connInfoIPv6.conn.Close(); err != nil {
+	if r.connInfoIPv6Internet != nil && r.connInfoIPv6Internet.conn != nil {
+		if err := r.connInfoIPv6Internet.conn.Close(); err != nil {
 			log.Errorf("error closing IPv6 connection: %v", err)
+		}
+	}
+	if r.connInfoIPv4Loopback != nil && r.connInfoIPv4Loopback.conn != nil {
+		if err := r.connInfoIPv4Loopback.conn.Close(); err != nil {
+			log.Errorf("error closing IPv4 loopback connection: %v", err)
+		}
+	}
+	if r.connInfoIPv6Loopback != nil && r.connInfoIPv6Loopback.conn != nil {
+		if err := r.connInfoIPv6Loopback.conn.Close(); err != nil {
+			log.Errorf("error closing IPv6 loopback connection: %v", err)
 		}
 	}
 }

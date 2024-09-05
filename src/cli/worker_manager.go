@@ -41,7 +41,6 @@ import (
 const (
 	googleDNSResolverAddr   = "8.8.8.8:53"
 	googleDNSResolverAddrV6 = "[2001:4860:4860::8888]:53"
-	loopbackIPv4Addr        = "127.0.0.1"
 )
 
 type routineMetadata struct {
@@ -424,7 +423,7 @@ func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Res
 
 	if anyNameServersLoopack {
 		// set local address so name servers are reachable
-		config.LocalAddrsV4 = []net.IP{net.ParseIP(loopbackIPv4Addr)}
+		config.LocalAddrsV4 = []net.IP{net.ParseIP(zdns.DefaultLoopbackIPv4Addr)}
 		// loopback nameservers not supported for IPv6, we'll let Resolver validation take care of this
 	} else {
 		// localAddr not set, so we need to find the default IP address
