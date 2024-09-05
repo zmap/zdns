@@ -65,12 +65,4 @@ func TestResolverConfig_Validate(t *testing.T) {
 		err := rc.Validate()
 		require.NotNil(t, err)
 	})
-	t.Run("Missing local addr", func(t *testing.T) {
-		rc := &ResolverConfig{
-			ExternalNameServersV4: []NameServer{{IP: net.ParseIP("127.0.0.53"), Port: 53}},
-			RootNameServersV4:     []NameServer{{IP: net.ParseIP("127.0.0.53"), Port: 53}},
-		}
-		err := rc.Validate()
-		require.NotNil(t, err)
-	})
 }

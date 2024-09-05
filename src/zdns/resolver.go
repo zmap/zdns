@@ -133,14 +133,6 @@ func (rc *ResolverConfig) Validate() error {
 		}
 	}
 
-	// Local Addresses
-	if rc.IPVersionMode != IPv6Only && len(rc.LocalAddrsV4) == 0 {
-		return errors.New("must have a local IPv4 address to send traffic from")
-	}
-	if rc.IPVersionMode != IPv4Only && len(rc.LocalAddrsV6) == 0 {
-		return errors.New("must have a local IPv6 address to send traffic from")
-	}
-
 	// Validate all local addresses are valid IPs
 	for _, ip := range util.Concat(rc.LocalAddrsV4, rc.LocalAddrsV6) {
 		if ip == nil {
