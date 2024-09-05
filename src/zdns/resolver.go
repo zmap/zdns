@@ -170,7 +170,6 @@ func (rc *ResolverConfig) Validate() error {
 			return fmt.Errorf("link-local IPv6 external/root nameservers are not supported: %v", ns.IP)
 		}
 	}
-
 	return nil
 }
 
@@ -478,10 +477,6 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer *NameServer) (*SingleQu
 	dstServer.PopulateDefaultPort()
 	if isValid, reason := dstServer.IsValid(); !isValid {
 		return nil, nil, StatusIllegalInput, fmt.Errorf("destination server %s is invalid: %s", dstServer.String(), reason)
-	}
-	dstServer.PopulateDefaultPort()
-	if isValid, reason := dstServer.IsValid(); !isValid {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %s", dstServer.String(), reason)
 	}
 	// dstServer has been validated and has a port, continue with lookup
 	lookup, trace, status, err := r.lookupClient.DoSingleDstServerLookup(r, *q, dstServer, false)
