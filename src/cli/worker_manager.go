@@ -235,14 +235,12 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 		config.RootNameServersV4 = []zdns.NameServer{}
 	}
 	noV4NameServers := len(config.ExternalNameServersV4) == 0 && len(config.RootNameServersV4) == 0
-	if config.IPVersionMode != zdns.IPv6Only && noV4NameServers {
-		log.Info("no IPv4 nameservers found. Switching to --6 only")
-		config.IPVersionMode = zdns.IPv6Only
+	if gc.IPv4TransportOnly && noV4NameServers {
+		log.Fatal("cannot use --4 since no IPv4 nameservers found, ensure you have IPv4 connectivity and provide --name-servers")
 	}
 	noV6NameServers := len(config.ExternalNameServersV6) == 0 && len(config.RootNameServersV6) == 0
-	if config.IPVersionMode != zdns.IPv4Only && noV6NameServers {
-		log.Info("no IPv6 nameservers found. Switching to --4 only")
-		config.IPVersionMode = zdns.IPv4Only
+	if gc.IPv6TransportOnly && noV6NameServers {
+		log.Fatal("cannot use --6 since no IPv6 nameservers found, ensure you have IPv6 connectivity and provide --name-servers")
 	}
 
 	config, err = populateLocalAddresses(gc, config)
