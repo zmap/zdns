@@ -38,11 +38,6 @@ import (
 	"github.com/zmap/zdns/src/zdns"
 )
 
-const (
-	googleDNSResolverAddr   = "8.8.8.8:53"
-	googleDNSResolverAddrV6 = "[2001:4860:4860::8888]:53"
-)
-
 type routineMetadata struct {
 	Names   int // number of domain names processed
 	Lookups int // number of lookups performed
