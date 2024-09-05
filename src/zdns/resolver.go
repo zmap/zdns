@@ -485,6 +485,10 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer *NameServer) (*SingleQu
 	}
 	dstServer.PopulateDefaultPort()
 	if isValid, reason := dstServer.IsValid(); !isValid {
+		return nil, nil, StatusIllegalInput, fmt.Errorf("destination server %s is invalid: %s", dstServer.String(), reason)
+	}
+	dstServer.PopulateDefaultPort()
+	if isValid, reason := dstServer.IsValid(); !isValid {
 		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %s", dstServer.String(), reason)
 	}
 	// dstServer has been validated and has a port, continue with lookup
