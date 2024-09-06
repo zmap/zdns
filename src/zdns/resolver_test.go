@@ -24,8 +24,8 @@ import (
 func TestResolverConfig_Validate(t *testing.T) {
 	t.Run("Valid config with external/root name servers and local addr", func(t *testing.T) {
 		rc := &ResolverConfig{
-			ExternalNameServersV4: []string{"127.0.0.53:53"},
-			RootNameServersV4:     []string{"127.0.0.53:53"},
+			ExternalNameServersV4: []NameServer{{IP: net.ParseIP("127.0.0.53"), Port: 53}},
+			RootNameServersV4:     []NameServer{{IP: net.ParseIP("127.0.0.53"), Port: 53}},
 			LocalAddrsV4:          []net.IP{net.ParseIP("127.0.0.1")},
 		}
 		err := rc.Validate()
@@ -33,8 +33,8 @@ func TestResolverConfig_Validate(t *testing.T) {
 	})
 	t.Run("Using external nameserver with no port", func(t *testing.T) {
 		rc := &ResolverConfig{
-			ExternalNameServersV4: []string{"127.0.0.53"},
-			RootNameServersV4:     []string{"127.0.0.53:53"},
+			ExternalNameServersV4: []NameServer{{IP: net.ParseIP("127.0.0.53")}},
+			RootNameServersV4:     []NameServer{{IP: net.ParseIP("127.0.0.53"), Port: 53}},
 			LocalAddrsV4:          []net.IP{net.ParseIP("127.0.0.1")},
 		}
 		err := rc.Validate()
@@ -42,8 +42,8 @@ func TestResolverConfig_Validate(t *testing.T) {
 	})
 	t.Run("Using root nameserver with no port", func(t *testing.T) {
 		rc := &ResolverConfig{
-			ExternalNameServersV4: []string{"127.0.0.53:53"},
-			RootNameServersV4:     []string{"127.0.0.53"},
+			ExternalNameServersV4: []NameServer{{IP: net.ParseIP("127.0.0.53"), Port: 53}},
+			RootNameServersV4:     []NameServer{{IP: net.ParseIP("127.0.0.53")}},
 			LocalAddrsV4:          []net.IP{net.ParseIP("127.0.0.1")},
 		}
 		err := rc.Validate()
@@ -51,7 +51,7 @@ func TestResolverConfig_Validate(t *testing.T) {
 	})
 	t.Run("Missing external nameserver", func(t *testing.T) {
 		rc := &ResolverConfig{
-			RootNameServersV4: []string{"127.0.0.53:53"},
+			RootNameServersV4: []NameServer{{IP: net.ParseIP("127.0.0.53")}},
 			LocalAddrsV4:      []net.IP{net.ParseIP("127.0.0.1")},
 		}
 		err := rc.Validate()
@@ -59,52 +59,7 @@ func TestResolverConfig_Validate(t *testing.T) {
 	})
 	t.Run("Missing root nameserver", func(t *testing.T) {
 		rc := &ResolverConfig{
-			ExternalNameServersV4: []string{"127.0.0.53:53"},
-			LocalAddrsV4:          []net.IP{net.ParseIP("127.0.0.1")},
-		}
-		err := rc.Validate()
-		require.NotNil(t, err)
-	})
-	t.Run("Missing local addr", func(t *testing.T) {
-		rc := &ResolverConfig{
-			ExternalNameServersV4: []string{"127.0.0.53:53"},
-			RootNameServersV4:     []string{"127.0.0.53:53"},
-		}
-		err := rc.Validate()
-		require.NotNil(t, err)
-	})
-
-	t.Run("Cannot mix loopback addresses in nameservers", func(t *testing.T) {
-		rc := &ResolverConfig{
-			ExternalNameServersV4: []string{"127.0.0.53:53, 1.1.1.1:53"},
-			RootNameServersV4:     []string{"127.0.0.53:53"},
-			LocalAddrsV4:          []net.IP{net.ParseIP("127.0.0.1")},
-		}
-		err := rc.Validate()
-		require.NotNil(t, err)
-	})
-	t.Run("Cannot mix loopback addresses among nameservers", func(t *testing.T) {
-		rc := &ResolverConfig{
-			ExternalNameServersV4: []string{"1.1.1.1:53"},
-			RootNameServersV4:     []string{"127.0.0.53:53"},
-			LocalAddrsV4:          []net.IP{net.ParseIP("127.0.0.1")},
-		}
-		err := rc.Validate()
-		require.NotNil(t, err)
-	})
-	t.Run("Cannot reach loopback NSes from non-loopback local address", func(t *testing.T) {
-		rc := &ResolverConfig{
-			ExternalNameServersV4: []string{"127.0.0.53:53"},
-			RootNameServersV4:     []string{"127.0.0.53:53"},
-			LocalAddrsV4:          []net.IP{net.ParseIP("192.168.1.2")},
-		}
-		err := rc.Validate()
-		require.NotNil(t, err)
-	})
-	t.Run("Cannot reach non-loopback NSes from loopback local address", func(t *testing.T) {
-		rc := &ResolverConfig{
-			ExternalNameServersV4: []string{"1.1.1.1:53"},
-			RootNameServersV4:     []string{"1.1.1.1:53"},
+			ExternalNameServersV4: []NameServer{{IP: net.ParseIP("127.0.0.53"), Port: 53}},
 			LocalAddrsV4:          []net.IP{net.ParseIP("127.0.0.1")},
 		}
 		err := rc.Validate()

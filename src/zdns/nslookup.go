@@ -39,7 +39,7 @@ type NSResult struct {
 }
 
 // DoNSLookup performs a DNS NS lookup on the given name against the given name server.
-func (r *Resolver) DoNSLookup(lookupName, nameServer string, isIterative, lookupA, lookupAAAA bool) (*NSResult, Trace, Status, error) {
+func (r *Resolver) DoNSLookup(lookupName string, nameServer *NameServer, isIterative, lookupA, lookupAAAA bool) (*NSResult, Trace, Status, error) {
 	if len(lookupName) == 0 {
 		return nil, nil, "", errors.New("no name provided for NS lookup")
 	}

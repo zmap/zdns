@@ -73,7 +73,7 @@ var nsRecords = make(map[string]*zdns.NSResult)
 var nsStatus = zdns.StatusNoError
 
 // Mock the actual NS lookup.
-func mockNSLookup(r *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+func mockNSLookup(r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
 	if res, ok := nsRecords[lookupName]; ok {
 		return res, nil, nsStatus, nil
 	} else {
@@ -92,8 +92,8 @@ func InitTest() (*AxfrLookupModule, *zdns.Resolver) {
 	cc := new(cli.CLIConf)
 
 	rc := new(zdns.ResolverConfig)
-	rc.RootNameServersV4 = []string{"127.0.0.53:53"}
-	rc.ExternalNameServersV4 = []string{"127.0.0.53:53"}
+	rc.RootNameServersV4 = []zdns.NameServer{{IP: net.ParseIP("127.0.0.53"), Port: 53}}
+	rc.ExternalNameServersV4 = []zdns.NameServer{{IP: net.ParseIP("127.0.0.53"), Port: 53}}
 	rc.LocalAddrsV4 = []net.IP{net.ParseIP("127.0.0.1")}
 	rc.IPVersionMode = zdns.IPv4Only
 
@@ -217,7 +217,7 @@ func TestLookupSingleNS(t *testing.T) {
 		expectedServersMap[ip1][i] = zdns.ParseAnswer(rec)
 	}
 
-	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", "")
+	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", nil)
 	assert.Equal(t, status, zdns.StatusNoError)
 	verifyResult(t, res.(AXFRResult).Servers, expectedServersMap)
 }
@@ -293,7 +293,7 @@ func TestLookupTwoNS(t *testing.T) {
 		expectedServersMap[ip2][i] = zdns.ParseAnswer(rec)
 	}
 
-	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", "")
+	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", nil)
 	assert.Equal(t, status, zdns.StatusNoError)
 	verifyResult(t, res.(AXFRResult).Servers, expectedServersMap)
 }
@@ -322,7 +322,7 @@ func TestFailureInTransfer(t *testing.T) {
 	expectedServersMap := make(map[string][]interface{})
 	expectedServersMap[ip1] = make([]interface{}, 0)
 
-	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", "")
+	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", nil)
 	// The overall status should be no error
 	assert.Equal(t, status, zdns.StatusNoError)
 	// The status for the axfr records for ns1 should be error
@@ -355,7 +355,7 @@ func TestErrorInEnvelope(t *testing.T) {
 	expectedServersMap := make(map[string][]interface{})
 	expectedServersMap[ip1] = make([]interface{}, 0)
 
-	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", "")
+	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", nil)
 	// The overall status should be no error
 	assert.Equal(t, status, zdns.StatusNoError)
 	// The status for the axfr records for ns1 should be error
@@ -382,7 +382,7 @@ func TestNoIpv4InNsLookup(t *testing.T) {
 		},
 	}
 
-	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", "")
+	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", nil)
 	assert.Equal(t, status, zdns.StatusNoError)
 	assert.Equal(t, len(res.(AXFRResult).Servers), 0)
 }
@@ -390,7 +390,7 @@ func TestNoIpv4InNsLookup(t *testing.T) {
 // Querying non-existent domains should return NXDOMAIN status
 func TestNXDomain(t *testing.T) {
 	axfrMod, resolver := InitTest()
-	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", "")
+	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", nil)
 	assert.Equal(t, status, zdns.StatusNXDomain)
 	assert.Equal(t, res, nil)
 }
@@ -404,7 +404,7 @@ func TestErrorInNsLookup(t *testing.T) {
 		Servers: nil,
 	}
 
-	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", "")
+	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", nil)
 	assert.Equal(t, status, nsStatus)
 	assert.Equal(t, res, nil)
 }

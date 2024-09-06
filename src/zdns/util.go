@@ -186,3 +186,15 @@ func handleStatus(status Status, err error) (Status, error) {
 		return s, nil
 	}
 }
+
+// DeepCopyIPs creates a deep copy of a slice of net.IP
+func DeepCopyIPs(ips []net.IP) []net.IP {
+	copied := make([]net.IP, len(ips))
+	for i, ip := range ips {
+		if ip != nil {
+			// Deep copy the IP by copying the underlying byte slice
+			copied[i] = append(net.IP(nil), ip...)
+		}
+	}
+	return copied
+}

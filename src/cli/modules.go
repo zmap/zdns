@@ -25,7 +25,7 @@ import (
 
 type LookupModule interface {
 	CLIInit(gc *CLIConf, rc *zdns.ResolverConfig) error
-	Lookup(resolver *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error)
+	Lookup(resolver *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error)
 	Help() string                 // needed to satisfy the ZCommander interface in ZFlags.
 	GetDescription() string       // needed to add a command to the parser, printed to the user. Printed to the user when they run the help command for a given module
 	Validate(args []string) error // needed to satisfy the ZCommander interface in ZFlags
@@ -165,7 +165,7 @@ func (lm *BasicLookupModule) NewFlags() interface{} {
 	return lm
 }
 
-func (lm *BasicLookupModule) Lookup(resolver *zdns.Resolver, lookupName, nameServer string) (interface{}, zdns.Trace, zdns.Status, error) {
+func (lm *BasicLookupModule) Lookup(resolver *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
 	if lm.LookupAllNameServers {
 		return resolver.LookupAllNameservers(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass}, nameServer)
 	}

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
 	"github.com/zmap/zcrypto/tls"
@@ -49,6 +50,8 @@ const (
 	defaultIterationIPPreference = PreferIPv4
 	DefaultNameServerConfigFile  = "/etc/resolv.conf"
 	defaultLookupAllNameServers  = false
+	DefaultLoopbackIPv4Addr      = "127.0.0.1"
+	DefaultLoopbackIPv6Addr      = "::1"
 )
 
 // ResolverConfig is a struct that holds all the configuration options for a Resolver. It is used to create a new Resolver.
@@ -73,13 +76,13 @@ type ResolverConfig struct {
 	IterativeTimeout      time.Duration // applicable to iterative queries only, timeout for a single iteration step
 	Timeout               time.Duration // timeout for the resolution of a single name
 	MaxDepth              int
-	ExternalNameServersV4 []string // v4 name servers used for external lookups
-	ExternalNameServersV6 []string // v6 name servers used for external lookups
-	RootNameServersV4     []string // v4 root servers used for iterative lookups
-	RootNameServersV6     []string // v6 root servers used for iterative lookups
-	LookupAllNameServers  bool     // perform the lookup via all the nameservers for the domain
-	FollowCNAMEs          bool     // whether iterative lookups should follow CNAMEs/DNAMEs
-	DNSConfigFilePath     string   // path to the DNS config file, ex: /etc/resolv.conf
+	ExternalNameServersV4 []NameServer // v4 name servers used for external lookups
+	ExternalNameServersV6 []NameServer // v6 name servers used for external lookups
+	RootNameServersV4     []NameServer // v4 root servers used for iterative lookups
+	RootNameServersV6     []NameServer // v6 root servers used for iterative lookups
+	LookupAllNameServers  bool         // perform the lookup via all the nameservers for the domain
+	FollowCNAMEs          bool         // whether iterative lookups should follow CNAMEs/DNAMEs
+	DNSConfigFilePath     string       // path to the DNS config file, ex: /etc/resolv.conf
 
 	DNSSecEnabled       bool
 	DNSOverHTTPS        bool         // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
@@ -119,13 +122,8 @@ func (rc *ResolverConfig) Validate() error {
 
 	// Validate all nameservers have ports and are valid IPs
 	for _, ns := range util.Concat(rc.ExternalNameServersV4, rc.ExternalNameServersV6) {
-		ipString, _, err := net.SplitHostPort(ns)
-		if err != nil {
-			return fmt.Errorf("could not parse external name server (%s), must be valid IP and have port appended, ex: 1.2.3.4:53 or [::1]:53", ns)
-		}
-		ip := net.ParseIP(ipString)
-		if ip == nil {
-			return fmt.Errorf("could not parse external name server (%s), must be valid IP and have port appended, ex: 1.2.3.4:53 or [::1]:53", ns)
+		if isValid, reason := ns.IsValid(); !isValid {
+			return fmt.Errorf("invalid external name server: %s", reason)
 		}
 	}
 	// Root Nameservers
@@ -140,22 +138,9 @@ func (rc *ResolverConfig) Validate() error {
 
 	// Validate all nameservers have ports and are valid IPs
 	for _, ns := range util.Concat(rc.RootNameServersV4, rc.RootNameServersV6) {
-		ipString, _, err := net.SplitHostPort(ns)
-		if err != nil {
-			return fmt.Errorf("could not parse root name server (%s), must be valid IP and have port appended, ex: 1.2.3.4:53 or [::1]:53", ns)
+		if isValid, reason := ns.IsValid(); !isValid {
+			return fmt.Errorf("invalid root name server: %s", reason)
 		}
-		ip := net.ParseIP(ipString)
-		if ip == nil {
-			return fmt.Errorf("could not parse root name server (%s), must be valid IP and have port appended, ex: 1.2.3.4:53 or [::1]:53", ns)
-		}
-	}
-
-	// Local Addresses
-	if rc.IPVersionMode != IPv6Only && len(rc.LocalAddrsV4) == 0 {
-		return errors.New("must have a local IPv4 address to send traffic from")
-	}
-	if rc.IPVersionMode != IPv4Only && len(rc.LocalAddrsV6) == 0 {
-		return errors.New("must have a local IPv6 address to send traffic from")
 	}
 
 	// Validate all local addresses are valid IPs
@@ -191,57 +176,27 @@ func (rc *ResolverConfig) Validate() error {
 
 	// Ensure no IPv6 link-local/multicast external/root nameservers are used
 	for _, ns := range util.Concat(rc.ExternalNameServersV6, rc.RootNameServersV6) {
-		ip, _, err := util.SplitHostPort(ns)
-		if err != nil {
-			return errors.Wrapf(err, "could not split host and port for nameserver: %s", ns)
+		if ns.IP.IsLinkLocalUnicast() || ns.IP.IsLinkLocalMulticast() {
+			return fmt.Errorf("link-local IPv6 external/root nameservers are not supported: %v", ns.IP)
 		}
-		if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
-			return fmt.Errorf("link-local IPv6 external/root nameservers are not supported: %v", ip)
-		}
-	}
-
-	if err := rc.validateLoopbackConsistency(); err != nil {
-		return errors.Wrap(err, "could not validate loopback consistency")
-	}
-
-	return nil
-}
-
-// validateLoopbackConsistency checks that the following is true
-// - either all nameservers AND all local addresses are loopback, or none are
-func (rc *ResolverConfig) validateLoopbackConsistency() error {
-	allLocalAddrs := util.Concat(rc.LocalAddrsV4, rc.LocalAddrsV6)
-	allExternalNameServers := util.Concat(rc.ExternalNameServersV4, rc.ExternalNameServersV6)
-	allRootNameServers := util.Concat(rc.RootNameServersV4, rc.RootNameServersV6)
-	allIPsLength := len(allLocalAddrs) + len(allExternalNameServers) + len(allRootNameServers)
-	allIPs := make([]net.IP, 0, allIPsLength)
-	allIPs = append(allIPs, allLocalAddrs...)
-	for _, ns := range util.Concat(allExternalNameServers, allRootNameServers) {
-		ip, _, err := util.SplitHostPort(ns)
-		if err != nil {
-			return errors.Wrapf(err, "could not split host and port for nameserver: %s", ns)
-		}
-		allIPs = append(allIPs, ip)
-	}
-	allIPsLoopback := true
-	noneIPsLoopback := true
-	for _, ip := range allIPs {
-		if ip.IsLoopback() {
-			noneIPsLoopback = false
-		} else {
-			allIPsLoopback = false
-		}
-	}
-	if allIPsLoopback == noneIPsLoopback {
-		return fmt.Errorf("cannot mix loopback and non-loopback local addresses (%v) and name servers (%v)", allLocalAddrs, util.Concat(allExternalNameServers, allRootNameServers))
 	}
 	return nil
 }
 
 func (rc *ResolverConfig) PrintInfo() {
 	log.Infof("using local addresses: %v", util.Concat(rc.LocalAddrsV4, rc.LocalAddrsV6))
-	log.Infof("for non-iterative lookups, using external nameservers: %s", strings.Join(util.Concat(rc.ExternalNameServersV4, rc.ExternalNameServersV6), ", "))
-	log.Infof("for iterative lookups, using nameservers: %s", strings.Join(util.Concat(rc.RootNameServersV4, rc.RootNameServersV6), ", "))
+	externalNameServers := util.Concat(rc.ExternalNameServersV4, rc.ExternalNameServersV6)
+	rootNameServers := util.Concat(rc.RootNameServersV4, rc.RootNameServersV6)
+	externalNameServerStrings := make([]string, 0, len(externalNameServers))
+	rootNameServerStrings := make([]string, 0, len(rootNameServers))
+	for _, ns := range externalNameServers {
+		externalNameServerStrings = append(externalNameServerStrings, ns.String())
+	}
+	for _, ns := range rootNameServers {
+		rootNameServerStrings = append(rootNameServerStrings, ns.String())
+	}
+	log.Infof("for non-iterative lookups, using external nameservers: %s", strings.Join(externalNameServerStrings, ", "))
+	log.Infof("for iterative lookups, using nameservers: %s", strings.Join(rootNameServerStrings, ", "))
 }
 
 // NewResolverConfig creates a new ResolverConfig with default values.
@@ -289,10 +244,13 @@ type Resolver struct {
 	cache        *Cache
 	lookupClient Lookuper // either a functional or mock Lookuper client for testing
 
-	blacklist *blacklist.SafeBlacklist
-
-	connInfoIPv4 *ConnectionInfo
-	connInfoIPv6 *ConnectionInfo
+	blacklist                   *blacklist.SafeBlacklist
+	userPreferredIPv4LocalAddrs []net.IP        // user-supplied local IPv4 addresses, we'll prefer to use these
+	userPreferredIPv6LocalAddrs []net.IP        // user-supplied local IPv6 addresses, we'll prefer to use these
+	connInfoIPv4Internet        *ConnectionInfo // used for IPv4 lookups to Internet-facing nameservers
+	connInfoIPv6Internet        *ConnectionInfo // used for IPv6 lookups to Internet-facing nameservers
+	connInfoIPv4Loopback        *ConnectionInfo // used for IPv4 lookups to loopback nameservers
+	connInfoIPv6Loopback        *ConnectionInfo // used for IPv6 lookups to loopback nameservers
 
 	retries  int
 	logLevel log.Level
@@ -305,8 +263,8 @@ type Resolver struct {
 	iterativeTimeout     time.Duration
 	timeout              time.Duration // timeout for the network conns
 	maxDepth             int
-	externalNameServers  []string // name servers used by external lookups (either OS or user specified)
-	rootNameServers      []string // root servers used for iterative lookups
+	externalNameServers  []NameServer // name servers used by external lookups (either OS or user specified)
+	rootNameServers      []NameServer // root servers used for iterative lookups
 	lookupAllNameServers bool
 	followCNAMEs         bool // whether iterative lookups should follow CNAMEs/DNAMEs
 
@@ -361,67 +319,120 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		checkingDisabledBit: config.CheckingDisabledBit,
 	}
 	log.SetLevel(r.logLevel)
-	if config.IPVersionMode != IPv6Only {
-		// create connection info for IPv4
-		connInfo, err := getConnectionInfo(config.LocalAddrsV4, config.TransportMode, config.Timeout, config.ShouldRecycleSockets, config.DNSOverHTTPS)
-		if err != nil {
-			return nil, fmt.Errorf("could not create connection info for IPv4: %w", err)
-		}
-		r.connInfoIPv4 = connInfo
-	}
-	if config.IPVersionMode != IPv4Only {
-		// create connection info for IPv6
-		// TODO handle DoH for IPv6
-		connInfo, err := getConnectionInfo(config.LocalAddrsV6, config.TransportMode, config.Timeout, config.ShouldRecycleSockets, config.DNSOverHTTPS)
-		if err != nil {
-			return nil, fmt.Errorf("could not create connection info for IPv6: %w", err)
-		}
-		r.connInfoIPv6 = connInfo
-	}
+	// Deep copy local address so Resolver is independent of the config
+	r.userPreferredIPv4LocalAddrs = DeepCopyIPs(config.LocalAddrsV4)
+	r.userPreferredIPv6LocalAddrs = DeepCopyIPs(config.LocalAddrsV6)
 	// need to deep-copy here so we're not reliant on the state of the resolver config post-resolver creation
-	r.externalNameServers = make([]string, 0)
+	r.externalNameServers = make([]NameServer, 0, len(config.ExternalNameServersV4)+len(config.ExternalNameServersV6))
 	if config.IPVersionMode == IPv4Only || config.IPVersionMode == IPv4OrIPv6 {
-		ipv4Nameservers := make([]string, len(config.ExternalNameServersV4))
 		// copy over IPv4 nameservers
-		elemsCopied := copy(ipv4Nameservers, config.ExternalNameServersV4)
-		if elemsCopied != len(config.ExternalNameServersV4) {
-			log.Fatal("failed to copy entire IPv4 name servers list from config")
+		for _, ns := range config.ExternalNameServersV4 {
+			r.externalNameServers = append(r.externalNameServers, *ns.DeepCopy())
 		}
-		r.externalNameServers = append(r.externalNameServers, ipv4Nameservers...)
 	}
-	ipv6Nameservers := make([]string, len(config.ExternalNameServersV6))
 	if config.IPVersionMode == IPv6Only || config.IPVersionMode == IPv4OrIPv6 {
 		// copy over IPv6 nameservers
-		elemsCopied := copy(ipv6Nameservers, config.ExternalNameServersV6)
-		if elemsCopied != len(config.ExternalNameServersV6) {
-			log.Fatal("failed to copy entire IPv6 name servers list from config")
+		for _, ns := range config.ExternalNameServersV6 {
+			r.externalNameServers = append(r.externalNameServers, *ns.DeepCopy())
 		}
-		r.externalNameServers = append(r.externalNameServers, ipv6Nameservers...)
 	}
-	// deep copy external name servers from config to resolver
 	r.iterativeTimeout = config.IterativeTimeout
 	r.maxDepth = config.MaxDepth
-	r.rootNameServers = make([]string, 0, len(config.RootNameServersV4)+len(config.RootNameServersV6))
+	r.rootNameServers = make([]NameServer, 0, len(config.RootNameServersV4)+len(config.RootNameServersV6))
 	if r.ipVersionMode != IPv6Only && len(config.RootNameServersV4) == 0 {
 		// add IPv4 root servers
-		r.rootNameServers = append(r.rootNameServers, RootServersV4...)
+		for _, ns := range RootServersV4 {
+			r.rootNameServers = append(r.rootNameServers, *ns.DeepCopy())
+		}
 	} else if r.ipVersionMode != IPv6Only {
-		r.rootNameServers = append(r.rootNameServers, config.RootNameServersV4...)
+		for _, ns := range config.RootNameServersV4 {
+			r.rootNameServers = append(r.rootNameServers, *ns.DeepCopy())
+		}
 	}
 	if r.ipVersionMode != IPv4Only && len(config.RootNameServersV6) == 0 {
-		// add IPv6 root servers
-		r.rootNameServers = append(r.rootNameServers, RootServersV6...)
+		// add IPv4 root servers
+		for _, ns := range RootServersV6 {
+			r.rootNameServers = append(r.rootNameServers, *ns.DeepCopy())
+		}
 	} else if r.ipVersionMode != IPv4Only {
-		r.rootNameServers = append(r.rootNameServers, config.RootNameServersV6...)
+		for _, ns := range config.RootNameServersV6 {
+			r.rootNameServers = append(r.rootNameServers, *ns.DeepCopy())
+		}
 	}
 	return r, nil
 }
 
-func getConnectionInfo(localAddr []net.IP, transportMode transportMode, timeout time.Duration, shouldRecycleSockets, shouldSetupHTTPClient bool) (*ConnectionInfo, error) {
-	connInfo := &ConnectionInfo{
-		localAddr: localAddr[rand.Intn(len(localAddr))],
+// getConnectionInfo uses the name server to determine if a loopback vs. non-loopback or IPv4/v6 connection should be used
+// If the Resolver does not have a connection info for the name server, it will create one.
+// ConnectionInfo objects are created on an as-needed basis
+func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, error) {
+	// what local addresses should we use?
+	isNSIPv6 := util.IsIPv6(&nameServer.IP)
+	isLoopback := nameServer.IP.IsLoopback()
+	// check if we have a pre-existing conn info
+	if isNSIPv6 && isLoopback && r.connInfoIPv6Loopback != nil {
+		return r.connInfoIPv6Loopback, nil
+	} else if isNSIPv6 && !isLoopback && r.connInfoIPv6Internet != nil {
+		return r.connInfoIPv6Internet, nil
+	} else if !isNSIPv6 && isLoopback && r.connInfoIPv4Loopback != nil {
+		return r.connInfoIPv4Loopback, nil
+	} else if !isNSIPv6 && !isLoopback && r.connInfoIPv4Internet != nil {
+		// must be IPv4 non-loopback
+		return r.connInfoIPv4Internet, nil
 	}
-	if shouldRecycleSockets {
+
+	// no existing ConnInfo, create a new one
+	// r.localAddrs contain either user-supplied or default local addresses
+	// If one satisfying our conditions is available, use it.
+	var userIPs []net.IP
+	if isNSIPv6 {
+		userIPs = r.userPreferredIPv6LocalAddrs
+	} else {
+		userIPs = r.userPreferredIPv4LocalAddrs
+	}
+	// Shuffle the slice in random order so that we don't always use the same local address
+	rand.Shuffle(len(userIPs), func(i, j int) {
+		userIPs[i], userIPs[j] = userIPs[j], userIPs[i]
+	})
+	var localAddr *net.IP
+	for _, ip := range userIPs {
+		if isLoopback == ip.IsLoopback() {
+			localAddr = &ip
+			break
+		}
+	}
+
+	if localAddr == nil {
+		// none of the user-supplied IPs match the conditions, we need to select one
+		if isLoopback && isNSIPv6 {
+			ip := net.ParseIP(DefaultLoopbackIPv6Addr)
+			localAddr = &ip
+		} else if isLoopback {
+			ip := net.ParseIP(DefaultLoopbackIPv4Addr)
+			localAddr = &ip
+		} else {
+			// non-loopback, attempt to reach the nameserver from the internet and get the local addr. used
+			conn, err := net.Dial("udp", nameServer.String())
+			if err != nil {
+				return nil, fmt.Errorf("unable to find default IP address to open socket: %w", err)
+			}
+			localAddr = &conn.LocalAddr().(*net.UDPAddr).IP
+			// cleanup socket
+			if err = conn.Close(); err != nil {
+				log.Error("unable to close test connection to Google public DNS: ", err)
+			}
+		}
+		if localAddr != nil {
+			log.Infof("none of the user-supplied local addresses could connect to name server %s, using local address %s", nameServer.String(), localAddr.String())
+		}
+	}
+	if localAddr == nil {
+		return nil, errors.New("unable to find local address for connection")
+	}
+	connInfo := &ConnectionInfo{
+		localAddr: *localAddr,
+	}
+	if r.shouldRecycleSockets {
 		// create persistent connection
 		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: connInfo.localAddr})
 		if err != nil {
@@ -431,26 +442,25 @@ func getConnectionInfo(localAddr []net.IP, transportMode transportMode, timeout 
 		connInfo.conn.Conn = conn
 	}
 
-	usingUDP := transportMode == UDPOrTCP || transportMode == UDPOnly
+	usingUDP := r.transportMode == UDPOrTCP || r.transportMode == UDPOnly
 	if usingUDP {
 		connInfo.udpClient = new(dns.Client)
-		connInfo.udpClient.Timeout = timeout
+		connInfo.udpClient.Timeout = r.timeout
 		connInfo.udpClient.Dialer = &net.Dialer{
-			Timeout:   timeout,
+			Timeout:   r.timeout,
 			LocalAddr: &net.UDPAddr{IP: connInfo.localAddr},
 		}
 	}
-	usingTCP := transportMode == UDPOrTCP || transportMode == TCPOnly
+	usingTCP := r.transportMode == UDPOrTCP || r.transportMode == TCPOnly
 	if usingTCP {
 		connInfo.tcpClient = new(dns.Client)
 		connInfo.tcpClient.Net = "tcp"
-		connInfo.tcpClient.Timeout = timeout
+		connInfo.tcpClient.Timeout = r.timeout
 		connInfo.tcpClient.Dialer = &net.Dialer{
-			Timeout:   timeout,
+			Timeout:   r.timeout,
 			LocalAddr: &net.TCPAddr{IP: connInfo.localAddr},
 		}
 	}
-
 	if shouldSetupHTTPClient {
 		// Create a http.Client with the custom transport
 		connInfo.httpsClient = &http.Client{
@@ -487,6 +497,16 @@ func getConnectionInfo(localAddr []net.IP, transportMode transportMode, timeout 
 			Timeout: 10 * time.Second,
 		}
 	}
+	// save the connection info for future use
+	if isNSIPv6 && isLoopback {
+		r.connInfoIPv6Loopback = connInfo
+	} else if isNSIPv6 {
+		r.connInfoIPv6Internet = connInfo
+	} else if isLoopback {
+		r.connInfoIPv4Loopback = connInfo
+	} else {
+		r.connInfoIPv4Internet = connInfo
+	}
 	return connInfo, nil
 }
 
@@ -497,39 +517,20 @@ func getConnectionInfo(localAddr []net.IP, transportMode transportMode, timeout 
 // multiple lookups concurrently, create a new Resolver object for each concurrent lookup.
 // Returns the result of the lookup, the trace of the lookup (what each nameserver along the lookup returned), the
 // status of the lookup, and any error that occurred.
-func (r *Resolver) ExternalLookup(q *Question, dstServer string) (*SingleQueryResult, Trace, Status, error) {
+func (r *Resolver) ExternalLookup(q *Question, dstServer *NameServer) (*SingleQueryResult, Trace, Status, error) {
 	if r.isClosed {
 		log.Fatal("resolver has been closed, cannot perform lookup")
 	}
 
-	if dstServer == "" {
+	if dstServer == nil {
 		dstServer = r.randomExternalNameServer()
 		log.Info("no name server provided for external lookup, using  random external name server: ", dstServer)
 	}
-	dstServerWithPort, err := util.AddDefaultPortToDNSServerName(dstServer, r.dnsOverHTTPSEnabled, r.dnsOverTLSEnabled)
-	if err != nil {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w. Correct format IPv4 1.1.1.1:53 or IPv6 [::1]:53", dstServer, err)
-	}
-	if dstServer != dstServerWithPort {
-		log.Info("no port provided for external lookup, using default port 53")
-	}
-	dstServerIP, _, err := util.SplitHostPort(dstServerWithPort)
-	if err != nil {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("could not parse name server (%s): %w. Correct format IPv4 1.1.1.1:53 or IPv6 [::1]:53", dstServer, err)
-	}
-	if util.IsIPv6(&dstServerIP) && r.connInfoIPv6 == nil {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("IPv6 external lookup requested for domain %s but no IPv6 local addresses provided to resolver", q.Name)
-	} else if dstServerIP.To4() != nil && r.connInfoIPv4 == nil {
-		return nil, nil, StatusIllegalInput, fmt.Errorf("IPv4 external lookup requested for domain %s but no IPv4 local addresses provided to resolver", q.Name)
-	}
-	// check that local address and dstServer's don't have a loopback mismatch
-	if dstServerIP.To4() != nil && r.connInfoIPv4.localAddr.IsLoopback() != dstServerIP.IsLoopback() {
-		return nil, nil, StatusIllegalInput, errors.New("cannot mix loopback and non-loopback addresses")
-	} else if util.IsIPv6(&dstServerIP) && r.connInfoIPv6.localAddr.IsLoopback() != dstServerIP.IsLoopback() {
-		return nil, nil, StatusIllegalInput, errors.New("cannot mix loopback and non-loopback addresses")
+	dstServer.PopulateDefaultPort()
+	if isValid, reason := dstServer.IsValid(); !isValid {
+		return nil, nil, StatusIllegalInput, fmt.Errorf("destination server %s is invalid: %s", dstServer.String(), reason)
 	}
 	// dstServer has been validated and has a port, continue with lookup
-	dstServer = dstServerWithPort
 	lookup, trace, status, err := r.lookupClient.DoSingleDstServerLookup(r, *q, dstServer, false)
 	return lookup, trace, status, err
 }
@@ -550,32 +551,42 @@ func (r *Resolver) IterativeLookup(q *Question) (*SingleQueryResult, Trace, Stat
 // Close cleans up any resources used by the resolver. This should be called when the resolver is no longer needed.
 // Lookup will panic if called after Close.
 func (r *Resolver) Close() {
-	if r.connInfoIPv4.conn != nil {
-		if err := r.connInfoIPv4.conn.Close(); err != nil {
+	if r.connInfoIPv4Internet != nil && r.connInfoIPv4Internet.conn != nil {
+		if err := r.connInfoIPv4Internet.conn.Close(); err != nil {
 			log.Errorf("error closing IPv4 connection: %v", err)
 		}
 	}
-	if r.connInfoIPv6.conn != nil {
-		if err := r.connInfoIPv6.conn.Close(); err != nil {
+	if r.connInfoIPv6Internet != nil && r.connInfoIPv6Internet.conn != nil {
+		if err := r.connInfoIPv6Internet.conn.Close(); err != nil {
 			log.Errorf("error closing IPv6 connection: %v", err)
+		}
+	}
+	if r.connInfoIPv4Loopback != nil && r.connInfoIPv4Loopback.conn != nil {
+		if err := r.connInfoIPv4Loopback.conn.Close(); err != nil {
+			log.Errorf("error closing IPv4 loopback connection: %v", err)
+		}
+	}
+	if r.connInfoIPv6Loopback != nil && r.connInfoIPv6Loopback.conn != nil {
+		if err := r.connInfoIPv6Loopback.conn.Close(); err != nil {
+			log.Errorf("error closing IPv6 loopback connection: %v", err)
 		}
 	}
 }
 
-func (r *Resolver) randomExternalNameServer() string {
+func (r *Resolver) randomExternalNameServer() *NameServer {
 	l := len(r.externalNameServers)
 	if r.externalNameServers == nil || l == 0 {
 		log.Fatal("no external name servers specified")
 	}
-	return r.externalNameServers[rand.Intn(l)]
+	return &r.externalNameServers[rand.Intn(l)]
 }
 
-func (r *Resolver) randomRootNameServer() string {
+func (r *Resolver) randomRootNameServer() *NameServer {
 	l := len(r.rootNameServers)
 	if r.rootNameServers == nil || l == 0 {
 		log.Fatal("no root name servers specified")
 	}
-	return r.rootNameServers[rand.Intn(l)]
+	return &r.rootNameServers[rand.Intn(l)]
 }
 
 func (r *Resolver) verboseLog(depth int, args ...interface{}) {
