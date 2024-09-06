@@ -39,7 +39,7 @@ def recursiveSort(obj):
 
 class Tests(unittest.TestCase):
     maxDiff = None
-    ZDNS_EXECUTABLE = "../zdns"
+    ZDNS_EXECUTABLE = "./zdns"
     ADDITIONAL_FLAGS = " --threads=10"  # flags used with every test
 
     def run_zdns_check_failure(self, flags, name, expected_err, executable=ZDNS_EXECUTABLE):
@@ -1014,6 +1014,25 @@ class Tests(unittest.TestCase):
             if r["results"]["A"]["data"]["resolver"] == "1.1.1.1:853":
                 usedCloudflare = True
             elif r["results"]["A"]["data"]["resolver"] == "8.8.8.8:853":
+                usedGoogle = True
+            else:
+                self.fail("Unexpected resolver")
+        # we should setup a new TLS connection with each nameserver. This tests that that happens correctly
+        self.assertTrue(usedCloudflare)
+        self.assertTrue(usedGoogle)
+
+
+    def test_name_server_mode_with_doh(self):
+        c = "A dns.google cloudflare-dns.com --override-name=www.zdns-testing.com --name-server-mode --https --threads=1"
+        name = ""
+        cmd, res = self.run_zdns_multiline_output(c, name, append_flags=False)
+        usedCloudflare = False
+        usedGoogle = False
+        for r in res:
+            self.assertEqualAnswers(r, self.WWW_CNAME_AND_A_ANSWERS, cmd, "A")
+            if r["results"]["A"]["data"]["resolver"] == "cloudflare-dns.com":
+                usedCloudflare = True
+            elif r["results"]["A"]["data"]["resolver"] == "dns.google":
                 usedGoogle = True
             else:
                 self.fail("Unexpected resolver")

@@ -475,9 +475,17 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 		ednsOpt.Option = append(ednsOpt.Option, ednsOptions...)
 	}
 
-	// TODO for --nameserver-mode, we'll need to check if the tlsconn is correct for this nameserver
-	if connInfo.tlsConn == nil {
-		// first lookup for this resolver, create a new TLS client now
+	// if tlsConn is nil or if this is a new nameserver, create a new connection
+	var isConnNew bool
+	if connInfo.tlsConn != nil {
+		newRemoteAddr := net.TCPAddr{IP: nameServer.IP, Port: int(nameServer.Port)}
+		prevRemoteAddr := connInfo.tlsConn.Conn.RemoteAddr().String()
+		if prevRemoteAddr != newRemoteAddr.String() {
+			isConnNew = true
+		}
+	}
+	if connInfo.tlsConn == nil || isConnNew {
+		// new connection
 		// Custom dialer with local address binding
 		dialer := &net.Dialer{
 			LocalAddr: &net.TCPAddr{
@@ -515,7 +523,7 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not unpack DNS message from DoT server")
 	}
 	res := SingleQueryResult{
-		Resolver:    nameServer.String(),
+		Resolver:    connInfo.tlsConn.Conn.RemoteAddr().String(),
 		Protocol:    "DoT",
 		Answers:     []interface{}{},
 		Authorities: []interface{}{},
