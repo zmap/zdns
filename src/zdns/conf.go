@@ -16,16 +16,12 @@ package zdns
 
 import "net"
 
-//type Metadata struct {
-//	Names       int            `json:"names"`
-//	Status      map[string]int `json:"statuses"`
-//	StartTime   string         `json:"start_time"`
-//	EndTime     string         `json:"end_time"`
-//	NameServers []string       `json:"name_servers"`
-//	Timeout     int            `json:"timeout"`
-//	Retries     int            `json:"retries"`
-//	Conf        *GlobalConf    `json:"conf"`
-//}
+const (
+	googleDNSDomainName     = "google.com"
+	googleDoHDomainName     = "dns.google"
+	cloudflareDNSDomainName = "cloudflare.com"
+	cloudflareDoHDomainName = "cloudflare-dns.com"
+)
 
 type TargetedDomain struct {
 	Domain      string   `json:"domain"`
@@ -89,15 +85,28 @@ var RootServersV6 = []NameServer{
 }
 
 var DefaultExternalResolversV4 = []NameServer{
-	{IP: net.ParseIP("8.8.8.8"), Port: 53}, // Google
-	{IP: net.ParseIP("8.8.4.4"), Port: 53}, // Google
-	{IP: net.ParseIP("1.1.1.1"), Port: 53}, // Cloudflare
-	{IP: net.ParseIP("1.0.0.1"), Port: 53}, // Cloudflare
+	{IP: net.ParseIP("8.8.8.8"), Port: DefaultDNSPort, DomainName: googleDNSDomainName},
+	{IP: net.ParseIP("8.8.4.4"), Port: DefaultDNSPort, DomainName: googleDNSDomainName},
+	{IP: net.ParseIP("1.1.1.1"), Port: DefaultDNSPort, DomainName: cloudflareDNSDomainName},
+	{IP: net.ParseIP("1.0.0.1"), Port: DefaultDNSPort, DomainName: cloudflareDNSDomainName},
 }
 
 var DefaultExternalResolversV6 = []NameServer{
-	{IP: net.ParseIP("2001:4860:4860::8888"), Port: 53}, // Google
-	{IP: net.ParseIP("2001:4860:4860::8844"), Port: 53}, // Google
-	{IP: net.ParseIP("2606:4700:4700::1111"), Port: 53}, // Cloudflare
-	{IP: net.ParseIP("2606:4700:4700::1001"), Port: 53}, // Cloudflare
+	{IP: net.ParseIP("2001:4860:4860::8888"), Port: DefaultDNSPort, DomainName: googleDNSDomainName},
+	{IP: net.ParseIP("2001:4860:4860::8844"), Port: DefaultDNSPort, DomainName: googleDNSDomainName},
+	{IP: net.ParseIP("2606:4700:4700::1111"), Port: DefaultDNSPort, DomainName: cloudflareDNSDomainName},
+	{IP: net.ParseIP("2606:4700:4700::1001"), Port: DefaultDNSPort, DomainName: cloudflareDNSDomainName},
+}
+var DefaultExternalDoTResolversV4 = []NameServer{
+	{IP: net.ParseIP("8.8.8.8"), Port: DefaultDoTPort, DomainName: googleDNSDomainName},
+	{IP: net.ParseIP("8.8.4.4"), Port: DefaultDoTPort, DomainName: googleDNSDomainName},
+	{IP: net.ParseIP("1.1.1.1"), Port: DefaultDoTPort, DomainName: cloudflareDNSDomainName},
+	{IP: net.ParseIP("1.0.0.1"), Port: DefaultDoTPort, DomainName: cloudflareDNSDomainName},
+}
+
+var DefaultExternalDoTResolversV6 = []NameServer{
+	{IP: net.ParseIP("2001:4860:4860::8888"), Port: DefaultDoTPort, DomainName: googleDNSDomainName},
+	{IP: net.ParseIP("2001:4860:4860::8844"), Port: DefaultDoTPort, DomainName: googleDNSDomainName},
+	{IP: net.ParseIP("2606:4700:4700::1111"), Port: DefaultDoTPort, DomainName: cloudflareDNSDomainName},
+	{IP: net.ParseIP("2606:4700:4700::1001"), Port: DefaultDoTPort, DomainName: cloudflareDNSDomainName},
 }

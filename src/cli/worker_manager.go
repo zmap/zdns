@@ -324,28 +324,32 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 	// IPv4 Name Servers/Local Address only needs to be populated if we're doing IPv4 lookups, same for IPv6
 	if len(gc.NameServers) != 0 {
 		// User provided name servers, use them.
-		var v4NameServers, v6NameServers []zdns.NameServer
-		nses, err := convertNameServerStringSliceToNameServers(gc.NameServers, config.IPVersionMode, config.DNSOverTLS, config.DNSOverHTTPS)
+		var err error
+		config, err = useNameServerStringToPopulateNameServers(gc.NameServers, config)
 		if err != nil {
-			return nil, fmt.Errorf("could not parse name server: %v. Correct IPv4 format: 1.1.1.1:53 or IPv6 format: [::1]:53\"", err)
+			return nil, fmt.Errorf("could not populate name servers: %v", err)
 		}
-		for _, ns := range nses {
-			if ns.IP.To4() != nil {
-				v4NameServers = append(v4NameServers, ns)
-			} else if util.IsIPv6(&ns.IP) {
-				v6NameServers = append(v6NameServers, ns)
-			} else {
-				log.Fatal("Invalid name server: ", ns.String())
+		if config.DNSOverHTTPS {
+			// double-check all external nameservers have domains, necessary for DoH
+			for _, ns := range util.Concat(config.ExternalNameServersV4, config.ExternalNameServersV6) {
+				if len(ns.DomainName) == 0 {
+					log.Fatal("DoH requires domain names for all name servers, ex. --name-servers=cloudflare-dns.com,dns.google")
+				}
 			}
 		}
-		// The resolver will ignore IPv6 nameservers if we're doing IPv4 only lookups, and vice versa so this is fine
-		config.ExternalNameServersV4 = v4NameServers
-		config.RootNameServersV4 = v4NameServers
-		config.ExternalNameServersV6 = v6NameServers
-		config.RootNameServersV6 = v6NameServers
-		return config, nil
 	}
 	// User did not provide nameservers
+	if gc.DNSOverTLS {
+		config.RootNameServersV4 = zdns.DefaultExternalDoTResolversV4
+		config.ExternalNameServersV4 = zdns.DefaultExternalDoTResolversV4
+		config.RootNameServersV6 = zdns.DefaultExternalDoTResolversV6
+		config.ExternalNameServersV6 = zdns.DefaultExternalDoTResolversV6
+		return config, nil
+	}
+	if gc.DNSOverHTTPS {
+		defaultDoHNameServers := []string{"cloudflare-dns.com", "dns.google"}
+		return useNameServerStringToPopulateNameServers(defaultDoHNameServers, config)
+	}
 	if !gc.IterativeResolution && !gc.NameServerMode {
 		// Try to get the OS' default recursive resolver nameservers
 		var v4NameServers, v6NameServers []zdns.NameServer
@@ -377,6 +381,29 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 	config.RootNameServersV4 = zdns.RootServersV4[:]
 	config.ExternalNameServersV6 = zdns.RootServersV6[:]
 	config.RootNameServersV6 = zdns.RootServersV6[:]
+	return config, nil
+}
+
+func useNameServerStringToPopulateNameServers(nameServers []string, config *zdns.ResolverConfig) (*zdns.ResolverConfig, error) {
+	var v4NameServers, v6NameServers []zdns.NameServer
+	nses, err := convertNameServerStringSliceToNameServers(nameServers, config.IPVersionMode, config.DNSOverTLS, config.DNSOverHTTPS)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse name server: %v. Correct IPv4 format: 1.1.1.1:53 or IPv6 format: [::1]:53\"", err)
+	}
+	for _, ns := range nses {
+		if ns.IP.To4() != nil {
+			v4NameServers = append(v4NameServers, ns)
+		} else if util.IsIPv6(&ns.IP) {
+			v6NameServers = append(v6NameServers, ns)
+		} else {
+			log.Fatal("Invalid name server: ", ns.String())
+		}
+	}
+	// The resolver will ignore IPv6 nameservers if we're doing IPv4 only lookups, and vice versa so this is fine
+	config.ExternalNameServersV4 = v4NameServers
+	config.RootNameServersV4 = v4NameServers
+	config.ExternalNameServersV6 = v6NameServers
+	config.RootNameServersV6 = v6NameServers
 	return config, nil
 }
 
