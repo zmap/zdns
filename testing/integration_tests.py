@@ -39,7 +39,7 @@ def recursiveSort(obj):
 
 class Tests(unittest.TestCase):
     maxDiff = None
-    ZDNS_EXECUTABLE = "./zdns"
+    ZDNS_EXECUTABLE = "../zdns"
     ADDITIONAL_FLAGS = " --threads=10"  # flags used with every test
 
     def run_zdns_check_failure(self, flags, name, expected_err, executable=ZDNS_EXECUTABLE):
@@ -56,8 +56,9 @@ class Tests(unittest.TestCase):
 
     # Runs zdns with a given name(s) input and flags, returns the command and JSON objects from the piped JSON-Lines output
     # Used when running a ZDNS command that should return multiple lines of output, and you want those in a list
-    def run_zdns_multiline_output(self, flags, name, executable=ZDNS_EXECUTABLE):
-        flags = flags + self.ADDITIONAL_FLAGS
+    def run_zdns_multiline_output(self, flags, name, executable=ZDNS_EXECUTABLE, append_flags=True):
+        if append_flags:
+            flags = flags + self.ADDITIONAL_FLAGS
         c = f"echo '{name}' | {executable} {flags}"
         o = subprocess.check_output(c, shell=True)
         output_lines = o.decode('utf-8').strip().splitlines()
@@ -1001,6 +1002,27 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertEqual(res["results"]["A"]["data"]["resolver"], "8.8.8.8:53")
         self.assertEqualAnswers(res, self.WWW_CNAME_AND_A_ANSWERS, cmd, "A")
+
+    def test_name_server_mode_with_tls(self):
+        c = "A 1.1.1.1 8.8.8.8 --override-name=www.zdns-testing.com --name-server-mode --tls --threads=1"
+        name = ""
+        cmd, res = self.run_zdns_multiline_output(c, name, append_flags=False)
+        usedCloudflare = False
+        usedGoogle = False
+        for r in res:
+            self.assertEqualAnswers(r, self.WWW_CNAME_AND_A_ANSWERS, cmd, "A")
+            if r["results"]["A"]["data"]["resolver"] == "1.1.1.1:853":
+                usedCloudflare = True
+            elif r["results"]["A"]["data"]["resolver"] == "8.8.8.8:853":
+                usedGoogle = True
+            else:
+                self.fail("Unexpected resolver")
+        # we should setup a new TLS connection with each nameserver. This tests that that happens correctly
+        self.assertTrue(usedCloudflare)
+        self.assertTrue(usedGoogle)
+
+
+
 
     def test_ns_lookup(self):
         c = "nslookup --ipv4-lookup --ipv6-lookup"
