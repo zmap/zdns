@@ -11,7 +11,9 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/zmap/dns v1.1.59-zdns-4
 	github.com/zmap/go-iptree v0.0.0-20210731043055-d4e632617837
+	github.com/zmap/zcrypto v0.0.0-20240803002437-3a861682ac77
 	github.com/zmap/zflags v1.4.0-beta.1.0.20200204220219-9d95409821b6
+	github.com/zmap/zgrab2 v0.1.8
 	gotest.tools/v3 v3.5.1
 )
 
@@ -33,8 +35,6 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/weppos/publicsuffix-go v0.40.2 // indirect
 	github.com/zmap/rc2 v0.0.0-20190804163417-abaa70531248 // indirect
-	github.com/zmap/zcrypto v0.0.0-20240803002437-3a861682ac77 // indirect
-	github.com/zmap/zgrab2 v0.1.8 // indirect
 	golang.org/x/crypto v0.25.0 // indirect
 	golang.org/x/mod v0.18.0 // indirect
 	golang.org/x/net v0.27.0 // indirect
@@ -44,6 +44,5 @@ require (
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/tools v0.22.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
