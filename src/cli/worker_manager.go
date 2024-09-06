@@ -337,6 +337,7 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 				}
 			}
 		}
+		return config, nil
 	}
 	// User did not provide nameservers
 	if gc.DNSOverTLS {

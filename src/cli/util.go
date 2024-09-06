@@ -16,6 +16,7 @@ package cli
 
 import (
 	"encoding/json"
+
 	log "github.com/sirupsen/logrus"
 )
 

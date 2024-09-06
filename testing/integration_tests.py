@@ -1040,6 +1040,20 @@ class Tests(unittest.TestCase):
         self.assertTrue(usedCloudflare)
         self.assertTrue(usedGoogle)
 
+    def test_doh(self):
+        c = "A --https"
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "A")
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
+
+    def test_tls(self):
+        c = "A --tls"
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "A")
+        self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
+
 
 
 
