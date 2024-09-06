@@ -552,14 +552,14 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 	if strings.Contains(nameServer.DomainName, "http://") {
 		return SingleQueryResult{}, StatusError, errors.New("DoH name server must use HTTPS")
 	}
-	// TODO - don't want to change underlying nameserver
-	if !strings.HasPrefix(nameServer.DomainName, "https://") {
-		nameServer.DomainName = "https://" + nameServer.DomainName
+	httpsDomain := nameServer.DomainName
+	if !strings.HasPrefix(httpsDomain, "https://") {
+		httpsDomain = "https://" + httpsDomain
 	}
-	if !strings.HasSuffix(nameServer.DomainName, "/dns-query") {
-		nameServer.DomainName += "/dns-query"
+	if !strings.HasSuffix(httpsDomain, "/dns-query") {
+		httpsDomain += "/dns-query"
 	}
-	req, err := http.NewRequest("POST", nameServer.DomainName, strings.NewReader(string(bytes)))
+	req, err := http.NewRequest("POST", httpsDomain, strings.NewReader(string(bytes)))
 	if err != nil {
 		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not create HTTP request")
 	}
