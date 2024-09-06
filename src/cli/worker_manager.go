@@ -275,7 +275,7 @@ func populateIPTransportMode(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Re
 	// Domains could have either A or AAAA and that tells us nothing about the host's IPv4/6 capabilities
 	if gc.NameServersString != "" && len(ipOnlyNSes) > 0 {
 		// User provided name servers, so we can determine the IPVersionMode based on the provided name servers
-		nses, err = convertNameServerStringSliceToNameServers(ipOnlyNSes, zdns.IPv4OrIPv6)
+		nses, err = convertNameServerStringSliceToNameServers(ipOnlyNSes, zdns.IPv4OrIPv6, config.DNSOverTLS, config.DNSOverHTTPS)
 		if err != nil {
 			return nil, fmt.Errorf("could not parse name servers from --name-server: %v", err)
 		}
@@ -325,7 +325,7 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 	if len(gc.NameServers) != 0 {
 		// User provided name servers, use them.
 		var v4NameServers, v6NameServers []zdns.NameServer
-		nses, err := convertNameServerStringSliceToNameServers(gc.NameServers, config.IPVersionMode)
+		nses, err := convertNameServerStringSliceToNameServers(gc.NameServers, config.IPVersionMode, config.DNSOverTLS, config.DNSOverHTTPS)
 		if err != nil {
 			return nil, fmt.Errorf("could not parse name server: %v. Correct IPv4 format: 1.1.1.1:53 or IPv6 format: [::1]:53\"", err)
 		}
@@ -355,11 +355,11 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 			log.Warn("Unable to parse resolvers file. Using ZDNS defaults")
 		} else {
 			// convert string slices to NameServers
-			v4NameServers, err = convertNameServerStringSliceToNameServers(v4NameServerStrings, config.IPVersionMode)
+			v4NameServers, err = convertNameServerStringSliceToNameServers(v4NameServerStrings, config.IPVersionMode, config.DNSOverTLS, config.DNSOverHTTPS)
 			if err != nil {
 				return nil, fmt.Errorf("could not convert IPv4 nameservers %s to NameServers: %v", strings.Join(v4NameServerStrings, ", "), err)
 			}
-			v6NameServers, err = convertNameServerStringSliceToNameServers(v6NameServersStrings, config.IPVersionMode)
+			v6NameServers, err = convertNameServerStringSliceToNameServers(v6NameServersStrings, config.IPVersionMode, config.DNSOverTLS, config.DNSOverHTTPS)
 			if err != nil {
 				return nil, fmt.Errorf("could not convert IPv6 nameservers %s to NameServers: %v", strings.Join(v6NameServersStrings, ", "), err)
 			}
@@ -539,7 +539,7 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, o
 			rawName, entryMetadata = parseMetadataInputLine(line)
 			res.Metadata = entryMetadata
 		} else if gc.NameServerMode {
-			nameServers, err = convertNameServerStringToNameServer(line, rc.IPVersionMode)
+			nameServers, err = convertNameServerStringToNameServer(line, rc.IPVersionMode, rc.DNSOverTLS, rc.DNSOverHTTPS)
 			if err != nil {
 				log.Fatal("unable to parse name server: ", line)
 			}
@@ -551,7 +551,7 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, o
 		} else {
 			rawName, nameServerString = parseNormalInputLine(line)
 			if len(nameServerString) != 0 {
-				nameServers, err = convertNameServerStringToNameServer(nameServerString, rc.IPVersionMode)
+				nameServers, err = convertNameServerStringToNameServer(nameServerString, rc.IPVersionMode, rc.DNSOverTLS, rc.DNSOverHTTPS)
 				if err != nil {
 					log.Fatal("unable to parse name server: ", line)
 				}
@@ -679,10 +679,10 @@ func aggregateMetadata(c <-chan routineMetadata) Metadata {
 	return meta
 }
 
-func convertNameServerStringSliceToNameServers(nameServerStrings []string, mode zdns.IPVersionMode) ([]zdns.NameServer, error) {
+func convertNameServerStringSliceToNameServers(nameServerStrings []string, mode zdns.IPVersionMode, usingDoT, usingDoH bool) ([]zdns.NameServer, error) {
 	nameServers := make([]zdns.NameServer, 0, len(nameServerStrings))
 	for _, ns := range nameServerStrings {
-		parsedNSes, err := convertNameServerStringToNameServer(ns, mode)
+		parsedNSes, err := convertNameServerStringToNameServer(ns, mode, usingDoT, usingDoH)
 		if err != nil {
 			return nil, fmt.Errorf("could not parse name server %s: %v", ns, err)
 		}
@@ -691,7 +691,7 @@ func convertNameServerStringSliceToNameServers(nameServerStrings []string, mode 
 	return nameServers, nil
 }
 
-func convertNameServerStringToNameServer(inaddr string, mode zdns.IPVersionMode) ([]zdns.NameServer, error) {
+func convertNameServerStringToNameServer(inaddr string, mode zdns.IPVersionMode, usingDoT, usingDoH bool) ([]zdns.NameServer, error) {
 	host, port, err := util.SplitHostPort(inaddr)
 	if err == nil && host != nil {
 		return []zdns.NameServer{{IP: host, Port: uint16(port)}}, nil
@@ -701,11 +701,14 @@ func convertNameServerStringToNameServer(inaddr string, mode zdns.IPVersionMode)
 	ip := net.ParseIP(inaddr)
 	if ip != nil {
 		ns := zdns.NameServer{IP: ip}
-		ns.PopulateDefaultPort()
+		ns.PopulateDefaultPort(usingDoT, usingDoH)
 		return []zdns.NameServer{ns}, nil
 	}
 
 	// may be the domain name of a name server (one.one.one.one)
+	// we'll add these prefixes back on later, stripping so we can detect ports
+	inaddr = strings.TrimPrefix(inaddr, "https://")
+	inaddr = strings.TrimPrefix(inaddr, "http://")
 	domainAndPort := strings.Split(inaddr, ":")
 	port = 0
 	if len(domainAndPort) == 2 {
@@ -724,8 +727,8 @@ func convertNameServerStringToNameServer(inaddr string, mode zdns.IPVersionMode)
 		isIPv6AndCanUseIPv6 := util.IsIPv6(&resolvedIP) && mode != zdns.IPv4Only
 		isIPv4AndCanUseIPv4 := resolvedIP.To4() != nil && mode != zdns.IPv6Only
 		if isIPv4AndCanUseIPv4 || isIPv6AndCanUseIPv6 {
-			ns := zdns.NameServer{IP: resolvedIP, Port: uint16(port)}
-			ns.PopulateDefaultPort()
+			ns := zdns.NameServer{IP: resolvedIP, Port: uint16(port), DomainName: domainAndPort[0]}
+			ns.PopulateDefaultPort(usingDoT, usingDoH)
 			nses = append(nses, ns)
 		}
 	}

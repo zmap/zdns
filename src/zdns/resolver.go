@@ -370,6 +370,8 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 	isNSIPv6 := util.IsIPv6(&nameServer.IP)
 	isLoopback := nameServer.IP.IsLoopback()
 	// check if we have a pre-existing conn info
+	// TODO - this worked fine when connections didn't bind to the resolver (persistent TLS conn), but now that they do, may need to handle this differently
+	// TODO - likely need to discard conneciton if using TLS/HTTPS and the IP changes
 	if isNSIPv6 && isLoopback && r.connInfoIPv6Loopback != nil {
 		return r.connInfoIPv6Loopback, nil
 	} else if isNSIPv6 && !isLoopback && r.connInfoIPv6Internet != nil {
@@ -535,7 +537,7 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer *NameServer) (*SingleQu
 		dstServer = r.randomExternalNameServer()
 		log.Info("no name server provided for external lookup, using  random external name server: ", dstServer)
 	}
-	dstServer.PopulateDefaultPort()
+	dstServer.PopulateDefaultPort(r.dnsOverTLSEnabled, r.dnsOverHTTPSEnabled)
 	if isValid, reason := dstServer.IsValid(); !isValid {
 		return nil, nil, StatusIllegalInput, fmt.Errorf("destination server %s is invalid: %s", dstServer.String(), reason)
 	}

@@ -29,7 +29,9 @@ const (
 )
 
 const (
-	DefaultPort = 53
+	DefaultDNSPort = 53
+	DefaultDoHPort = 443
+	DefaultDoTPort = 853
 )
 
 func GetTransportMode(useUDP, useTCP bool) transportMode {
@@ -120,9 +122,15 @@ func (ns *NameServer) String() string {
 	return ""
 }
 
-func (ns *NameServer) PopulateDefaultPort() {
-	if ns.Port == 0 {
-		ns.Port = DefaultPort
+func (ns *NameServer) PopulateDefaultPort(usingDoT, usingDoH bool) {
+	if ns.Port != 0 {
+		return
+	} else if usingDoT {
+		ns.Port = DefaultDNSPort
+	} else if usingDoH {
+		ns.Port = DefaultDoHPort
+	} else {
+		ns.Port = DefaultDNSPort
 	}
 }
 

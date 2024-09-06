@@ -304,7 +304,7 @@ func (r *Resolver) LookupAllNameservers(q *Question, nameServer *NameServer) (*C
 			// construct the nameserver
 			res, trace, status, err := r.ExternalLookup(q, &NameServer{
 				IP:   net.ParseIP(ip),
-				Port: DefaultPort,
+				Port: DefaultDNSPort,
 			})
 			if err != nil {
 				// log and move on
@@ -805,7 +805,7 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 				ns := new(NameServer)
 				parsedIPString := strings.TrimSuffix(innerAns.Answer, ".")
 				ns.IP = net.ParseIP(parsedIPString)
-				ns.PopulateDefaultPort()
+				ns.PopulateDefaultPort(r.dnsOverTLSEnabled, r.dnsOverHTTPSEnabled)
 				return ns, StatusNoError, layer, trace
 			}
 		}
