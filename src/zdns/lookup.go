@@ -503,7 +503,7 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 			}
 			return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not perform TLS handshake")
 		}
-
+		connInfo.tlsHandshake = tlsConn.GetHandshakeLog()
 		connInfo.tlsConn = &dns.Conn{Conn: tlsConn}
 	}
 	err := connInfo.tlsConn.WriteMsg(m)
@@ -520,6 +520,16 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 		Answers:     []interface{}{},
 		Authorities: []interface{}{},
 		Additional:  []interface{}{},
+	}
+	// if we have it, add the TLS handshake info
+	if connInfo.tlsHandshake != nil {
+		processor := output.Processor{Verbose: false}
+		strippedOutput, stripErr := processor.Process(connInfo.tlsHandshake)
+		if stripErr != nil {
+			log.Warnf("Error stripping TLS log: %v", stripErr)
+		} else {
+			res.TLSServerHandshake = strippedOutput
+		}
 	}
 	return constructSingleQueryResultFromDNSMsg(res, responseMsg)
 }

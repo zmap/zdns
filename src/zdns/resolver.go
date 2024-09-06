@@ -231,12 +231,13 @@ func NewResolverConfig() *ResolverConfig {
 }
 
 type ConnectionInfo struct {
-	udpClient   *dns.Client
-	tcpClient   *dns.Client
-	conn        *dns.Conn    // for socket re-use
-	httpsClient *http.Client // for DoH
-	tlsConn     *dns.Conn    // for DoT
-	localAddr   net.IP
+	udpClient    *dns.Client
+	tcpClient    *dns.Client
+	conn         *dns.Conn            // for socket re-use
+	httpsClient  *http.Client         // for DoH
+	tlsConn      *dns.Conn            // for DoT
+	tlsHandshake *tls.ServerHandshake // for DoT, used to print TLS handshake to user
+	localAddr    net.IP
 }
 
 // Resolver is a struct that holds the state of a DNS resolver. It is used to perform DNS lookups.
