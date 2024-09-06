@@ -452,7 +452,7 @@ func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer *N
 		} else if r.dnsOverTLSEnabled {
 			result, status, err = doDoTLookup(ctx, connInfo, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
 		} else {
-			result, status, err = wireLookup(ctx, connInfo.udpClient, connInfo.tcpClient, connInfo.conn, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
+			result, status, err = wireLookup(ctx, connInfo.udpClient, connInfo.tcpClient, connInfo.conn, q, nameServer, r.ednsOptions, recursive, r.dnsSecEnabled, r.checkingDisabledBit)
 		}
 		if status != StatusTimeout || i == r.retries {
 			return result, status, i + 1, err
@@ -462,7 +462,7 @@ func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer *N
 	return SingleQueryResult{}, "", 0, errors.New("retry loop didn't exit properly")
 }
 
-func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer string, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (SingleQueryResult, Status, error) {
+func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (SingleQueryResult, Status, error) {
 	m := new(dns.Msg)
 	m.SetQuestion(dotName(q.Name), q.Type)
 	m.Question[0].Qclass = q.Class
@@ -484,15 +484,24 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 				Port: 0,
 			},
 		}
-		tcpConn, err := dialer.DialContext(ctx, "tcp", nameServer)
+		tcpConn, err := dialer.DialContext(ctx, "tcp", nameServer.String())
 		if err != nil {
 			return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not connect to server")
 		}
 		// Now wrap the connection with TLS
-		tlsConn := tls.Client(tcpConn, &tls.Config{
-			InsecureSkipVerify: true, // TODO - this is insecure, we'll fix later
-			//ServerName:         "cloudflare-dns.com",
-		})
+		var tlsConn *tls.Conn
+		if len(nameServer.DomainName) != 0 {
+			// domain name provided, we can verify the server's certificate
+			tlsConn = tls.Client(tcpConn, &tls.Config{
+				InsecureSkipVerify: false,
+				ServerName:         nameServer.DomainName,
+			})
+		} else {
+			// If no domain name is provided, we can't verify the server's certificate
+			tlsConn = tls.Client(tcpConn, &tls.Config{
+				InsecureSkipVerify: true,
+			})
+		}
 		err = tlsConn.Handshake()
 		if err != nil {
 			err := tlsConn.Close()
@@ -513,7 +522,7 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not unpack DNS message from DoT server")
 	}
 	res := SingleQueryResult{
-		Resolver:    nameServer,
+		Resolver:    nameServer.String(),
 		Protocol:    "DoT",
 		Answers:     []interface{}{},
 		Authorities: []interface{}{},
@@ -522,7 +531,7 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 	return constructSingleQueryResultFromDNSMsg(res, responseMsg)
 }
 
-func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameServer string, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (SingleQueryResult, Status, error) {
+func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameServer *NameServer, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (SingleQueryResult, Status, error) {
 	m := new(dns.Msg)
 	m.SetQuestion(dotName(q.Name), q.Type)
 	m.Question[0].Qclass = q.Class
@@ -537,11 +546,16 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 	if err != nil {
 		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not pack DNS message")
 	}
-	if !strings.Contains(nameServer, "https://") {
-		nameServer = "https://" + nameServer
+	if strings.Contains(nameServer.DomainName, "http://") {
+		return SingleQueryResult{}, StatusError, errors.New("DoH name server must use HTTPS")
 	}
-	nameServer += "/dns-query"
-	req, err := http.NewRequest("POST", nameServer, strings.NewReader(string(bytes)))
+	if !strings.HasPrefix(nameServer.DomainName, "https://") {
+		nameServer.DomainName = "https://" + nameServer.DomainName
+	}
+	if !strings.HasSuffix(nameServer.DomainName, "/dns-query") {
+		nameServer.DomainName += "/dns-query"
+	}
+	req, err := http.NewRequest("POST", nameServer.DomainName, strings.NewReader(string(bytes)))
 	if err != nil {
 		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not create HTTP request")
 	}
@@ -569,7 +583,7 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not unpack DNS message")
 	}
 	res := SingleQueryResult{
-		Resolver:    nameServer,
+		Resolver:    nameServer.DomainName,
 		Protocol:    "DoH",
 		Answers:     []interface{}{},
 		Authorities: []interface{}{},
@@ -583,7 +597,6 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 		} else {
 			res.TLSServerHandshake = strippedOutput
 		}
-		//res.TLSServerHandshake = resp.Request.TLSLog.HandshakeLog
 	}
 	return constructSingleQueryResultFromDNSMsg(res, r)
 }

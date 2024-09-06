@@ -461,7 +461,7 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 			LocalAddr: &net.TCPAddr{IP: connInfo.localAddr},
 		}
 	}
-	if shouldSetupHTTPClient {
+	if r.dnsOverHTTPSEnabled {
 		// Create a http.Client with the custom transport
 		connInfo.httpsClient = &http.Client{
 			UserAgent: "zdns/" + ZDNSVersion,
@@ -482,10 +482,19 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 					if err != nil {
 						return nil, err
 					}
-					// Now wrap the connection with TLS
-					tlsConn := tls.Client(conn, &tls.Config{
-						InsecureSkipVerify: true, // TODO - this is insecure, we'll fix later
-					})
+					var tlsConn *tls.Conn
+					if len(nameServer.DomainName) != 0 {
+						// domain name provided, we can verify the server's certificate
+						tlsConn = tls.Client(conn, &tls.Config{
+							InsecureSkipVerify: false,
+							ServerName:         nameServer.DomainName,
+						})
+					} else {
+						// If no domain name is provided, we can't verify the server's certificate
+						tlsConn = tls.Client(conn, &tls.Config{
+							InsecureSkipVerify: true,
+						})
+					}
 					err = tlsConn.Handshake()
 					if err != nil {
 						conn.Close()
