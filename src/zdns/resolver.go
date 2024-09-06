@@ -487,9 +487,9 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 					var tlsConn *tls.Conn
 					if len(nameServer.DomainName) != 0 {
 						// domain name provided, we can verify the server's certificate
+						// TODO below works, but we should be able to verify the server's cert
 						tlsConn = tls.Client(conn, &tls.Config{
-							InsecureSkipVerify: false,
-							ServerName:         nameServer.DomainName,
+							InsecureSkipVerify: true,
 						})
 					} else {
 						// If no domain name is provided, we can't verify the server's certificate

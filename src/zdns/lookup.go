@@ -475,6 +475,7 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 		ednsOpt.Option = append(ednsOpt.Option, ednsOptions...)
 	}
 
+	// TODO for --nameserver-mode, we'll need to check if the tlsconn is correct for this nameserver
 	if connInfo.tlsConn == nil {
 		// first lookup for this resolver, create a new TLS client now
 		// Custom dialer with local address binding
@@ -490,18 +491,10 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 		}
 		// Now wrap the connection with TLS
 		var tlsConn *tls.Conn
-		if len(nameServer.DomainName) != 0 {
-			// domain name provided, we can verify the server's certificate
-			tlsConn = tls.Client(tcpConn, &tls.Config{
-				InsecureSkipVerify: false,
-				ServerName:         nameServer.DomainName,
-			})
-		} else {
-			// If no domain name is provided, we can't verify the server's certificate
-			tlsConn = tls.Client(tcpConn, &tls.Config{
-				InsecureSkipVerify: true,
-			})
-		}
+		// TODO - implement server cert validation
+		tlsConn = tls.Client(tcpConn, &tls.Config{
+			InsecureSkipVerify: true,
+		})
 		err = tlsConn.Handshake()
 		if err != nil {
 			err := tlsConn.Close()
@@ -549,6 +542,7 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 	if strings.Contains(nameServer.DomainName, "http://") {
 		return SingleQueryResult{}, StatusError, errors.New("DoH name server must use HTTPS")
 	}
+	// TODO - don't want to change underlying nameserver
 	if !strings.HasPrefix(nameServer.DomainName, "https://") {
 		nameServer.DomainName = "https://" + nameServer.DomainName
 	}

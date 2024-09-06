@@ -126,7 +126,7 @@ func (ns *NameServer) PopulateDefaultPort(usingDoT, usingDoH bool) {
 	if ns.Port != 0 {
 		return
 	} else if usingDoT {
-		ns.Port = DefaultDNSPort
+		ns.Port = DefaultDoTPort
 	} else if usingDoH {
 		ns.Port = DefaultDoHPort
 	} else {

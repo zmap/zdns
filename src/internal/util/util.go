@@ -31,35 +31,6 @@ const (
 	DefaultTLSPort         = "853"
 )
 
-func AddDefaultPortToDNSServerName(inAddr string, usingHTTPS, usingTLS bool) (string, error) {
-	// Try to split host and port to see if the port is already specified.
-	host, port, err := net.SplitHostPort(inAddr)
-	if err != nil {
-		// might mean there's no port specified
-		host = inAddr
-	}
-
-	// Validate the host part as an IP address.
-	ip := net.ParseIP(host)
-	if ip == nil {
-		return "", errors.New("invalid IP address")
-	}
-
-	if port == "" && usingHTTPS {
-		// default HTTPS port is 443
-		port = DefaultHTTPSPort
-	} else if port == "" && usingTLS {
-		// default DoT port is 853
-		port = DefaultTLSPort
-	} else if port == "" {
-		// If the original input does not have a port, specify port 53
-		port = DefaultDNSPort
-
-	}
-
-	return net.JoinHostPort(ip.String(), port), nil
-}
-
 func SplitHostPort(inaddr string) (net.IP, int, error) {
 	host, port, err := net.SplitHostPort(inaddr)
 	if err != nil {
