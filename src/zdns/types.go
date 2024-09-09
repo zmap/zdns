@@ -15,6 +15,8 @@ package zdns
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
+	"hash/fnv"
 	"net"
 
 	"github.com/zmap/zdns/src/internal/util"
@@ -120,6 +122,31 @@ func (ns *NameServer) String() string {
 		return fmt.Sprintf("[%s]:%d", ns.IP.String(), ns.Port)
 	}
 	return ""
+}
+
+func (ns *NameServer) Hash() (uint32, error) {
+	h := fnv.New32a()
+
+	// Hash the IP address
+	_, err := h.Write(ns.IP)
+	if err != nil {
+		return 0, errors.Wrap(err, "unable to hash IP address")
+	}
+
+	// Hash the Port
+	portBytes := []byte{byte(ns.Port >> 8), byte(ns.Port & 0xff)}
+	_, err = h.Write(portBytes)
+	if err != nil {
+		return 0, errors.Wrap(err, "unable to hash port")
+	}
+
+	// Hash the DomainName
+	_, err = h.Write([]byte(ns.DomainName))
+	if err != nil {
+		return 0, errors.Wrap(err, "unable to hash domain name")
+	}
+
+	return h.Sum32(), nil
 }
 
 func (ns *NameServer) PopulateDefaultPort(usingDoT, usingDoH bool) {
