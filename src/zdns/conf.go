@@ -18,9 +18,9 @@ import "net"
 
 const (
 	googleDNSDomainName     = "google.com"
-	googleDoHDomainName     = "dns.google"
+	GoogleDoHDomainName     = "dns.google"
 	cloudflareDNSDomainName = "cloudflare.com"
-	cloudflareDoHDomainName = "cloudflare-dns.com"
+	CloudflareDoHDomainName = "cloudflare-dns.com"
 )
 
 type TargetedDomain struct {

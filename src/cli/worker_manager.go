@@ -348,7 +348,7 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 		return config, nil
 	}
 	if gc.DNSOverHTTPS {
-		defaultDoHNameServers := []string{"cloudflare-dns.com", "dns.google"}
+		defaultDoHNameServers := []string{zdns.CloudflareDoHDomainName, zdns.GoogleDoHDomainName}
 		return useNameServerStringToPopulateNameServers(defaultDoHNameServers, config)
 	}
 	if !gc.IterativeResolution && !gc.NameServerMode {
