@@ -17,6 +17,7 @@ package cli
 import (
 	"encoding/json"
 
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -78,67 +79,98 @@ func marshalIntSlice(v interface{}) ([]byte, error) {
 	case []uint64:
 		return json.Marshal(v)
 	case []interface{}:
+		var ok bool
 		if len(v) > 0 {
 			// Check the type of the first element
 			switch v[0].(type) {
 			case int:
 				converted := make([]int, len(v))
 				for i, val := range v {
-					converted[i] = val.(int)
+					converted[i], ok = val.(int)
+					if !ok {
+						return nil, errors.New("failed to convert interface to int")
+					}
 				}
 				return json.Marshal(converted)
 			case int8:
 				converted := make([]int8, len(v))
 				for i, val := range v {
-					converted[i] = val.(int8)
+					converted[i], ok = val.(int8)
+					if !ok {
+						return nil, errors.New("failed to convert interface to int8")
+					}
 				}
 				return json.Marshal(converted)
 			case int16:
 				converted := make([]int16, len(v))
 				for i, val := range v {
-					converted[i] = val.(int16)
+					converted[i], ok = val.(int16)
+					if !ok {
+						return nil, errors.New("failed to convert interface to int16")
+					}
 				}
 				return json.Marshal(converted)
 			case int32:
 				converted := make([]int32, len(v))
 				for i, val := range v {
-					converted[i] = val.(int32)
+					converted[i], ok = val.(int32)
+					if !ok {
+						return nil, errors.New("failed to convert interface to int32")
+					}
 				}
 				return json.Marshal(converted)
 			case int64:
 				converted := make([]int64, len(v))
 				for i, val := range v {
-					converted[i] = val.(int64)
+					converted[i], ok = val.(int64)
+					if !ok {
+						return nil, errors.New("failed to convert interface to int64")
+					}
 				}
 				return json.Marshal(converted)
 			case uint:
 				converted := make([]uint, len(v))
 				for i, val := range v {
-					converted[i] = val.(uint)
+					converted[i], ok = val.(uint)
+					if !ok {
+						return nil, errors.New("failed to convert interface to uint")
+					}
 				}
 				return json.Marshal(converted)
 			case uint8:
 				converted := make([]uint8, len(v))
 				for i, val := range v {
-					converted[i] = val.(uint8)
+					converted[i], ok = val.(uint8)
+					if !ok {
+						return nil, errors.New("failed to convert interface to uint8")
+					}
 				}
 				return json.Marshal(converted)
 			case uint16:
 				converted := make([]uint16, len(v))
 				for i, val := range v {
-					converted[i] = val.(uint16)
+					converted[i], ok = val.(uint16)
+					if !ok {
+						return nil, errors.New("failed to convert interface to uint16")
+					}
 				}
 				return json.Marshal(converted)
 			case uint32:
 				converted := make([]uint32, len(v))
 				for i, val := range v {
-					converted[i] = val.(uint32)
+					converted[i], ok = val.(uint32)
+					if !ok {
+						return nil, errors.New("failed to convert interface to uint32")
+					}
 				}
 				return json.Marshal(converted)
 			case uint64:
 				converted := make([]uint64, len(v))
 				for i, val := range v {
-					converted[i] = val.(uint64)
+					converted[i], ok = val.(uint64)
+					if !ok {
+						return nil, errors.New("failed to convert interface to uint64")
+					}
 				}
 				return json.Marshal(converted)
 			default:

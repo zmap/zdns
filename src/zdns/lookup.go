@@ -499,9 +499,8 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 			return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not connect to server")
 		}
 		// Now wrap the connection with TLS
-		var tlsConn *tls.Conn
 		// TODO - implement server cert validation
-		tlsConn = tls.Client(tcpConn, &tls.Config{
+		tlsConn := tls.Client(tcpConn, &tls.Config{
 			InsecureSkipVerify: true,
 		})
 		err = tlsConn.Handshake()
@@ -580,7 +579,7 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not perform HTTP request")
 	}
 	defer func(Body io.ReadCloser) {
-		err := Body.Close()
+		err = Body.Close()
 		if err != nil {
 			log.Errorf("error closing DoH response body: %v", err)
 		}
