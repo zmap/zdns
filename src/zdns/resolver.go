@@ -371,8 +371,6 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 	isNSIPv6 := util.IsIPv6(&nameServer.IP)
 	isLoopback := nameServer.IP.IsLoopback()
 	// check if we have a pre-existing conn info
-	// TODO - this worked fine when connections didn't bind to the resolver (persistent TLS conn), but now that they do, may need to handle this differently
-	// TODO - likely need to discard conneciton if using TLS/HTTPS and the IP changes
 	if isNSIPv6 && isLoopback && r.connInfoIPv6Loopback != nil {
 		return r.connInfoIPv6Loopback, nil
 	} else if isNSIPv6 && !isLoopback && r.connInfoIPv6Internet != nil {
@@ -506,7 +504,7 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 					return tlsConn, nil
 				},
 			},
-			Timeout: 10 * time.Second,
+			Timeout: r.timeout,
 		}
 	}
 	// save the connection info for future use

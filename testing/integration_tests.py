@@ -1054,9 +1054,6 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd, "A")
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
 
-
-
-
     def test_ns_lookup(self):
         c = "nslookup --ipv4-lookup --ipv6-lookup"
         name = "www.zdns-testing.com"
