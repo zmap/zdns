@@ -637,6 +637,14 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan *InputLin
 		res.Name = rawName
 		// handle per-module lookups
 		for moduleName, module := range gc.ActiveModules {
+			if moduleName == "AXFR" {
+				// special case, AXFR has its own nameserver handling. We'll only take nameservers if the user provides it
+				// not the "suggestion" from the de-multiplexor
+				if nameServer.String() == line.NameServer.String() {
+					// this name server is the suggested one from the de-multiplexor, we'll remove it
+					nameServer = nil
+				}
+			}
 			var innerRes interface{}
 			var trace zdns.Trace
 			var status zdns.Status
@@ -698,6 +706,11 @@ func parseInputLine(gc *CLIConf, rc *zdns.ResolverConfig, line *InputLineWithNam
 	res := zdns.Result{Results: make(map[string]zdns.SingleModuleResult, len(gc.ActiveModules))}
 	// get the fields that won't change for each lookup module
 	rawName := ""
+	// this is the name server "suggested" by the de-multiplexor. The goal is that if
+	// 1) the user doesn't provide a nameserver
+	// 2) we're in external lookup mode
+	// then we'll use the suggestion. This is to avoid the overhead of re-handshaking for each lookup
+	// it's overwritten if the user provides a nameserver as part of the input line below
 	nameServer := line.NameServer
 	nameServerString := ""
 	var rank int
