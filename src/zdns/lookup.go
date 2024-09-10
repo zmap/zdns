@@ -453,7 +453,7 @@ func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer *N
 		} else if r.dnsOverTLSEnabled {
 			result, status, err = doDoTLookup(ctx, connInfo, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
 		} else {
-			result, status, err = wireLookup(ctx, connInfo.udpClient, connInfo.tcpClient, connInfo.conn, q, nameServer, r.ednsOptions, recursive, r.dnsSecEnabled, r.checkingDisabledBit)
+			result, status, err = wireLookup(ctx, connInfo.udpClient, connInfo.tcpClient, connInfo.udpConn, connInfo.tcpConn, q, nameServer, r.ednsOptions, recursive, r.dnsSecEnabled, r.checkingDisabledBit)
 		}
 		if status != StatusTimeout || i == r.retries {
 			return result, status, i + 1, err
@@ -615,7 +615,7 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 
 // wireLookup performs a DNS lookup on-the-wire with the given parameters
 // Attempts a UDP lookup first, then falls back to TCP if necessary (if the UDP response encounters an error or is truncated)
-func wireLookup(ctx context.Context, udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question, nameServer *NameServer, ednsOptions []dns.EDNS0, recursive, dnssec, checkingDisabled bool) (SingleQueryResult, Status, error) {
+func wireLookup(ctx context.Context, udp *dns.Client, tcp *dns.Client, udpConn, tcpConn *dns.Conn, q Question, nameServer *NameServer, ednsOptions []dns.EDNS0, recursive, dnssec, checkingDisabled bool) (SingleQueryResult, Status, error) {
 	res := SingleQueryResult{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 	res.Resolver = nameServer.String()
 
@@ -634,23 +634,35 @@ func wireLookup(ctx context.Context, udp *dns.Client, tcp *dns.Client, conn *dns
 	var err error
 	if udp != nil {
 		res.Protocol = "udp"
-		if conn != nil {
+		if udpConn != nil {
 			dst, _ := net.ResolveUDPAddr("udp", nameServer.String())
-			r, _, err = udp.ExchangeWithConnToContext(ctx, m, conn, dst)
+			r, _, err = udp.ExchangeWithConnToContext(ctx, m, udpConn, dst)
 		} else {
 			r, _, err = udp.ExchangeContext(ctx, m, nameServer.String())
 		}
 		// if record comes back truncated, but we have a TCP connection, try again with that
 		if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
 			if tcp != nil {
-				return wireLookup(ctx, nil, tcp, conn, q, nameServer, ednsOptions, recursive, dnssec, checkingDisabled)
+				return wireLookup(ctx, nil, tcp, udpConn, tcpConn, q, nameServer, ednsOptions, recursive, dnssec, checkingDisabled)
 			} else {
 				return res, StatusTruncated, err
 			}
 		}
-	} else {
-		res.Protocol = "tcp"
-		r, _, err = tcp.ExchangeContext(ctx, m, nameServer.String())
+	} else if tcp != nil {
+		// TCP
+		if tcpConn != nil && tcpConn.RemoteAddr != nil && tcpConn.RemoteAddr.String() == nameServer.String() {
+			// we have a connection to this nameserver, use it
+			res.Protocol = "tcp"
+			var addr *net.TCPAddr
+			addr, err = net.ResolveTCPAddr("tcp", nameServer.String())
+			if err != nil {
+				return SingleQueryResult{}, StatusError, fmt.Errorf("could not resolve TCP address %s: %v", nameServer.String(), err)
+			}
+			r, _, err = tcp.ExchangeWithConnToContext(ctx, m, tcpConn, addr)
+		} else {
+			res.Protocol = "tcp"
+			r, _, err = tcp.ExchangeContext(ctx, m, nameServer.String())
+		}
 	}
 	if err != nil || r == nil {
 		if nerr, ok := err.(net.Error); ok {

@@ -233,7 +233,8 @@ func NewResolverConfig() *ResolverConfig {
 type ConnectionInfo struct {
 	udpClient    *dns.Client
 	tcpClient    *dns.Client
-	conn         *dns.Conn            // for socket re-use
+	udpConn      *dns.Conn            // for socket re-use with UDP
+	tcpConn      *dns.Conn            // for socket re-use with TCP, if RemoteAddr doesn't change, we don't re-handshake
 	httpsClient  *http.Client         // for DoH
 	tlsConn      *dns.Conn            // for DoT
 	tlsHandshake *tls.ServerHandshake // for DoT, used to print TLS handshake to user
@@ -370,7 +371,7 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 	// what local addresses should we use?
 	isNSIPv6 := util.IsIPv6(&nameServer.IP)
 	isLoopback := nameServer.IP.IsLoopback()
-	// check if we have a pre-existing conn info
+	// check if we have a pre-existing udpConn info
 	if isNSIPv6 && isLoopback && r.connInfoIPv6Loopback != nil {
 		return r.connInfoIPv6Loopback, nil
 	} else if isNSIPv6 && !isLoopback && r.connInfoIPv6Internet != nil {
@@ -439,8 +440,8 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 		if err != nil {
 			return nil, fmt.Errorf("unable to create UDP connection: %w", err)
 		}
-		connInfo.conn = new(dns.Conn)
-		connInfo.conn.Conn = conn
+		connInfo.udpConn = new(dns.Conn)
+		connInfo.udpConn.Conn = conn
 	}
 
 	usingUDP := r.transportMode == UDPOrTCP || r.transportMode == UDPOnly
@@ -460,6 +461,19 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 		connInfo.tcpClient.Dialer = &net.Dialer{
 			Timeout:   r.timeout,
 			LocalAddr: &net.TCPAddr{IP: connInfo.localAddr},
+		}
+	}
+	if r.transportMode == TCPOnly && r.shouldRecycleSockets {
+		// create persistent TCP connection to nameserver
+		if connInfo.tcpConn == nil || connInfo.tcpConn.RemoteAddr != nil || connInfo.tcpConn.RemoteAddr.String() != nameServer.String() {
+			// RemoteAddr has changed, we need to re-handshake
+			conn, err := net.DialTCP("tcp", &net.TCPAddr{IP: connInfo.localAddr}, &net.TCPAddr{IP: nameServer.IP, Port: int(nameServer.Port)})
+			if err != nil {
+				return nil, fmt.Errorf("unable to create TCP connection for nameserver %s: %w", nameServer.String(), err)
+			}
+			connInfo.tcpConn = new(dns.Conn)
+			connInfo.tcpConn.Conn = conn
+			connInfo.tcpConn.RemoteAddr = &net.TCPAddr{IP: nameServer.IP, Port: int(nameServer.Port)}
 		}
 	}
 	if r.dnsOverHTTPSEnabled {
@@ -561,23 +575,23 @@ func (r *Resolver) IterativeLookup(q *Question) (*SingleQueryResult, Trace, Stat
 // Close cleans up any resources used by the resolver. This should be called when the resolver is no longer needed.
 // Lookup will panic if called after Close.
 func (r *Resolver) Close() {
-	if r.connInfoIPv4Internet != nil && r.connInfoIPv4Internet.conn != nil {
-		if err := r.connInfoIPv4Internet.conn.Close(); err != nil {
+	if r.connInfoIPv4Internet != nil && r.connInfoIPv4Internet.udpConn != nil {
+		if err := r.connInfoIPv4Internet.udpConn.Close(); err != nil {
 			log.Errorf("error closing IPv4 connection: %v", err)
 		}
 	}
-	if r.connInfoIPv6Internet != nil && r.connInfoIPv6Internet.conn != nil {
-		if err := r.connInfoIPv6Internet.conn.Close(); err != nil {
+	if r.connInfoIPv6Internet != nil && r.connInfoIPv6Internet.udpConn != nil {
+		if err := r.connInfoIPv6Internet.udpConn.Close(); err != nil {
 			log.Errorf("error closing IPv6 connection: %v", err)
 		}
 	}
-	if r.connInfoIPv4Loopback != nil && r.connInfoIPv4Loopback.conn != nil {
-		if err := r.connInfoIPv4Loopback.conn.Close(); err != nil {
+	if r.connInfoIPv4Loopback != nil && r.connInfoIPv4Loopback.udpConn != nil {
+		if err := r.connInfoIPv4Loopback.udpConn.Close(); err != nil {
 			log.Errorf("error closing IPv4 loopback connection: %v", err)
 		}
 	}
-	if r.connInfoIPv6Loopback != nil && r.connInfoIPv6Loopback.conn != nil {
-		if err := r.connInfoIPv6Loopback.conn.Close(); err != nil {
+	if r.connInfoIPv6Loopback != nil && r.connInfoIPv6Loopback.udpConn != nil {
+		if err := r.connInfoIPv6Loopback.udpConn.Close(); err != nil {
 			log.Errorf("error closing IPv6 loopback connection: %v", err)
 		}
 	}
