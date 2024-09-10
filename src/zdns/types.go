@@ -15,9 +15,10 @@ package zdns
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"hash/fnv"
 	"net"
+
+	"github.com/pkg/errors"
 
 	"github.com/zmap/zdns/src/internal/util"
 )

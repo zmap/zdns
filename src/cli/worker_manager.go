@@ -511,8 +511,9 @@ func Run(gc CLIConf) {
 	// de-dupe
 	nsLookupMap := make(map[uint32]struct{})
 	uniqNameServers := make([]zdns.NameServer, 0, len(nameServers))
+	var hash uint32
 	for _, ns := range nameServers {
-		hash, err := ns.Hash()
+		hash, err = ns.Hash()
 		if err != nil {
 			log.Fatalf("could not hash name server %s: %v", ns.String(), err)
 		}
