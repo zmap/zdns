@@ -472,6 +472,7 @@ func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer *N
 }
 
 func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (SingleQueryResult, Status, error) {
+	return SingleQueryResult{}, StatusError, errors.New("DoT not implemented")
 	m := new(dns.Msg)
 	m.SetQuestion(dotName(q.Name), q.Type)
 	m.Question[0].Qclass = q.Class
