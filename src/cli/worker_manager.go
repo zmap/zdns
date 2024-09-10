@@ -451,7 +451,8 @@ type InputLineWithNameServer struct {
 
 // inputDeMultiplxer is a single goroutine that reads from the input channel and sends the input to the appropriate worker pool channel
 // The goal is that a query for a single name server will consistently go to the same worker pool which 1+ threads will read from
-// This is especially useful for HTTPS/TLS/TCP based lookups where repeating the initial handshakes would be wasteful
+// This is especially useful for TLS/TCP based lookups where repeating the initial handshakes would be wasteful
+// For HTTPS conns, they depend on the domain name rather than the IP address, so we need to ensure that all queries for a domain name go to the same channel with HTTPS
 func inputDeMultiplexer(nameServers []zdns.NameServer, inChan <-chan string, workerPools *WorkerPools, wg *sync.WaitGroup) error {
 	wg.Add(1)
 	defer wg.Done()
@@ -519,6 +520,19 @@ func Run(gc CLIConf) {
 			nsLookupMap[hash] = struct{}{}
 			uniqNameServers = append(uniqNameServers, ns)
 		}
+	}
+	// DoH lookups only depend on domain name, remove nameservers with duplicate domains
+	// We don't want the deMultiplexer to send the same domain (with different IPs) to different worker pools
+	if gc.DNSOverHTTPS {
+		nsDomainLookupMap := make(map[string]struct{})
+		uniqueDomainNSes := make([]zdns.NameServer, 0, len(uniqNameServers))
+		for _, ns := range uniqNameServers {
+			if _, ok := nsDomainLookupMap[ns.DomainName]; !ok {
+				nsDomainLookupMap[ns.DomainName] = struct{}{}
+				uniqueDomainNSes = append(uniqueDomainNSes, ns)
+			}
+		}
+		uniqNameServers = uniqueDomainNSes
 	}
 	numberOfWorkerPools := len(uniqNameServers)
 	if gc.Threads < numberOfWorkerPools {
