@@ -441,7 +441,7 @@ type WorkerPools struct {
 func NewWorkerPools(numPools int) *WorkerPools {
 	workerPools := make([]chan *InputLineWithNameServer, numPools)
 	for i := 0; i < numPools; i++ {
-		workerPools[i] = make(chan *InputLineWithNameServer)
+		workerPools[i] = make(chan *InputLineWithNameServer, 10)
 	}
 	return &WorkerPools{WorkerPools: workerPools}
 }
