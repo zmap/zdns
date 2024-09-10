@@ -472,7 +472,6 @@ func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer *N
 }
 
 func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (SingleQueryResult, Status, error) {
-	return SingleQueryResult{}, StatusError, errors.New("DoT not implemented")
 	m := new(dns.Msg)
 	m.SetQuestion(dotName(q.Name), q.Type)
 	m.Question[0].Qclass = q.Class
@@ -624,6 +623,7 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 
 // wireLookupTCP performs a DNS lookup on-the-wire over TCP with the given parameters
 func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, ednsOptions []dns.EDNS0, recursive, dnssec, checkingDisabled, retryOnConnClosing bool) (SingleQueryResult, Status, error) {
+	return SingleQueryResult{}, StatusError, errors.New("TCP not implemented")
 	res := SingleQueryResult{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 	res.Resolver = nameServer.String()
 
