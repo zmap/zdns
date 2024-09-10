@@ -657,7 +657,7 @@ func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, na
 			return wireLookupTCP(ctx, connInfo, q, nameServer, ednsOptions, recursive, dnssec, checkingDisabled, false)
 		}
 	} else {
-		// no pre-existing connection, create a ephemeral one
+		// no pre-existing connection, create an ephemeral one
 		res.Protocol = "tcp"
 		r, _, err = connInfo.tcpClient.ExchangeContext(ctx, m, nameServer.String())
 	}
