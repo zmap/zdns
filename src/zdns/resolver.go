@@ -531,6 +531,12 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 }
 
 func getNewTCPConn(nameServer *NameServer, connInfo *ConnectionInfo) error {
+	// close any existing TCP connection
+	if connInfo.tcpConn != nil {
+		if err := connInfo.tcpConn.Close(); err != nil {
+			return fmt.Errorf("error closing existing TCP connection: %w", err)
+		}
+	}
 	// create persistent TCP connection to nameserver
 	conn, err := net.DialTCP("tcp", &net.TCPAddr{IP: connInfo.localAddr}, &net.TCPAddr{IP: nameServer.IP, Port: int(nameServer.Port)})
 	if err != nil {
@@ -583,24 +589,52 @@ func (r *Resolver) IterativeLookup(q *Question) (*SingleQueryResult, Trace, Stat
 // Close cleans up any resources used by the resolver. This should be called when the resolver is no longer needed.
 // Lookup will panic if called after Close.
 func (r *Resolver) Close() {
-	if r.connInfoIPv4Internet != nil && r.connInfoIPv4Internet.udpConn != nil {
-		if err := r.connInfoIPv4Internet.udpConn.Close(); err != nil {
-			log.Errorf("error closing IPv4 connection: %v", err)
+	if r.connInfoIPv4Internet != nil {
+		if r.connInfoIPv4Internet.udpConn != nil {
+			if err := r.connInfoIPv4Internet.udpConn.Close(); err != nil {
+				log.Errorf("error closing UDP IPv4 connection: %v", err)
+			}
+		}
+		if r.connInfoIPv4Internet.tcpConn != nil {
+			if err := r.connInfoIPv4Internet.tcpConn.Close(); err != nil {
+				log.Errorf("error closing TCP IPv4 connection: %v", err)
+			}
 		}
 	}
-	if r.connInfoIPv6Internet != nil && r.connInfoIPv6Internet.udpConn != nil {
-		if err := r.connInfoIPv6Internet.udpConn.Close(); err != nil {
-			log.Errorf("error closing IPv6 connection: %v", err)
+	if r.connInfoIPv6Internet != nil {
+		if r.connInfoIPv6Internet.udpConn != nil {
+			if err := r.connInfoIPv6Internet.udpConn.Close(); err != nil {
+				log.Errorf("error closing UDP IPv6 connection: %v", err)
+			}
+		}
+		if r.connInfoIPv6Internet.tcpConn != nil {
+			if err := r.connInfoIPv6Internet.tcpConn.Close(); err != nil {
+				log.Errorf("error closing TCP IPv6 connection: %v", err)
+			}
 		}
 	}
-	if r.connInfoIPv4Loopback != nil && r.connInfoIPv4Loopback.udpConn != nil {
-		if err := r.connInfoIPv4Loopback.udpConn.Close(); err != nil {
-			log.Errorf("error closing IPv4 loopback connection: %v", err)
+	if r.connInfoIPv4Loopback != nil {
+		if r.connInfoIPv4Loopback.udpConn != nil {
+			if err := r.connInfoIPv4Loopback.udpConn.Close(); err != nil {
+				log.Errorf("error closing IPv4 UDP loopback connection: %v", err)
+			}
+		}
+		if r.connInfoIPv4Loopback.tcpConn != nil {
+			if err := r.connInfoIPv4Loopback.tcpConn.Close(); err != nil {
+				log.Errorf("error closing IPv4 TCP loopback connection: %v", err)
+			}
 		}
 	}
-	if r.connInfoIPv6Loopback != nil && r.connInfoIPv6Loopback.udpConn != nil {
-		if err := r.connInfoIPv6Loopback.udpConn.Close(); err != nil {
-			log.Errorf("error closing IPv6 loopback connection: %v", err)
+	if r.connInfoIPv6Loopback != nil {
+		if r.connInfoIPv6Loopback.udpConn != nil {
+			if err := r.connInfoIPv6Loopback.udpConn.Close(); err != nil {
+				log.Errorf("error closing IPv6 UDP loopback connection: %v", err)
+			}
+		}
+		if r.connInfoIPv6Loopback.tcpConn != nil {
+			if err := r.connInfoIPv6Loopback.tcpConn.Close(); err != nil {
+				log.Errorf("error closing IPv6 TCP loopback connection: %v", err)
+			}
 		}
 	}
 }
