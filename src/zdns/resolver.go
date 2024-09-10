@@ -464,16 +464,12 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 		}
 	}
 	if r.transportMode == TCPOnly && r.shouldRecycleSockets {
-		// create persistent TCP connection to nameserver
 		if connInfo.tcpConn == nil || connInfo.tcpConn.RemoteAddr != nil || connInfo.tcpConn.RemoteAddr.String() != nameServer.String() {
-			// RemoteAddr has changed, we need to re-handshake
-			conn, err := net.DialTCP("tcp", &net.TCPAddr{IP: connInfo.localAddr}, &net.TCPAddr{IP: nameServer.IP, Port: int(nameServer.Port)})
+			// need to re-handshake
+			err := getNewTCPConn(nameServer, connInfo)
 			if err != nil {
-				return nil, fmt.Errorf("unable to create TCP connection for nameserver %s: %w", nameServer.String(), err)
+				return nil, errors.Wrap(err, "unable to create TCP connection")
 			}
-			connInfo.tcpConn = new(dns.Conn)
-			connInfo.tcpConn.Conn = conn
-			connInfo.tcpConn.RemoteAddr = &net.TCPAddr{IP: nameServer.IP, Port: int(nameServer.Port)}
 		}
 	}
 	if r.dnsOverHTTPSEnabled {
@@ -532,6 +528,18 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 		r.connInfoIPv4Internet = connInfo
 	}
 	return connInfo, nil
+}
+
+func getNewTCPConn(nameServer *NameServer, connInfo *ConnectionInfo) error {
+	// create persistent TCP connection to nameserver
+	conn, err := net.DialTCP("tcp", &net.TCPAddr{IP: connInfo.localAddr}, &net.TCPAddr{IP: nameServer.IP, Port: int(nameServer.Port)})
+	if err != nil {
+		return fmt.Errorf("unable to create TCP connection for nameserver %s: %w", nameServer.String(), err)
+	}
+	connInfo.tcpConn = new(dns.Conn)
+	connInfo.tcpConn.Conn = conn
+	connInfo.tcpConn.RemoteAddr = &net.TCPAddr{IP: nameServer.IP, Port: int(nameServer.Port)}
+	return nil
 }
 
 // ExternalLookup performs a single lookup of a DNS question, q,  against an external name server.
