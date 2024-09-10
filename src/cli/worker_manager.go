@@ -458,6 +458,7 @@ type InputLineWithNameServer struct {
 // The goal is that a query for a single name server will consistently go to the same worker pool which 1+ threads will read from
 // This is especially useful for TLS/TCP/HTTPS based lookups where repeating the initial handshakes would be wasteful
 func inputDeMultiplexer(nameServers []zdns.NameServer, inChan <-chan string, workerPools *WorkerPools, wg *sync.WaitGroup) error {
+	wg.Add(1)
 	defer wg.Done()
 	// defer closing the worker pool chans
 	defer func() {
@@ -552,16 +553,12 @@ func Run(gc CLIConf) {
 			log.Fatal(fmt.Sprintf("could not feed input channel: %v", inErr))
 		}
 	}()
-	const numberOfDeMultiplexers = 5
-	for i := 0; i < numberOfDeMultiplexers; i++ {
-		go func() {
-			plexErr := inputDeMultiplexer(uniqNameServers, inChan, workerPools, &routineWG)
-			if plexErr != nil {
-				log.Fatal(fmt.Sprintf("could not de-multiplex input channel: %v", plexErr))
-			}
-		}()
-	}
-	routineWG.Add(numberOfDeMultiplexers)
+	go func() {
+		plexErr := inputDeMultiplexer(uniqNameServers, inChan, workerPools, &routineWG)
+		if plexErr != nil {
+			log.Fatal(fmt.Sprintf("could not de-multiplex input channel: %v", plexErr))
+		}
+	}()
 	go func() {
 		outErr := outHandler.WriteResults(outChan, &routineWG)
 		if outErr != nil {
