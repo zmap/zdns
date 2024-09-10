@@ -432,6 +432,8 @@ func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Res
 	return config, nil
 }
 
+// WorkerPools are a collection of channels that workers can read from
+// 1+ threads will read from a pooled channel, and the inputDeMultiplexer will send input to the appropriate channel
 type WorkerPools struct {
 	WorkerPools []chan *InputLineWithNameServer
 }
@@ -444,6 +446,9 @@ func NewWorkerPools(numPools int) *WorkerPools {
 	return &WorkerPools{WorkerPools: workerPools}
 }
 
+// InputLineWithNameServer is a struct that contains a line of input and the name server to use for the lookup
+// This name server is a "suggestion", --iterative lookups will ignore it as well as AXFR lookups
+// The goal is to attempt to send all queries for a single name server to the same worker pool
 type InputLineWithNameServer struct {
 	Line       string
 	NameServer *zdns.NameServer
@@ -451,8 +456,7 @@ type InputLineWithNameServer struct {
 
 // inputDeMultiplxer is a single goroutine that reads from the input channel and sends the input to the appropriate worker pool channel
 // The goal is that a query for a single name server will consistently go to the same worker pool which 1+ threads will read from
-// This is especially useful for TLS/TCP based lookups where repeating the initial handshakes would be wasteful
-// For HTTPS conns, they depend on the domain name rather than the IP address, so we need to ensure that all queries for a domain name go to the same channel with HTTPS
+// This is especially useful for TLS/TCP/HTTPS based lookups where repeating the initial handshakes would be wasteful
 func inputDeMultiplexer(nameServers []zdns.NameServer, inChan <-chan string, workerPools *WorkerPools, wg *sync.WaitGroup) error {
 	wg.Add(1)
 	defer wg.Done()
@@ -570,6 +574,7 @@ func Run(gc CLIConf) {
 	// create shared cache for all threads to share
 	for i := 0; i < gc.Threads; i++ {
 		i := i
+		// assign each worker to a worker pool, we'll loop around if we have more workers than pools
 		channelID := i % len(workerPools.WorkerPools)
 		go func(threadID int) {
 			initWorkerErr := doLookupWorker(&gc, resolverConfig, workerPools.WorkerPools[channelID], outChan, metaChan, &lookupWG)
