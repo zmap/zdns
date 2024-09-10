@@ -16,17 +16,16 @@ package zdns
 import (
 	"context"
 	"fmt"
-	"io"
-	"net"
-	"regexp"
-	"strings"
-
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
 	"github.com/zmap/zcrypto/tls"
 	"github.com/zmap/zgrab2/lib/http"
 	"github.com/zmap/zgrab2/lib/output"
+	"io"
+	"net"
+	"regexp"
+	"strings"
 
 	"github.com/zmap/zdns/src/internal/util"
 )
@@ -623,7 +622,6 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 
 // wireLookupTCP performs a DNS lookup on-the-wire over TCP with the given parameters
 func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, ednsOptions []dns.EDNS0, recursive, dnssec, checkingDisabled, retryOnConnClosing bool) (SingleQueryResult, Status, error) {
-	return SingleQueryResult{}, StatusError, errors.New("TCP not implemented")
 	res := SingleQueryResult{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 	res.Resolver = nameServer.String()
 
