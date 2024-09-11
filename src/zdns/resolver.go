@@ -113,11 +113,11 @@ func (rc *ResolverConfig) Validate() error {
 	// External Nameservers
 	if rc.IPVersionMode != IPv6Only && len(rc.ExternalNameServersV4) == 0 {
 		// If IPv4 is supported, we require at least one IPv4 external nameserver
-		return errors.New("must have at least one external IPv4 name server if IPv4 mode is enabled. Use IPv6 only if you don't have IPv4 nameservers")
+		return errors.New("must have at least one external IPv4 name server if IPv4 mode is enabled. Use IPv6-only if you don't have IPv4 nameservers")
 	}
 	if rc.IPVersionMode != IPv4Only && len(rc.ExternalNameServersV6) == 0 {
 		// If IPv6 is supported, we require at least one IPv6 external nameserver
-		return errors.New("must have at least one external IPv6 name server if IPv6 mode is enabled. Use IPv4 only if you don't have IPv6 nameservers")
+		return errors.New("must have at least one external IPv6 name server if IPv6 mode is enabled. Use IPv4-only if you don't have IPv6 nameservers")
 	}
 
 	// Validate all nameservers have ports and are valid IPs
@@ -234,7 +234,7 @@ type ConnectionInfo struct {
 	udpClient    *dns.Client
 	tcpClient    *dns.Client
 	udpConn      *dns.Conn            // for socket re-use with UDP
-	tcpConn      *dns.Conn            // for socket re-use with TCP, if RemoteAddr doesn't change, we don't re-handshake
+	tcpConn      *dns.Conn            // for socket re-use with TCP
 	httpsClient  *http.Client         // for DoH
 	tlsConn      *dns.Conn            // for DoT
 	tlsHandshake *tls.ServerHandshake // for DoT, used to print TLS handshake to user

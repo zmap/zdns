@@ -700,7 +700,6 @@ func wireLookupUDP(ctx context.Context, connInfo *ConnectionInfo, q Question, na
 	} else {
 		r, _, err = connInfo.udpClient.ExchangeContext(ctx, m, nameServer.String())
 	}
-	// if record comes back truncated, but we have a TCP connection, try again with that
 	if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
 		return res, StatusTruncated, err
 	}
