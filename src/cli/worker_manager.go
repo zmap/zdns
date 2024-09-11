@@ -432,57 +432,58 @@ func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Res
 	return config, nil
 }
 
-// WorkerPools are a collection of channels that workers can read from
-// 1+ threads will read from a pooled channel, and the inputDeMultiplexer will send input to the appropriate channel
-type WorkerPools struct {
-	WorkerPools    []chan *InputLineWithNameServer
-	GlobalTaskPool chan *InputLineWithNameServer
+// WorkChans are a collection of channels that workers can read from
+// Worker threads are assigned a PriorityWorkChan, which is a channel where all queries are directed at a single nameserver
+// If a thread is idle, it will read from the GlobalWorkChan, helping to relieve work imbalance between worker nameservers
+type WorkChans struct {
+	PriorityWorkChans []chan *InputLineWithNameServer
+	GlobalWorkChan    chan *InputLineWithNameServer
 }
 
-func NewWorkerPools(numPools int) *WorkerPools {
-	workerPools := make([]chan *InputLineWithNameServer, numPools)
-	for i := 0; i < numPools; i++ {
+// NewWorkerChans creates numChans priority worker channels and a global worker channel
+func NewWorkerChans(numPriorityChans int) *WorkChans {
+	workerPools := make([]chan *InputLineWithNameServer, numPriorityChans)
+	for i := 0; i < numPriorityChans; i++ {
 		workerPools[i] = make(chan *InputLineWithNameServer, 1)
 	}
-	return &WorkerPools{WorkerPools: workerPools, GlobalTaskPool: make(chan *InputLineWithNameServer)}
+	return &WorkChans{PriorityWorkChans: workerPools, GlobalWorkChan: make(chan *InputLineWithNameServer)}
 }
 
 // InputLineWithNameServer is a struct that contains a line of input and the name server to use for the lookup
 // This name server is a "suggestion", --iterative lookups will ignore it as well as AXFR lookups
-// The goal is to attempt to send all queries for a single name server to the same worker pool
 type InputLineWithNameServer struct {
 	Line       string
 	NameServer *zdns.NameServer
 }
 
-// inputDeMultiplxer is a single goroutine that reads from the input channel and sends the input to the appropriate worker pool channel
-// The goal is that a query for a single name server will consistently go to the same worker pool which 1+ threads will read from
-// This is especially useful for TLS/TCP/HTTPS based lookups where repeating the initial handshakes would be wasteful
+// inputDeMultiplexer is a single goroutine that reads from the input channel and prioritizes sending work to it's respective
+// prioritized input channel. If the priority channel is full, it will send the work to the global work channel for an idle thread
+// to load balance.  The goal is that a worker thread will tend to re-use their existing TCP/TLS/HTTPS connection, saving handshakes.
 // Work Balancing
-// The GlobalTaskPool is used to address work imbalance between worker pools. If a query should go to Pool A but Pool A is busy, it will go to the GlobalTaskPool
-// Workers will check the GlobalTaskPool only if their pool is empty. This means they will tend to re-use their connections, but help out other pools if they're idle
-func inputDeMultiplexer(nameServers []zdns.NameServer, inChan <-chan string, workerPools *WorkerPools, wg *sync.WaitGroup) error {
+// The GlobalWorkChan is used to address work imbalance between worker pools. If a query should go to Priority Channel A but A is busy, it will go to the GlobalWorkChan
+// Workers will check the GlobalWorkChan only if their Priority channel is empty. This means they will tend to re-use their connections, but help out other pools if they're idle
+func inputDeMultiplexer(nameServers []zdns.NameServer, inChan <-chan string, workerPools *WorkChans, wg *sync.WaitGroup) error {
 	defer wg.Done()
-	// defer closing the worker pool chans
 	defer func() {
-		for _, pool := range workerPools.WorkerPools {
+		// cleanup work channels
+		for _, pool := range workerPools.PriorityWorkChans {
 			close(pool)
 		}
-		close(workerPools.GlobalTaskPool)
+		close(workerPools.GlobalWorkChan)
 	}()
 	for line := range inChan {
 		nsIndex := rand.Intn(len(nameServers))
 		randomNS := nameServers[nsIndex]
-		chanID := nsIndex % len(workerPools.WorkerPools)
+		chanID := nsIndex % len(workerPools.PriorityWorkChans)
 		work := &InputLineWithNameServer{Line: line, NameServer: &randomNS}
-		// for each work item, we prefer to send it to the assigned worker pool for the name server. If that pool is busy, we'll send it to the global task pool
+		// for each work item, we prefer to send it to the assigned worker pool for the name server
 		select {
-		case workerPools.WorkerPools[chanID] <- work: // prefer to send to the worker pool for the name server
+		case workerPools.PriorityWorkChans[chanID] <- work: // prefer to send to the worker pool for the name server
 		default:
-			// worker pool is busy, we'll take first available spot between the global task pool and the worker pool
+			// worker pool is busy, we'll take first available spot between the global and priority channels
 			select {
-			case workerPools.GlobalTaskPool <- work:
-			case workerPools.WorkerPools[chanID] <- work:
+			case workerPools.GlobalWorkChan <- work:
+			case workerPools.PriorityWorkChans[chanID] <- work:
 			}
 		}
 	}
@@ -553,12 +554,12 @@ func Run(gc CLIConf) {
 		}
 		uniqNameServers = uniqueDomainNSes
 	}
-	numberOfWorkerPools := len(uniqNameServers)
-	if gc.Threads < numberOfWorkerPools {
+	numberOfPriorityChans := len(uniqNameServers)
+	if gc.Threads < numberOfPriorityChans {
 		// multiple threads can share a channel, but we can't have more channels than threads
-		numberOfWorkerPools = gc.Threads
+		numberOfPriorityChans = gc.Threads
 	}
-	workerPools := NewWorkerPools(numberOfWorkerPools)
+	workerPools := NewWorkerChans(numberOfPriorityChans)
 
 	// Use handlers to populate the input and output/results channel
 	go func() {
@@ -588,10 +589,10 @@ func Run(gc CLIConf) {
 	// create shared cache for all threads to share
 	for i := 0; i < gc.Threads; i++ {
 		i := i
-		// assign each worker to a worker pool, we'll loop around if we have more workers than pools
-		channelID := i % len(workerPools.WorkerPools)
+		// assign each worker to a priority channel, we'll loop around if we have more workers than channels
+		channelID := i % len(workerPools.PriorityWorkChans)
 		go func(threadID int) {
-			initWorkerErr := doLookupWorker(&gc, resolverConfig, workerPools.WorkerPools[channelID], workerPools.GlobalTaskPool, outChan, metaChan, &lookupWG)
+			initWorkerErr := doLookupWorker(&gc, resolverConfig, workerPools.PriorityWorkChans[channelID], workerPools.GlobalWorkChan, outChan, metaChan, &lookupWG)
 			if initWorkerErr != nil {
 				log.Fatalf("could not start lookup worker #%d: %v", i, initWorkerErr)
 			}
@@ -655,7 +656,7 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, preferredWorkChan, glo
 
 WorkerLoop:
 	for {
-		// Check its own resolver tasks first (reusing connections)
+		// Check its own priority channel first to prioritize re-using TCP/HTTPS/TLS connections
 		select {
 		case task, ok = <-preferredWorkChan:
 			if !ok {
@@ -664,7 +665,7 @@ WorkerLoop:
 			}
 			handleWorkerInput(gc, rc, task, resolver, &metadata, output)
 		default:
-			// No tasks in its own resolver, wait on either
+			// wait on either Priority/Global channel
 			select {
 			case task, ok = <-preferredWorkChan:
 				if !ok {
