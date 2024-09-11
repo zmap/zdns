@@ -648,12 +648,14 @@ func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, na
 		}
 		r, _, err = connInfo.tcpClient.ExchangeWithConnToContext(ctx, m, connInfo.tcpConn, addr)
 		if retryOnConnClosing && err != nil && err.Error() == "EOF" {
-			// EOF error means the connection was closed, we'll re-open a connection and re-handshake
-			err = getNewTCPConn(nameServer, connInfo)
+			// EOF error means the connection was closed, we'll remove the connection (it'll be recreated on the next iteration)
+			// and try again
+			err = connInfo.tcpConn.Conn.Close()
 			if err != nil {
-				return SingleQueryResult{}, StatusError, fmt.Errorf("could not get new TCP connection to nameserver %s: %v", nameServer.String(), err)
+				log.Errorf("error closing TCP connection: %v", err)
 			}
-			return wireLookupTCP(ctx, connInfo, q, nameServer, ednsOptions, recursive, dnssec, checkingDisabled, false)
+			connInfo.tcpConn = nil
+			r, _, err = connInfo.tcpClient.ExchangeContext(ctx, m, nameServer.String())
 		}
 	} else {
 		// no pre-existing connection, create an ephemeral one

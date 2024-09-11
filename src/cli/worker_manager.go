@@ -663,7 +663,7 @@ WorkerLoop:
 				break WorkerLoop
 			}
 			handleWorkerInput(gc, rc, task, resolver, &metadata, output)
-		case <-time.After(time.Millisecond * 10):
+		default:
 			// No tasks in its own resolver, wait on either
 			select {
 			case task, ok = <-preferredWorkChan:
