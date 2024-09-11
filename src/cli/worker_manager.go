@@ -435,15 +435,16 @@ func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Res
 // WorkerPools are a collection of channels that workers can read from
 // 1+ threads will read from a pooled channel, and the inputDeMultiplexer will send input to the appropriate channel
 type WorkerPools struct {
-	WorkerPools []chan *InputLineWithNameServer
+	WorkerPools    []chan *InputLineWithNameServer
+	GlobalTaskPool chan *InputLineWithNameServer
 }
 
 func NewWorkerPools(numPools int) *WorkerPools {
 	workerPools := make([]chan *InputLineWithNameServer, numPools)
 	for i := 0; i < numPools; i++ {
-		workerPools[i] = make(chan *InputLineWithNameServer, 10)
+		workerPools[i] = make(chan *InputLineWithNameServer, 1)
 	}
-	return &WorkerPools{WorkerPools: workerPools}
+	return &WorkerPools{WorkerPools: workerPools, GlobalTaskPool: make(chan *InputLineWithNameServer)}
 }
 
 // InputLineWithNameServer is a struct that contains a line of input and the name server to use for the lookup
@@ -457,20 +458,33 @@ type InputLineWithNameServer struct {
 // inputDeMultiplxer is a single goroutine that reads from the input channel and sends the input to the appropriate worker pool channel
 // The goal is that a query for a single name server will consistently go to the same worker pool which 1+ threads will read from
 // This is especially useful for TLS/TCP/HTTPS based lookups where repeating the initial handshakes would be wasteful
+// Work Balancing
+// The GlobalTaskPool is used to address work imbalance between worker pools. If a query should go to Pool A but Pool A is busy, it will go to the GlobalTaskPool
+// Workers will check the GlobalTaskPool only if their pool is empty. This means they will tend to re-use their connections, but help out other pools if they're idle
 func inputDeMultiplexer(nameServers []zdns.NameServer, inChan <-chan string, workerPools *WorkerPools, wg *sync.WaitGroup) error {
-	wg.Add(1)
 	defer wg.Done()
 	// defer closing the worker pool chans
 	defer func() {
 		for _, pool := range workerPools.WorkerPools {
 			close(pool)
 		}
+		close(workerPools.GlobalTaskPool)
 	}()
 	for line := range inChan {
 		nsIndex := rand.Intn(len(nameServers))
 		randomNS := nameServers[nsIndex]
 		chanID := nsIndex % len(workerPools.WorkerPools)
-		workerPools.WorkerPools[chanID] <- &InputLineWithNameServer{Line: line, NameServer: &randomNS}
+		work := &InputLineWithNameServer{Line: line, NameServer: &randomNS}
+		// for each work item, we prefer to send it to the assigned worker pool for the name server. If that pool is busy, we'll send it to the global task pool
+		select {
+		case workerPools.WorkerPools[chanID] <- work: // prefer to send to the worker pool for the name server
+		default:
+			// worker pool is busy, we'll take first available spot between the global task pool and the worker pool
+			select {
+			case workerPools.GlobalTaskPool <- work:
+			case workerPools.WorkerPools[chanID] <- work:
+			}
+		}
 	}
 	return nil
 }
@@ -565,7 +579,7 @@ func Run(gc CLIConf) {
 			log.Fatal(fmt.Sprintf("could not write output results from output channel: %v", outErr))
 		}
 	}()
-	routineWG.Add(2)
+	routineWG.Add(3)
 
 	// create pool of worker goroutines
 	var lookupWG sync.WaitGroup
@@ -577,7 +591,7 @@ func Run(gc CLIConf) {
 		// assign each worker to a worker pool, we'll loop around if we have more workers than pools
 		channelID := i % len(workerPools.WorkerPools)
 		go func(threadID int) {
-			initWorkerErr := doLookupWorker(&gc, resolverConfig, workerPools.WorkerPools[channelID], outChan, metaChan, &lookupWG)
+			initWorkerErr := doLookupWorker(&gc, resolverConfig, workerPools.WorkerPools[channelID], workerPools.GlobalTaskPool, outChan, metaChan, &lookupWG)
 			if initWorkerErr != nil {
 				log.Fatalf("could not start lookup worker #%d: %v", i, initWorkerErr)
 			}
@@ -628,7 +642,7 @@ func Run(gc CLIConf) {
 }
 
 // doLookupWorker is a single worker thread that processes lookups from the input channel. It calls wg.Done when it is finished.
-func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan *InputLineWithNameServer, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
+func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, preferredWorkChan, globalWorkChan <-chan *InputLineWithNameServer, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	resolver, err := zdns.InitResolver(rc)
 	if err != nil {
@@ -636,75 +650,105 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan *InputLin
 	}
 	var metadata routineMetadata
 	metadata.Status = make(map[zdns.Status]int)
-	for line := range input {
-		// we'll process each module sequentially, parallelism is per-domain
-		res, rawName, nameServer := parseInputLine(gc, rc, line)
-		res.Name = rawName
-		// handle per-module lookups
-		for moduleName, module := range gc.ActiveModules {
-			if moduleName == "AXFR" {
-				// special case, AXFR has its own nameserver handling. We'll only take nameservers if the user provides it
-				// not the "suggestion" from the de-multiplexor
-				if nameServer.String() == line.NameServer.String() {
-					// this name server is the suggested one from the de-multiplexor, we'll remove it
-					nameServer = nil
-				}
-			}
-			var innerRes interface{}
-			var trace zdns.Trace
-			var status zdns.Status
-			var err error
-			var changed bool
-			var lookupName string
-			lookupName, changed = makeName(rawName, gc.NamePrefix, gc.NameOverride)
-			if changed {
-				res.AlteredName = lookupName
-			}
-			res.Class = dns.Class(gc.Class).String()
+	var task *InputLineWithNameServer
+	var ok bool
 
-			startTime := time.Now()
-			innerRes, trace, status, err = module.Lookup(resolver, lookupName, nameServer)
-
-			lookupRes := zdns.SingleModuleResult{
-				Timestamp: time.Now().Format(gc.TimeFormat),
-				Duration:  time.Since(startTime).Seconds(),
+WorkerLoop:
+	for {
+		// Check its own resolver tasks first (reusing connections)
+		select {
+		case task, ok = <-preferredWorkChan:
+			if !ok {
+				// inputDeMultiplexer has closed the channel, we're done
+				break WorkerLoop
 			}
-			if status != zdns.StatusNoOutput {
-				lookupRes.Status = string(status)
-				lookupRes.Data = innerRes
-				lookupRes.Trace = trace
-				if err != nil {
-					lookupRes.Error = err.Error()
+			handleWorkerInput(gc, rc, task, resolver, &metadata, output)
+		default:
+			// No tasks in its own resolver, wait on either
+			select {
+			case task, ok = <-preferredWorkChan:
+				if !ok {
+					break WorkerLoop
 				}
-				res.Results[moduleName] = lookupRes
+				handleWorkerInput(gc, rc, task, resolver, &metadata, output)
+			case task, ok = <-globalWorkChan:
+				if !ok {
+					break WorkerLoop
+				}
+				handleWorkerInput(gc, rc, task, resolver, &metadata, output)
 			}
-			metadata.Status[status]++
-			metadata.Lookups++
 		}
-		if len(res.Results) > 0 {
-			v, _ := version.NewVersion("0.0.0")
-			o := &sheriff.Options{
-				Groups:          gc.OutputGroups,
-				ApiVersion:      v,
-				IncludeEmptyTag: true,
-			}
-			data, err := sheriff.Marshal(o, res)
-			if err != nil {
-				log.Fatalf("unable to marshal result to JSON: %v", err)
-			}
-			cleansedData := replaceIntSliceInterface(data)
-			jsonRes, err := json.Marshal(cleansedData)
-			if err != nil {
-				log.Fatalf("unable to marshal JSON result: %v", err)
-			}
-			output <- string(jsonRes)
-		}
-		metadata.Names++
 	}
 	// close the resolver, freeing up resources
 	resolver.Close()
 	metaChan <- metadata
 	return nil
+}
+
+func handleWorkerInput(gc *CLIConf, rc *zdns.ResolverConfig, line *InputLineWithNameServer, resolver *zdns.Resolver, metadata *routineMetadata, output chan<- string) {
+	// we'll process each module sequentially, parallelism is per-domain
+	res, rawName, nameServer := parseInputLine(gc, rc, line)
+	res.Name = rawName
+	// handle per-module lookups
+	for moduleName, module := range gc.ActiveModules {
+		if moduleName == "AXFR" {
+			// special case, AXFR has its own nameserver handling. We'll only take nameservers if the user provides it
+			// not the "suggestion" from the de-multiplexor
+			if nameServer.String() == line.NameServer.String() {
+				// this name server is the suggested one from the de-multiplexor, we'll remove it
+				nameServer = nil
+			}
+		}
+		var innerRes interface{}
+		var trace zdns.Trace
+		var status zdns.Status
+		var err error
+		var changed bool
+		var lookupName string
+		lookupName, changed = makeName(rawName, gc.NamePrefix, gc.NameOverride)
+		if changed {
+			res.AlteredName = lookupName
+		}
+		res.Class = dns.Class(gc.Class).String()
+
+		startTime := time.Now()
+		innerRes, trace, status, err = module.Lookup(resolver, lookupName, nameServer)
+
+		lookupRes := zdns.SingleModuleResult{
+			Timestamp: time.Now().Format(gc.TimeFormat),
+			Duration:  time.Since(startTime).Seconds(),
+		}
+		if status != zdns.StatusNoOutput {
+			lookupRes.Status = string(status)
+			lookupRes.Data = innerRes
+			lookupRes.Trace = trace
+			if err != nil {
+				lookupRes.Error = err.Error()
+			}
+			res.Results[moduleName] = lookupRes
+		}
+		metadata.Status[status]++
+		metadata.Lookups++
+	}
+	if len(res.Results) > 0 {
+		v, _ := version.NewVersion("0.0.0")
+		o := &sheriff.Options{
+			Groups:          gc.OutputGroups,
+			ApiVersion:      v,
+			IncludeEmptyTag: true,
+		}
+		data, err := sheriff.Marshal(o, res)
+		if err != nil {
+			log.Fatalf("unable to marshal result to JSON: %v", err)
+		}
+		cleansedData := replaceIntSliceInterface(data)
+		jsonRes, err := json.Marshal(cleansedData)
+		if err != nil {
+			log.Fatalf("unable to marshal JSON result: %v", err)
+		}
+		output <- string(jsonRes)
+	}
+	metadata.Names++
 }
 
 func parseInputLine(gc *CLIConf, rc *zdns.ResolverConfig, line *InputLineWithNameServer) (*zdns.Result, string, *zdns.NameServer) {
