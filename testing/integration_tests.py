@@ -1351,6 +1351,19 @@ class Tests(unittest.TestCase):
         self.assertEqual(res["results"]["A"]["data"]["resolver"], "8.8.8.8:53", "user-supplied name server with input "
                                                                                 "should take precedence")
 
+    def test_dnssec_option(self):
+        c = "A --dnssec --name-servers=1.0.0.1"
+        name = "cloudflare.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "A")
+        hasRRSIG = False
+        for record in res["results"]["A"]["data"]["answers"]:
+            if record["type"] == "RRSIG":
+                hasRRSIG = True
+                break
+        self.assertTrue(hasRRSIG, "DNSSEC option should return an RRSIG record")
+
+
 
 
 if __name__ == "__main__":

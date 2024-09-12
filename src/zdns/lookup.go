@@ -191,13 +191,7 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer *
 
 		// populateResults will parse the Answers and update the candidateSet, cnameSet, and garbage caching maps
 		populateResults(res.Answers, q.Type, candidateSet, cnameSet, dnameSet, garbage)
-		for _, ans := range res.Answers {
-			answer, ok := ans.(Answer)
-			if !ok {
-				continue
-			}
-			allAnswerSet = append(allAnswerSet, answer)
-		}
+		allAnswerSet = append(allAnswerSet, res.Answers...)
 
 		if isLookupComplete(originalName, candidateSet, cnameSet, dnameSet) {
 			return &SingleQueryResult{
