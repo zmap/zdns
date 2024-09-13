@@ -212,6 +212,28 @@ $ echo "google.com,1.1.1.1\nfacebook.com,8.8.8.8" | ./zdns A
 {"name":"facebook.com","results":{"A":{"data":{"additionals":[...],"answers":[...],"protocol":"udp","resolver":"8.8.8.8:53"},"duration":0.061365459,"status":"NOERROR","timestamp":"2024-09-13T09:51:34-04:00"}}}
 ````
 
+Local Recursion
+---------------
+
+ZDNS can either operate against a recursive resolver (e.g., an organizational
+DNS server) [default behavior] or can perform its own recursion internally. If
+you are performing a small number of lookups (i.e., millions) and using a less
+than 10,000 go routines, it is typically fastest to use one of the common
+recursive resolvers like Cloudflare or Google. Cloudflare is nearly always
+faster than Google. This is particularly true if you're looking up popular
+names because they're cached and can be answered in a single round trip.
+When using tens of thousands of concurrent threads, consider performing
+iteration internally in order to avoid  DOS'ing and/or rate limiting your
+recursive resolver.
+
+To perform local recursion, run zdns with the `--iterative` flag. When this
+flag is used, ZDNS will round-robin between the published root servers (e.g.,
+198.41.0.4). In iterative mode, you can control the size of the local cache by
+specifying `--cache-size` and the timeout for individual iterations by setting
+`--iteration-timeout`. The `--timeout` flag controls the timeout of the entire
+resolution for a given input (i.e., the sum of all iterative steps).
+
+
 ###
 Threads, Sockets, and Performance
 ---------------------------------
@@ -254,34 +276,13 @@ routines. This architecture has several caveats:
    of CPU cores, you can do so by including the `--go-processes=n` flag or setting
    the `GOMAXPROCS` environment variable.
 
- * Typically we recommend using around 1000-5000 threads. Unless you're on an
-   underesourced system, you'll likely be throwing away free performance with
-   only tens or hundreds of threads (since you'll be waiting on network
-   communication). We typically don't see significant improvement in performance
-   with over 5,000 threads, and don't have any cases where more than 10,000
-   threads improved performance.
+ * It's difficult to recommend a precise amount of `--threads` as it depends on several
+   factors. Empirically, we've found that increasing threads while having a small number of 
+   `--name-servers` can lead to rate limiting and an increase in `TIMEOUT` or `ITERATIVE_TIMEOUT`
+   errors. Even if you're using `--iterative`, you'll still need to query the root/TLD servers
+   for each domain. We recommend investigating with your query parameters to find the number of threads
+   with acceptable performance without too many `TIMEOUT` or `ITERATIVE_TIMEOUT` issues. 
 
-
-Local Recursion
----------------
-
-ZDNS can either operate against a recursive resolver (e.g., an organizational
-DNS server) [default behavior] or can perform its own recursion internally. If
-you are performing a small number of lookups (i.e., millions) and using a less
-than 10,000 go routines, it is typically fastest to use one of the common
-recursive resolvers like Cloudflare or Google. Cloudflare is nearly always
-faster than Google. This is particularly true if you're looking up popular
-names because they're cached and can be answered in a single round trip.
-When using tens of thousands of concurrent threads, consider performing 
-iteration internally in order to avoid  DOS'ing and/or rate limiting your
-recursive resolver.
-
-To perform local recursion, run zdns with the `--iterative` flag. When this
-flag is used, ZDNS will round-robin between the published root servers (e.g.,
-198.41.0.4). In iterative mode, you can control the size of the local cache by
-specifying `--cache-size` and the timeout for individual iterations by setting
-`--iteration-timeout`. The `--timeout` flag controls the timeout of the entire
-resolution for a given input (i.e., the sum of all iterative steps).
 
 Output Verbosity
 ----------------
