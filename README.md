@@ -177,14 +177,17 @@ ZDNS supports providing input in a variety of formats depending on the desired b
 
 The most basic input is a list of names separated by newlines. For example:
 
-From `echo`:
+From stdin:
 ```
-echo "google.com" | ./zdns A
-```
-From a file:
-```bash
+echo "google.com\nyahoo.com" | ./zdns A
 cat list_of_domains.txt | ./zdns A
 ```
+
+From a file
+```shell
+./zdns A --input-file=list_of_domains.txt
+```
+
 
 ### Dig-style Input
 If you don't need to resolve many domains, providing the domain as CLI argument, similar to `dig`, is supported for ease-of-use.
