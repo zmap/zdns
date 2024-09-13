@@ -1,7 +1,6 @@
 ZDNS
 ====
 
-[![Build Status](https://travis-ci.org/zmap/zdns.svg?branch=master)](https://travis-ci.org/zmap/zdns)
 [![Go Report Card](https://goreportcard.com/badge/github.com/zmap/zdns)](https://goreportcard.com/report/github.com/zmap/zdns)
 
 ZDNS is a command-line utility that provides high-speed DNS lookups. ZDNS is
@@ -45,7 +44,7 @@ ZDNS provides several types of modules:
   but in JSON. There is a module for (nearly) every type of DNS record
 
 - *Lookup modules* provide more helpful responses when multiple queries are
-  required (e.g., completing additional `A` lookup for IP addresses if a `NS` is
+  required (e.g., completing additional `A` lookup for IP addresses if a `NS` is 
   received in `NSLOOKUP`)
 
 - *Misc modules* provide other additional means of querying servers (e.g.,
@@ -170,11 +169,80 @@ Other DNS Modules
 
 ZDNS also supports special "debug" DNS queries. Modules include: `BINDVERSION`.
 
+Input Formats
+-------------
+ZDNS supports providing input in a variety of formats depending on the desired behavior.
+
+### Basic Input
+
+The most basic input is a list of names separated by newlines. For example:
+
+From stdin:
+```
+echo "google.com\nyahoo.com" | ./zdns A
+cat list_of_domains.txt | ./zdns A
+```
+
+From a file
+```shell
+./zdns A --input-file=list_of_domains.txt
+```
+
+
+### Dig-style Input
+If you don't need to resolve many domains, providing the domain as CLI argument, similar to `dig`, is supported for ease-of-use.
+
+For example:
+```bash
+./zdns A google.com --name-servers=1.1.1.1
+````
+Equivalent to `dig -t A google.com @1.1.1.1`
+
+### Name Servers per-domain
+Normally, ZDNS will choose a random nameserver for each domain lookup from `--name-servers`. If instead you want to specify
+a different name server for each domain, you can do so by providing domainName,nameServerIP pairs seperated by newlines.
+This will override any nameservers provided with `--name-servers`.
+
+For example:
+```
+echo "google.com,1.1.1.1\nfacebook.com,8.8.8.8" | ./zdns A
+```
+
+You can see the `resolver` is as specified for each domain in the output (additionals/answers redacted for brevity):
+```shell
+$ echo "google.com,1.1.1.1\nfacebook.com,8.8.8.8" | ./zdns A
+{"name":"google.com","results":{"A":{"data":{"additionals":...,"answers":[...],"protocol":"udp","resolver":"1.1.1.1:53"},"duration":0.030490042,"status":"NOERROR","timestamp":"2024-09-13T09:51:34-04:00"}}}
+{"name":"facebook.com","results":{"A":{"data":{"additionals":[...],"answers":[...],"protocol":"udp","resolver":"8.8.8.8:53"},"duration":0.061365459,"status":"NOERROR","timestamp":"2024-09-13T09:51:34-04:00"}}}
+````
+
+Local Recursion
+---------------
+
+ZDNS can either operate against a recursive resolver (e.g., an organizational
+DNS server) [default behavior] or can perform its own recursion internally. If
+you are performing a small number of lookups (i.e., millions) and using a less
+than 10,000 go routines, it is typically fastest to use one of the common
+recursive resolvers like Cloudflare or Google. Cloudflare is nearly always
+faster than Google. This is particularly true if you're looking up popular
+names because they're cached and can be answered in a single round trip.
+When using tens of thousands of concurrent threads, consider performing
+iteration internally in order to avoid  DOS'ing and/or rate limiting your
+recursive resolver.
+
+To perform local recursion, run zdns with the `--iterative` flag. When this
+flag is used, ZDNS will round-robin between the published root servers (e.g.,
+198.41.0.4). In iterative mode, you can control the size of the local cache by
+specifying `--cache-size` and the timeout for individual iterations by setting
+`--iteration-timeout`. The `--timeout` flag controls the timeout of the entire
+resolution for a given input (i.e., the sum of all iterative steps).
+
+
+###
 Threads, Sockets, and Performance
 ---------------------------------
 
 ZDNS performance stems from massive parallelization using light-weight Go
-routines. This architecture has several cavaets:
+routines. This architecture has several caveats:
 
 * Every Go routine uses its own dedicated network socket. Thus, you need to be
   able to open as many sockets (in terms of both max file descriptors and
@@ -211,34 +279,13 @@ routines. This architecture has several cavaets:
   of CPU cores, you can do so by including the `--go-processes=n` flag or setting
   the `GOMAXPROCS` environment variable.
 
-* Typically we recommend using around 1000-5000 threads. Unless you're on an
-  underesourced system, you'll likely be throwing away free performance with
-  only tens or hundreds of threads (since you'll be waiting on network
-  communication). We typically don't see significant improvement in performance
-  with over 5,000 threads, and don't have any cases where more than 10,000
-  threads improved performance.
+ * It's difficult to recommend a precise amount of `--threads` as it depends on several
+   factors. Empirically, we've found that increasing threads while having a small number of 
+   `--name-servers` can lead to rate limiting and an increase in `TIMEOUT` or `ITERATIVE_TIMEOUT`
+   errors. Even if you're using `--iterative`, you'll still need to query the root/TLD servers
+   for each domain. We recommend investigating with your query parameters to find the number of threads
+   with acceptable performance without too many `TIMEOUT` or `ITERATIVE_TIMEOUT` issues. 
 
-
-Local Recursion
----------------
-
-ZDNS can either operate against a recursive resolver (e.g., an organizational
-DNS server) [default behavior] or can perform its own recursion internally. If
-you are performing a small number of lookups (i.e., millions) and using a less
-than 10,000 go routines, it is typically fastest to use one of the common
-recursive resolvers like Cloudflare or Google. Cloudflare is nearly always
-faster than Google. This is particularly true if you're looking up popular
-names because they're cached and can be answered in a single round trip.
-When using tens of thousands of concurrent threads, consider performing
-iteration internally in order to avoid  DOS'ing and/or rate limiting your
-recursive resolver.
-
-To perform local recursion, run zdns with the `--iterative` flag. When this
-flag is used, ZDNS will round-robin between the published root servers (e.g.,
-198.41.0.4). In iterative mode, you can control the size of the local cache by
-specifying `--cache-size` and the timeout for individual iterations by setting
-`--iteration-timeout`. The `--timeout` flag controls the timeout of the entire
-resolution for a given input (i.e., the sum of all iterative steps).
 
 Output Verbosity
 ----------------
@@ -285,19 +332,9 @@ There is a feature available to perform a certain DNS query against all nameserv
 
 ```echo "google.com" | ./zdns A --all-nameservers```
 
-Dig-style Domain Input
-----------------------
-Similiar to dig, zdns can take a domain as input and perform a lookup on it.  The only requirement is that the module is
-the first argument and domains follow.
-For example:
-
-```
-./zdns A google.com
-```
-
 Multiple Lookup Modules
 -----------------------
-ZDNS supports using multiple lookup modules in a single invocation. For example, let's say you want to perform an A,
+ZDNS supports using multiple lookup modules in a single invocation. For example, let's say you want to perform an A, 
 AAAA, and MXLOOKUP for a set of domains and you want to perform them with iterative resolution. You will need to use the
 `MULTIPLE` module and provide a config file with the modules and module-specific flags you want to use.
 
