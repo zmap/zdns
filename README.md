@@ -1,13 +1,14 @@
 ZDNS
 ====
 
+[![Build Status](https://travis-ci.org/zmap/zdns.svg?branch=master)](https://travis-ci.org/zmap/zdns)
 [![Go Report Card](https://goreportcard.com/badge/github.com/zmap/zdns)](https://goreportcard.com/report/github.com/zmap/zdns)
 
 ZDNS is a command-line utility that provides high-speed DNS lookups. ZDNS is
 written in Go and contains its own recursive resolution code and a cache
 optimized for performing lookups of a diverse set of names. We use
 https://github.com/zmap/dns to construct and parse raw DNS packets.
-For more information about ZDNS's architecture and performance, check out the following [paper](https://lizizhikevich.github.io/assets/papers/ZDNS.pdf) appearing at ACM's Internet Measurement Conference '22. 
+For more information about ZDNS's architecture and performance, check out the following [paper](https://lizizhikevich.github.io/assets/papers/ZDNS.pdf) appearing at ACM's Internet Measurement Conference '22.
 
 As an example, the following will perform MX lookups and a secondary A lookup
 for the IPs of MX servers for the domains in the Alexa Top Million:
@@ -44,7 +45,7 @@ ZDNS provides several types of modules:
   but in JSON. There is a module for (nearly) every type of DNS record
 
 - *Lookup modules* provide more helpful responses when multiple queries are
-  required (e.g., completing additional `A` lookup for IP addresses if a `NS` is 
+  required (e.g., completing additional `A` lookup for IP addresses if a `NS` is
   received in `NSLOOKUP`)
 
 - *Misc modules* provide other additional means of querying servers (e.g.,
@@ -118,8 +119,8 @@ section requiring an additional lookup. To address this gap and provide a
 friendlier interface, we also provide several _lookup_ modules: `alookup`,
 `mxlookup`, and `nslookup`.
 
-`alookup` acts similar to nslookup and will follow CNAME records. 
-`mxlookup` will additionally do an A lookup for the IP addresses that correspond with an exchange record. 
+`alookup` acts similar to nslookup and will follow CNAME records.
+`mxlookup` will additionally do an A lookup for the IP addresses that correspond with an exchange record.
 `nslookup` will additionally do an A/AAAA lookup for IP addresses that correspond with an NS record
 
 For example,
@@ -169,51 +170,54 @@ Other DNS Modules
 
 ZDNS also supports special "debug" DNS queries. Modules include: `BINDVERSION`.
 
-Input Formats
--------------
-ZDNS supports providing input in a variety of formats depending on the desired behavior.
+Threads, Sockets, and Performance
+---------------------------------
 
-### Basic Input
+ZDNS performance stems from massive parallelization using light-weight Go
+routines. This architecture has several cavaets:
 
-The most basic input is a list of names separated by newlines. For example:
+* Every Go routine uses its own dedicated network socket. Thus, you need to be
+  able to open as many sockets (in terms of both max file descriptors and
+  ephemeral ports) as you have threads specified (via `--threads`). By default,
+  ZDNS uses 1,000 threads, which is less than Linux's default max number of 1024
+  open FDs. However, it is greater than Mac OS's default of 256. You can view
+  the maximum number of open FDs (and thus sockets) permitted by running `ulimit -n`. If
+  you want to run with a greater number of threads than this number, you need to
+  increase the number of open files at the OS level. If you fail to do this,
+  you'll encounter a fatal error similar to `FATA[0000] unable to create
+   socketlisten udp <client IP address>:0: socket: too many open files`. If you
+  want to run more threads than you have ephemeral ports available, you will need
+  to use multiple client IP addresses: `--local-addr=A,B,C`.
 
-From stdin:
-```
-echo "google.com\nyahoo.com" | ./zdns A
-cat list_of_domains.txt | ./zdns A
-```
+* By default, ZDNS "reuses" UDP sockets by creating an unbound UDP socket for
+  each light-weight routine at launch and using it for all queries (regardless
+  of destination IP). This dramatically improves performance because ZDNS and the
+  host OS don't need to setup and tear down a socket to send each individual
+  packet (since DNS queries/responses tend to be one packet each).  However, this
+  means that ZDNS will preallocate a socket for each thread at launch. This may not
+  be optimal if you're only looking up a small number of names.  For example, if
+  you only need to lookup 100 names, but use the default 1,000 threads, you'll
+  bind but never use 900 UDP sockets. Instead, of worrying about recycling
+  sockets, we recommend that you specify a reasonable number of threads for your
+  use case (since this also foregoes any work to start those threads in the first place).
+  This is why, though, you can get an error about being unable to open a large
+  number of sockets even though you're only looking up a single name. If it's important
+  to create a fresh socket for each query, you can disable this reuse by specifying
+  `--recycle-sockets=false`.
 
-From a file
-```shell
-./zdns A --input-file=list_of_domains.txt
-```
+* Go is happy to use all CPU cores that are available to it, and can use a
+  tremendous amount of CPU if you specify a large number of threads. CPU is
+  primarily used for parsing and JSON encoding. If you want to limit the number
+  of CPU cores, you can do so by including the `--go-processes=n` flag or setting
+  the `GOMAXPROCS` environment variable.
 
+* Typically we recommend using around 1000-5000 threads. Unless you're on an
+  underesourced system, you'll likely be throwing away free performance with
+  only tens or hundreds of threads (since you'll be waiting on network
+  communication). We typically don't see significant improvement in performance
+  with over 5,000 threads, and don't have any cases where more than 10,000
+  threads improved performance.
 
-### Dig-style Input
-If you don't need to resolve many domains, providing the domain as CLI argument, similar to `dig`, is supported for ease-of-use.
-
-For example:
-```bash
-./zdns A google.com --name-servers=1.1.1.1
-````
-Equivalent to `dig -t A google.com @1.1.1.1`
-
-### Name Servers per-domain
-Normally, ZDNS will choose a random nameserver for each domain lookup from `--name-servers`. If instead you want to specify
-a different name server for each domain, you can do so by providing domainName,nameServerIP pairs seperated by newlines.
-This will override any nameservers provided with `--name-servers`.
-
-For example:
-```
-echo "google.com,1.1.1.1\nfacebook.com,8.8.8.8" | ./zdns A
-```
-
-You can see the `resolver` is as specified for each domain in the output (additionals/answers redacted for brevity):
-```shell
-$ echo "google.com,1.1.1.1\nfacebook.com,8.8.8.8" | ./zdns A
-{"name":"google.com","results":{"A":{"data":{"additionals":...,"answers":[...],"protocol":"udp","resolver":"1.1.1.1:53"},"duration":0.030490042,"status":"NOERROR","timestamp":"2024-09-13T09:51:34-04:00"}}}
-{"name":"facebook.com","results":{"A":{"data":{"additionals":[...],"answers":[...],"protocol":"udp","resolver":"8.8.8.8:53"},"duration":0.061365459,"status":"NOERROR","timestamp":"2024-09-13T09:51:34-04:00"}}}
-````
 
 Local Recursion
 ---------------
@@ -236,67 +240,16 @@ specifying `--cache-size` and the timeout for individual iterations by setting
 `--iteration-timeout`. The `--timeout` flag controls the timeout of the entire
 resolution for a given input (i.e., the sum of all iterative steps).
 
-
-###
-Threads, Sockets, and Performance
----------------------------------
-
-ZDNS performance stems from massive parallelization using light-weight Go
-routines. This architecture has several caveats:
-
- * Every Go routine uses its own dedicated network socket. Thus, you need to be
-   able to open as many sockets (in terms of both max file descriptors and
-   ephemeral ports) as you have threads specified (via `--threads`). By default,
-   ZDNS uses 1,000 threads, which is less than Linux's default max number of 1024
-   open FDs. However, it is greater than Mac OS's default of 256. You can view
-   the maximum number of open FDs (and thus sockets) permitted by running `ulimit -n`. If
-   you want to run with a greater number of threads than this number, you need to
-   increase the number of open files at the OS level. If you fail to do this,
-   you'll encounter a fatal error similar to `FATA[0000] unable to create
-   socketlisten udp <client IP address>:0: socket: too many open files`. If you
-   want to run more threads than you have ephemeral ports available, you will need
-   to use multiple client IP addresses: `--local-addr=A,B,C`.
-
- * By default, ZDNS "reuses" UDP sockets by creating an unbound UDP socket for
-   each light-weight routine at launch and using it for all queries (regardless
-   of destination IP). This dramatically improves performance because ZDNS and the
-   host OS don't need to setup and tear down a socket to send each individual
-   packet (since DNS queries/responses tend to be one packet each).  However, this
-   means that ZDNS will preallocate a socket for each thread at launch. This may not
-   be optimal if you're only looking up a small number of names.  For example, if
-   you only need to lookup 100 names, but use the default 1,000 threads, you'll
-   bind but never use 900 UDP sockets. Instead, of worrying about recycling
-   sockets, we recommend that you specify a reasonable number of threads for your
-   use case (since this also foregoes any work to start those threads in the first place).
-   This is why, though, you can get an error about being unable to open a large
-   number of sockets even though you're only looking up a single name. If it's important
-   to create a fresh socket for each query, you can disable this reuse by specifying
-   `--recycle-sockets=false`.
-
- * Go is happy to use all CPU cores that are available to it, and can use a
-   tremendous amount of CPU if you specify a large number of threads. CPU is
-   primarily used for parsing and JSON encoding. If you want to limit the number
-   of CPU cores, you can do so by including the `--go-processes=n` flag or setting
-   the `GOMAXPROCS` environment variable.
-
- * It's difficult to recommend a precise amount of `--threads` as it depends on several
-   factors. Empirically, we've found that increasing threads while having a small number of 
-   `--name-servers` can lead to rate limiting and an increase in `TIMEOUT` or `ITERATIVE_TIMEOUT`
-   errors. Even if you're using `--iterative`, you'll still need to query the root/TLD servers
-   for each domain. We recommend investigating with your query parameters to find the number of threads
-   with acceptable performance without too many `TIMEOUT` or `ITERATIVE_TIMEOUT` issues. 
-
-
 Output Verbosity
 ----------------
 
 DNS includes a lot of extraneous data that is not always useful. There are four
 result verbosity levels: `short`, `normal` (default), `long`, and `trace`:
 
- * `short`: Short is the most terse result output. It contains only information about the responses
- * `normal`: Normal provides everything included in short as well as data about the responding server
- * `long`: Long outputs everything the server included in the DNS packet, including flags.
- * `trace`: Trace outputs everything from every step of the recursion process
+* `short`: Short is the most terse result output. It contains only information about the responses
+* `normal`: Normal provides everything included in short as well as data about the responding server
+* `long`: Long outputs everything the server included in the DNS packet, including flags.
+* `trace`: Trace outputs everything from every step of the recursion process
 
 Users can also include specific additional fields using the `--include-fields`
 flag and specifying a list of fields, e.g., `--include-fields=flags,resolver`.
@@ -332,11 +285,21 @@ There is a feature available to perform a certain DNS query against all nameserv
 
 ```echo "google.com" | ./zdns A --all-nameservers```
 
+Dig-style Domain Input
+----------------------
+Similiar to dig, zdns can take a domain as input and perform a lookup on it.  The only requirement is that the module is
+the first argument and domains follow.
+For example:
+
+```
+./zdns A google.com
+```
+
 Multiple Lookup Modules
 -----------------------
-ZDNS supports using multiple lookup modules in a single invocation. For example, let's say you want to perform an A, 
+ZDNS supports using multiple lookup modules in a single invocation. For example, let's say you want to perform an A,
 AAAA, and MXLOOKUP for a set of domains and you want to perform them with iterative resolution. You will need to use the
-`MULTIPLE` module and provide a config file with the modules and module-specific flags you want to use. 
+`MULTIPLE` module and provide a config file with the modules and module-specific flags you want to use.
 
 Please see `./zdns --help` and `./zdns <MODULE_NAME> --help` for Global and Module-specific options that can be used in the config file.
 
