@@ -228,10 +228,19 @@ https://github.com/zmap/dns (and in turn https://github.com/miekg/dns) for const
 and parsing raw DNS packets.
 ZDNS also includes its own recursive resolution and a cache to further optimize performance.
 
-Domains can optionally passed into ZDNS similiar to dig, ex: zdns A google.com yahoo.com
-If no domains are passed, ZDNS will read from stdin or the --input-file flag, if specified.
+Usage
+Domains can be taken from a new-line delimited file, stdin, or passed as arguments.
+./zdns A --input-file domains.txt
+echo "google.com" | ./zdns A
+cat domains.txt | ./zdns A
+./zdns A google.com yahoo.com
 
-ZDNS also includes its own recursive resolution and a cache to further optimize performance.`
+Name Servers can either be specified as a global list or a per-domain name server.
+./zdns A google.com --name-servers=1.1.1.1,8.8.8.8
+echo "google.com,1.0.0.1" | ./zdns A
+
+For more information, see the README
+`
 
 	_, err := parser.AddGroup("General Options", "General options for controlling the behavior of zdns", &GC.GeneralOptions)
 	if err != nil {
