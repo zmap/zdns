@@ -1,6 +1,7 @@
 ZDNS
 ====
 
+[![Build Status](https://travis-ci.org/zmap/zdns.svg?branch=master)](https://travis-ci.org/zmap/zdns)
 [![Go Report Card](https://goreportcard.com/badge/github.com/zmap/zdns)](https://goreportcard.com/report/github.com/zmap/zdns)
 
 ZDNS is a command-line utility that provides high-speed DNS lookups. ZDNS is
@@ -242,7 +243,7 @@ Threads, Sockets, and Performance
 ---------------------------------
 
 ZDNS performance stems from massive parallelization using light-weight Go
-routines. This architecture has several caveats:
+routines. This architecture has several cavaets:
 
  * Every Go routine uses its own dedicated network socket. Thus, you need to be
    able to open as many sockets (in terms of both max file descriptors and
@@ -331,6 +332,16 @@ Querying all Nameservers
 There is a feature available to perform a certain DNS query against all nameservers. For example, you might want to get the A records from all nameservers of a certain domain. To do so, you can do:
 
 ```echo "google.com" | ./zdns A --all-nameservers```
+
+Dig-style Domain Input
+----------------------
+Similiar to dig, zdns can take a domain as input and perform a lookup on it.  The only requirement is that the module is
+the first argument and domains follow.
+For example:
+
+```
+./zdns A google.com
+```
 
 Multiple Lookup Modules
 -----------------------
