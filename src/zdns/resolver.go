@@ -373,15 +373,27 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 	isNSIPv6 := util.IsIPv6(&nameServer.IP)
 	isLoopback := nameServer.IP.IsLoopback()
 	// check if we have a pre-existing udpConn info
+	var existingConnInfo *ConnectionInfo
 	if isNSIPv6 && isLoopback && r.connInfoIPv6Loopback != nil {
-		return r.connInfoIPv6Loopback, nil
+		existingConnInfo = r.connInfoIPv6Loopback
 	} else if isNSIPv6 && !isLoopback && r.connInfoIPv6Internet != nil {
-		return r.connInfoIPv6Internet, nil
+		existingConnInfo = r.connInfoIPv6Internet
 	} else if !isNSIPv6 && isLoopback && r.connInfoIPv4Loopback != nil {
-		return r.connInfoIPv4Loopback, nil
+		existingConnInfo = r.connInfoIPv4Loopback
 	} else if !isNSIPv6 && !isLoopback && r.connInfoIPv4Internet != nil {
 		// must be IPv4 non-loopback
-		return r.connInfoIPv4Internet, nil
+		existingConnInfo = r.connInfoIPv4Internet
+	}
+	if existingConnInfo != nil {
+		if r.dnsOverHTTPSEnabled && existingConnInfo.httpsClient != nil {
+			return existingConnInfo, nil
+		} else if r.dnsOverTLSEnabled && existingConnInfo.tlsConn != nil {
+			return existingConnInfo, nil
+		} else if (r.transportMode == UDPOnly || r.transportMode == UDPOrTCP) && r.shouldRecycleSockets && existingConnInfo.udpConn != nil {
+			return existingConnInfo, nil
+		} else if r.transportMode == TCPOnly && r.shouldRecycleSockets && existingConnInfo.tcpConn != nil {
+			return existingConnInfo, nil
+		}
 	}
 
 	// no existing ConnInfo, create a new one
