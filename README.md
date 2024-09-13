@@ -1,7 +1,6 @@
 ZDNS
 ====
 
-[![Build Status](https://travis-ci.org/zmap/zdns.svg?branch=master)](https://travis-ci.org/zmap/zdns)
 [![Go Report Card](https://goreportcard.com/badge/github.com/zmap/zdns)](https://goreportcard.com/report/github.com/zmap/zdns)
 
 ZDNS is a command-line utility that provides high-speed DNS lookups. ZDNS is
@@ -170,11 +169,55 @@ Other DNS Modules
 
 ZDNS also supports special "debug" DNS queries. Modules include: `BINDVERSION`.
 
+Input Formats
+-------------
+ZDNS supports providing input in a variety of formats depending on the desired behavior.
+
+### Basic Input
+
+The most basic input is a list of names separated by newlines. For example:
+
+From `echo`:
+```
+echo "google.com" | ./zdns A
+```
+From a file:
+```bash
+cat list_of_domains.txt | ./zdns A
+```
+
+### Dig-style Input
+If you don't need to resolve many domains, providing the domain as CLI argument, similar to `dig`, is supported for ease-of-use.
+
+For example:
+```bash
+./zdns A google.com --name-servers=1.1.1.1
+````
+Equivalent to `dig -t A google.com @1.1.1.1`
+
+### Name Servers per-domain
+Normally, ZDNS will choose a random nameserver for each domain lookup from `--name-servers`. If instead you want to specify
+a different name server for each domain, you can do so by providing domainName,nameServerIP pairs seperated by newlines.
+This will override any nameservers provided with `--name-servers`.
+
+For example:
+```
+echo "google.com,1.1.1.1\nfacebook.com,8.8.8.8" | ./zdns A
+```
+
+You can see the `resolver` is as specified for each domain in the output (additionals/answers redacted for brevity):
+```shell
+$ echo "google.com,1.1.1.1\nfacebook.com,8.8.8.8" | ./zdns A
+{"name":"google.com","results":{"A":{"data":{"additionals":...,"answers":[...],"protocol":"udp","resolver":"1.1.1.1:53"},"duration":0.030490042,"status":"NOERROR","timestamp":"2024-09-13T09:51:34-04:00"}}}
+{"name":"facebook.com","results":{"A":{"data":{"additionals":[...],"answers":[...],"protocol":"udp","resolver":"8.8.8.8:53"},"duration":0.061365459,"status":"NOERROR","timestamp":"2024-09-13T09:51:34-04:00"}}}
+````
+
+###
 Threads, Sockets, and Performance
 ---------------------------------
 
 ZDNS performance stems from massive parallelization using light-weight Go
-routines. This architecture has several cavaets:
+routines. This architecture has several caveats:
 
 * Every Go routine uses its own dedicated network socket. Thus, you need to be
   able to open as many sockets (in terms of both max file descriptors and
@@ -284,16 +327,6 @@ Querying all Nameservers
 There is a feature available to perform a certain DNS query against all nameservers. For example, you might want to get the A records from all nameservers of a certain domain. To do so, you can do:
 
 ```echo "google.com" | ./zdns A --all-nameservers```
-
-Dig-style Domain Input
-----------------------
-Similiar to dig, zdns can take a domain as input and perform a lookup on it.  The only requirement is that the module is
-the first argument and domains follow.
-For example:
-
-```
-./zdns A google.com
-```
 
 Multiple Lookup Modules
 -----------------------
