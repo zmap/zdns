@@ -432,64 +432,6 @@ func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Res
 	return config, nil
 }
 
-// WorkChans are a collection of channels that workers can read from
-// Worker threads are assigned a PriorityWorkChan, which is a channel where all queries are directed at a single nameserver
-// If a thread is idle, it will read from the GlobalWorkChan, helping to relieve work imbalance between worker nameservers
-type WorkChans struct {
-	PriorityWorkChans []chan *InputLineWithNameServer
-	GlobalWorkChan    chan *InputLineWithNameServer
-}
-
-// NewWorkerChans creates numChans priority worker channels and a global worker channel
-func NewWorkerChans(numPriorityChans int) *WorkChans {
-	workerPools := make([]chan *InputLineWithNameServer, numPriorityChans)
-	for i := 0; i < numPriorityChans; i++ {
-		workerPools[i] = make(chan *InputLineWithNameServer, 1)
-	}
-	return &WorkChans{PriorityWorkChans: workerPools, GlobalWorkChan: make(chan *InputLineWithNameServer)}
-}
-
-// InputLineWithNameServer is a struct that contains a line of input and the name server to use for the lookup
-// This name server is a "suggestion", --iterative lookups will ignore it as well as AXFR lookups
-type InputLineWithNameServer struct {
-	Line       string
-	NameServer *zdns.NameServer
-}
-
-// inputDeMultiplexer is a single goroutine that reads from the input channel and prioritizes sending work to it's respective
-// prioritized input channel. If the priority channel is full, it will send the work to the global work channel for an idle thread
-// to load balance.  The goal is that a worker thread will tend to re-use their existing TCP/TLS/HTTPS connection, saving handshakes.
-// Work Balancing
-// The GlobalWorkChan is used to address work imbalance between worker pools. If a query should go to Priority Channel A but A is busy, it will go to the GlobalWorkChan
-// Workers will check the GlobalWorkChan only if their Priority channel is empty. This means they will tend to re-use their connections, but help out other pools if they're idle
-func inputDeMultiplexer(nameServers []zdns.NameServer, inChan <-chan string, workerPools *WorkChans, wg *sync.WaitGroup) error {
-	defer wg.Done()
-	defer func() {
-		// cleanup work channels
-		for _, pool := range workerPools.PriorityWorkChans {
-			close(pool)
-		}
-		close(workerPools.GlobalWorkChan)
-	}()
-	for line := range inChan {
-		nsIndex := rand.Intn(len(nameServers))
-		randomNS := nameServers[nsIndex]
-		chanID := nsIndex % len(workerPools.PriorityWorkChans)
-		work := &InputLineWithNameServer{Line: line, NameServer: &randomNS}
-		// for each work item, we prefer to send it to the assigned worker pool for the name server
-		select {
-		case workerPools.PriorityWorkChans[chanID] <- work: // prefer to send to the worker pool for the name server
-		default:
-			// worker pool is busy, we'll take first available spot between the global and priority channels
-			select {
-			case workerPools.GlobalWorkChan <- work:
-			case workerPools.PriorityWorkChans[chanID] <- work:
-			}
-		}
-	}
-	return nil
-}
-
 func Run(gc CLIConf) {
 	gc = *populateCLIConfig(&gc)
 	resolverConfig := populateResolverConfig(&gc)
@@ -526,41 +468,6 @@ func Run(gc CLIConf) {
 		log.Fatal("Output handler is nil")
 	}
 
-	nameServers := util.Concat(resolverConfig.ExternalNameServersV4, resolverConfig.ExternalNameServersV6, resolverConfig.RootNameServersV4, resolverConfig.RootNameServersV6)
-	// de-dupe
-	nsLookupMap := make(map[uint32]struct{})
-	uniqNameServers := make([]zdns.NameServer, 0, len(nameServers))
-	var hash uint32
-	for _, ns := range nameServers {
-		hash, err = ns.Hash()
-		if err != nil {
-			log.Fatalf("could not hash name server %s: %v", ns.String(), err)
-		}
-		if _, ok := nsLookupMap[hash]; !ok {
-			nsLookupMap[hash] = struct{}{}
-			uniqNameServers = append(uniqNameServers, ns)
-		}
-	}
-	// DoH lookups only depend on domain name, remove nameservers with duplicate domains
-	// We don't want the deMultiplexer to send the same domain (with different IPs) to different worker pools
-	if gc.DNSOverHTTPS {
-		nsDomainLookupMap := make(map[string]struct{})
-		uniqueDomainNSes := make([]zdns.NameServer, 0, len(uniqNameServers))
-		for _, ns := range uniqNameServers {
-			if _, ok := nsDomainLookupMap[ns.DomainName]; !ok {
-				nsDomainLookupMap[ns.DomainName] = struct{}{}
-				uniqueDomainNSes = append(uniqueDomainNSes, ns)
-			}
-		}
-		uniqNameServers = uniqueDomainNSes
-	}
-	numberOfPriorityChans := len(uniqNameServers)
-	if gc.Threads < numberOfPriorityChans {
-		// multiple threads can share a channel, but we can't have more channels than threads
-		numberOfPriorityChans = gc.Threads
-	}
-	workerPools := NewWorkerChans(numberOfPriorityChans)
-
 	// Use handlers to populate the input and output/results channel
 	go func() {
 		inErr := inHandler.FeedChannel(inChan, &routineWG)
@@ -569,18 +476,12 @@ func Run(gc CLIConf) {
 		}
 	}()
 	go func() {
-		plexErr := inputDeMultiplexer(uniqNameServers, inChan, workerPools, &routineWG)
-		if plexErr != nil {
-			log.Fatal(fmt.Sprintf("could not de-multiplex input channel: %v", plexErr))
-		}
-	}()
-	go func() {
 		outErr := outHandler.WriteResults(outChan, &routineWG)
 		if outErr != nil {
 			log.Fatal(fmt.Sprintf("could not write output results from output channel: %v", outErr))
 		}
 	}()
-	routineWG.Add(3)
+	routineWG.Add(2)
 
 	// create pool of worker goroutines
 	var lookupWG sync.WaitGroup
@@ -589,10 +490,8 @@ func Run(gc CLIConf) {
 	// create shared cache for all threads to share
 	for i := 0; i < gc.Threads; i++ {
 		i := i
-		// assign each worker to a priority channel, we'll loop around if we have more workers than channels
-		channelID := i % len(workerPools.PriorityWorkChans)
 		go func(threadID int) {
-			initWorkerErr := doLookupWorker(&gc, resolverConfig, workerPools.PriorityWorkChans[channelID], workerPools.GlobalWorkChan, outChan, metaChan, &lookupWG)
+			initWorkerErr := doLookupWorker(&gc, resolverConfig, inChan, outChan, metaChan, &lookupWG)
 			if initWorkerErr != nil {
 				log.Fatalf("could not start lookup worker #%d: %v", i, initWorkerErr)
 			}
@@ -643,7 +542,7 @@ func Run(gc CLIConf) {
 }
 
 // doLookupWorker is a single worker thread that processes lookups from the input channel. It calls wg.Done when it is finished.
-func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, preferredWorkChan, globalWorkChan <-chan *InputLineWithNameServer, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
+func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, inputChan <-chan string, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	resolver, err := zdns.InitResolver(rc)
 	if err != nil {
@@ -651,34 +550,9 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, preferredWorkChan, glo
 	}
 	var metadata routineMetadata
 	metadata.Status = make(map[zdns.Status]int)
-	var task *InputLineWithNameServer
-	var ok bool
 
-WorkerLoop:
-	for {
-		// Check its own priority channel first to prioritize re-using TCP/HTTPS/TLS connections
-		select {
-		case task, ok = <-preferredWorkChan:
-			if !ok {
-				// inputDeMultiplexer has closed the channel, we're done
-				break WorkerLoop
-			}
-			handleWorkerInput(gc, rc, task, resolver, &metadata, output)
-		default:
-			// wait on either Priority/Global channel
-			select {
-			case task, ok = <-preferredWorkChan:
-				if !ok {
-					break WorkerLoop
-				}
-				handleWorkerInput(gc, rc, task, resolver, &metadata, output)
-			case task, ok = <-globalWorkChan:
-				if !ok {
-					break WorkerLoop
-				}
-				handleWorkerInput(gc, rc, task, resolver, &metadata, output)
-			}
-		}
+	for line := range inputChan {
+		handleWorkerInput(gc, rc, line, resolver, &metadata, output)
 	}
 	// close the resolver, freeing up resources
 	resolver.Close()
@@ -686,20 +560,50 @@ WorkerLoop:
 	return nil
 }
 
-func handleWorkerInput(gc *CLIConf, rc *zdns.ResolverConfig, line *InputLineWithNameServer, resolver *zdns.Resolver, metadata *routineMetadata, output chan<- string) {
+func handleWorkerInput(gc *CLIConf, rc *zdns.ResolverConfig, line string, resolver *zdns.Resolver, metadata *routineMetadata, output chan<- string) {
 	// we'll process each module sequentially, parallelism is per-domain
-	res, rawName, nameServer := parseInputLine(gc, rc, line)
+	res := zdns.Result{Results: make(map[string]zdns.SingleModuleResult, len(gc.ActiveModules))}
+	// get the fields that won't change for each lookup module
+	rawName := ""
+	var nameServer *zdns.NameServer
+	var nameServers []zdns.NameServer
+	nameServerString := ""
+	var rank int
+	var entryMetadata string
+	var err error
+	if gc.AlexaFormat {
+		rawName, rank = parseAlexa(line)
+		res.AlexaRank = rank
+	} else if gc.MetadataFormat {
+		rawName, entryMetadata = parseMetadataInputLine(line)
+		res.Metadata = entryMetadata
+	} else if gc.NameServerMode {
+		nameServers, err = convertNameServerStringToNameServer(line, rc.IPVersionMode, rc.DNSOverTLS, rc.DNSOverHTTPS)
+		if err != nil {
+			log.Fatal("unable to parse name server: ", line)
+		}
+		if len(nameServers) == 0 {
+			log.Fatal("no name servers found in line: ", line)
+		}
+		// if user provides a domain name for the name server (one.one.one.one) we'll pick one of the IPs at random
+		nameServer = &nameServers[rand.Intn(len(nameServers))]
+	} else {
+		rawName, nameServerString = parseNormalInputLine(line)
+		if len(nameServerString) != 0 {
+			nameServers, err = convertNameServerStringToNameServer(nameServerString, rc.IPVersionMode, rc.DNSOverTLS, rc.DNSOverHTTPS)
+			if err != nil {
+				log.Fatal("unable to parse name server: ", line)
+			}
+			if len(nameServers) == 0 {
+				log.Fatal("no name servers found in line: ", line)
+			}
+			// if user provides a domain name for the name server (one.one.one.one) we'll pick one of the IPs at random
+			nameServer = &nameServers[rand.Intn(len(nameServers))]
+		}
+	}
 	res.Name = rawName
 	// handle per-module lookups
 	for moduleName, module := range gc.ActiveModules {
-		if moduleName == "AXFR" {
-			// special case, AXFR has its own nameserver handling. We'll only take nameservers if the user provides it
-			// not the "suggestion" from the de-multiplexor
-			if nameServer.String() == line.NameServer.String() {
-				// this name server is the suggested one from the de-multiplexor, we'll remove it
-				nameServer = nil
-			}
-		}
 		var innerRes interface{}
 		var trace zdns.Trace
 		var status zdns.Status
@@ -750,52 +654,6 @@ func handleWorkerInput(gc *CLIConf, rc *zdns.ResolverConfig, line *InputLineWith
 		output <- string(jsonRes)
 	}
 	metadata.Names++
-}
-
-func parseInputLine(gc *CLIConf, rc *zdns.ResolverConfig, line *InputLineWithNameServer) (*zdns.Result, string, *zdns.NameServer) {
-	res := zdns.Result{Results: make(map[string]zdns.SingleModuleResult, len(gc.ActiveModules))}
-	// get the fields that won't change for each lookup module
-	rawName := ""
-	// this is the name server "suggested" by the de-multiplexor. The goal is that if
-	// 1) the user doesn't provide a nameserver
-	// 2) we're in external lookup mode
-	// then we'll use the suggestion. This is to avoid the overhead of re-handshaking for each lookup
-	// it's overwritten if the user provides a nameserver as part of the input line below
-	nameServer := line.NameServer
-	nameServerString := ""
-	var rank int
-	var entryMetadata string
-	if gc.AlexaFormat {
-		rawName, rank = parseAlexa(line.Line)
-		res.AlexaRank = rank
-	} else if gc.MetadataFormat {
-		rawName, entryMetadata = parseMetadataInputLine(line.Line)
-		res.Metadata = entryMetadata
-	} else if gc.NameServerMode {
-		nameServers, err := convertNameServerStringToNameServer(line.Line, rc.IPVersionMode, rc.DNSOverTLS, rc.DNSOverHTTPS)
-		if err != nil {
-			log.Fatal("unable to parse name server: ", line.Line)
-		}
-		if len(nameServers) == 0 {
-			log.Fatal("no name servers found in line: ", line.Line)
-		}
-		// if user provides a domain name for the name server (one.one.one.one) we'll pick one of the IPs at random
-		nameServer = &nameServers[rand.Intn(len(nameServers))]
-	} else {
-		rawName, nameServerString = parseNormalInputLine(line.Line)
-		if len(nameServerString) != 0 {
-			nameServers, err := convertNameServerStringToNameServer(nameServerString, rc.IPVersionMode, rc.DNSOverTLS, rc.DNSOverHTTPS)
-			if err != nil {
-				log.Fatal("unable to parse name server: ", line.Line)
-			}
-			if len(nameServers) == 0 {
-				log.Fatal("no name servers found in line: ", line.Line)
-			}
-			// if user provides a domain name for the name server (one.one.one.one) we'll pick one of the IPs at random
-			nameServer = &nameServers[rand.Intn(len(nameServers))]
-		}
-	}
-	return &res, rawName, nameServer
 }
 
 func parseAlexa(line string) (string, int) {

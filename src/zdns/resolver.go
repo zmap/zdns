@@ -262,13 +262,14 @@ type Resolver struct {
 	iterationIPPreference IterationIPPreference
 	shouldRecycleSockets  bool
 
-	iterativeTimeout     time.Duration
-	timeout              time.Duration // timeout for the network conns
-	maxDepth             int
-	externalNameServers  []NameServer // name servers used by external lookups (either OS or user specified)
-	rootNameServers      []NameServer // root servers used for iterative lookups
-	lookupAllNameServers bool
-	followCNAMEs         bool // whether iterative lookups should follow CNAMEs/DNAMEs
+	iterativeTimeout           time.Duration
+	timeout                    time.Duration // timeout for the network conns
+	maxDepth                   int
+	externalNameServers        []NameServer // name servers used by external lookups (either OS or user specified)
+	rootNameServers            []NameServer // root servers used for iterative lookups
+	lastUsedExternalNameServer *NameServer  // the last external name server used for an external lookup
+	lookupAllNameServers       bool
+	followCNAMEs               bool // whether iterative lookups should follow CNAMEs/DNAMEs
 
 	dnsSecEnabled       bool
 	dnsOverHTTPSEnabled bool // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
@@ -559,16 +560,21 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer *NameServer) (*SingleQu
 	if r.isClosed {
 		log.Fatal("resolver has been closed, cannot perform lookup")
 	}
+	// If dstServer is not provided, AND we're in HTTPS/TLS/TCP mode, AND we have a pre-existing external name server, use it
 
-	if dstServer == nil {
+	if dstServer == nil && r.lastUsedExternalNameServer == nil {
 		dstServer = r.randomExternalNameServer()
 		log.Info("no name server provided for external lookup, using  random external name server: ", dstServer)
+	} else if dstServer == nil {
+		dstServer = r.lastUsedExternalNameServer
+		log.Info("no name server provided for external lookup, using last external name server: ", dstServer)
 	}
 	dstServer.PopulateDefaultPort(r.dnsOverTLSEnabled, r.dnsOverHTTPSEnabled)
 	if isValid, reason := dstServer.IsValid(); !isValid {
 		return nil, nil, StatusIllegalInput, fmt.Errorf("destination server %s is invalid: %s", dstServer.String(), reason)
 	}
 	// dstServer has been validated and has a port, continue with lookup
+	r.lastUsedExternalNameServer = dstServer
 	lookup, trace, status, err := r.lookupClient.DoSingleDstServerLookup(r, *q, dstServer, false)
 	return lookup, trace, status, err
 }
