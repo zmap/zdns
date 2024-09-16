@@ -16,11 +16,12 @@ package zdns
 import (
 	"context"
 	"fmt"
-	"github.com/zmap/zcrypto/x509"
 	"io"
 	"net"
 	"regexp"
 	"strings"
+
+	"github.com/zmap/zcrypto/x509"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"

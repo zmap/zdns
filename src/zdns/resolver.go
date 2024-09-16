@@ -16,11 +16,12 @@ package zdns
 
 import (
 	"fmt"
-	"github.com/zmap/zcrypto/x509"
 	"math/rand"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/zmap/zcrypto/x509"
 
 	"github.com/pkg/errors"
 

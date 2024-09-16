@@ -17,7 +17,6 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"github.com/zmap/zcrypto/x509"
 	"io"
 	"math/rand"
 	"net"
@@ -27,6 +26,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/zmap/zcrypto/x509"
 
 	"github.com/hashicorp/go-version"
 	"github.com/liip/sheriff"
