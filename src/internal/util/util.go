@@ -26,29 +26,10 @@ import (
 const (
 	EnvPrefix              = "ZDNS"
 	DefaultFilePermissions = 0644 // rw-r--r--
+	DefaultDNSPort         = "53"
+	DefaultHTTPSPort       = "443"
+	DefaultTLSPort         = "853"
 )
-
-func AddDefaultPortToDNSServerName(inAddr string) (string, error) {
-	// Try to split host and port to see if the port is already specified.
-	host, port, err := net.SplitHostPort(inAddr)
-	if err != nil {
-		// might mean there's no port specified
-		host = inAddr
-	}
-
-	// Validate the host part as an IP address.
-	ip := net.ParseIP(host)
-	if ip == nil {
-		return "", errors.New("invalid IP address")
-	}
-
-	// If the original input does not have a port, specify port 53
-	if port == "" {
-		port = "53"
-	}
-
-	return net.JoinHostPort(ip.String(), port), nil
-}
 
 func SplitHostPort(inaddr string) (net.IP, int, error) {
 	host, port, err := net.SplitHostPort(inaddr)

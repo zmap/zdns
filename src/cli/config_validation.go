@@ -31,6 +31,26 @@ func populateNetworkingConfig(gc *CLIConf) error {
 		return errors.New("--local-addr and --local-interface cannot both be specified")
 	}
 
+	if gc.DNSOverHTTPS && gc.IterativeResolution {
+		return errors.New("--https and --iterative cannot both be specified")
+	}
+
+	if gc.DNSOverTLS && gc.IterativeResolution {
+		return errors.New("--tls and --iterative cannot both be specified")
+	}
+
+	if gc.UDPOnly && gc.DNSOverHTTPS {
+		return errors.New("--udp-only and --https cannot both be specified")
+	}
+
+	if gc.UDPOnly && gc.DNSOverTLS {
+		return errors.New("--udp-only and --tls cannot both be specified")
+	}
+
+	if gc.DNSOverHTTPS && gc.DNSOverTLS {
+		return errors.New("--https and --tls cannot both be specified")
+	}
+
 	if err := parseNameServers(gc); err != nil {
 		return errors.Wrap(err, "name servers could not be parsed")
 	}

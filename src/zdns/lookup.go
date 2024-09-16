@@ -16,13 +16,19 @@ package zdns
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"regexp"
 	"strings"
 
+	"github.com/zmap/zcrypto/x509"
+
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
+	"github.com/zmap/zcrypto/tls"
+	"github.com/zmap/zgrab2/lib/http"
+	"github.com/zmap/zgrab2/lib/output"
 
 	"github.com/zmap/zdns/src/internal/util"
 )
@@ -195,11 +201,12 @@ func (r *Resolver) followingLookup(ctx context.Context, q Question, nameServer *
 
 		if isLookupComplete(originalName, candidateSet, cnameSet, dnameSet) {
 			return &SingleQueryResult{
-				Answers:    allAnswerSet,
-				Additional: res.Additional,
-				Protocol:   res.Protocol,
-				Resolver:   res.Resolver,
-				Flags:      res.Flags,
+				Answers:            allAnswerSet,
+				Additional:         res.Additional,
+				Protocol:           res.Protocol,
+				Resolver:           res.Resolver,
+				Flags:              res.Flags,
+				TLSServerHandshake: res.TLSServerHandshake,
 			}, trace, StatusNoError, nil
 		}
 
@@ -294,7 +301,7 @@ func (r *Resolver) LookupAllNameservers(q *Question, nameServer *NameServer) (*C
 			// construct the nameserver
 			res, trace, status, err := r.ExternalLookup(q, &NameServer{
 				IP:   net.ParseIP(ip),
-				Port: DefaultPort,
+				Port: DefaultDNSPort,
 			})
 			if err != nil {
 				// log and move on
@@ -435,7 +442,23 @@ func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer *N
 		if util.HasCtxExpired(&ctx) {
 			return SingleQueryResult{}, StatusTimeout, i + 1, nil
 		}
-		result, status, err := wireLookup(ctx, connInfo.udpClient, connInfo.tcpClient, connInfo.conn, q, nameServer, r.ednsOptions, recursive, r.dnsSecEnabled, r.checkingDisabledBit)
+		var result SingleQueryResult
+		var status Status
+		if r.dnsOverHTTPSEnabled {
+			result, status, err = doDoHLookup(ctx, connInfo.httpsClient, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
+		} else if r.dnsOverTLSEnabled {
+			result, status, err = doDoTLookup(ctx, connInfo, q, nameServer, r.rootCAs, r.verifyServerCert, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
+		} else if connInfo.udpClient != nil {
+			result, status, err = wireLookupUDP(ctx, connInfo, q, nameServer, r.ednsOptions, recursive, r.dnsSecEnabled, r.checkingDisabledBit)
+			if status == StatusTruncated && connInfo.tcpClient != nil {
+				// result truncated, try again with TCP
+				result, status, err = wireLookupTCP(ctx, connInfo, q, nameServer, r.ednsOptions, recursive, r.dnsSecEnabled, r.checkingDisabledBit)
+			}
+		} else if connInfo.tcpClient != nil {
+			result, status, err = wireLookupTCP(ctx, connInfo, q, nameServer, r.ednsOptions, recursive, r.dnsSecEnabled, r.checkingDisabledBit)
+		} else {
+			return SingleQueryResult{}, StatusError, 0, errors.New("no connection info for nameserver")
+		}
 		if status != StatusTimeout || i == r.retries {
 			return result, status, i + 1, err
 		}
@@ -444,9 +467,165 @@ func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer *N
 	return SingleQueryResult{}, "", 0, errors.New("retry loop didn't exit properly")
 }
 
-// wireLookup performs a DNS lookup on-the-wire with the given parameters
-// Attempts a UDP lookup first, then falls back to TCP if necessary (if the UDP response encounters an error or is truncated)
-func wireLookup(ctx context.Context, udp *dns.Client, tcp *dns.Client, conn *dns.Conn, q Question, nameServer *NameServer, ednsOptions []dns.EDNS0, recursive, dnssec, checkingDisabled bool) (SingleQueryResult, Status, error) {
+func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, rootCAs *x509.CertPool, shouldVerifyServerCert, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (SingleQueryResult, Status, error) {
+	m := new(dns.Msg)
+	m.SetQuestion(dotName(q.Name), q.Type)
+	m.Question[0].Qclass = q.Class
+	m.RecursionDesired = recursive
+	m.CheckingDisabled = checkingDisabled
+	m.Id = 12345
+
+	m.SetEdns0(1232, dnssec)
+	if ednsOpt := m.IsEdns0(); ednsOpt != nil {
+		ednsOpt.Option = append(ednsOpt.Option, ednsOptions...)
+	}
+
+	// if tlsConn is nil or if this is a new nameserver, create a new connection
+	var isConnNew bool
+	if connInfo.tlsConn != nil {
+		newRemoteAddr := net.TCPAddr{IP: nameServer.IP, Port: int(nameServer.Port)}
+		prevRemoteAddr := connInfo.tlsConn.Conn.RemoteAddr().String()
+		if prevRemoteAddr != newRemoteAddr.String() {
+			isConnNew = true
+		}
+	}
+	if connInfo.tlsConn == nil || isConnNew {
+		// new connection
+		// Custom dialer with local address binding
+		dialer := &net.Dialer{
+			LocalAddr: &net.TCPAddr{
+				IP:   connInfo.localAddr,
+				Port: 0,
+			},
+		}
+		tcpConn, err := dialer.DialContext(ctx, "tcp", nameServer.String())
+		if err != nil {
+			return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not connect to server")
+		}
+		// Now wrap the connection with TLS
+		tlsConn := tls.Client(tcpConn, &tls.Config{
+			InsecureSkipVerify: true,
+		})
+		if shouldVerifyServerCert {
+			// if we're verifying the server cert, we need to pass in the root CAs
+			tlsConn = tls.Client(tcpConn, &tls.Config{
+				RootCAs:            rootCAs,
+				InsecureSkipVerify: false,
+				ServerName:         nameServer.DomainName,
+			})
+		}
+		err = tlsConn.Handshake()
+		if err != nil {
+			closeErr := tlsConn.Close()
+			if closeErr != nil {
+				log.Errorf("error closing TLS connection: %v", err)
+			}
+			return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not perform TLS handshake")
+		}
+		connInfo.tlsHandshake = tlsConn.GetHandshakeLog()
+		connInfo.tlsConn = &dns.Conn{Conn: tlsConn}
+	}
+	err := connInfo.tlsConn.WriteMsg(m)
+	if err != nil {
+		return SingleQueryResult{}, "", errors.Wrap(err, "could not write query over DoT to server")
+	}
+	responseMsg, err := connInfo.tlsConn.ReadMsg()
+	if err != nil {
+		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not unpack DNS message from DoT server")
+	}
+	res := SingleQueryResult{
+		Resolver:    connInfo.tlsConn.Conn.RemoteAddr().String(),
+		Protocol:    "DoT",
+		Answers:     []interface{}{},
+		Authorities: []interface{}{},
+		Additional:  []interface{}{},
+	}
+	// if we have it, add the TLS handshake info
+	if connInfo.tlsHandshake != nil {
+		processor := output.Processor{Verbose: false}
+		strippedOutput, stripErr := processor.Process(connInfo.tlsHandshake)
+		if stripErr != nil {
+			log.Warnf("Error stripping TLS log: %v", stripErr)
+		} else {
+			res.TLSServerHandshake = strippedOutput
+		}
+	}
+	return constructSingleQueryResultFromDNSMsg(res, responseMsg)
+}
+
+func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameServer *NameServer, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (SingleQueryResult, Status, error) {
+	m := new(dns.Msg)
+	m.SetQuestion(dotName(q.Name), q.Type)
+	m.Question[0].Qclass = q.Class
+	m.RecursionDesired = recursive
+	m.CheckingDisabled = checkingDisabled
+
+	m.SetEdns0(1232, dnssec)
+	if ednsOpt := m.IsEdns0(); ednsOpt != nil {
+		ednsOpt.Option = append(ednsOpt.Option, ednsOptions...)
+	}
+	bytes, err := m.Pack()
+	if err != nil {
+		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not pack DNS message")
+	}
+	if strings.Contains(nameServer.DomainName, "http://") {
+		return SingleQueryResult{}, StatusError, errors.New("DoH name server must use HTTPS")
+	}
+	httpsDomain := nameServer.DomainName
+	if !strings.HasPrefix(httpsDomain, "https://") {
+		httpsDomain = "https://" + httpsDomain
+	}
+	if !strings.HasSuffix(httpsDomain, "/dns-query") {
+		httpsDomain += "/dns-query"
+	}
+	req, err := http.NewRequest("POST", httpsDomain, strings.NewReader(string(bytes)))
+	if err != nil {
+		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not create HTTP request")
+	}
+	req.Header.Set("Content-Type", "application/dns-message")
+	req.Header.Set("Accept", "application/dns-message")
+	req = req.WithContext(ctx)
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not perform HTTP request")
+	}
+	defer func(Body io.ReadCloser) {
+		err = Body.Close()
+		if err != nil {
+			log.Errorf("error closing DoH response body: %v", err)
+		}
+	}(resp.Body)
+	bytes, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not read HTTP response")
+	}
+
+	r := new(dns.Msg)
+	err = r.Unpack(bytes)
+	if err != nil {
+		return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not unpack DNS message")
+	}
+	res := SingleQueryResult{
+		Resolver:    nameServer.DomainName,
+		Protocol:    "DoH",
+		Answers:     []interface{}{},
+		Authorities: []interface{}{},
+		Additional:  []interface{}{},
+	}
+	if resp.Request != nil && resp.Request.TLSLog != nil {
+		processor := output.Processor{Verbose: false}
+		strippedOutput, stripErr := processor.Process(resp.Request.TLSLog)
+		if stripErr != nil {
+			log.Warnf("Error stripping TLS log: %v", stripErr)
+		} else {
+			res.TLSServerHandshake = strippedOutput
+		}
+	}
+	return constructSingleQueryResultFromDNSMsg(res, r)
+}
+
+// wireLookupTCP performs a DNS lookup on-the-wire over TCP with the given parameters
+func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, ednsOptions []dns.EDNS0, recursive, dnssec, checkingDisabled bool) (SingleQueryResult, Status, error) {
 	res := SingleQueryResult{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 	res.Resolver = nameServer.String()
 
@@ -463,25 +642,29 @@ func wireLookup(ctx context.Context, udp *dns.Client, tcp *dns.Client, conn *dns
 
 	var r *dns.Msg
 	var err error
-	if udp != nil {
-		res.Protocol = "udp"
-		if conn != nil {
-			dst, _ := net.ResolveUDPAddr("udp", nameServer.String())
-			r, _, err = udp.ExchangeWithConnToContext(ctx, m, conn, dst)
-		} else {
-			r, _, err = udp.ExchangeContext(ctx, m, nameServer.String())
+	if connInfo.tcpConn != nil && connInfo.tcpConn.RemoteAddr != nil && connInfo.tcpConn.RemoteAddr.String() == nameServer.String() {
+		// we have a connection to this nameserver, use it
+		res.Protocol = "tcp"
+		var addr *net.TCPAddr
+		addr, err = net.ResolveTCPAddr("tcp", nameServer.String())
+		if err != nil {
+			return SingleQueryResult{}, StatusError, fmt.Errorf("could not resolve TCP address %s: %v", nameServer.String(), err)
 		}
-		// if record comes back truncated, but we have a TCP connection, try again with that
-		if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
-			if tcp != nil {
-				return wireLookup(ctx, nil, tcp, conn, q, nameServer, ednsOptions, recursive, dnssec, checkingDisabled)
-			} else {
-				return res, StatusTruncated, err
+		r, _, err = connInfo.tcpClient.ExchangeWithConnToContext(ctx, m, connInfo.tcpConn, addr)
+		if err != nil && err.Error() == "EOF" {
+			// EOF error means the connection was closed, we'll remove the connection (it'll be recreated on the next iteration)
+			// and try again
+			err = connInfo.tcpConn.Conn.Close()
+			if err != nil {
+				log.Errorf("error closing TCP connection: %v", err)
 			}
+			connInfo.tcpConn = nil
+			r, _, err = connInfo.tcpClient.ExchangeContext(ctx, m, nameServer.String())
 		}
 	} else {
+		// no pre-existing connection, create an ephemeral one
 		res.Protocol = "tcp"
-		r, _, err = tcp.ExchangeContext(ctx, m, nameServer.String())
+		r, _, err = connInfo.tcpClient.ExchangeContext(ctx, m, nameServer.String())
 	}
 	if err != nil || r == nil {
 		if nerr, ok := err.(net.Error); ok {
@@ -492,6 +675,51 @@ func wireLookup(ctx context.Context, udp *dns.Client, tcp *dns.Client, conn *dns
 		return res, StatusError, err
 	}
 
+	return constructSingleQueryResultFromDNSMsg(res, r)
+}
+
+// wireLookupUDP performs a DNS lookup on-the-wire over UDP with the given parameters
+func wireLookupUDP(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, ednsOptions []dns.EDNS0, recursive, dnssec, checkingDisabled bool) (SingleQueryResult, Status, error) {
+	res := SingleQueryResult{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
+	res.Resolver = nameServer.String()
+	res.Protocol = "udp"
+
+	m := new(dns.Msg)
+	m.SetQuestion(dotName(q.Name), q.Type)
+	m.Question[0].Qclass = q.Class
+	m.RecursionDesired = recursive
+	m.CheckingDisabled = checkingDisabled
+
+	m.SetEdns0(1232, dnssec)
+	if ednsOpt := m.IsEdns0(); ednsOpt != nil {
+		ednsOpt.Option = append(ednsOpt.Option, ednsOptions...)
+	}
+
+	var r *dns.Msg
+	var err error
+	if connInfo.udpConn != nil {
+		dst, _ := net.ResolveUDPAddr("udp", nameServer.String())
+		r, _, err = connInfo.udpClient.ExchangeWithConnToContext(ctx, m, connInfo.udpConn, dst)
+	} else {
+		r, _, err = connInfo.udpClient.ExchangeContext(ctx, m, nameServer.String())
+	}
+	if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
+		return res, StatusTruncated, err
+	}
+	if err != nil || r == nil {
+		if nerr, ok := err.(net.Error); ok {
+			if nerr.Timeout() {
+				return res, StatusTimeout, nil
+			}
+		}
+		return res, StatusError, err
+	}
+
+	return constructSingleQueryResultFromDNSMsg(res, r)
+}
+
+// fills out all the fields in a SingleQueryResult from a dns.Msg directly.
+func constructSingleQueryResultFromDNSMsg(res SingleQueryResult, r *dns.Msg) (SingleQueryResult, Status, error) {
 	if r.Rcode != dns.RcodeSuccess {
 		for _, ans := range r.Extra {
 			inner := ParseAnswer(ans)
@@ -643,7 +871,7 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 				ns := new(NameServer)
 				parsedIPString := strings.TrimSuffix(innerAns.Answer, ".")
 				ns.IP = net.ParseIP(parsedIPString)
-				ns.PopulateDefaultPort()
+				ns.PopulateDefaultPort(r.dnsOverTLSEnabled, r.dnsOverHTTPSEnabled)
 				return ns, StatusNoError, layer, trace
 			}
 		}

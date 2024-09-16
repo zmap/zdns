@@ -25,10 +25,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
 	flags "github.com/zmap/zflags"
-)
 
-const (
-	zdnsCLIVersion = "1.1.0"
+	"github.com/zmap/zdns/src/zdns"
 )
 
 var parser *flags.Parser
@@ -72,13 +70,17 @@ type QueryOptions struct {
 type NetworkOptions struct {
 	IPv4TransportOnly     bool   `long:"4" description:"utilize IPv4 query transport only, incompatible with --6"`
 	IPv6TransportOnly     bool   `long:"6" description:"utilize IPv6 query transport only, incompatible with --4"`
+	DNSOverHTTPS          bool   `long:"https" description:"Use DNS over HTTPS for lookups, mutually exclusive with --udp-only, --iterative, and --tls"`
 	LocalAddrString       string `long:"local-addr" description:"comma-delimited list of local addresses to use, serve as the source IP for outbound queries"`
 	LocalIfaceString      string `long:"local-interface" description:"local interface to use"`
 	DisableRecycleSockets bool   `long:"no-recycle-sockets" description:"do not create long-lived unbound UDP socket for each thread at launch and reuse for all (UDP) queries"`
 	PreferIPv4Iteration   bool   `long:"prefer-ipv4-iteration" description:"Prefer IPv4/A record lookups during iterative resolution. Ignored unless used with both IPv4 and IPv6 query transport"`
 	PreferIPv6Iteration   bool   `long:"prefer-ipv6-iteration" description:"Prefer IPv6/AAAA record lookups during iterative resolution. Ignored unless used with both IPv4 and IPv6 query transport"`
+	RootCAsFile           string `long:"root-cas-file" description:"Path to a file containing PEM-encoded root CAs to use for verifying server certificates, required for --verify-server-cert"`
 	TCPOnly               bool   `long:"tcp-only" description:"Only perform lookups over TCP"`
+	DNSOverTLS            bool   `long:"tls" description:"Use DNS over TLS for lookups, mutually exclusive with --udp-only, --iterative, and --https"`
 	UDPOnly               bool   `long:"udp-only" description:"Only perform lookups over UDP"`
+	VerifyServerCert      bool   `long:"verify-server-cert" description:"Verify the server's certificate when using DNS over TLS or DNS over HTTPS"`
 }
 
 // InputOutputOptions options for controlling the input and output behavior of zdns. Applicable to all modules.
@@ -193,7 +195,7 @@ func parseArgs() {
 	parser.Options = flags.Default ^ flags.PrintErrors // we'll print errors in the 2nd invocation, otherwise we get the error printed twice
 	_, _, _, _ = parser.ParseCommandLine(os.Args[1:])
 	if GC.Version {
-		fmt.Printf("zdns version %s", zdnsCLIVersion)
+		fmt.Printf("zdns version %s", zdns.ZDNSVersion)
 		fmt.Println()
 		os.Exit(0)
 	}

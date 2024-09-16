@@ -17,6 +17,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"net"
 	"os"
@@ -25,6 +26,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/zmap/zcrypto/x509"
 
 	"github.com/hashicorp/go-version"
 	"github.com/liip/sheriff"
@@ -165,6 +168,26 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config := zdns.NewResolverConfig()
 
 	config.TransportMode = zdns.GetTransportMode(gc.UDPOnly, gc.TCPOnly)
+	config.DNSOverHTTPS = gc.DNSOverHTTPS
+	config.DNSOverTLS = gc.DNSOverTLS
+	config.VerifyServerCert = gc.VerifyServerCert
+
+	// Read in the CA file if it exists
+	if gc.RootCAsFile != "" {
+		fd, err := os.Open(gc.RootCAsFile)
+		if err != nil {
+			log.Fatalf("Could not open root CA file: %v", err)
+		}
+		caBytes, readErr := io.ReadAll(fd)
+		if readErr != nil {
+			log.Fatalf("Could not read root CA file: %v", readErr)
+		}
+		config.RootCAs = x509.NewCertPool()
+		ok := config.RootCAs.AppendCertsFromPEM(caBytes)
+		if !ok {
+			log.Fatalf("Could not read certificates from PEM file. Invalid PEM?")
+		}
+	}
 
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
@@ -218,6 +241,14 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config, err = populateNameServers(gc, config)
 	if err != nil {
 		log.Fatal("could not populate name servers: ", err)
+	}
+	// If --verify-server-cert is set, all nameservers must have a domain name
+	if config.VerifyServerCert {
+		for _, ns := range util.Concat(config.ExternalNameServersV4, config.RootNameServersV4, config.ExternalNameServersV6, config.RootNameServersV6) {
+			if len(ns.DomainName) == 0 {
+				log.Fatal("All name servers must have domain names when using --verify-server-cert, specify --name-servers=domain1,domain2 and ZDNS will resolve the domain to a name server IP")
+			}
+		}
 	}
 	if config.IPVersionMode == zdns.IPv4Only {
 		// Drop any IPv6 nameservers
@@ -273,7 +304,7 @@ func populateIPTransportMode(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Re
 	// Domains could have either A or AAAA and that tells us nothing about the host's IPv4/6 capabilities
 	if gc.NameServersString != "" && len(ipOnlyNSes) > 0 {
 		// User provided name servers, so we can determine the IPVersionMode based on the provided name servers
-		nses, err = convertNameServerStringSliceToNameServers(ipOnlyNSes, zdns.IPv4OrIPv6)
+		nses, err = convertNameServerStringSliceToNameServers(ipOnlyNSes, zdns.IPv4OrIPv6, config.DNSOverTLS, config.DNSOverHTTPS)
 		if err != nil {
 			return nil, fmt.Errorf("could not parse name servers from --name-server: %v", err)
 		}
@@ -322,28 +353,33 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 	// IPv4 Name Servers/Local Address only needs to be populated if we're doing IPv4 lookups, same for IPv6
 	if len(gc.NameServers) != 0 {
 		// User provided name servers, use them.
-		var v4NameServers, v6NameServers []zdns.NameServer
-		nses, err := convertNameServerStringSliceToNameServers(gc.NameServers, config.IPVersionMode)
+		var err error
+		config, err = useNameServerStringToPopulateNameServers(gc.NameServers, config)
 		if err != nil {
-			return nil, fmt.Errorf("could not parse name server: %v. Correct IPv4 format: 1.1.1.1:53 or IPv6 format: [::1]:53\"", err)
+			return nil, fmt.Errorf("could not populate name servers: %v", err)
 		}
-		for _, ns := range nses {
-			if ns.IP.To4() != nil {
-				v4NameServers = append(v4NameServers, ns)
-			} else if util.IsIPv6(&ns.IP) {
-				v6NameServers = append(v6NameServers, ns)
-			} else {
-				log.Fatal("Invalid name server: ", ns.String())
+		if config.DNSOverHTTPS {
+			// double-check all external nameservers have domains, necessary for DoH
+			for _, ns := range util.Concat(config.ExternalNameServersV4, config.ExternalNameServersV6) {
+				if len(ns.DomainName) == 0 {
+					log.Fatal("DoH requires domain names for all name servers, ex. --name-servers=cloudflare-dns.com,dns.google")
+				}
 			}
 		}
-		// The resolver will ignore IPv6 nameservers if we're doing IPv4 only lookups, and vice versa so this is fine
-		config.ExternalNameServersV4 = v4NameServers
-		config.RootNameServersV4 = v4NameServers
-		config.ExternalNameServersV6 = v6NameServers
-		config.RootNameServersV6 = v6NameServers
 		return config, nil
 	}
 	// User did not provide nameservers
+	if gc.DNSOverTLS {
+		config.RootNameServersV4 = zdns.DefaultExternalDoTResolversV4
+		config.ExternalNameServersV4 = zdns.DefaultExternalDoTResolversV4
+		config.RootNameServersV6 = zdns.DefaultExternalDoTResolversV6
+		config.ExternalNameServersV6 = zdns.DefaultExternalDoTResolversV6
+		return config, nil
+	}
+	if gc.DNSOverHTTPS {
+		defaultDoHNameServers := []string{zdns.CloudflareDoHDomainName, zdns.GoogleDoHDomainName}
+		return useNameServerStringToPopulateNameServers(defaultDoHNameServers, config)
+	}
 	if !gc.IterativeResolution && !gc.NameServerMode {
 		// Try to get the OS' default recursive resolver nameservers
 		var v4NameServers, v6NameServers []zdns.NameServer
@@ -353,11 +389,11 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 			log.Warn("Unable to parse resolvers file. Using ZDNS defaults")
 		} else {
 			// convert string slices to NameServers
-			v4NameServers, err = convertNameServerStringSliceToNameServers(v4NameServerStrings, config.IPVersionMode)
+			v4NameServers, err = convertNameServerStringSliceToNameServers(v4NameServerStrings, config.IPVersionMode, config.DNSOverTLS, config.DNSOverHTTPS)
 			if err != nil {
 				return nil, fmt.Errorf("could not convert IPv4 nameservers %s to NameServers: %v", strings.Join(v4NameServerStrings, ", "), err)
 			}
-			v6NameServers, err = convertNameServerStringSliceToNameServers(v6NameServersStrings, config.IPVersionMode)
+			v6NameServers, err = convertNameServerStringSliceToNameServers(v6NameServersStrings, config.IPVersionMode, config.DNSOverTLS, config.DNSOverHTTPS)
 			if err != nil {
 				return nil, fmt.Errorf("could not convert IPv6 nameservers %s to NameServers: %v", strings.Join(v6NameServersStrings, ", "), err)
 			}
@@ -375,6 +411,29 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 	config.RootNameServersV4 = zdns.RootServersV4[:]
 	config.ExternalNameServersV6 = zdns.RootServersV6[:]
 	config.RootNameServersV6 = zdns.RootServersV6[:]
+	return config, nil
+}
+
+func useNameServerStringToPopulateNameServers(nameServers []string, config *zdns.ResolverConfig) (*zdns.ResolverConfig, error) {
+	var v4NameServers, v6NameServers []zdns.NameServer
+	nses, err := convertNameServerStringSliceToNameServers(nameServers, config.IPVersionMode, config.DNSOverTLS, config.DNSOverHTTPS)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse name server: %v. Correct IPv4 format: 1.1.1.1:53 or IPv6 format: [::1]:53\"", err)
+	}
+	for _, ns := range nses {
+		if ns.IP.To4() != nil {
+			v4NameServers = append(v4NameServers, ns)
+		} else if util.IsIPv6(&ns.IP) {
+			v6NameServers = append(v6NameServers, ns)
+		} else {
+			log.Fatal("Invalid name server: ", ns.String())
+		}
+	}
+	// The resolver will ignore IPv6 nameservers if we're doing IPv4 only lookups, and vice versa so this is fine
+	config.ExternalNameServersV4 = v4NameServers
+	config.RootNameServersV4 = v4NameServers
+	config.ExternalNameServersV6 = v6NameServers
+	config.RootNameServersV6 = v6NameServers
 	return config, nil
 }
 
@@ -512,7 +571,7 @@ func Run(gc CLIConf) {
 }
 
 // doLookupWorker is a single worker thread that processes lookups from the input channel. It calls wg.Done when it is finished.
-func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
+func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, inputChan <-chan string, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	resolver, err := zdns.InitResolver(rc)
 	if err != nil {
@@ -520,24 +579,47 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, o
 	}
 	var metadata routineMetadata
 	metadata.Status = make(map[zdns.Status]int)
-	for line := range input {
-		// we'll process each module sequentially, parallelism is per-domain
-		res := zdns.Result{Results: make(map[string]zdns.SingleModuleResult, len(gc.ActiveModules))}
-		// get the fields that won't change for each lookup module
-		rawName := ""
-		var nameServer *zdns.NameServer
-		var nameServers []zdns.NameServer
-		nameServerString := ""
-		var rank int
-		var entryMetadata string
-		if gc.AlexaFormat {
-			rawName, rank = parseAlexa(line)
-			res.AlexaRank = rank
-		} else if gc.MetadataFormat {
-			rawName, entryMetadata = parseMetadataInputLine(line)
-			res.Metadata = entryMetadata
-		} else if gc.NameServerMode {
-			nameServers, err = convertNameServerStringToNameServer(line, rc.IPVersionMode)
+
+	for line := range inputChan {
+		handleWorkerInput(gc, rc, line, resolver, &metadata, output)
+	}
+	// close the resolver, freeing up resources
+	resolver.Close()
+	metaChan <- metadata
+	return nil
+}
+
+func handleWorkerInput(gc *CLIConf, rc *zdns.ResolverConfig, line string, resolver *zdns.Resolver, metadata *routineMetadata, output chan<- string) {
+	// we'll process each module sequentially, parallelism is per-domain
+	res := zdns.Result{Results: make(map[string]zdns.SingleModuleResult, len(gc.ActiveModules))}
+	// get the fields that won't change for each lookup module
+	rawName := ""
+	var nameServer *zdns.NameServer
+	var nameServers []zdns.NameServer
+	nameServerString := ""
+	var rank int
+	var entryMetadata string
+	var err error
+	if gc.AlexaFormat {
+		rawName, rank = parseAlexa(line)
+		res.AlexaRank = rank
+	} else if gc.MetadataFormat {
+		rawName, entryMetadata = parseMetadataInputLine(line)
+		res.Metadata = entryMetadata
+	} else if gc.NameServerMode {
+		nameServers, err = convertNameServerStringToNameServer(line, rc.IPVersionMode, rc.DNSOverTLS, rc.DNSOverHTTPS)
+		if err != nil {
+			log.Fatal("unable to parse name server: ", line)
+		}
+		if len(nameServers) == 0 {
+			log.Fatal("no name servers found in line: ", line)
+		}
+		// if user provides a domain name for the name server (one.one.one.one) we'll pick one of the IPs at random
+		nameServer = &nameServers[rand.Intn(len(nameServers))]
+	} else {
+		rawName, nameServerString = parseNormalInputLine(line)
+		if len(nameServerString) != 0 {
+			nameServers, err = convertNameServerStringToNameServer(nameServerString, rc.IPVersionMode, rc.DNSOverTLS, rc.DNSOverHTTPS)
 			if err != nil {
 				log.Fatal("unable to parse name server: ", line)
 			}
@@ -546,76 +628,61 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, o
 			}
 			// if user provides a domain name for the name server (one.one.one.one) we'll pick one of the IPs at random
 			nameServer = &nameServers[rand.Intn(len(nameServers))]
-		} else {
-			rawName, nameServerString = parseNormalInputLine(line)
-			if len(nameServerString) != 0 {
-				nameServers, err = convertNameServerStringToNameServer(nameServerString, rc.IPVersionMode)
-				if err != nil {
-					log.Fatal("unable to parse name server: ", line)
-				}
-				if len(nameServers) == 0 {
-					log.Fatal("no name servers found in line: ", line)
-				}
-				// if user provides a domain name for the name server (one.one.one.one) we'll pick one of the IPs at random
-				nameServer = &nameServers[rand.Intn(len(nameServers))]
-			}
 		}
-		res.Name = rawName
-		// handle per-module lookups
-		for moduleName, module := range gc.ActiveModules {
-			var innerRes interface{}
-			var trace zdns.Trace
-			var status zdns.Status
-			var err error
-			var changed bool
-			var lookupName string
-			lookupName, changed = makeName(rawName, gc.NamePrefix, gc.NameOverride)
-			if changed {
-				res.AlteredName = lookupName
-			}
-			res.Class = dns.Class(gc.Class).String()
-
-			startTime := time.Now()
-			innerRes, trace, status, err = module.Lookup(resolver, lookupName, nameServer)
-
-			lookupRes := zdns.SingleModuleResult{
-				Timestamp: time.Now().Format(gc.TimeFormat),
-				Duration:  time.Since(startTime).Seconds(),
-			}
-			if status != zdns.StatusNoOutput {
-				lookupRes.Status = string(status)
-				lookupRes.Data = innerRes
-				lookupRes.Trace = trace
-				if err != nil {
-					lookupRes.Error = err.Error()
-				}
-				res.Results[moduleName] = lookupRes
-			}
-			metadata.Status[status]++
-			metadata.Lookups++
-		}
-		if len(res.Results) > 0 {
-			v, _ := version.NewVersion("0.0.0")
-			o := &sheriff.Options{
-				Groups:     gc.OutputGroups,
-				ApiVersion: v,
-			}
-			data, err := sheriff.Marshal(o, res)
-			if err != nil {
-				log.Fatalf("unable to marshal result to JSON: %v", err)
-			}
-			jsonRes, err := json.Marshal(data)
-			if err != nil {
-				log.Fatalf("unable to marshal JSON result: %v", err)
-			}
-			output <- string(jsonRes)
-		}
-		metadata.Names++
 	}
-	// close the resolver, freeing up resources
-	resolver.Close()
-	metaChan <- metadata
-	return nil
+	res.Name = rawName
+	// handle per-module lookups
+	for moduleName, module := range gc.ActiveModules {
+		var innerRes interface{}
+		var trace zdns.Trace
+		var status zdns.Status
+		var err error
+		var changed bool
+		var lookupName string
+		lookupName, changed = makeName(rawName, gc.NamePrefix, gc.NameOverride)
+		if changed {
+			res.AlteredName = lookupName
+		}
+		res.Class = dns.Class(gc.Class).String()
+
+		startTime := time.Now()
+		innerRes, trace, status, err = module.Lookup(resolver, lookupName, nameServer)
+
+		lookupRes := zdns.SingleModuleResult{
+			Timestamp: time.Now().Format(gc.TimeFormat),
+			Duration:  time.Since(startTime).Seconds(),
+		}
+		if status != zdns.StatusNoOutput {
+			lookupRes.Status = string(status)
+			lookupRes.Data = innerRes
+			lookupRes.Trace = trace
+			if err != nil {
+				lookupRes.Error = err.Error()
+			}
+			res.Results[moduleName] = lookupRes
+		}
+		metadata.Status[status]++
+		metadata.Lookups++
+	}
+	if len(res.Results) > 0 {
+		v, _ := version.NewVersion("0.0.0")
+		o := &sheriff.Options{
+			Groups:          gc.OutputGroups,
+			ApiVersion:      v,
+			IncludeEmptyTag: true,
+		}
+		data, err := sheriff.Marshal(o, res)
+		if err != nil {
+			log.Fatalf("unable to marshal result to JSON: %v", err)
+		}
+		cleansedData := replaceIntSliceInterface(data)
+		jsonRes, err := json.Marshal(cleansedData)
+		if err != nil {
+			log.Fatalf("unable to marshal JSON result: %v", err)
+		}
+		output <- string(jsonRes)
+	}
+	metadata.Names++
 }
 
 func parseAlexa(line string) (string, int) {
@@ -662,7 +729,7 @@ func makeName(name, prefix, nameOverride string) (string, bool) {
 
 func aggregateMetadata(c <-chan routineMetadata) Metadata {
 	var meta Metadata
-	meta.ZDNSVersion = zdnsCLIVersion
+	meta.ZDNSVersion = zdns.ZDNSVersion
 	meta.Status = make(map[string]int)
 	for m := range c {
 		meta.Names += m.Names
@@ -674,10 +741,10 @@ func aggregateMetadata(c <-chan routineMetadata) Metadata {
 	return meta
 }
 
-func convertNameServerStringSliceToNameServers(nameServerStrings []string, mode zdns.IPVersionMode) ([]zdns.NameServer, error) {
+func convertNameServerStringSliceToNameServers(nameServerStrings []string, mode zdns.IPVersionMode, usingDoT, usingDoH bool) ([]zdns.NameServer, error) {
 	nameServers := make([]zdns.NameServer, 0, len(nameServerStrings))
 	for _, ns := range nameServerStrings {
-		parsedNSes, err := convertNameServerStringToNameServer(ns, mode)
+		parsedNSes, err := convertNameServerStringToNameServer(ns, mode, usingDoT, usingDoH)
 		if err != nil {
 			return nil, fmt.Errorf("could not parse name server %s: %v", ns, err)
 		}
@@ -686,7 +753,7 @@ func convertNameServerStringSliceToNameServers(nameServerStrings []string, mode 
 	return nameServers, nil
 }
 
-func convertNameServerStringToNameServer(inaddr string, mode zdns.IPVersionMode) ([]zdns.NameServer, error) {
+func convertNameServerStringToNameServer(inaddr string, mode zdns.IPVersionMode, usingDoT, usingDoH bool) ([]zdns.NameServer, error) {
 	host, port, err := util.SplitHostPort(inaddr)
 	if err == nil && host != nil {
 		return []zdns.NameServer{{IP: host, Port: uint16(port)}}, nil
@@ -696,11 +763,14 @@ func convertNameServerStringToNameServer(inaddr string, mode zdns.IPVersionMode)
 	ip := net.ParseIP(inaddr)
 	if ip != nil {
 		ns := zdns.NameServer{IP: ip}
-		ns.PopulateDefaultPort()
+		ns.PopulateDefaultPort(usingDoT, usingDoH)
 		return []zdns.NameServer{ns}, nil
 	}
 
 	// may be the domain name of a name server (one.one.one.one)
+	// we'll add these prefixes back on later, stripping so we can detect ports
+	inaddr = strings.TrimPrefix(inaddr, "https://")
+	inaddr = strings.TrimPrefix(inaddr, "http://")
 	domainAndPort := strings.Split(inaddr, ":")
 	port = 0
 	if len(domainAndPort) == 2 {
@@ -719,8 +789,8 @@ func convertNameServerStringToNameServer(inaddr string, mode zdns.IPVersionMode)
 		isIPv6AndCanUseIPv6 := util.IsIPv6(&resolvedIP) && mode != zdns.IPv4Only
 		isIPv4AndCanUseIPv4 := resolvedIP.To4() != nil && mode != zdns.IPv6Only
 		if isIPv4AndCanUseIPv4 || isIPv6AndCanUseIPv6 {
-			ns := zdns.NameServer{IP: resolvedIP, Port: uint16(port)}
-			ns.PopulateDefaultPort()
+			ns := zdns.NameServer{IP: resolvedIP, Port: uint16(port), DomainName: domainAndPort[0]}
+			ns.PopulateDefaultPort(usingDoT, usingDoH)
 			nses = append(nses, ns)
 		}
 	}

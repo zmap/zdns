@@ -43,7 +43,7 @@ func TestConvertNameServerStringToNameServer(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		nses, err := convertNameServerStringToNameServer(test.nameServerString, zdns.IPv4OrIPv6)
+		nses, err := convertNameServerStringToNameServer(test.nameServerString, zdns.IPv4OrIPv6, false, false)
 		require.Nil(t, err)
 		require.Len(t, nses, 1)
 		if nses[0].String() != test.expectedNameServer {
@@ -52,35 +52,35 @@ func TestConvertNameServerStringToNameServer(t *testing.T) {
 	}
 	// need to convert these to use the .String method to test
 	t.Run("Domain Name as Name Server, both IPv4 and v6", func(t *testing.T) {
-		nses, err := convertNameServerStringToNameServer("one.one.one.one", zdns.IPv4OrIPv6)
+		nses, err := convertNameServerStringToNameServer("one.one.one.one", zdns.IPv4OrIPv6, false, false)
 		require.Nil(t, err)
 		expectedNSes := []string{"1.1.1.1:53", "1.0.0.1:53", "[2606:4700:4700::1111]:53", "[2606:4700:4700::1001]:53"}
 		containsExpectedNameServerStrings(t, nses, expectedNSes)
 	})
 	t.Run("Domain Name as Name Server, just IPv4", func(t *testing.T) {
-		nses, err := convertNameServerStringToNameServer("one.one.one.one", zdns.IPv4Only)
+		nses, err := convertNameServerStringToNameServer("one.one.one.one", zdns.IPv4Only, false, false)
 		require.Nil(t, err)
 		expectedNSes := []string{"1.1.1.1:53", "1.0.0.1:53"}
 		containsExpectedNameServerStrings(t, nses, expectedNSes)
 	})
 	t.Run("Domain Name as Name Server, just IPv6", func(t *testing.T) {
-		nses, err := convertNameServerStringToNameServer("one.one.one.one", zdns.IPv6Only)
+		nses, err := convertNameServerStringToNameServer("one.one.one.one", zdns.IPv6Only, false, false)
 		require.Nil(t, err)
 		expectedNSes := []string{"[2606:4700:4700::1111]:53", "[2606:4700:4700::1001]:53"}
 		containsExpectedNameServerStrings(t, nses, expectedNSes)
 	})
 	t.Run("Domain Name as Name Server, port provided", func(t *testing.T) {
-		nses, err := convertNameServerStringToNameServer("one.one.one.one:2345", zdns.IPv4OrIPv6)
+		nses, err := convertNameServerStringToNameServer("one.one.one.one:2345", zdns.IPv4OrIPv6, false, false)
 		require.Nil(t, err)
 		expectedNSes := []string{"1.1.1.1:2345", "1.0.0.1:2345", "[2606:4700:4700::1111]:2345", "[2606:4700:4700::1001]:2345"}
 		containsExpectedNameServerStrings(t, nses, expectedNSes)
 	})
 	t.Run("Bad domain name", func(t *testing.T) {
-		_, err := convertNameServerStringToNameServer("bad.domain.name", zdns.IPv4OrIPv6)
+		_, err := convertNameServerStringToNameServer("bad.domain.name", zdns.IPv4OrIPv6, false, false)
 		require.Error(t, err)
 	})
 	t.Run("Bad IP address", func(t *testing.T) {
-		_, err := convertNameServerStringToNameServer("1.1.1.556", zdns.IPv4OrIPv6)
+		_, err := convertNameServerStringToNameServer("1.1.1.556", zdns.IPv4OrIPv6, false, false)
 		require.Error(t, err)
 	})
 }
