@@ -16,6 +16,7 @@ package zdns
 import (
 	"context"
 	"fmt"
+	"github.com/zmap/zcrypto/x509"
 	"io"
 	"net"
 	"regexp"
@@ -451,7 +452,7 @@ func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer *N
 		if r.dnsOverHTTPSEnabled {
 			result, status, err = doDoHLookup(ctx, connInfo.httpsClient, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
 		} else if r.dnsOverTLSEnabled {
-			result, status, err = doDoTLookup(ctx, connInfo, q, nameServer, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
+			result, status, err = doDoTLookup(ctx, connInfo, q, nameServer, r.rootCAs, r.verifyServerCert, recursive, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
 		} else if connInfo.udpClient != nil {
 			result, status, err = wireLookupUDP(ctx, connInfo, q, nameServer, r.ednsOptions, recursive, r.dnsSecEnabled, r.checkingDisabledBit)
 			if status == StatusTruncated && connInfo.tcpClient != nil {
@@ -471,7 +472,7 @@ func (r *Resolver) retryingLookup(ctx context.Context, q Question, nameServer *N
 	return SingleQueryResult{}, "", 0, errors.New("retry loop didn't exit properly")
 }
 
-func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (SingleQueryResult, Status, error) {
+func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, rootCAs *x509.CertPool, shouldVerifyServerCert, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (SingleQueryResult, Status, error) {
 	m := new(dns.Msg)
 	m.SetQuestion(dotName(q.Name), q.Type)
 	m.Question[0].Qclass = q.Class
@@ -507,10 +508,17 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 			return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not connect to server")
 		}
 		// Now wrap the connection with TLS
-		// TODO - implement server cert validation
 		tlsConn := tls.Client(tcpConn, &tls.Config{
 			InsecureSkipVerify: true,
 		})
+		if shouldVerifyServerCert {
+			// if we're verifying the server cert, we need to pass in the root CAs
+			tlsConn = tls.Client(tcpConn, &tls.Config{
+				RootCAs:            rootCAs,
+				InsecureSkipVerify: false,
+				ServerName:         nameServer.DomainName,
+			})
+		}
 		err = tlsConn.Handshake()
 		if err != nil {
 			err := tlsConn.Close()

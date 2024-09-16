@@ -17,6 +17,8 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"github.com/zmap/zcrypto/x509"
+	"io"
 	"math/rand"
 	"net"
 	"os"
@@ -167,6 +169,24 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config.TransportMode = zdns.GetTransportMode(gc.UDPOnly, gc.TCPOnly)
 	config.DNSOverHTTPS = gc.DNSOverHTTPS
 	config.DNSOverTLS = gc.DNSOverTLS
+	config.VerifyServerCert = gc.VerifyServerCert
+
+	// Read in the CA file if it exists
+	if gc.RootCAsFile != "" {
+		fd, err := os.Open(gc.RootCAsFile)
+		if err != nil {
+			log.Fatalf("Could not open root CA file: %v", err)
+		}
+		caBytes, readErr := io.ReadAll(fd)
+		if readErr != nil {
+			log.Fatalf("Could not read root CA file: %v", readErr)
+		}
+		config.RootCAs = x509.NewCertPool()
+		ok := config.RootCAs.AppendCertsFromPEM(caBytes)
+		if !ok {
+			log.Fatalf("Could not read certificates from PEM file. Invalid PEM?")
+		}
+	}
 
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
@@ -220,6 +240,14 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config, err = populateNameServers(gc, config)
 	if err != nil {
 		log.Fatal("could not populate name servers: ", err)
+	}
+	// If --verify-server-cert is set, all nameservers must have a domain name
+	if config.VerifyServerCert {
+		for _, ns := range util.Concat(config.ExternalNameServersV4, config.RootNameServersV4, config.ExternalNameServersV6, config.RootNameServersV6) {
+			if len(ns.DomainName) == 0 {
+				log.Fatal("All name servers must have domain names when using --verify-server-cert, specify --name-servers=domain1,domain2 and ZDNS will resolve the domain to a name server IP")
+			}
+		}
 	}
 	if config.IPVersionMode == zdns.IPv4Only {
 		// Drop any IPv6 nameservers

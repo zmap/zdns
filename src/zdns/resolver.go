@@ -16,6 +16,7 @@ package zdns
 
 import (
 	"fmt"
+	"github.com/zmap/zcrypto/x509"
 	"math/rand"
 	"net"
 	"strings"
@@ -85,10 +86,12 @@ type ResolverConfig struct {
 	DNSConfigFilePath     string       // path to the DNS config file, ex: /etc/resolv.conf
 
 	DNSSecEnabled       bool
-	DNSOverHTTPS        bool         // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
-	DNSOverTLS          bool         // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
-	HTTPSClientIPv4     *http.Client // for DoH, per docs should be shared amongst requests
-	HTTPSClientIPv6     *http.Client // for DoH, per docs should be shared amongst requests
+	DNSOverHTTPS        bool           // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
+	DNSOverTLS          bool           // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
+	RootCAs             *x509.CertPool // Root CAs for DoT/DoH Server Verification
+	VerifyServerCert    bool           // Verify server certificates for DoT/DoH
+	HTTPSClientIPv4     *http.Client   // for DoH, per docs should be shared amongst requests
+	HTTPSClientIPv6     *http.Client   // for DoH, per docs should be shared amongst requests
 	EdnsOptions         []dns.EDNS0
 	CheckingDisabledBit bool
 }
@@ -108,6 +111,14 @@ func (rc *ResolverConfig) Validate() error {
 
 	if rc.TransportMode == UDPOnly && rc.DNSOverHTTPS {
 		return errors.New("cannot use DNS over HTTPS with UDP only transport mode")
+	}
+
+	if rc.DNSOverTLS && rc.DNSOverHTTPS {
+		return errors.New("cannot use both DNS over TLS and DNS over HTTPS")
+	}
+
+	if rc.VerifyServerCert && (rc.RootCAs == nil || rc.RootCAs.Size() == 0) {
+		return errors.New("cannot verify server certificates without root CAs")
 	}
 
 	// External Nameservers
@@ -272,8 +283,10 @@ type Resolver struct {
 	followCNAMEs               bool // whether iterative lookups should follow CNAMEs/DNAMEs
 
 	dnsSecEnabled       bool
-	dnsOverHTTPSEnabled bool // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
-	dnsOverTLSEnabled   bool // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
+	dnsOverHTTPSEnabled bool           // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
+	dnsOverTLSEnabled   bool           // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
+	rootCAs             *x509.CertPool // Root CAs for DoT/DoH Server Verification
+	verifyServerCert    bool           // Verify server certificates for DoT/DoH
 	ednsOptions         []dns.EDNS0
 	checkingDisabledBit bool
 	isClosed            bool // true if the resolver has been closed, lookup will panic if called after Close
@@ -317,6 +330,8 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 
 		dnsOverHTTPSEnabled: config.DNSOverHTTPS,
 		dnsOverTLSEnabled:   config.DNSOverTLS,
+		rootCAs:             config.RootCAs,
+		verifyServerCert:    config.VerifyServerCert,
 		dnsSecEnabled:       config.DNSSecEnabled,
 		ednsOptions:         config.EdnsOptions,
 		checkingDisabledBit: config.CheckingDisabledBit,
@@ -507,11 +522,12 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 						return nil, err
 					}
 					var tlsConn *tls.Conn
-					if len(nameServer.DomainName) != 0 {
+					if len(nameServer.DomainName) != 0 && r.verifyServerCert {
 						// domain name provided, we can verify the server's certificate
-						// TODO below works, but we should be able to verify the server's cert
 						tlsConn = tls.Client(conn, &tls.Config{
-							InsecureSkipVerify: true,
+							InsecureSkipVerify: false,
+							RootCAs:            r.rootCAs,
+							ServerName:         nameServer.DomainName,
 						})
 					} else {
 						// If no domain name is provided, we can't verify the server's certificate

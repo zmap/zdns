@@ -76,9 +76,11 @@ type NetworkOptions struct {
 	DisableRecycleSockets bool   `long:"no-recycle-sockets" description:"do not create long-lived unbound UDP socket for each thread at launch and reuse for all (UDP) queries"`
 	PreferIPv4Iteration   bool   `long:"prefer-ipv4-iteration" description:"Prefer IPv4/A record lookups during iterative resolution. Ignored unless used with both IPv4 and IPv6 query transport"`
 	PreferIPv6Iteration   bool   `long:"prefer-ipv6-iteration" description:"Prefer IPv6/AAAA record lookups during iterative resolution. Ignored unless used with both IPv4 and IPv6 query transport"`
+	RootCAsFile           string `long:"root-cas-file" description:"Path to a file containing PEM-encoded root CAs to use for verifying server certificates, required for --verify-server-cert"`
 	TCPOnly               bool   `long:"tcp-only" description:"Only perform lookups over TCP"`
 	DNSOverTLS            bool   `long:"tls" description:"Use DNS over TLS for lookups, mutually exclusive with --udp-only, --iterative, and --https"`
 	UDPOnly               bool   `long:"udp-only" description:"Only perform lookups over UDP"`
+	VerifyServerCert      bool   `long:"verify-server-cert" description:"Verify the server's certificate when using DNS over TLS or DNS over HTTPS"`
 }
 
 // InputOutputOptions options for controlling the input and output behavior of zdns. Applicable to all modules.
