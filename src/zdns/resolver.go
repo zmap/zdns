@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zmap/zcrypto/x509"
+
 	"github.com/pkg/errors"
 
 	log "github.com/sirupsen/logrus"
@@ -85,10 +87,12 @@ type ResolverConfig struct {
 	DNSConfigFilePath     string       // path to the DNS config file, ex: /etc/resolv.conf
 
 	DNSSecEnabled       bool
-	DNSOverHTTPS        bool         // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
-	DNSOverTLS          bool         // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
-	HTTPSClientIPv4     *http.Client // for DoH, per docs should be shared amongst requests
-	HTTPSClientIPv6     *http.Client // for DoH, per docs should be shared amongst requests
+	DNSOverHTTPS        bool           // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
+	DNSOverTLS          bool           // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
+	RootCAs             *x509.CertPool // Root CAs for DoT/DoH Server Verification
+	VerifyServerCert    bool           // Verify server certificates for DoT/DoH
+	HTTPSClientIPv4     *http.Client   // for DoH, per docs should be shared amongst requests
+	HTTPSClientIPv6     *http.Client   // for DoH, per docs should be shared amongst requests
 	EdnsOptions         []dns.EDNS0
 	CheckingDisabledBit bool
 }
@@ -110,14 +114,22 @@ func (rc *ResolverConfig) Validate() error {
 		return errors.New("cannot use DNS over HTTPS with UDP only transport mode")
 	}
 
+	if rc.DNSOverTLS && rc.DNSOverHTTPS {
+		return errors.New("cannot use both DNS over TLS and DNS over HTTPS")
+	}
+
+	if rc.VerifyServerCert && (rc.RootCAs == nil || rc.RootCAs.Size() == 0) {
+		return errors.New("cannot verify server certificates without root CAs")
+	}
+
 	// External Nameservers
 	if rc.IPVersionMode != IPv6Only && len(rc.ExternalNameServersV4) == 0 {
 		// If IPv4 is supported, we require at least one IPv4 external nameserver
-		return errors.New("must have at least one external IPv4 name server if IPv4 mode is enabled")
+		return errors.New("must have at least one external IPv4 name server if IPv4 mode is enabled. Use IPv6-only if you don't have IPv4 nameservers")
 	}
 	if rc.IPVersionMode != IPv4Only && len(rc.ExternalNameServersV6) == 0 {
 		// If IPv6 is supported, we require at least one IPv6 external nameserver
-		return errors.New("must have at least one external IPv6 name server if IPv6 mode is enabled")
+		return errors.New("must have at least one external IPv6 name server if IPv6 mode is enabled. Use IPv4-only if you don't have IPv6 nameservers")
 	}
 
 	// Validate all nameservers have ports and are valid IPs
@@ -233,7 +245,8 @@ func NewResolverConfig() *ResolverConfig {
 type ConnectionInfo struct {
 	udpClient    *dns.Client
 	tcpClient    *dns.Client
-	conn         *dns.Conn            // for socket re-use
+	udpConn      *dns.Conn            // for socket re-use with UDP
+	tcpConn      *dns.Conn            // for socket re-use with TCP
 	httpsClient  *http.Client         // for DoH
 	tlsConn      *dns.Conn            // for DoT
 	tlsHandshake *tls.ServerHandshake // for DoT, used to print TLS handshake to user
@@ -261,17 +274,20 @@ type Resolver struct {
 	iterationIPPreference IterationIPPreference
 	shouldRecycleSockets  bool
 
-	iterativeTimeout     time.Duration
-	timeout              time.Duration // timeout for the network conns
-	maxDepth             int
-	externalNameServers  []NameServer // name servers used by external lookups (either OS or user specified)
-	rootNameServers      []NameServer // root servers used for iterative lookups
-	lookupAllNameServers bool
-	followCNAMEs         bool // whether iterative lookups should follow CNAMEs/DNAMEs
+	iterativeTimeout           time.Duration
+	timeout                    time.Duration // timeout for the network conns
+	maxDepth                   int
+	externalNameServers        []NameServer // name servers used by external lookups (either OS or user specified)
+	rootNameServers            []NameServer // root servers used for iterative lookups
+	lastUsedExternalNameServer *NameServer  // the last external name server used for an external lookup
+	lookupAllNameServers       bool
+	followCNAMEs               bool // whether iterative lookups should follow CNAMEs/DNAMEs
 
 	dnsSecEnabled       bool
-	dnsOverHTTPSEnabled bool // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
-	dnsOverTLSEnabled   bool // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
+	dnsOverHTTPSEnabled bool           // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
+	dnsOverTLSEnabled   bool           // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
+	rootCAs             *x509.CertPool // Root CAs for DoT/DoH Server Verification
+	verifyServerCert    bool           // Verify server certificates for DoT/DoH
 	ednsOptions         []dns.EDNS0
 	checkingDisabledBit bool
 	isClosed            bool // true if the resolver has been closed, lookup will panic if called after Close
@@ -315,6 +331,8 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 
 		dnsOverHTTPSEnabled: config.DNSOverHTTPS,
 		dnsOverTLSEnabled:   config.DNSOverTLS,
+		rootCAs:             config.RootCAs,
+		verifyServerCert:    config.VerifyServerCert,
 		dnsSecEnabled:       config.DNSSecEnabled,
 		ednsOptions:         config.EdnsOptions,
 		checkingDisabledBit: config.CheckingDisabledBit,
@@ -370,16 +388,28 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 	// what local addresses should we use?
 	isNSIPv6 := util.IsIPv6(&nameServer.IP)
 	isLoopback := nameServer.IP.IsLoopback()
-	// check if we have a pre-existing conn info
+	// check if we have a pre-existing udpConn info
+	var existingConnInfo *ConnectionInfo
 	if isNSIPv6 && isLoopback && r.connInfoIPv6Loopback != nil {
-		return r.connInfoIPv6Loopback, nil
+		existingConnInfo = r.connInfoIPv6Loopback
 	} else if isNSIPv6 && !isLoopback && r.connInfoIPv6Internet != nil {
-		return r.connInfoIPv6Internet, nil
+		existingConnInfo = r.connInfoIPv6Internet
 	} else if !isNSIPv6 && isLoopback && r.connInfoIPv4Loopback != nil {
-		return r.connInfoIPv4Loopback, nil
+		existingConnInfo = r.connInfoIPv4Loopback
 	} else if !isNSIPv6 && !isLoopback && r.connInfoIPv4Internet != nil {
 		// must be IPv4 non-loopback
-		return r.connInfoIPv4Internet, nil
+		existingConnInfo = r.connInfoIPv4Internet
+	}
+	if existingConnInfo != nil {
+		if r.dnsOverHTTPSEnabled && existingConnInfo.httpsClient != nil {
+			return existingConnInfo, nil
+		} else if r.dnsOverTLSEnabled && existingConnInfo.tlsConn != nil {
+			return existingConnInfo, nil
+		} else if (r.transportMode == UDPOnly || r.transportMode == UDPOrTCP) && r.shouldRecycleSockets && existingConnInfo.udpConn != nil {
+			return existingConnInfo, nil
+		} else if r.transportMode == TCPOnly && r.shouldRecycleSockets && existingConnInfo.tcpConn != nil {
+			return existingConnInfo, nil
+		}
 	}
 
 	// no existing ConnInfo, create a new one
@@ -439,8 +469,8 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 		if err != nil {
 			return nil, fmt.Errorf("unable to create UDP connection: %w", err)
 		}
-		connInfo.conn = new(dns.Conn)
-		connInfo.conn.Conn = conn
+		connInfo.udpConn = new(dns.Conn)
+		connInfo.udpConn.Conn = conn
 	}
 
 	usingUDP := r.transportMode == UDPOrTCP || r.transportMode == UDPOnly
@@ -460,6 +490,15 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 		connInfo.tcpClient.Dialer = &net.Dialer{
 			Timeout:   r.timeout,
 			LocalAddr: &net.TCPAddr{IP: connInfo.localAddr},
+		}
+	}
+	if r.transportMode == TCPOnly && r.shouldRecycleSockets {
+		if connInfo.tcpConn == nil || connInfo.tcpConn.RemoteAddr != nil || connInfo.tcpConn.RemoteAddr.String() != nameServer.String() {
+			// need to re-handshake
+			err := getNewTCPConn(nameServer, connInfo)
+			if err != nil {
+				return nil, errors.Wrap(err, "unable to create TCP connection")
+			}
 		}
 	}
 	if r.dnsOverHTTPSEnabled {
@@ -484,11 +523,12 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 						return nil, err
 					}
 					var tlsConn *tls.Conn
-					if len(nameServer.DomainName) != 0 {
+					if len(nameServer.DomainName) != 0 && r.verifyServerCert {
 						// domain name provided, we can verify the server's certificate
-						// TODO below works, but we should be able to verify the server's cert
 						tlsConn = tls.Client(conn, &tls.Config{
-							InsecureSkipVerify: true,
+							InsecureSkipVerify: false,
+							RootCAs:            r.rootCAs,
+							ServerName:         nameServer.DomainName,
 						})
 					} else {
 						// If no domain name is provided, we can't verify the server's certificate
@@ -520,6 +560,24 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 	return connInfo, nil
 }
 
+func getNewTCPConn(nameServer *NameServer, connInfo *ConnectionInfo) error {
+	// close any existing TCP connection
+	if connInfo.tcpConn != nil {
+		if err := connInfo.tcpConn.Close(); err != nil {
+			return fmt.Errorf("error closing existing TCP connection: %w", err)
+		}
+	}
+	// create persistent TCP connection to nameserver
+	conn, err := net.DialTCP("tcp", &net.TCPAddr{IP: connInfo.localAddr}, &net.TCPAddr{IP: nameServer.IP, Port: int(nameServer.Port)})
+	if err != nil {
+		return fmt.Errorf("unable to create TCP connection for nameserver %s: %w", nameServer.String(), err)
+	}
+	connInfo.tcpConn = new(dns.Conn)
+	connInfo.tcpConn.Conn = conn
+	connInfo.tcpConn.RemoteAddr = &net.TCPAddr{IP: nameServer.IP, Port: int(nameServer.Port)}
+	return nil
+}
+
 // ExternalLookup performs a single lookup of a DNS question, q,  against an external name server.
 // dstServer, (ex: '1.1.1.1:53') can be set to over-ride the nameservers defined in the ResolverConfig.
 // If dstServer is not  specified (ie. is an empty string), a random external name server will be used from the resolver's list of external name servers.
@@ -531,16 +589,21 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer *NameServer) (*SingleQu
 	if r.isClosed {
 		log.Fatal("resolver has been closed, cannot perform lookup")
 	}
+	// If dstServer is not provided, AND we're in HTTPS/TLS/TCP mode, AND we have a pre-existing external name server, use it
 
-	if dstServer == nil {
+	if dstServer == nil && r.lastUsedExternalNameServer == nil {
 		dstServer = r.randomExternalNameServer()
 		log.Info("no name server provided for external lookup, using  random external name server: ", dstServer)
+	} else if dstServer == nil {
+		dstServer = r.lastUsedExternalNameServer
+		log.Info("no name server provided for external lookup, using last external name server: ", dstServer)
 	}
 	dstServer.PopulateDefaultPort(r.dnsOverTLSEnabled, r.dnsOverHTTPSEnabled)
 	if isValid, reason := dstServer.IsValid(); !isValid {
 		return nil, nil, StatusIllegalInput, fmt.Errorf("destination server %s is invalid: %s", dstServer.String(), reason)
 	}
 	// dstServer has been validated and has a port, continue with lookup
+	r.lastUsedExternalNameServer = dstServer
 	lookup, trace, status, err := r.lookupClient.DoSingleDstServerLookup(r, *q, dstServer, false)
 	return lookup, trace, status, err
 }
@@ -561,24 +624,52 @@ func (r *Resolver) IterativeLookup(q *Question) (*SingleQueryResult, Trace, Stat
 // Close cleans up any resources used by the resolver. This should be called when the resolver is no longer needed.
 // Lookup will panic if called after Close.
 func (r *Resolver) Close() {
-	if r.connInfoIPv4Internet != nil && r.connInfoIPv4Internet.conn != nil {
-		if err := r.connInfoIPv4Internet.conn.Close(); err != nil {
-			log.Errorf("error closing IPv4 connection: %v", err)
+	if r.connInfoIPv4Internet != nil {
+		if r.connInfoIPv4Internet.udpConn != nil {
+			if err := r.connInfoIPv4Internet.udpConn.Close(); err != nil {
+				log.Errorf("error closing UDP IPv4 connection: %v", err)
+			}
+		}
+		if r.connInfoIPv4Internet.tcpConn != nil {
+			if err := r.connInfoIPv4Internet.tcpConn.Close(); err != nil {
+				log.Errorf("error closing TCP IPv4 connection: %v", err)
+			}
 		}
 	}
-	if r.connInfoIPv6Internet != nil && r.connInfoIPv6Internet.conn != nil {
-		if err := r.connInfoIPv6Internet.conn.Close(); err != nil {
-			log.Errorf("error closing IPv6 connection: %v", err)
+	if r.connInfoIPv6Internet != nil {
+		if r.connInfoIPv6Internet.udpConn != nil {
+			if err := r.connInfoIPv6Internet.udpConn.Close(); err != nil {
+				log.Errorf("error closing UDP IPv6 connection: %v", err)
+			}
+		}
+		if r.connInfoIPv6Internet.tcpConn != nil {
+			if err := r.connInfoIPv6Internet.tcpConn.Close(); err != nil {
+				log.Errorf("error closing TCP IPv6 connection: %v", err)
+			}
 		}
 	}
-	if r.connInfoIPv4Loopback != nil && r.connInfoIPv4Loopback.conn != nil {
-		if err := r.connInfoIPv4Loopback.conn.Close(); err != nil {
-			log.Errorf("error closing IPv4 loopback connection: %v", err)
+	if r.connInfoIPv4Loopback != nil {
+		if r.connInfoIPv4Loopback.udpConn != nil {
+			if err := r.connInfoIPv4Loopback.udpConn.Close(); err != nil {
+				log.Errorf("error closing IPv4 UDP loopback connection: %v", err)
+			}
+		}
+		if r.connInfoIPv4Loopback.tcpConn != nil {
+			if err := r.connInfoIPv4Loopback.tcpConn.Close(); err != nil {
+				log.Errorf("error closing IPv4 TCP loopback connection: %v", err)
+			}
 		}
 	}
-	if r.connInfoIPv6Loopback != nil && r.connInfoIPv6Loopback.conn != nil {
-		if err := r.connInfoIPv6Loopback.conn.Close(); err != nil {
-			log.Errorf("error closing IPv6 loopback connection: %v", err)
+	if r.connInfoIPv6Loopback != nil {
+		if r.connInfoIPv6Loopback.udpConn != nil {
+			if err := r.connInfoIPv6Loopback.udpConn.Close(); err != nil {
+				log.Errorf("error closing IPv6 UDP loopback connection: %v", err)
+			}
+		}
+		if r.connInfoIPv6Loopback.tcpConn != nil {
+			if err := r.connInfoIPv6Loopback.tcpConn.Close(); err != nil {
+				log.Errorf("error closing IPv6 TCP loopback connection: %v", err)
+			}
 		}
 	}
 }

@@ -17,6 +17,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"net"
 	"os"
@@ -25,6 +26,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/zmap/zcrypto/x509"
 
 	"github.com/hashicorp/go-version"
 	"github.com/liip/sheriff"
@@ -167,6 +170,24 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config.TransportMode = zdns.GetTransportMode(gc.UDPOnly, gc.TCPOnly)
 	config.DNSOverHTTPS = gc.DNSOverHTTPS
 	config.DNSOverTLS = gc.DNSOverTLS
+	config.VerifyServerCert = gc.VerifyServerCert
+
+	// Read in the CA file if it exists
+	if gc.RootCAsFile != "" {
+		fd, err := os.Open(gc.RootCAsFile)
+		if err != nil {
+			log.Fatalf("Could not open root CA file: %v", err)
+		}
+		caBytes, readErr := io.ReadAll(fd)
+		if readErr != nil {
+			log.Fatalf("Could not read root CA file: %v", readErr)
+		}
+		config.RootCAs = x509.NewCertPool()
+		ok := config.RootCAs.AppendCertsFromPEM(caBytes)
+		if !ok {
+			log.Fatalf("Could not read certificates from PEM file. Invalid PEM?")
+		}
+	}
 
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
@@ -220,6 +241,14 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config, err = populateNameServers(gc, config)
 	if err != nil {
 		log.Fatal("could not populate name servers: ", err)
+	}
+	// If --verify-server-cert is set, all nameservers must have a domain name
+	if config.VerifyServerCert {
+		for _, ns := range util.Concat(config.ExternalNameServersV4, config.RootNameServersV4, config.ExternalNameServersV6, config.RootNameServersV6) {
+			if len(ns.DomainName) == 0 {
+				log.Fatal("All name servers must have domain names when using --verify-server-cert, specify --name-servers=domain1,domain2 and ZDNS will resolve the domain to a name server IP")
+			}
+		}
 	}
 	if config.IPVersionMode == zdns.IPv4Only {
 		// Drop any IPv6 nameservers
@@ -542,7 +571,7 @@ func Run(gc CLIConf) {
 }
 
 // doLookupWorker is a single worker thread that processes lookups from the input channel. It calls wg.Done when it is finished.
-func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
+func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, inputChan <-chan string, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	resolver, err := zdns.InitResolver(rc)
 	if err != nil {
@@ -550,24 +579,47 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, o
 	}
 	var metadata routineMetadata
 	metadata.Status = make(map[zdns.Status]int)
-	for line := range input {
-		// we'll process each module sequentially, parallelism is per-domain
-		res := zdns.Result{Results: make(map[string]zdns.SingleModuleResult, len(gc.ActiveModules))}
-		// get the fields that won't change for each lookup module
-		rawName := ""
-		var nameServer *zdns.NameServer
-		var nameServers []zdns.NameServer
-		nameServerString := ""
-		var rank int
-		var entryMetadata string
-		if gc.AlexaFormat {
-			rawName, rank = parseAlexa(line)
-			res.AlexaRank = rank
-		} else if gc.MetadataFormat {
-			rawName, entryMetadata = parseMetadataInputLine(line)
-			res.Metadata = entryMetadata
-		} else if gc.NameServerMode {
-			nameServers, err = convertNameServerStringToNameServer(line, rc.IPVersionMode, rc.DNSOverTLS, rc.DNSOverHTTPS)
+
+	for line := range inputChan {
+		handleWorkerInput(gc, rc, line, resolver, &metadata, output)
+	}
+	// close the resolver, freeing up resources
+	resolver.Close()
+	metaChan <- metadata
+	return nil
+}
+
+func handleWorkerInput(gc *CLIConf, rc *zdns.ResolverConfig, line string, resolver *zdns.Resolver, metadata *routineMetadata, output chan<- string) {
+	// we'll process each module sequentially, parallelism is per-domain
+	res := zdns.Result{Results: make(map[string]zdns.SingleModuleResult, len(gc.ActiveModules))}
+	// get the fields that won't change for each lookup module
+	rawName := ""
+	var nameServer *zdns.NameServer
+	var nameServers []zdns.NameServer
+	nameServerString := ""
+	var rank int
+	var entryMetadata string
+	var err error
+	if gc.AlexaFormat {
+		rawName, rank = parseAlexa(line)
+		res.AlexaRank = rank
+	} else if gc.MetadataFormat {
+		rawName, entryMetadata = parseMetadataInputLine(line)
+		res.Metadata = entryMetadata
+	} else if gc.NameServerMode {
+		nameServers, err = convertNameServerStringToNameServer(line, rc.IPVersionMode, rc.DNSOverTLS, rc.DNSOverHTTPS)
+		if err != nil {
+			log.Fatal("unable to parse name server: ", line)
+		}
+		if len(nameServers) == 0 {
+			log.Fatal("no name servers found in line: ", line)
+		}
+		// if user provides a domain name for the name server (one.one.one.one) we'll pick one of the IPs at random
+		nameServer = &nameServers[rand.Intn(len(nameServers))]
+	} else {
+		rawName, nameServerString = parseNormalInputLine(line)
+		if len(nameServerString) != 0 {
+			nameServers, err = convertNameServerStringToNameServer(nameServerString, rc.IPVersionMode, rc.DNSOverTLS, rc.DNSOverHTTPS)
 			if err != nil {
 				log.Fatal("unable to parse name server: ", line)
 			}
@@ -576,78 +628,61 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, input <-chan string, o
 			}
 			// if user provides a domain name for the name server (one.one.one.one) we'll pick one of the IPs at random
 			nameServer = &nameServers[rand.Intn(len(nameServers))]
-		} else {
-			rawName, nameServerString = parseNormalInputLine(line)
-			if len(nameServerString) != 0 {
-				nameServers, err = convertNameServerStringToNameServer(nameServerString, rc.IPVersionMode, rc.DNSOverTLS, rc.DNSOverHTTPS)
-				if err != nil {
-					log.Fatal("unable to parse name server: ", line)
-				}
-				if len(nameServers) == 0 {
-					log.Fatal("no name servers found in line: ", line)
-				}
-				// if user provides a domain name for the name server (one.one.one.one) we'll pick one of the IPs at random
-				nameServer = &nameServers[rand.Intn(len(nameServers))]
-			}
 		}
-		res.Name = rawName
-		// handle per-module lookups
-		for moduleName, module := range gc.ActiveModules {
-			var innerRes interface{}
-			var trace zdns.Trace
-			var status zdns.Status
-			var err error
-			var changed bool
-			var lookupName string
-			lookupName, changed = makeName(rawName, gc.NamePrefix, gc.NameOverride)
-			if changed {
-				res.AlteredName = lookupName
-			}
-			res.Class = dns.Class(gc.Class).String()
-
-			startTime := time.Now()
-			innerRes, trace, status, err = module.Lookup(resolver, lookupName, nameServer)
-
-			lookupRes := zdns.SingleModuleResult{
-				Timestamp: time.Now().Format(gc.TimeFormat),
-				Duration:  time.Since(startTime).Seconds(),
-			}
-			if status != zdns.StatusNoOutput {
-				lookupRes.Status = string(status)
-				lookupRes.Data = innerRes
-				lookupRes.Trace = trace
-				if err != nil {
-					lookupRes.Error = err.Error()
-				}
-				res.Results[moduleName] = lookupRes
-			}
-			metadata.Status[status]++
-			metadata.Lookups++
-		}
-		if len(res.Results) > 0 {
-			v, _ := version.NewVersion("0.0.0")
-			o := &sheriff.Options{
-				Groups:          gc.OutputGroups,
-				ApiVersion:      v,
-				IncludeEmptyTag: true,
-			}
-			data, err := sheriff.Marshal(o, res)
-			if err != nil {
-				log.Fatalf("unable to marshal result to JSON: %v", err)
-			}
-			cleansedData := replaceIntSliceInterface(data)
-			jsonRes, err := json.Marshal(cleansedData)
-			if err != nil {
-				log.Fatalf("unable to marshal JSON result: %v", err)
-			}
-			output <- string(jsonRes)
-		}
-		metadata.Names++
 	}
-	// close the resolver, freeing up resources
-	resolver.Close()
-	metaChan <- metadata
-	return nil
+	res.Name = rawName
+	// handle per-module lookups
+	for moduleName, module := range gc.ActiveModules {
+		var innerRes interface{}
+		var trace zdns.Trace
+		var status zdns.Status
+		var err error
+		var changed bool
+		var lookupName string
+		lookupName, changed = makeName(rawName, gc.NamePrefix, gc.NameOverride)
+		if changed {
+			res.AlteredName = lookupName
+		}
+		res.Class = dns.Class(gc.Class).String()
+
+		startTime := time.Now()
+		innerRes, trace, status, err = module.Lookup(resolver, lookupName, nameServer)
+
+		lookupRes := zdns.SingleModuleResult{
+			Timestamp: time.Now().Format(gc.TimeFormat),
+			Duration:  time.Since(startTime).Seconds(),
+		}
+		if status != zdns.StatusNoOutput {
+			lookupRes.Status = string(status)
+			lookupRes.Data = innerRes
+			lookupRes.Trace = trace
+			if err != nil {
+				lookupRes.Error = err.Error()
+			}
+			res.Results[moduleName] = lookupRes
+		}
+		metadata.Status[status]++
+		metadata.Lookups++
+	}
+	if len(res.Results) > 0 {
+		v, _ := version.NewVersion("0.0.0")
+		o := &sheriff.Options{
+			Groups:          gc.OutputGroups,
+			ApiVersion:      v,
+			IncludeEmptyTag: true,
+		}
+		data, err := sheriff.Marshal(o, res)
+		if err != nil {
+			log.Fatalf("unable to marshal result to JSON: %v", err)
+		}
+		cleansedData := replaceIntSliceInterface(data)
+		jsonRes, err := json.Marshal(cleansedData)
+		if err != nil {
+			log.Fatalf("unable to marshal JSON result: %v", err)
+		}
+		output <- string(jsonRes)
+	}
+	metadata.Names++
 }
 
 func parseAlexa(line string) (string, int) {
