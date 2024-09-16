@@ -516,8 +516,8 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 		}
 		err = tlsConn.Handshake()
 		if err != nil {
-			err := tlsConn.Close()
-			if err != nil {
+			closeErr := tlsConn.Close()
+			if closeErr != nil {
 				log.Errorf("error closing TLS connection: %v", err)
 			}
 			return SingleQueryResult{}, StatusError, errors.Wrap(err, "could not perform TLS handshake")
