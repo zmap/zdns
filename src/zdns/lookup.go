@@ -397,7 +397,7 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 	r.verboseLog(depth+1, "Cached retrying lookup. Name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
 
 	// First, we check the answer
-	cachedResult, ok := r.cache.GetCachedResult(q, false, depth+1)
+	cachedResult, ok := r.cache.GetCachedResult(q, nameServer, false, depth+1)
 	if ok {
 		isCached = true
 		return cachedResult, isCached, StatusNoError, 0, nil
@@ -417,7 +417,7 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 	// Alright, we're not sure what to do, go to the wire.
 	result, status, try, err := r.retryingLookup(ctx, q, nameServer, false)
 
-	r.cache.CacheUpdate(layer, result, depth+2)
+	r.cache.CacheUpdate(layer, result, nameServer, depth+2)
 	return result, isCached, status, try, err
 }
 

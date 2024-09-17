@@ -30,6 +30,11 @@ type TimedAnswer struct {
 	ExpiresAt time.Time
 }
 
+type CachedKey struct {
+	Question   Question
+	NameServer string // optional
+}
+
 type CachedResult struct {
 	Answers map[interface{}]TimedAnswer
 }
@@ -46,7 +51,7 @@ func (s *Cache) VerboseLog(depth int, args ...interface{}) {
 	log.Debug(makeVerbosePrefix(depth), args)
 }
 
-func (s *Cache) AddCachedAnswer(answer interface{}, depth int) {
+func (s *Cache) AddCachedAnswer(answer interface{}, ns *NameServer, depth int) {
 	a, ok := answer.(Answer)
 	if !ok {
 		// we can't cache this entry because we have no idea what to name it
@@ -64,13 +69,17 @@ func (s *Cache) AddCachedAnswer(answer interface{}, depth int) {
 		return
 	}
 	expiresAt := time.Now().Add(time.Duration(a.TTL) * time.Second)
-	s.IterativeCache.Lock(q)
-	defer s.IterativeCache.Unlock(q)
-	// don't bother to move this to the top of the linked list. we're going
-	// to add this record back in momentarily and that will take care of this
 	ca := CachedResult{}
 	ca.Answers = make(map[interface{}]TimedAnswer)
-	i, ok := s.IterativeCache.GetNoMove(q)
+	cacheKey := CachedKey{q, ""}
+	if ns != nil {
+		cacheKey.NameServer = ns.String()
+	}
+	s.IterativeCache.Lock(cacheKey)
+	defer s.IterativeCache.Unlock(cacheKey)
+	// don't bother to move this to the top of the linked list. we're going
+	// to add this record back in momentarily and that will take care of this
+	i, ok := s.IterativeCache.GetNoMove(cacheKey)
 	if ok {
 		// record found, check type on interface
 		ca, ok = i.(CachedResult)
@@ -83,18 +92,24 @@ func (s *Cache) AddCachedAnswer(answer interface{}, depth int) {
 		Answer:    answer,
 		ExpiresAt: expiresAt}
 	ca.Answers[a] = ta
-	s.IterativeCache.Add(q, ca)
+	s.IterativeCache.Add(cacheKey, ca)
 	s.VerboseLog(depth+1, "Upsert cached answer ", q, " ", ca)
 }
 
-func (s *Cache) GetCachedResult(q Question, isAuthCheck bool, depth int) (SingleQueryResult, bool) {
-	s.VerboseLog(depth+1, "Cache request for: ", q.Name, " (", q.Type, ")")
+func (s *Cache) GetCachedResult(q Question, ns *NameServer, isAuthCheck bool, depth int) (SingleQueryResult, bool) {
 	var retv SingleQueryResult
-	s.IterativeCache.Lock(q)
-	unres, ok := s.IterativeCache.Get(q)
+	cacheKey := CachedKey{q, ""}
+	if ns != nil {
+		cacheKey.NameServer = ns.String()
+		s.VerboseLog(depth+1, "Cache request for: ", q.Name, " (", q.Type, ") @", cacheKey.NameServer)
+	} else {
+		s.VerboseLog(depth+1, "Cache request for: ", q.Name, " (", q.Type, ")")
+	}
+	s.IterativeCache.Lock(cacheKey)
+	unres, ok := s.IterativeCache.Get(cacheKey)
 	if !ok { // nothing found
 		s.VerboseLog(depth+2, "-> no entry found in cache")
-		s.IterativeCache.Unlock(q)
+		s.IterativeCache.Unlock(cacheKey)
 		return retv, false
 	}
 	retv.Authorities = make([]interface{}, 0)
@@ -123,7 +138,7 @@ func (s *Cache) GetCachedResult(q Question, isAuthCheck bool, depth int) (Single
 			}
 		}
 	}
-	s.IterativeCache.Unlock(q)
+	s.IterativeCache.Unlock(cacheKey)
 	// Don't return an empty response.
 	if len(retv.Answers) == 0 && len(retv.Authorities) == 0 && len(retv.Additional) == 0 {
 		s.VerboseLog(depth+2, "-> no entry found in cache, after expiration")
@@ -135,7 +150,7 @@ func (s *Cache) GetCachedResult(q Question, isAuthCheck bool, depth int) (Single
 	return retv, true
 }
 
-func (s *Cache) SafeAddCachedAnswer(a interface{}, layer string, debugType string, depth int) {
+func (s *Cache) SafeAddCachedAnswer(a interface{}, ns *NameServer, layer string, debugType string, depth int) {
 	ans, ok := a.(Answer)
 	if !ok {
 		s.VerboseLog(depth+1, "unable to cast ", debugType, ": ", layer, ": ", a)
@@ -145,19 +160,19 @@ func (s *Cache) SafeAddCachedAnswer(a interface{}, layer string, debugType strin
 		log.Info("detected poison ", debugType, ": ", ans.Name, "(", ans.Type, "): ", layer, ": ", a)
 		return
 	}
-	s.AddCachedAnswer(a, depth)
+	s.AddCachedAnswer(a, ns, depth)
 }
 
-func (s *Cache) CacheUpdate(layer string, result SingleQueryResult, depth int) {
+func (s *Cache) CacheUpdate(layer string, result SingleQueryResult, ns *NameServer, depth int) {
 	for _, a := range result.Additional {
-		s.SafeAddCachedAnswer(a, layer, "additional", depth)
+		s.SafeAddCachedAnswer(a, ns, layer, "additional", depth)
 	}
 	for _, a := range result.Authorities {
-		s.SafeAddCachedAnswer(a, layer, "authority", depth)
+		s.SafeAddCachedAnswer(a, ns, layer, "authority", depth)
 	}
 	if result.Flags.Authoritative {
 		for _, a := range result.Answers {
-			s.SafeAddCachedAnswer(a, layer, "answer", depth)
+			s.SafeAddCachedAnswer(a, ns, layer, "answer", depth)
 		}
 	}
 }
