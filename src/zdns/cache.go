@@ -159,14 +159,14 @@ func (s *Cache) SafeAddCachedAnswer(a interface{}, ns *NameServer, layer string,
 	s.AddCachedAnswer(a, ns, depth)
 }
 
-func (s *Cache) CacheUpdate(layer string, result SingleQueryResult, ns *NameServer, depth int) {
+func (s *Cache) CacheUpdate(layer string, result SingleQueryResult, ns *NameServer, depth int, cacheNonAuthoritativeAns bool) {
 	for _, a := range result.Additional {
 		s.SafeAddCachedAnswer(a, ns, layer, "additional", depth)
 	}
 	for _, a := range result.Authorities {
 		s.SafeAddCachedAnswer(a, ns, layer, "authority", depth)
 	}
-	if result.Flags.Authoritative {
+	if result.Flags.Authoritative || cacheNonAuthoritativeAns {
 		for _, a := range result.Answers {
 			s.SafeAddCachedAnswer(a, ns, layer, "answer", depth)
 		}

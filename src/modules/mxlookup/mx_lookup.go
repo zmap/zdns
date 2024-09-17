@@ -14,15 +14,12 @@
 package mxlookup
 
 import (
-	"strings"
-	"sync"
-
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/dns"
+	"strings"
 
 	"github.com/zmap/zdns/src/cli"
-	"github.com/zmap/zdns/src/internal/cachehash"
 	"github.com/zmap/zdns/src/zdns"
 )
 
@@ -51,11 +48,8 @@ type MXResult struct {
 }
 
 type MXLookupModule struct {
-	IPv4Lookup  bool `long:"ipv4-lookup" description:"perform A lookups for each MX server"`
-	IPv6Lookup  bool `long:"ipv6-lookup" description:"perform AAAA record lookups for each MX server"`
-	MXCacheSize int  `long:"mx-cache-size" default:"1000" description:"number of records to store in MX -> A/AAAA cache"`
-	CacheHash   *cachehash.CacheHash
-	CHmu        sync.Mutex
+	IPv4Lookup bool `long:"ipv4-lookup" description:"perform A lookups for each MX server"`
+	IPv6Lookup bool `long:"ipv6-lookup" description:"perform AAAA record lookups for each MX server"`
 	cli.BasicLookupModule
 }
 
@@ -77,31 +71,15 @@ func (mxMod *MXLookupModule) Init() {
 	if !mxMod.IPv4Lookup && !mxMod.IPv6Lookup {
 		log.Fatal("At least one of ipv4-lookup or ipv6-lookup must be true")
 	}
-	if mxMod.MXCacheSize <= 0 {
-		log.Fatal("mxCacheSize must be greater than 0, got ", mxMod.MXCacheSize)
-	}
-	mxMod.CacheHash = new(cachehash.CacheHash)
-	mxMod.CacheHash.Init(mxMod.MXCacheSize)
 }
 
 func (mxMod *MXLookupModule) lookupIPs(r *zdns.Resolver, name string, nameServer *zdns.NameServer, ipMode zdns.IPVersionMode) (CachedAddresses, zdns.Trace) {
-	mxMod.CHmu.Lock()
-	// TODO - Phillip this comment V is present in the original code and has been there since 2017 IIRC, so ask Zakir what to do
-	// XXX this should be changed to a miekglookup
-	res, found := mxMod.CacheHash.Get(name)
-	mxMod.CHmu.Unlock()
-	if found {
-		return res.(CachedAddresses), zdns.Trace{}
-	}
 	retv := CachedAddresses{}
 	result, trace, status, _ := r.DoTargetedLookup(name, nameServer, mxMod.IsIterative, mxMod.IPv4Lookup, mxMod.IPv6Lookup)
 	if status == zdns.StatusNoError && result != nil {
 		retv.IPv4Addresses = result.IPv4Addresses
 		retv.IPv6Addresses = result.IPv6Addresses
 	}
-	mxMod.CHmu.Lock()
-	mxMod.CacheHash.Upsert(name, retv)
-	mxMod.CHmu.Unlock()
 	return retv, trace
 }
 
