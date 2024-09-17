@@ -136,7 +136,7 @@ func (r *Resolver) lookup(ctx context.Context, q Question, nameServer *NameServe
 		tries := 0
 		// external lookup
 		r.verboseLog(1, "MIEKG-IN: following external lookup for ", q.Name, " (", q.Type, ")")
-		res, status, tries, err = r.retryingLookup(ctx, q, nameServer, true)
+		res, _, status, tries, err = r.cachedRetryingLookup(ctx, q, nameServer, q.Name, 1, true, true)
 		r.verboseLog(1, "MIEKG-OUT: following external lookup for ", q.Name, " (", q.Type, ") with ", tries, " attempts: status: ", status, " , err: ", err)
 		var t TraceStep
 		t.Result = res
@@ -343,7 +343,7 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer *
 	// create iteration context for this iteration step
 	iterationStepCtx, cancel := context.WithTimeout(ctx, r.iterativeTimeout)
 	defer cancel()
-	result, isCached, status, try, err := r.cachedRetryingLookup(iterationStepCtx, q, nameServer, layer, depth)
+	result, isCached, status, try, err := r.cachedRetryingLookup(iterationStepCtx, q, nameServer, layer, depth, false, false)
 	if status == StatusNoError {
 		var t TraceStep
 		t.Result = result
@@ -391,13 +391,19 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer *
 	}
 }
 
-func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameServer *NameServer, layer string, depth int) (SingleQueryResult, IsCached, Status, int, error) {
+func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameServer *NameServer, layer string, depth int, requestIteration, cacheBasedOnNameServer bool) (SingleQueryResult, IsCached, Status, int, error) {
 	var isCached IsCached
 	isCached = false
 	r.verboseLog(depth+1, "Cached retrying lookup. Name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
 
+	// For some lookups, we want them to be nameserver specific, ie. if cacheBasedOnNameServer is true
+	// Else, we don't care which nameserver returned it
+	cacheNameServer := nameServer
+	if !cacheBasedOnNameServer {
+		cacheNameServer = nil
+	}
 	// First, we check the answer
-	cachedResult, ok := r.cache.GetCachedResult(q, nameServer, false, depth+1)
+	cachedResult, ok := r.cache.GetCachedResult(q, cacheNameServer, depth+1)
 	if ok {
 		isCached = true
 		return cachedResult, isCached, StatusNoError, 0, nil
@@ -415,9 +421,9 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 	}
 
 	// Alright, we're not sure what to do, go to the wire.
-	result, status, try, err := r.retryingLookup(ctx, q, nameServer, false)
+	result, status, try, err := r.retryingLookup(ctx, q, nameServer, requestIteration)
 
-	r.cache.CacheUpdate(layer, result, nameServer, depth+2)
+	r.cache.CacheUpdate(layer, result, cacheNameServer, depth+2)
 	return result, isCached, status, try, err
 }
 

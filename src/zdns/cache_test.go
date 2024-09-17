@@ -22,7 +22,7 @@ import (
 func TestCheckForNonExistentKey(t *testing.T) {
 	cache := Cache{}
 	cache.Init(4096)
-	_, found := cache.GetCachedResult(Question{1, 1, "google.com"}, nil, false, 0)
+	_, found := cache.GetCachedResult(Question{1, 1, "google.com"}, nil, 0)
 	assert.False(t, found, "Expected no cache entry")
 }
 
@@ -43,7 +43,7 @@ func TestNoNameServerLookupSuccess(t *testing.T) {
 	cache := Cache{}
 	cache.Init(4096)
 	cache.CacheUpdate(".", res, nil, 0)
-	_, found := cache.GetCachedResult(Question{1, 1, "google.com."}, nil, false, 0)
+	_, found := cache.GetCachedResult(Question{1, 1, "google.com."}, nil, 0)
 	assert.True(t, found, "Expected cache entry")
 }
 
@@ -67,7 +67,7 @@ func TestNoNameServerLookupForNamedNameServer(t *testing.T) {
 	_, found := cache.GetCachedResult(Question{1, 1, "google.com."}, &NameServer{
 		IP:   net.ParseIP("1.1.1.1"),
 		Port: 53,
-	}, false, 0)
+	}, 0)
 	assert.False(t, found, "Cache has an answer from a generic nameserver, we wanted a specific one. Shouldn't be found.")
 }
 
@@ -91,7 +91,7 @@ func TestNamedServerLookupForNonNamedNameServer(t *testing.T) {
 		IP:   net.ParseIP("1.1.1.1"),
 		Port: 53,
 	}, 0)
-	_, found := cache.GetCachedResult(Question{1, 1, "google.com."}, nil, false, 0)
+	_, found := cache.GetCachedResult(Question{1, 1, "google.com."}, nil, 0)
 	assert.False(t, found, "Cache has an answer from a named nameserver, we wanted a generic one. Shouldn't be found.")
 }
 
@@ -118,6 +118,6 @@ func TestNamedServerLookupForNamedNameServer(t *testing.T) {
 	_, found := cache.GetCachedResult(Question{1, 1, "google.com."}, &NameServer{
 		IP:   net.ParseIP("1.1.1.1"),
 		Port: 53,
-	}, false, 0)
+	}, 0)
 	assert.True(t, found, "Should be found")
 }

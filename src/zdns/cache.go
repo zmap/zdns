@@ -96,7 +96,7 @@ func (s *Cache) AddCachedAnswer(answer interface{}, ns *NameServer, depth int) {
 	s.VerboseLog(depth+1, "Upsert cached answer ", q, " ", ca)
 }
 
-func (s *Cache) GetCachedResult(q Question, ns *NameServer, isAuthCheck bool, depth int) (SingleQueryResult, bool) {
+func (s *Cache) GetCachedResult(q Question, ns *NameServer, depth int) (SingleQueryResult, bool) {
 	var retv SingleQueryResult
 	cacheKey := CachedKey{q, ""}
 	if ns != nil {
@@ -131,11 +131,7 @@ func (s *Cache) GetCachedResult(q Question, ns *NameServer, isAuthCheck bool, de
 			delete(cachedRes.Answers, k)
 		} else {
 			// this result is valid. append it to the SingleQueryResult we're going to hand to the user
-			if isAuthCheck {
-				retv.Authorities = append(retv.Authorities, cachedAnswer.Answer)
-			} else {
-				retv.Answers = append(retv.Answers, cachedAnswer.Answer)
-			}
+			retv.Answers = append(retv.Answers, cachedAnswer.Answer)
 		}
 	}
 	s.IterativeCache.Unlock(cacheKey)
