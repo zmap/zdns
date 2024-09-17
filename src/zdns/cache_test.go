@@ -14,9 +14,10 @@
 package zdns
 
 import (
-	"github.com/stretchr/testify/assert"
 	"net"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCheckForNonExistentKey(t *testing.T) {
@@ -42,7 +43,7 @@ func TestNoNameServerLookupSuccess(t *testing.T) {
 	}
 	cache := Cache{}
 	cache.Init(4096)
-	cache.CacheUpdate(".", res, nil, 0)
+	cache.CacheUpdate(".", res, nil, 0, false)
 	_, found := cache.GetCachedResult(Question{1, 1, "google.com."}, nil, 0)
 	assert.True(t, found, "Expected cache entry")
 }
@@ -63,7 +64,7 @@ func TestNoNameServerLookupForNamedNameServer(t *testing.T) {
 	}
 	cache := Cache{}
 	cache.Init(4096)
-	cache.CacheUpdate(".", res, nil, 0)
+	cache.CacheUpdate(".", res, nil, 0, false)
 	_, found := cache.GetCachedResult(Question{1, 1, "google.com."}, &NameServer{
 		IP:   net.ParseIP("1.1.1.1"),
 		Port: 53,
@@ -90,7 +91,7 @@ func TestNamedServerLookupForNonNamedNameServer(t *testing.T) {
 	cache.CacheUpdate(".", res, &NameServer{
 		IP:   net.ParseIP("1.1.1.1"),
 		Port: 53,
-	}, 0)
+	}, 0, false)
 	_, found := cache.GetCachedResult(Question{1, 1, "google.com."}, nil, 0)
 	assert.False(t, found, "Cache has an answer from a named nameserver, we wanted a generic one. Shouldn't be found.")
 }
@@ -114,10 +115,34 @@ func TestNamedServerLookupForNamedNameServer(t *testing.T) {
 	cache.CacheUpdate(".", res, &NameServer{
 		IP:   net.ParseIP("1.1.1.1"),
 		Port: 53,
-	}, 0)
+	}, 0, false)
 	_, found := cache.GetCachedResult(Question{1, 1, "google.com."}, &NameServer{
 		IP:   net.ParseIP("1.1.1.1"),
 		Port: 53,
 	}, 0)
 	assert.True(t, found, "Should be found")
+}
+
+func TestNoNameServerLookupNotAuthoritative(t *testing.T) {
+	res := SingleQueryResult{
+		Answers: []interface{}{Answer{
+			TTL:     3600,
+			RrType:  1,
+			RrClass: 1,
+			Name:    "google.com.",
+			Answer:  "192.0.2.1",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       DNSFlags{Authoritative: false},
+	}
+	cache := Cache{}
+	cache.Init(4096)
+	cache.CacheUpdate(".", res, nil, 0, false)
+	_, found := cache.GetCachedResult(Question{1, 1, "google.com."}, nil, 0)
+	assert.False(t, found, "shouldn't cache non-authoritative answers")
+	cache.CacheUpdate(".", res, nil, 0, true)
+	_, found = cache.GetCachedResult(Question{1, 1, "google.com."}, nil, 0)
+	assert.True(t, found, "should cache non-authoritative answers")
 }
