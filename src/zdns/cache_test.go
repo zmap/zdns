@@ -19,15 +19,6 @@ import (
 	"testing"
 )
 
-// Tests
-// Check for non-existent key
-// add a KV for a NS, check for the no-NS KEY, should NOT be cached.
-// Check for existent key, should be cached
-
-// Add a NS record for NameServer A
-// Add another NS record for NameServer A, but IP is same in a new slice
-// Check for the NS record, should be cached
-
 func TestCheckForNonExistentKey(t *testing.T) {
 	cache := Cache{}
 	cache.Init(4096)
