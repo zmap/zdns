@@ -39,7 +39,7 @@ def recursiveSort(obj):
 
 class Tests(unittest.TestCase):
     maxDiff = None
-    ZDNS_EXECUTABLE = "./zdns"
+    ZDNS_EXECUTABLE = "../zdns"
     ADDITIONAL_FLAGS = " --threads=10"  # flags used with every test
 
     def run_zdns_check_failure(self, flags, name, expected_err, executable=ZDNS_EXECUTABLE):
@@ -1414,6 +1414,18 @@ class Tests(unittest.TestCase):
                 hasRRSIG = True
                 break
         self.assertTrue(hasRRSIG, "DNSSEC option should return an RRSIG record")
+
+    def test_external_lookup_cache(self):
+        c = "A google.com google.com --name-servers=8.8.8.8 --threads=1"
+        name = ""
+        cmd, res = self.run_zdns_multiline_output(c, name, append_flags=False)
+        self.assertSuccess(res[0], cmd, "A")
+        self.assertSuccess(res[1], cmd, "A")
+        first_duration = res[0]["results"]["A"]["duration"]
+        second_duration = res[1]["results"]["A"]["duration"]
+        # a bit of a hacky test, but we're checking that if we query the same domain with the same nameserver,
+        # the second query has a much smaller response time than the first to show it's being cached
+        self.assertTrue(first_duration / 1000 > second_duration, "Second query should be faster than the first")
 
 
 
