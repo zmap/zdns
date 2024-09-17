@@ -1,0 +1,132 @@
+/*
+ * ZDNS Copyright 2024 Regents of the University of Michigan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy
+ * of the License at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+package zdns
+
+import (
+	"github.com/stretchr/testify/assert"
+	"net"
+	"testing"
+)
+
+// Tests
+// Check for non-existent key
+// add a KV for a NS, check for the no-NS KEY, should NOT be cached.
+// Check for existent key, should be cached
+
+// Add a NS record for NameServer A
+// Add another NS record for NameServer A, but IP is same in a new slice
+// Check for the NS record, should be cached
+
+func TestCheckForNonExistentKey(t *testing.T) {
+	cache := Cache{}
+	cache.Init(4096)
+	_, found := cache.GetCachedResult(Question{1, 1, "google.com"}, nil, false, 0)
+	assert.False(t, found, "Expected no cache entry")
+}
+
+func TestNoNameServerLookupSuccess(t *testing.T) {
+	res := SingleQueryResult{
+		Answers: []interface{}{Answer{
+			TTL:     3600,
+			RrType:  1,
+			RrClass: 1,
+			Name:    "google.com.",
+			Answer:  "192.0.2.1",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       DNSFlags{Authoritative: true},
+	}
+	cache := Cache{}
+	cache.Init(4096)
+	cache.CacheUpdate(".", res, nil, 0)
+	_, found := cache.GetCachedResult(Question{1, 1, "google.com."}, nil, false, 0)
+	assert.True(t, found, "Expected cache entry")
+}
+
+func TestNoNameServerLookupForNamedNameServer(t *testing.T) {
+	res := SingleQueryResult{
+		Answers: []interface{}{Answer{
+			TTL:     3600,
+			RrType:  1,
+			RrClass: 1,
+			Name:    "google.com.",
+			Answer:  "192.0.2.1",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       DNSFlags{Authoritative: true},
+	}
+	cache := Cache{}
+	cache.Init(4096)
+	cache.CacheUpdate(".", res, nil, 0)
+	_, found := cache.GetCachedResult(Question{1, 1, "google.com."}, &NameServer{
+		IP:   net.ParseIP("1.1.1.1"),
+		Port: 53,
+	}, false, 0)
+	assert.False(t, found, "Cache has an answer from a generic nameserver, we wanted a specific one. Shouldn't be found.")
+}
+
+func TestNamedServerLookupForNonNamedNameServer(t *testing.T) {
+	res := SingleQueryResult{
+		Answers: []interface{}{Answer{
+			TTL:     3600,
+			RrType:  1,
+			RrClass: 1,
+			Name:    "google.com.",
+			Answer:  "192.0.2.1",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       DNSFlags{Authoritative: true},
+	}
+	cache := Cache{}
+	cache.Init(4096)
+	cache.CacheUpdate(".", res, &NameServer{
+		IP:   net.ParseIP("1.1.1.1"),
+		Port: 53,
+	}, 0)
+	_, found := cache.GetCachedResult(Question{1, 1, "google.com."}, nil, false, 0)
+	assert.False(t, found, "Cache has an answer from a named nameserver, we wanted a generic one. Shouldn't be found.")
+}
+
+func TestNamedServerLookupForNamedNameServer(t *testing.T) {
+	res := SingleQueryResult{
+		Answers: []interface{}{Answer{
+			TTL:     3600,
+			RrType:  1,
+			RrClass: 1,
+			Name:    "google.com.",
+			Answer:  "192.0.2.1",
+		}},
+		Additional:  nil,
+		Authorities: nil,
+		Protocol:    "",
+		Flags:       DNSFlags{Authoritative: true},
+	}
+	cache := Cache{}
+	cache.Init(4096)
+	cache.CacheUpdate(".", res, &NameServer{
+		IP:   net.ParseIP("1.1.1.1"),
+		Port: 53,
+	}, 0)
+	_, found := cache.GetCachedResult(Question{1, 1, "google.com."}, &NameServer{
+		IP:   net.ParseIP("1.1.1.1"),
+		Port: 53,
+	}, false, 0)
+	assert.True(t, found, "Should be found")
+}
