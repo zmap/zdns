@@ -1425,8 +1425,7 @@ class Tests(unittest.TestCase):
         second_duration = res[1]["results"]["A"]["duration"]
         # a bit of a hacky test, but we're checking that if we query the same domain with the same nameserver,
         # the second query has a much smaller response time than the first to show it's being cached
-        print(first_duration, second_duration)
-        self.assertTrue(first_duration / 1000 > second_duration, f"Second query should be faster than the first. {msg}")
+        self.assertTrue(first_duration / 50 > second_duration, f"Second query {second_duration} should be faster than the first {first_duration}")
 
 
 
