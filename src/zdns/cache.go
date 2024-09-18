@@ -141,6 +141,9 @@ func (s *Cache) GetCachedResult(q Question, ns *NameServer, depth int) (SingleQu
 		var emptyRetv SingleQueryResult
 		return emptyRetv, false
 	}
+	if ns != nil {
+		retv.Resolver = ns.String()
+	}
 
 	s.VerboseLog(depth+2, "Cache hit: ", retv)
 	return retv, true

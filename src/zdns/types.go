@@ -20,6 +20,13 @@ import (
 	"github.com/zmap/zdns/src/internal/util"
 )
 
+const (
+	DoHProtocol = "DoH"
+	DoTProtocol = "DoT"
+	UDPProtocol = "udp"
+	TCPProtocol = "tcp"
+)
+
 type transportMode int
 
 const (

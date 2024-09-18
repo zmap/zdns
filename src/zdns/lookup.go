@@ -413,6 +413,17 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 	cachedResult, ok := r.cache.GetCachedResult(q, cacheNameServer, depth+1)
 	if ok {
 		isCached = true
+		// set protocol on the result
+		if r.dnsOverHTTPSEnabled {
+			cachedResult.Protocol = DoHProtocol
+		} else if r.dnsOverTLSEnabled {
+			cachedResult.Protocol = DoTProtocol
+		} else if r.transportMode == TCPOnly {
+			cachedResult.Protocol = TCPProtocol
+		} else {
+			// default to UDP
+			cachedResult.Protocol = UDPProtocol
+		}
 		return cachedResult, isCached, StatusNoError, 0, nil
 	}
 
@@ -548,7 +559,7 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 	}
 	res := SingleQueryResult{
 		Resolver:    connInfo.tlsConn.Conn.RemoteAddr().String(),
-		Protocol:    "DoT",
+		Protocol:    DoTProtocol,
 		Answers:     []interface{}{},
 		Authorities: []interface{}{},
 		Additional:  []interface{}{},
@@ -620,7 +631,7 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 	}
 	res := SingleQueryResult{
 		Resolver:    nameServer.DomainName,
-		Protocol:    "DoH",
+		Protocol:    DoHProtocol,
 		Answers:     []interface{}{},
 		Authorities: []interface{}{},
 		Additional:  []interface{}{},
