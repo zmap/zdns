@@ -136,7 +136,7 @@ func (r *Resolver) lookup(ctx context.Context, q Question, nameServer *NameServe
 		tries := 0
 		// external lookup
 		r.verboseLog(1, "MIEKG-IN: following external lookup for ", q.Name, " (", q.Type, ")")
-		res, status, tries, err = r.retryingLookup(ctx, q, nameServer, true)
+		res, _, status, tries, err = r.cachedRetryingLookup(ctx, q, nameServer, q.Name, 1, true, true, true)
 		r.verboseLog(1, "MIEKG-OUT: following external lookup for ", q.Name, " (", q.Type, ") with ", tries, " attempts: status: ", status, " , err: ", err)
 		var t TraceStep
 		t.Result = res
@@ -343,7 +343,7 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer *
 	// create iteration context for this iteration step
 	iterationStepCtx, cancel := context.WithTimeout(ctx, r.iterativeTimeout)
 	defer cancel()
-	result, isCached, status, try, err := r.cachedRetryingLookup(iterationStepCtx, q, nameServer, layer, depth)
+	result, isCached, status, try, err := r.cachedRetryingLookup(iterationStepCtx, q, nameServer, layer, depth, false, false, false)
 	if status == StatusNoError {
 		var t TraceStep
 		t.Result = result
@@ -391,15 +391,39 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer *
 	}
 }
 
-func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameServer *NameServer, layer string, depth int) (SingleQueryResult, IsCached, Status, int, error) {
+// cachedRetryingLookup wraps around retryingLookup to perform a DNS lookup with caching
+// returns the result, whether it was cached, the status, the number of tries, and an error if one occured
+// layer is the domain name layer we're currently querying ex: ".", "com.", "example.com."
+// depth is the current depth of the lookup, used for iterative lookups
+// requestIteration is whether to set the "recursion desired" bit in the DNS query
+// cacheBasedOnNameServer is whether to consider a cache hit based on DNS question and nameserver, or just question
+// cacheNonAuthoritative is whether to cache non-authoritative answers, usually used for lookups using an external resolver
+func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameServer *NameServer, layer string, depth int, requestIteration, cacheBasedOnNameServer, cacheNonAuthoritative bool) (SingleQueryResult, IsCached, Status, int, error) {
 	var isCached IsCached
 	isCached = false
 	r.verboseLog(depth+1, "Cached retrying lookup. Name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
 
+	// For some lookups, we want them to be nameserver specific, ie. if cacheBasedOnNameServer is true
+	// Else, we don't care which nameserver returned it
+	cacheNameServer := nameServer
+	if !cacheBasedOnNameServer {
+		cacheNameServer = nil
+	}
 	// First, we check the answer
-	cachedResult, ok := r.cache.GetCachedResult(q, false, depth+1)
+	cachedResult, ok := r.cache.GetCachedResult(q, cacheNameServer, depth+1)
 	if ok {
 		isCached = true
+		// set protocol on the result
+		if r.dnsOverHTTPSEnabled {
+			cachedResult.Protocol = DoHProtocol
+		} else if r.dnsOverTLSEnabled {
+			cachedResult.Protocol = DoTProtocol
+		} else if r.transportMode == TCPOnly {
+			cachedResult.Protocol = TCPProtocol
+		} else {
+			// default to UDP
+			cachedResult.Protocol = UDPProtocol
+		}
 		return cachedResult, isCached, StatusNoError, 0, nil
 	}
 
@@ -415,9 +439,9 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 	}
 
 	// Alright, we're not sure what to do, go to the wire.
-	result, status, try, err := r.retryingLookup(ctx, q, nameServer, false)
+	result, status, try, err := r.retryingLookup(ctx, q, nameServer, requestIteration)
 
-	r.cache.CacheUpdate(layer, result, depth+2)
+	r.cache.CacheUpdate(layer, result, cacheNameServer, depth+2, cacheNonAuthoritative)
 	return result, isCached, status, try, err
 }
 
@@ -535,7 +559,7 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 	}
 	res := SingleQueryResult{
 		Resolver:    connInfo.tlsConn.Conn.RemoteAddr().String(),
-		Protocol:    "DoT",
+		Protocol:    DoTProtocol,
 		Answers:     []interface{}{},
 		Authorities: []interface{}{},
 		Additional:  []interface{}{},
@@ -607,7 +631,7 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 	}
 	res := SingleQueryResult{
 		Resolver:    nameServer.DomainName,
-		Protocol:    "DoH",
+		Protocol:    DoHProtocol,
 		Answers:     []interface{}{},
 		Authorities: []interface{}{},
 		Additional:  []interface{}{},
