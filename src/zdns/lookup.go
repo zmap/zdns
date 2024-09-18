@@ -391,6 +391,13 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServer *
 	}
 }
 
+// cachedRetryingLookup wraps around retryingLookup to perform a DNS lookup with caching
+// returns the result, whether it was cached, the status, the number of tries, and an error if one occured
+// layer is the domain name layer we're currently querying ex: ".", "com.", "example.com."
+// depth is the current depth of the lookup, used for iterative lookups
+// requestIteration is whether to set the "recursion desired" bit in the DNS query
+// cacheBasedOnNameServer is whether to consider a cache hit based on DNS question and nameserver, or just question
+// cacheNonAuthoritative is whether to cache non-authoritative answers, usually used for lookups using an external resolver
 func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameServer *NameServer, layer string, depth int, requestIteration, cacheBasedOnNameServer, cacheNonAuthoritative bool) (SingleQueryResult, IsCached, Status, int, error) {
 	var isCached IsCached
 	isCached = false
