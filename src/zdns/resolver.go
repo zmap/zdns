@@ -76,6 +76,7 @@ type ResolverConfig struct {
 	ShouldRecycleSockets  bool
 
 	IterativeTimeout      time.Duration // applicable to iterative queries only, timeout for a single iteration step
+	NetworkTimeout        time.Duration // timeout for a single on-the-wire network call
 	Timeout               time.Duration // timeout for the resolution of a single name
 	MaxDepth              int
 	ExternalNameServersV4 []NameServer // v4 name servers used for external lookups
@@ -356,7 +357,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 			r.externalNameServers = append(r.externalNameServers, *ns.DeepCopy())
 		}
 	}
-	r.networkTimeout = time.Second * 2 // TODO set this correclty in the CLI
+	r.networkTimeout = config.NetworkTimeout
 	r.iterativeTimeout = config.IterativeTimeout
 	r.maxDepth = config.MaxDepth
 	r.rootNameServers = make([]NameServer, 0, len(config.RootNameServersV4)+len(config.RootNameServersV6))

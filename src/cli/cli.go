@@ -50,6 +50,7 @@ type GeneralOptions struct {
 	NameServerMode       bool   `long:"name-server-mode" description:"Treats input as nameservers to query with a static query rather than queries to send to a static name server"`
 	NameServersString    string `long:"name-servers" description:"List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53."`
 	UseNanoseconds       bool   `long:"nanoseconds" description:"Use nanosecond resolution timestamps in output"`
+	NetworkTimeout       int    `long:"network-timeout" default:"3" description:"timeout for network operations, in seconds"`
 	DisableFollowCNAMEs  bool   `long:"no-follow-cnames" description:"do not follow CNAMEs/DNAMEs in the lookup process"`
 	Retries              int    `long:"retries" default:"1" description:"how many times should zdns retry query against a new nameserver if timeout or temporary failure"`
 	Threads              int    `short:"t" long:"threads" default:"100" description:"number of lightweight go threads"`
