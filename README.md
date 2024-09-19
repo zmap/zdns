@@ -280,18 +280,18 @@ routines. This architecture has several caveats:
   the `GOMAXPROCS` environment variable.
 
 * It's difficult to recommend a precise amount of `--threads` as it depends on several
-  factors. The graph below shows how a sample workflow has lower runtime but higher rates of domain resolution failure as the number of threads increases.
+  factors. The graph below shows how a sample workflow has lower runtime but higher rates of name resolution failure as the number of threads increases.
 
 <img src="./docs/threads_vs_runtime.png" alt="threads_vs_runtime" width="700"/>
 
   Much of the performance that you'll see depends on your workflow, hardware, and how many name servers the load is spread out on. If you're looking to maximize performance
-  for your workflow/hardware, we recommend starting at 100 threads and increasing until you start to see an increase in domain resolution failures.
-  To help with this, you can use `--output-file=output.jsonl` and `grep -v "NOERROR" output.jsonl | wc -l` to count the number of domains that failed to resolve.
+  for your workflow/hardware, we recommend starting at 100 threads and increasing until you start to see an increase in name resolution failures.
+  To help with this, you can use `--output-file=output.jsonl` and `grep -v "NOERROR" output.jsonl | wc -l` to count the number of names that failed to resolve.
   Flags that may be of use in tuning performance are:
 
-  * `--timeout` The maximum amount of time ZDNS will spend on a single domain
+  * `--timeout` The maximum amount of time ZDNS will spend on a single name
   * `--iteration-timeout` The maximum amount of time ZDNS will spend on a single iteration step (ex: resolving google.com at the .com layer)
-  * `--retries` The number of retries ZDNS will make against a single nameserver before giving up for that domain
+  * `--retries` The number of retries ZDNS will make against a single nameserver before giving up for that name
   * `--name-servers` The list of nameservers to use for lookups, mostly useful with `--iterative=false`
 
 
