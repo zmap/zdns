@@ -592,7 +592,6 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer *NameServer) (*SingleQu
 		log.Fatal("resolver has been closed, cannot perform lookup")
 	}
 	// If dstServer is not provided, AND we're in HTTPS/TLS/TCP mode, AND we have a pre-existing external name server, use it
-
 	if dstServer == nil && r.lastUsedExternalNameServer == nil {
 		dstServer = r.randomExternalNameServer()
 		log.Info("no name server provided for external lookup, using  random external name server: ", dstServer)
@@ -682,14 +681,6 @@ func (r *Resolver) randomExternalNameServer() *NameServer {
 		log.Fatal("no external name servers specified")
 	}
 	return &r.externalNameServers[rand.Intn(l)]
-}
-
-func (r *Resolver) randomRootNameServer() *NameServer {
-	l := len(r.rootNameServers)
-	if r.rootNameServers == nil || l == 0 {
-		log.Fatal("no root name servers specified")
-	}
-	return &r.rootNameServers[rand.Intn(l)]
 }
 
 func (r *Resolver) verboseLog(depth int, args ...interface{}) {
