@@ -45,7 +45,8 @@ func questionFromAnswer(a Answer) Question {
 	return Question{Name: a.Name, Type: a.RrType, Class: a.RrClass}
 }
 
-func getRetriesUsed(totalRetries, retriesRemaining int) int {
+// getTryNumber returns the one-indexed try that the lookup succeeded on
+func getTryNumber(totalRetries, retriesRemaining int) int {
 	return totalRetries - retriesRemaining + 1
 }
 

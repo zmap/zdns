@@ -275,7 +275,7 @@ type Resolver struct {
 	iterationIPPreference IterationIPPreference
 	shouldRecycleSockets  bool
 
-	networkTimeout             time.Duration // timeout for a single network query
+	networkTimeout             time.Duration // timeout for a single on-the-wire network call
 	iterativeTimeout           time.Duration // timeout for a layer of the iterative lookup
 	timeout                    time.Duration // timeout for the entire domain lookup
 	maxDepth                   int

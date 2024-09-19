@@ -140,7 +140,7 @@ func (r *Resolver) lookup(ctx context.Context, q Question, nameServers []NameSer
 		t.Layer = q.Name
 		t.Depth = 1
 		t.Cached = isCached
-		t.Try = getRetriesUsed(r.retries, qWithMeta.Retries)
+		t.Try = getTryNumber(r.retries, qWithMeta.RetriesRemaining)
 		trace = Trace{t}
 	}
 	return res, trace, status, err
@@ -340,7 +340,7 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServers 
 		t.Layer = layer
 		t.Depth = depth
 		t.Cached = isCached
-		t.Try = getRetriesUsed(r.retries, questionWithMeta.Retries)
+		t.Try = getTryNumber(r.retries, questionWithMeta.RetriesRemaining)
 		trace = append(trace, t)
 	}
 	if status == StatusTimeout && util.HasCtxExpired(&iterationStepCtx) && !util.HasCtxExpired(&ctx) {
@@ -395,7 +395,7 @@ func (r *Resolver) cyclingLookup(ctx context.Context, q *QuestionWithMetadata, n
 	var err error
 	queriedNameServers := make(map[string]struct{}, len(nameServers))
 
-	for q.Retries >= 0 {
+	for q.RetriesRemaining >= 0 {
 		if util.HasCtxExpired(&ctx) {
 			return result, false, StatusTimeout, nil
 		}
@@ -408,12 +408,12 @@ func (r *Resolver) cyclingLookup(ctx context.Context, q *QuestionWithMetadata, n
 		if status == StatusNoError {
 			r.verboseLog(depth+1, "Cycling lookup successful. Name: ", q.Q, ", Layer: ", layer, ", Nameserver: ", nameServer)
 			return result, isCached, status, err
-		} else if q.Retries == 0 {
+		} else if q.RetriesRemaining == 0 {
 			r.verboseLog(depth+1, "Cycling lookup failed - out of retries. Name: ", q.Q, ", Layer: ", layer, ", Nameserver: ", nameServer)
 			return result, isCached, status, errors.New("cycling lookup failed - out of retries")
 		}
-		r.verboseLog(depth+1, "Cycling lookup failed, using a retry. Retries remaining: ", q.Retries, " , Name: ", q.Q, ", Layer: ", layer, ", Nameserver: ", nameServer)
-		q.Retries--
+		r.verboseLog(depth+1, "Cycling lookup failed, using a retry. Retries remaining: ", q.RetriesRemaining, " , Name: ", q.Q, ", Layer: ", layer, ", Nameserver: ", nameServer)
+		q.RetriesRemaining--
 	}
 	return SingleQueryResult{}, false, StatusError, errors.New("cycling lookup function did not exit properly")
 }
