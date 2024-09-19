@@ -824,6 +824,9 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 	newTrace := trace
 	nameServers := make([]NameServer, 0, len(result.Authorities))
 	for i, elem := range result.Authorities {
+		if util.HasCtxExpired(&ctx) {
+			return SingleQueryResult{}, newTrace, StatusTimeout, nil
+		}
 		var ns *NameServer
 		var nsStatus Status
 		r.verboseLog(depth+1, "Trying Authority: ", elem)
@@ -837,31 +840,20 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 		if nsStatus != StatusNoError {
 			var err error
 			newStatus, err := handleStatus(nsStatus, err)
-			if err == nil {
-				if i+1 == len(result.Authorities) {
-					r.verboseLog(depth+2, "--> Auth find Failed. Unknown error. No more authorities to try, terminating: ", nsStatus)
-					var r SingleQueryResult
-					return r, newTrace, nsStatus, err
-				} else {
-					r.verboseLog(depth+2, "--> Auth find Failed. Unknown error. Continue: ", nsStatus)
-					continue
-				}
-			} else {
-				// otherwise we hit a status we know
-				var localResult SingleQueryResult
-				if i+1 == len(result.Authorities) {
-					// We don't allow the continue fall through in order to report the last auth falure code, not STATUS_ERROR
-					r.verboseLog(depth+2, "--> Final auth find non-success. Last auth. Terminating: ", nsStatus)
-					return localResult, newTrace, newStatus, err
-				} else {
-					r.verboseLog(depth+2, "--> Auth find non-success. Trying next: ", nsStatus)
-					continue
-				}
+			r.verboseLog(depth+2, "--> Auth find failed for name ", q.Name, " with status: ", newStatus)
+			if i+1 == len(result.Authorities) {
+				r.verboseLog(depth+2, "--> No more authorities to try for name ", q.Name, ", terminating: ", nsStatus)
 			}
 		} else {
 			// We have a valid nameserver
 			nameServers = append(nameServers, *ns)
 		}
+	}
+
+	if len(nameServers) == 0 {
+		r.verboseLog(depth+1, fmt.Sprintf("--> Auth found no valid nameservers for name: %s Terminating", q.Name))
+		var r SingleQueryResult
+		return r, newTrace, StatusServFail, errors.New("no valid nameservers found")
 	}
 
 	iterateResult, newTrace, status, err := r.iterativeLookup(ctx, q, nameServers, depth+1, newLayer, newTrace)
