@@ -45,6 +45,10 @@ func questionFromAnswer(a Answer) Question {
 	return Question{Name: a.Name, Type: a.RrType, Class: a.RrClass}
 }
 
+func getRetriesUsed(totalRetries, retriesRemaining int) int {
+	return totalRetries - retriesRemaining + 1
+}
+
 func nameIsBeneath(name, layer string) (bool, string) {
 	name = strings.ToLower(name)
 	layer = strings.ToLower(layer)

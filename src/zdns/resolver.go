@@ -604,7 +604,7 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer *NameServer) (*SingleQu
 	}
 	// dstServer has been validated and has a port, continue with lookup
 	r.lastUsedExternalNameServer = dstServer
-	lookup, trace, status, err := r.lookupClient.DoSingleDstServerLookup(r, *q, dstServer, false)
+	lookup, trace, status, err := r.lookupClient.DoDstServersLookup(r, *q, []NameServer{*dstServer}, false)
 	return lookup, trace, status, err
 }
 
@@ -618,7 +618,7 @@ func (r *Resolver) IterativeLookup(q *Question) (*SingleQueryResult, Trace, Stat
 	if r.isClosed {
 		log.Fatal("resolver has been closed, cannot perform lookup")
 	}
-	return r.lookupClient.DoSingleDstServerLookup(r, *q, r.randomRootNameServer(), true)
+	return r.lookupClient.DoDstServersLookup(r, *q, r.rootNameServers, true)
 }
 
 // Close cleans up any resources used by the resolver. This should be called when the resolver is no longer needed.

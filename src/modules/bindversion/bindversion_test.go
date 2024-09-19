@@ -35,8 +35,8 @@ var queries []QueryRecord
 // DoSingleDstServerLookup(r *Resolver, q Question, nameServer string, isIterative bool) (*SingleQueryResult, Trace, Status, error)
 type MockLookup struct{}
 
-func (ml MockLookup) DoSingleDstServerLookup(r *zdns.Resolver, question zdns.Question, nameServer *zdns.NameServer, isIterative bool) (*zdns.SingleQueryResult, zdns.Trace, zdns.Status, error) {
-	queries = append(queries, QueryRecord{q: question, NameServer: nameServer})
+func (ml MockLookup) DoDstServersLookup(r *zdns.Resolver, question zdns.Question, nameServers []zdns.NameServer, isIterative bool) (*zdns.SingleQueryResult, zdns.Trace, zdns.Status, error) {
+	queries = append(queries, QueryRecord{q: question, NameServer: &nameServers[0]})
 	if res, ok := mockResults[question.Name]; ok {
 		return res, nil, zdns.StatusNoError, nil
 	} else {

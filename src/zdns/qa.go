@@ -26,6 +26,11 @@ type DNSFlags struct {
 	ErrorCode          int  `json:"error_code" groups:"flags,long,trace"`
 }
 
+type QuestionWithMetadata struct {
+	Q       Question
+	Retries int
+}
+
 type Question struct {
 	Type  uint16
 	Class uint16
