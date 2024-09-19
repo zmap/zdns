@@ -316,11 +316,6 @@ func (r *Resolver) LookupAllNameservers(q *Question, nameServer *NameServer) (*C
 
 func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServers []NameServer,
 	depth int, layer string, trace Trace) (SingleQueryResult, Trace, Status, error) {
-	// TODO move this into a lower function
-	//r.verboseLog(depth, "iterative lookup for ", q.Name, " (", q.Type, ") against ", nameServer, " layer ", layer)
-	//if isValid, reason := nameServer.IsValid(); !isValid {
-	//	return SingleQueryResult{}, trace, StatusIllegalInput, fmt.Errorf("invalid nameserver (%s): %s", nameServer.String(), reason)
-	//}
 	if depth > r.maxDepth {
 		r.verboseLog(depth+1, "-> Max recursion depth reached")
 		return SingleQueryResult{}, trace, StatusError, errors.New("max recursion depth reached")
@@ -352,8 +347,6 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServers 
 		// ctx's have a deadline of the minimum of their deadline and their parent's
 		// retryingLookup doesn't disambiguate of whether the timeout was caused by the iteration timeout or the global timeout
 		// we'll disambiguate here by checking if the iteration context has expired but the global context hasn't
-		// TODO - move this into lower function
-		//r.verboseLog(depth+2, "ITERATIVE_TIMEOUT ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
 		status = StatusIterTimeout
 	}
 	if status != StatusNoError || err != nil {
@@ -386,11 +379,13 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServers 
 func (r *Resolver) cyclingLookup(ctx context.Context, q *QuestionWithMetadata, nameServers []NameServer, layer string, depth int, recursionDesired bool) (SingleQueryResult, IsCached, Status, error) {
 	var cacheBasedOnNameServer bool
 	var cacheNonAuthoritative bool
-	// TODO add comment explaining these
 	if recursionDesired {
+		// we're doing an external lookup and need to set the recursionDesired bit
+		// Additionally, in external mode we may perform the same lookup against multiple nameservers, so the cache should be based on the nameserver as well
 		cacheBasedOnNameServer = true
 		cacheNonAuthoritative = true
 	} else {
+		// we're doing an iterative lookup, so we'll cache a response for any nameserver that's authoritative
 		cacheBasedOnNameServer = false
 		cacheNonAuthoritative = false
 	}
@@ -417,7 +412,7 @@ func (r *Resolver) cyclingLookup(ctx context.Context, q *QuestionWithMetadata, n
 			return result, isCached, status, err
 		} else if q.Retries == 0 {
 			r.verboseLog(depth+1, "Cycling lookup failed - out of retries. Name: ", q.Q, ", Layer: ", layer, ", Nameserver: ", nameServer)
-			return result, isCached, StatusNoMoreRetries, errors.New("cycling lookup failed - out of retries")
+			return result, isCached, status, errors.New("cycling lookup failed - out of retries")
 		}
 		r.verboseLog(depth+1, "Cycling lookup failed, using a retry. Retries remaining: ", q.Retries, " , Name: ", q.Q, ", Layer: ", layer, ", Nameserver: ", nameServer)
 		q.Retries--
@@ -448,6 +443,9 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 	var isCached IsCached
 	isCached = false
 	r.verboseLog(depth+1, "Cached retrying lookup. Name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
+	if isValid, reason := nameServer.IsValid(); !isValid {
+		return SingleQueryResult{}, false, StatusIllegalInput, 0, fmt.Errorf("invalid nameserver (%s): %s", nameServer.String(), reason)
+	}
 
 	// For some lookups, we want them to be nameserver specific, ie. if cacheBasedOnNameServer is true
 	// Else, we don't care which nameserver returned it

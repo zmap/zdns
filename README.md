@@ -279,6 +279,9 @@ routines. This architecture has several caveats:
   of CPU cores, you can do so by including the `--go-processes=n` flag or setting
   the `GOMAXPROCS` environment variable.
 
+// TODO *******************************
+// Update --retries text below
+
  * It's difficult to recommend a precise amount of `--threads` as it depends on several
    factors. Empirically, we've found that increasing threads while having a small number of 
    `--name-servers` can lead to rate limiting and an increase in `TIMEOUT` or `ITERATIVE_TIMEOUT`
