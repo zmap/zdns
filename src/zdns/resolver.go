@@ -274,8 +274,9 @@ type Resolver struct {
 	iterationIPPreference IterationIPPreference
 	shouldRecycleSockets  bool
 
-	iterativeTimeout           time.Duration
-	timeout                    time.Duration // timeout for the network conns
+	networkTimeout             time.Duration // timeout for a single network query
+	iterativeTimeout           time.Duration // timeout for a layer of the iterative lookup
+	timeout                    time.Duration // timeout for the entire domain lookup
 	maxDepth                   int
 	externalNameServers        []NameServer // name servers used by external lookups (either OS or user specified)
 	rootNameServers            []NameServer // root servers used for iterative lookups
@@ -355,6 +356,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 			r.externalNameServers = append(r.externalNameServers, *ns.DeepCopy())
 		}
 	}
+	r.networkTimeout = time.Second * 2 // TODO set this correclty in the CLI
 	r.iterativeTimeout = config.IterativeTimeout
 	r.maxDepth = config.MaxDepth
 	r.rootNameServers = make([]NameServer, 0, len(config.RootNameServersV4)+len(config.RootNameServersV6))

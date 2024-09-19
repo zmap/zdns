@@ -410,14 +410,16 @@ func (r *Resolver) cyclingLookup(ctx context.Context, q *QuestionWithMetadata, n
 		queriedNameServers[nameServer.String()] = struct{}{}
 		// perform the lookup
 		// TODO - remove the discarded return once you turn cachedRetryingLookup -> cachedWireLookup and remove retryingLookup
-		result, isCached, status, _, err = r.cachedRetryingLookup(ctx, q.Q, nameServer, layer, depth, recursionDesired, cacheBasedOnNameServer, cacheNonAuthoritative)
+		lookupCtx, _ := context.WithTimeout(ctx, r.networkTimeout)
+		result, isCached, status, _, err = r.cachedRetryingLookup(lookupCtx, q.Q, nameServer, layer, depth, recursionDesired, cacheBasedOnNameServer, cacheNonAuthoritative)
 		if status == StatusNoError {
 			r.verboseLog(depth+1, "Cycling lookup successful. Name: ", q.Q, ", Layer: ", layer, ", Nameserver: ", nameServer)
 			return result, isCached, status, err
 		} else if q.Retries == 0 {
 			r.verboseLog(depth+1, "Cycling lookup failed - out of retries. Name: ", q.Q, ", Layer: ", layer, ", Nameserver: ", nameServer)
+			return result, isCached, StatusNoMoreRetries, errors.New("cycling lookup failed - out of retries")
 		}
-		r.verboseLog(depth+1, "Cycling lookup failed, using a retry. Name: ", q.Q, ", Layer: ", layer, ", Nameserver: ", nameServer)
+		r.verboseLog(depth+1, "Cycling lookup failed, using a retry. Retries remaining: ", q.Retries, " , Name: ", q.Q, ", Layer: ", layer, ", Nameserver: ", nameServer)
 		q.Retries--
 	}
 	return SingleQueryResult{}, false, StatusError, errors.New("cycling lookup function did not exit properly")
