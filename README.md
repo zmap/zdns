@@ -279,12 +279,20 @@ routines. This architecture has several caveats:
   of CPU cores, you can do so by including the `--go-processes=n` flag or setting
   the `GOMAXPROCS` environment variable.
 
- * It's difficult to recommend a precise amount of `--threads` as it depends on several
-   factors. Empirically, we've found that increasing threads while having a small number of 
-   `--name-servers` can lead to rate limiting and an increase in `TIMEOUT` or `ITERATIVE_TIMEOUT`
-   errors. Even if you're using `--iterative`, you'll still need to query the root/TLD servers
-   for each domain. We recommend investigating with your query parameters to find the number of threads
-   with acceptable performance without too many `TIMEOUT` or `ITERATIVE_TIMEOUT` issues. 
+* It's difficult to recommend a precise amount of `--threads` as it depends on several
+  factors. The graph below shows how a sample workflow has lower runtime but higher rates of domain resolution failure as the number of threads increases.
+
+<img src="./docs/threads_vs_runtime.png" alt="threads_vs_runtime" width="700"/>
+
+  Much of the performance that you'll see depends on your workflow, hardware, and how many name servers the load is spread out on. If you're looking to maximize performance
+  for your workflow/hardware, we recommend starting at 100 threads and increasing until you start to see an increase in domain resolution failures.
+  To help with this, you can use `--output-file=output.jsonl` and `grep -v "NOERROR" output.jsonl | wc -l` to count the number of domains that failed to resolve.
+  Flags that may be of use in tuning performance are:
+
+  * `--timeout` The maximum amount of time ZDNS will spend on a single domain
+  * `--iteration-timeout` The maximum amount of time ZDNS will spend on a single iteration step (ex: resolving google.com at the .com layer)
+  * `--retries` The number of retries ZDNS will make before giving up on a nameserver
+  * `--name-servers` The list of nameservers to use for lookups, mostly useful with `--iterative=false`
 
 
 Output Verbosity
