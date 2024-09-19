@@ -51,7 +51,7 @@ type GeneralOptions struct {
 	NameServersString    string `long:"name-servers" description:"List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53."`
 	UseNanoseconds       bool   `long:"nanoseconds" description:"Use nanosecond resolution timestamps in output"`
 	DisableFollowCNAMEs  bool   `long:"no-follow-cnames" description:"do not follow CNAMEs/DNAMEs in the lookup process"`
-	Retries              int    `long:"retries" default:"1" description:"how many times should zdns retry query if timeout or temporary failure"`
+	Retries              int    `long:"retries" default:"1" description:"how many times should zdns retry query against a new nameserver if timeout or temporary failure"`
 	Threads              int    `short:"t" long:"threads" default:"100" description:"number of lightweight go threads"`
 	Timeout              int    `long:"timeout" default:"15" description:"timeout for resolving a individual name, in seconds"`
 	Version              bool   `long:"version" short:"v" description:"Print the version of zdns and exit"`
