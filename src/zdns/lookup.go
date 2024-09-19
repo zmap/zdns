@@ -840,7 +840,11 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 		if nsStatus != StatusNoError {
 			var err error
 			newStatus, err := handleStatus(nsStatus, err)
-			r.verboseLog(depth+2, "--> Auth find failed for name ", q.Name, " with status: ", newStatus)
+			if err != nil {
+				r.verboseLog(depth+2, "--> Auth find failed for name ", q.Name, " with status: ", newStatus, " and error: ", err)
+			} else {
+				r.verboseLog(depth+2, "--> Auth find failed for name ", q.Name, " with status: ", newStatus)
+			}
 			if i+1 == len(result.Authorities) {
 				r.verboseLog(depth+2, "--> No more authorities to try for name ", q.Name, ", terminating: ", nsStatus)
 			}
