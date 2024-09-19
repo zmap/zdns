@@ -38,18 +38,17 @@ const (
 	StatusRefused   Status = "REFUSED"
 	StatusTruncated Status = "TRUNCATED"
 
-	StatusError         Status = "ERROR"
-	StatusAuthFail      Status = "AUTHFAIL"
-	StatusNoRecord      Status = "NORECORD"
-	StatusBlacklist     Status = "BLACKLIST"
-	StatusNoOutput      Status = "NO_OUTPUT"
-	StatusNoAnswer      Status = "NO_ANSWER"
-	StatusIllegalInput  Status = "ILLEGAL_INPUT"
-	StatusTimeout       Status = "TIMEOUT"
-	StatusIterTimeout   Status = "ITERATIVE_TIMEOUT"
-	StatusNoMoreRetries Status = "NO_MORE_RETRIES" // Used when we have no more retries left for a domain
-	StatusNoAuth        Status = "NOAUTH"
-	StatusNoNeededGlue  Status = "NONEEDEDGLUE" // When a nameserver is authoritative for itself and the parent nameserver doesn't provide the glue to look it up
+	StatusError        Status = "ERROR"
+	StatusAuthFail     Status = "AUTHFAIL"
+	StatusNoRecord     Status = "NORECORD"
+	StatusBlacklist    Status = "BLACKLIST"
+	StatusNoOutput     Status = "NO_OUTPUT"
+	StatusNoAnswer     Status = "NO_ANSWER"
+	StatusIllegalInput Status = "ILLEGAL_INPUT"
+	StatusTimeout      Status = "TIMEOUT"
+	StatusIterTimeout  Status = "ITERATIVE_TIMEOUT"
+	StatusNoAuth       Status = "NOAUTH"
+	StatusNoNeededGlue Status = "NONEEDEDGLUE" // When a nameserver is authoritative for itself and the parent nameserver doesn't provide the glue to look it up
 )
 
 var RootServersV4 = []NameServer{
