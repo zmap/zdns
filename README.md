@@ -291,7 +291,9 @@ routines. This architecture has several caveats:
 
   * `--timeout` The maximum amount of time ZDNS will spend on a single name
   * `--iteration-timeout` The maximum amount of time ZDNS will spend on a single iteration step (ex: resolving google.com at the .com layer)
-  * `--retries` The number of retries ZDNS will make against a single nameserver before giving up for that name
+  * `--retries=N` If a connection to a specific nameserver fails in `--iterative`, ZDNS will retry with another un-queried name server at that layer.
+  Retries are per-name, so if `--retries=1` then ZDNS will retry a name against a new nameserver once during it's full iteration process. If all nameservers have been queried
+  then a random nameserver will be chosen.
   * `--name-servers` The list of nameservers to use for lookups, mostly useful with `--iterative=false`
 
 
