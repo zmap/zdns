@@ -37,6 +37,7 @@ import (
 const (
 	defaultTimeout               = 15 * time.Second // timeout for resolving a single name
 	defaultIterativeTimeout      = 4 * time.Second  // timeout for single iteration in an iterative query
+	defaultNetworkTimeout        = 2 * time.Second  // timeout for a single on-the-wire network call
 	defaultTransportMode         = UDPOrTCP
 	defaultShouldRecycleSockets  = true
 	defaultLogVerbosity          = 3 // 1 = lowest, 5 = highest
@@ -236,6 +237,7 @@ func NewResolverConfig() *ResolverConfig {
 
 		Timeout:          defaultTimeout,
 		IterativeTimeout: defaultIterativeTimeout,
+		NetworkTimeout:   defaultNetworkTimeout,
 		MaxDepth:         defaultMaxDepth,
 
 		DNSSecEnabled:       defaultDNSSECEnabled,
