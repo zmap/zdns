@@ -430,9 +430,8 @@ func getRandomNonQueriedNameServer(nameServers []NameServer, queriedNameServers 
 	return &nameServers[rand.Intn(len(nameServers))]
 }
 
-// TODO fix the below
-// cachedLookup wraps around retryingLookup to perform a DNS lookup with caching
-// returns the result, whether it was cached, the status, the number of tries, and an error if one occured
+// cachedLookup performs a DNS lookup with caching
+// returns the result, whether it was cached, the status, and an error if one occurred
 // layer is the domain name layer we're currently querying ex: ".", "com.", "example.com."
 // depth is the current depth of the lookup, used for iterative lookups
 // requestIteration is whether to set the "recursion desired" bit in the DNS query
