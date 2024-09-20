@@ -493,7 +493,7 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 		authName, err := nextAuthority(name, layer)
 		if err != nil {
 			r.verboseLog(depth+2, err)
-			return SingleQueryResult{}, isCached, StatusAuthFail, 0, errors.Wrap(err, "could not get next authority with name: "+name+" and layer: "+layer)
+			return SingleQueryResult{}, isCached, StatusAuthFail, errors.Wrap(err, "could not get next authority with name: "+name+" and layer: "+layer)
 		}
 		if name != layer && authName != layer {
 			// we have a valid authority to check the cache for
@@ -503,7 +503,7 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 			result.Authorities = make([]interface{}, 0)
 			if authName == "" {
 				r.verboseLog(depth+2, "Can't parse name to authority properly. name: ", name, ", layer: ", layer)
-				return SingleQueryResult{}, isCached, StatusAuthFail, 0, nil
+				return SingleQueryResult{}, isCached, StatusAuthFail, nil
 			}
 			r.verboseLog(depth+2, "Cache auth check for ", authName)
 			var qAuth Question
@@ -551,7 +551,7 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 				}
 				// only want to return if we actually have additionals and authorities from the cache for the caller
 				if len(result.Additional) > 0 && len(result.Authorities) > 0 {
-					return result, isCached, StatusNoError, 0, nil
+					return result, isCached, StatusNoError, nil
 				}
 				// unsuccessful in retrieving from the cache, we'll continue to the wire
 			}
