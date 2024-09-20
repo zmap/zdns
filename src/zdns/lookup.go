@@ -439,6 +439,8 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 	}
 	if !requestIteration {
 		// We're performing our own iteration, let's try checking the cache for the next authority
+		// For example, if we query yahoo.com and google.com, we don't need to go to the root servers for the gTLD servers
+		// twice, they'll be identical
 		// Now, we check the authoritative:
 		name := strings.ToLower(q.Name)
 		layer = strings.ToLower(layer)
@@ -466,7 +468,7 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 				isCached = true
 				// we have a cache hit on the NS record for the authorities. Let's construct a response with the NS record
 				// However the caller is going to expect an answer as if they'd queried the root server, so we need to populate
-				// the authority and additionals, not the answers section.
+				// the authority and additionals, and remove the NS answers
 				for _, ans := range cachedResult.Answers {
 					ns, ansOk := ans.(Answer)
 					if !ansOk {
@@ -498,7 +500,10 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 						result.Additional = append(result.Additional, cachedResult.Answers...)
 					}
 				}
-				return result, isCached, StatusNoError, 0, nil
+				// only want to return if we actually have additionals and authorities from the cache for the caller
+				if len(result.Additional) > 0 && len(result.Authorities) > 0 {
+					return result, isCached, StatusNoError, 0, nil
+				}
 			}
 		}
 	}
