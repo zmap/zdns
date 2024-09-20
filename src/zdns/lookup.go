@@ -394,15 +394,14 @@ func (r *Resolver) cyclingLookup(ctx context.Context, q *QuestionWithMetadata, n
 	var status Status
 	var err error
 	queriedNameServers := make(map[string]struct{}, len(nameServers))
+	var nameServer *NameServer
 
 	for q.RetriesRemaining >= 0 {
 		if util.HasCtxExpired(&ctx) {
 			return result, false, StatusTimeout, nil
 		}
 		// get random unqueried nameserver
-		nameServer := getRandomNonQueriedNameServer(nameServers, queriedNameServers)
-		// set the nameserver as queried
-		queriedNameServers[nameServer.String()] = struct{}{}
+		nameServer, queriedNameServers = getRandomNonQueriedNameServer(nameServers, queriedNameServers)
 		// perform the lookup
 		result, isCached, status, err = r.cachedLookup(ctx, q.Q, nameServer, layer, depth, recursionDesired, cacheBasedOnNameServer, cacheNonAuthoritative)
 		if status == StatusNoError {
@@ -419,15 +418,19 @@ func (r *Resolver) cyclingLookup(ctx context.Context, q *QuestionWithMetadata, n
 }
 
 // getRandomNonQueriedNameServer returns a random name server from the list of name servers that has not been queried yet
-// If all have been queried, it returns a random one
-func getRandomNonQueriedNameServer(nameServers []NameServer, queriedNameServers map[string]struct{}) *NameServer {
+// If all have been queried, it resets the queriedNameServers map and returns a random name server
+func getRandomNonQueriedNameServer(nameServers []NameServer, queriedNameServers map[string]struct{}) (*NameServer, map[string]struct{}) {
 	for _, i := range rand.Perm(len(nameServers)) {
 		if _, ok := queriedNameServers[nameServers[i].String()]; !ok {
-			return &nameServers[i]
+			// set the nameserver as queried
+			queriedNameServers[nameServers[i].String()] = struct{}{}
+			return &nameServers[i], queriedNameServers
 		}
 	}
-	// all have been queried, return a random one
-	return &nameServers[rand.Intn(len(nameServers))]
+	// all have been queried, reset queriedNameServers
+	queriedNameServers = make(map[string]struct{}, len(nameServers))
+	// return a random one
+	return getRandomNonQueriedNameServer(nameServers, queriedNameServers)
 }
 
 // cachedLookup performs a DNS lookup with caching
