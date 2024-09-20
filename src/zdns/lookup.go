@@ -549,9 +549,16 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 						result.Additional = append(result.Additional, cachedResult.Answers...)
 					}
 				}
+				// TODO - not sure what to do here. We ahve no real ground truth to be sure that part of the Additionals haven't been evicted.
+				// TODO - perhaps just ensureing that each Authority has an A/AAAA record in the Additionals would be enough
 				// only want to return if we actually have additionals and authorities from the cache for the caller
-				if len(result.Additional) > 0 && len(result.Authorities) > 0 {
+				// Since we're caching the NS (Authority) and A/AAAA (Additionals) all separately, a few of the Additionals
+				// could have been evicted potentially leading to an incomplete response.
+				// Therefore we must have at least as many additionals as we have authorities
+				if len(result.Additional) > 0 && len(result.Authorities) > 0 && len(result.Authorities) >= len(result.Additional) {
 					return result, isCached, StatusNoError, nil
+				} else if len(result.Additional) > 0 && len(result.Authorities) > 0 {
+					log.Warn("herm")
 				}
 				// unsuccessful in retrieving from the cache, we'll continue to the wire
 			}
