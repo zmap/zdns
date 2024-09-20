@@ -439,17 +439,18 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 	}
 	if !requestIteration {
 		// We're performing our own iteration, let's try checking the cache for the next authority
-		// For example, if we query yahoo.com and google.com, we don't need to go to the root servers for the gTLD servers
-		// twice, they'll be identical
-		// Now, we check the authoritative:
+		// For example, if we query yahoo.com and google.com, we don't need to go to the root servers for the gTLD
+		// servers twice, they'll be identical
 		name := strings.ToLower(q.Name)
 		layer = strings.ToLower(layer)
+		// get the next authority to query
 		authName, err := nextAuthority(name, layer)
 		if err != nil {
 			r.verboseLog(depth+2, err)
 			return SingleQueryResult{}, isCached, StatusAuthFail, 0, errors.Wrap(err, "could not get next authority with name: "+name+" and layer: "+layer)
 		}
 		if name != layer && authName != layer {
+			// we have a valid authority to check the cache for
 			var result SingleQueryResult
 			result.Answers = make([]interface{}, 0)
 			result.Additional = make([]interface{}, 0)
@@ -466,9 +467,10 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 			cachedResult, ok = r.cache.GetCachedResult(qAuth, nil, depth+2)
 			if ok {
 				isCached = true
-				// we have a cache hit on the NS record for the authorities. Let's construct a response with the NS record
-				// However the caller is going to expect an answer as if they'd queried the root server, so we need to populate
-				// the authority and additionals, and remove the NS answers
+				// we have a cache hit on the NS record for the authorities. Let's construct a response with the NS
+				// record. However, the caller is going to expect an answer as if they'd queried the root server, so we
+				// need to populate the authority and additionals, and remove the NS answers since the caller didn't
+				// perform an NS lookup.
 				for _, ans := range cachedResult.Answers {
 					ns, ansOk := ans.(Answer)
 					if !ansOk {
@@ -490,6 +492,7 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 						result.Additional = append(result.Additional, cachedResult.Answers...)
 					}
 				}
+				// now AAAA records
 				for _, ans := range cachedResult.Answers {
 					var qAdd Question
 					qAdd.Name = strings.TrimSuffix(ans.(Answer).Answer, ".")
@@ -504,6 +507,7 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 				if len(result.Additional) > 0 && len(result.Authorities) > 0 {
 					return result, isCached, StatusNoError, 0, nil
 				}
+				// unsuccessful in retrieving from the cache, we'll continue to the wire
 			}
 		}
 	}
