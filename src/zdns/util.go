@@ -19,6 +19,8 @@ import (
 	"net"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/zmap/dns"
@@ -106,6 +108,39 @@ func checkGlueHelper(server, ansType string, result SingleQueryResult) (SingleQu
 		}
 	}
 	return SingleQueryResult{}, StatusError
+}
+
+// nextAuthority returns the next authority to query based on the current name and layer
+// Example: nextAuthority("www.google.com", ".") -> "com"
+func nextAuthority(name, layer string) (string, error) {
+	// We are our own authority for PTRs
+	// (This is dealt with elsewhere)
+	if strings.HasSuffix(name, "in-addr.arpa") && layer == "." {
+		return "in-addr.arpa", nil
+	}
+
+	idx := strings.LastIndex(name, ".")
+	if idx < 0 || (idx+1) >= len(name) {
+		return name, nil
+	}
+	if layer == "." {
+		return name[idx+1:], nil
+	}
+
+	if !strings.HasSuffix(name, layer) {
+		return "", errors.New("Server did not provide appropriate resolvers to continue recursion")
+	}
+
+	// Limit the search space to the prefix of the string that isn't layer
+	idx = strings.LastIndex(name, layer) - 1
+	if idx < 0 || (idx+1) >= len(name) {
+		// Out of bounds. We are our own authority
+		return name, nil
+	}
+	// Find the next step in the layer
+	idx = strings.LastIndex(name[0:idx], ".")
+	next := name[idx+1:]
+	return next, nil
 }
 
 func makeVerbosePrefix(depth int) string {
