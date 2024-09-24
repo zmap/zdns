@@ -530,6 +530,8 @@ func Run(gc CLIConf) {
 	close(outChan)
 	close(metaChan)
 	routineWG.Wait()
+	// print cache stats
+	//printCacheStats(resolverConfig.Cache)
 	if gc.MetadataFilePath != "" {
 		// we're done processing data. aggregate all the data from individual routines
 		metaData := aggregateMetadata(metaChan)
@@ -570,6 +572,14 @@ func Run(gc CLIConf) {
 	}
 }
 
+//	func printCacheStats(cache *zdns.Cache) {
+//		if cache != nil {
+//			log.Warnf("Cache Hits: %d", cache.Hits.Load())
+//			log.Warnf("Cache Misses: %d", cache.Misses.Load())
+//			log.Warnf("Cache Adds: %d", cache.Adds.Load())
+//		}
+//	}
+//
 // doLookupWorker is a single worker thread that processes lookups from the input channel. It calls wg.Done when it is finished.
 func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, inputChan <-chan string, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
 	defer wg.Done()

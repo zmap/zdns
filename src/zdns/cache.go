@@ -21,6 +21,7 @@ import (
 	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/src/internal/cachehash"
+	"github.com/zmap/zdns/src/internal/util"
 )
 
 type IsCached bool
@@ -31,8 +32,9 @@ type TimedAnswer struct {
 }
 
 type CachedKey struct {
-	Question   Question
-	NameServer string // optional
+	Question    Question
+	NameServer  string // optional
+	IsAuthority bool
 }
 
 type CachedResult struct {
@@ -41,6 +43,9 @@ type CachedResult struct {
 
 type Cache struct {
 	IterativeCache cachehash.ShardedCacheHash
+	//Hits           atomic.Uint64
+	//Misses         atomic.Uint64
+	//Adds           atomic.Uint64
 }
 
 func (s *Cache) Init(cacheSize int) {
@@ -52,6 +57,7 @@ func (s *Cache) VerboseLog(depth int, args ...interface{}) {
 }
 
 func (s *Cache) AddCachedAnswer(answer interface{}, ns *NameServer, depth int) {
+	//s.Adds.Add(1)
 	a, ok := answer.(Answer)
 	if !ok {
 		// we can't cache this entry because we have no idea what to name it
@@ -71,7 +77,7 @@ func (s *Cache) AddCachedAnswer(answer interface{}, ns *NameServer, depth int) {
 	expiresAt := time.Now().Add(time.Duration(a.TTL) * time.Second)
 	ca := CachedResult{}
 	ca.Answers = make(map[interface{}]TimedAnswer)
-	cacheKey := CachedKey{q, ""}
+	cacheKey := CachedKey{q, "", false}
 	if ns != nil {
 		cacheKey.NameServer = ns.String()
 	}
@@ -98,7 +104,7 @@ func (s *Cache) AddCachedAnswer(answer interface{}, ns *NameServer, depth int) {
 
 func (s *Cache) GetCachedResult(q Question, ns *NameServer, depth int) (SingleQueryResult, bool) {
 	var retv SingleQueryResult
-	cacheKey := CachedKey{q, ""}
+	cacheKey := CachedKey{q, "", false}
 	if ns != nil {
 		cacheKey.NameServer = ns.String()
 		s.VerboseLog(depth+1, "Cache request for: ", q.Name, " (", q.Type, ") @", cacheKey.NameServer)
@@ -108,10 +114,12 @@ func (s *Cache) GetCachedResult(q Question, ns *NameServer, depth int) (SingleQu
 	s.IterativeCache.Lock(cacheKey)
 	unres, ok := s.IterativeCache.Get(cacheKey)
 	if !ok { // nothing found
+		//s.Misses.Add(1)
 		s.VerboseLog(depth+2, "-> no entry found in cache for ", q.Name)
 		s.IterativeCache.Unlock(cacheKey)
 		return retv, false
 	}
+	//s.Hits.Add(1)
 	retv.Authorities = make([]interface{}, 0)
 	retv.Answers = make([]interface{}, 0)
 	retv.Additional = make([]interface{}, 0)
@@ -119,8 +127,8 @@ func (s *Cache) GetCachedResult(q Question, ns *NameServer, depth int) (SingleQu
 	if !ok {
 		log.Panic("unable to cast cached result for ", q.Name)
 	}
-	// great we have a result. let's go through the entries and build
-	// and build a result. In the process, throw away anything that's expired
+	// great we have a result. let's go through the entries and build a result. In the process, throw away anything
+	// that's expired
 	now := time.Now()
 	for k, cachedAnswer := range cachedRes.Answers {
 		if cachedAnswer.ExpiresAt.Before(now) {
@@ -149,7 +157,7 @@ func (s *Cache) GetCachedResult(q Question, ns *NameServer, depth int) (SingleQu
 	return retv, true
 }
 
-func (s *Cache) SafeAddCachedAnswer(a interface{}, ns *NameServer, layer string, debugType string, depth int) {
+func (s *Cache) SafeAddCachedAnswer(a interface{}, ns *NameServer, layer, debugType string, depth int) {
 	ans, ok := a.(Answer)
 	if !ok {
 		s.VerboseLog(depth+1, "unable to cast ", debugType, ": ", layer, ": ", a)
@@ -160,6 +168,75 @@ func (s *Cache) SafeAddCachedAnswer(a interface{}, ns *NameServer, layer string,
 		return
 	}
 	s.AddCachedAnswer(a, ns, depth)
+}
+
+func (s *Cache) SafeAddLayerNameServers(layer string, result SingleQueryResult, ns *NameServer, depth int, cacheNonAuthoritativeAns bool) {
+	authsAndAdditionals := util.Concat(result.Authorities, result.Additional)
+	// build a map of TimedAnswers to add to cache
+	timedAns := make(map[interface{}]TimedAnswer, len(authsAndAdditionals))
+	for _, a := range authsAndAdditionals {
+		castAns, ok := a.(Answer)
+		if !ok {
+			log.Info("unable to cast authority in layer name servers: ", layer, ": ", a)
+			continue
+		}
+		//if ok, _ = nameIsBeneath(castAns.Name, layer); !ok {
+		//	log.Info("detected poison in adding nameserver authorities: ", castAns.Name, "(", castAns.Type, "): ", layer, ": ", castAns)
+		//	return
+		//}
+		if castAns.RrType != dns.TypeNS && castAns.RrType != dns.TypeA && castAns.RrType != dns.TypeAAAA {
+			log.Info("ignoring unexpected RRType in layer name servers: ", layer, ": ", castAns)
+			continue
+		}
+		timedAns[a] = TimedAnswer{
+			Answer:    a,
+			ExpiresAt: time.Now().Add(time.Duration(a.(Answer).TTL) * time.Second),
+		}
+	}
+	cacheKey := CachedKey{Question: Question{Name: layer, Type: dns.TypeNS}, IsAuthority: true}
+	s.IterativeCache.Lock(cacheKey)
+	defer s.IterativeCache.Unlock(cacheKey)
+	//s.Adds.Add(1)
+	s.IterativeCache.Add(cacheKey, CachedResult{Answers: timedAns})
+}
+
+func (s *Cache) GetLayerNameServers(name string) (SingleQueryResult, bool) {
+	res := SingleQueryResult{}
+	res.Answers = make([]interface{}, 0)
+	res.Authorities = make([]interface{}, 0)
+	res.Additional = make([]interface{}, 0)
+	cacheKey := CachedKey{Question: Question{Name: name, Type: dns.TypeNS}, IsAuthority: true}
+	s.IterativeCache.Lock(cacheKey)
+	defer s.IterativeCache.Unlock(cacheKey)
+	unres, ok := s.IterativeCache.Get(cacheKey)
+	if !ok {
+		//s.Misses.Add(1)
+		return SingleQueryResult{}, false
+	}
+	//s.Hits.Add(1)
+	cachedRes, ok := unres.(CachedResult)
+	if !ok {
+		log.Panic("unable to cast cached result for ", name)
+	}
+	for _, cachedAnswer := range cachedRes.Answers {
+		// check expiration
+		if cachedAnswer.ExpiresAt.Before(time.Now()) {
+			delete(cachedRes.Answers, cachedAnswer.Answer)
+			continue
+		}
+		castAns, ok := cachedAnswer.Answer.(Answer)
+		if !ok {
+			log.Panic("unable to cast cached answer for ", name)
+		}
+		if castAns.RrType == dns.TypeNS {
+			res.Authorities = append(res.Authorities, castAns)
+		} else if castAns.RrType == dns.TypeA || castAns.RrType == dns.TypeAAAA {
+			res.Additional = append(res.Additional, castAns)
+		} else {
+			log.Info("ignoring unexpected RRType in layer name servers: ", name, ": ", castAns)
+		}
+	}
+	return res, true
 }
 
 func (s *Cache) CacheUpdate(layer string, result SingleQueryResult, ns *NameServer, depth int, cacheNonAuthoritativeAns bool) {
