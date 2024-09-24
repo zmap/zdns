@@ -513,7 +513,9 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 	}
 
 	// Alright, we're not sure what to do, go to the wire.
+	r.verboseLog(depth+2, "Cache miss for ", q, ", Layer: ", layer, ", Nameserver: ", nameServer, " going to the wire in retryingLookup")
 	result, status, try, err := r.retryingLookup(ctx, q, nameServer, requestIteration)
+	r.verboseLog(depth+2, "Results from wire for name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer, " status: ", status, " , err: ", err, " result: ", result)
 
 	r.cache.CacheUpdate(layer, result, cacheNameServer, depth+2, cacheNonAuthoritative)
 	return result, isCached, status, try, err
@@ -937,11 +939,11 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 	// that would normally be cache poison. Because it's "ok" and quite common
 	res, status := checkGlue(server, *result, r.ipVersionMode, r.iterationIPPreference)
 	if status != StatusNoError {
-		if ok, _ = nameIsBeneath(server, layer); ok {
-			// The domain we're searching for is beneath us but no glue was returned. We cannot proceed without this Glue.
-			// Terminating
-			return nil, StatusNoNeededGlue, "", trace
-		}
+		//if ok, _ = nameIsBeneath(server, layer); ok {
+		//	// Glue is optional, so if we don't have it try to lookup the server directly
+		//	// Terminating
+		//	return nil, StatusNoNeededGlue, "", trace
+		//}
 		// Fall through to normal query
 		var q Question
 		q.Name = server

@@ -108,7 +108,7 @@ func (s *Cache) GetCachedResult(q Question, ns *NameServer, depth int) (SingleQu
 	s.IterativeCache.Lock(cacheKey)
 	unres, ok := s.IterativeCache.Get(cacheKey)
 	if !ok { // nothing found
-		s.VerboseLog(depth+2, "-> no entry found in cache")
+		s.VerboseLog(depth+2, "-> no entry found in cache for ", q.Name)
 		s.IterativeCache.Unlock(cacheKey)
 		return retv, false
 	}
@@ -117,7 +117,7 @@ func (s *Cache) GetCachedResult(q Question, ns *NameServer, depth int) (SingleQu
 	retv.Additional = make([]interface{}, 0)
 	cachedRes, ok := unres.(CachedResult)
 	if !ok {
-		log.Panic("unable to cast cached result")
+		log.Panic("unable to cast cached result for ", q.Name)
 	}
 	// great we have a result. let's go through the entries and build
 	// and build a result. In the process, throw away anything that's expired
@@ -137,7 +137,7 @@ func (s *Cache) GetCachedResult(q Question, ns *NameServer, depth int) (SingleQu
 	s.IterativeCache.Unlock(cacheKey)
 	// Don't return an empty response.
 	if len(retv.Answers) == 0 && len(retv.Authorities) == 0 && len(retv.Additional) == 0 {
-		s.VerboseLog(depth+2, "-> no entry found in cache, after expiration")
+		s.VerboseLog(depth+2, "-> no entry found in cache, after expiration for ", q.Name)
 		var emptyRetv SingleQueryResult
 		return emptyRetv, false
 	}
@@ -145,7 +145,7 @@ func (s *Cache) GetCachedResult(q Question, ns *NameServer, depth int) (SingleQu
 		retv.Resolver = ns.String()
 	}
 
-	s.VerboseLog(depth+2, "Cache hit: ", retv)
+	s.VerboseLog(depth+2, "Cache hit for ", q.Name, ": ", retv)
 	return retv, true
 }
 
