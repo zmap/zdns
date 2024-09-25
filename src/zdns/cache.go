@@ -22,6 +22,7 @@ import (
 	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/src/internal/cachehash"
+	"github.com/zmap/zdns/src/internal/util"
 )
 
 type IsCached bool
@@ -57,7 +58,7 @@ func (s *Cache) VerboseLog(depth int, args ...interface{}) {
 	log.Debug(makeVerbosePrefix(depth), fmt.Sprint("Cache: ", args))
 }
 
-func (s *Cache) AddCachedAnswer(q Question, nameServer string, isAuthority bool, result *CachedResult, depth int) {
+func (s *Cache) addCachedAnswer(q Question, nameServer string, isAuthority bool, result *CachedResult, depth int) {
 	cacheKey := CachedKey{q, nameServer, false}
 	s.IterativeCache.Lock(cacheKey)
 	// this record will replace any existing record with the exact same cache key
@@ -78,7 +79,25 @@ func (s *Cache) AddCachedAnswer(q Question, nameServer string, isAuthority bool,
 	s.stats.IncrementAdds()
 }
 
-func (s *Cache) GetCachedResult(q Question, ns *NameServer, isAuthority bool, depth int) (retv SingleQueryResult, isFound, partiallyExpired bool) {
+func (s *Cache) GetCachedAuthority(authorityName string, ns *NameServer, depth int) (retv *SingleQueryResult, isFound bool) {
+	retv, isFound, partiallyExpired := s.getCachedResult(Question{Name: authorityName, Type: dns.TypeNS, Class: dns.ClassINET}, ns, true, depth)
+	if partiallyExpired {
+		// if the authority is partially expired, we'll re-query it and update the cache. This prevents a cache with only part of a non-expired answer
+		return nil, false
+	}
+	return retv, isFound
+}
+
+func (s *Cache) GetCachedResults(q Question, ns *NameServer, depth int) (retv *SingleQueryResult, isFound bool) {
+	retv, isFound, partiallyExpired := s.getCachedResult(q, ns, false, depth)
+	if partiallyExpired {
+		// if the authority is partially expired, we'll re-query it and update the cache. This prevents a cache with only part of a non-expired answer
+		return nil, false
+	}
+	return retv, isFound
+}
+
+func (s *Cache) getCachedResult(q Question, ns *NameServer, isAuthority bool, depth int) (retv *SingleQueryResult, isFound, partiallyExpired bool) {
 	isFound = false
 	partiallyExpired = false
 	cacheKey := CachedKey{q, "", isAuthority}
@@ -108,6 +127,7 @@ func (s *Cache) GetCachedResult(q Question, ns *NameServer, isAuthority bool, de
 	if !ok {
 		log.Panic("unable to cast cached result for ", q.Name)
 	}
+	retv = new(SingleQueryResult)
 	retv.Answers = make([]interface{}, 0, len(cachedRes.Answers))
 	retv.Authorities = make([]interface{}, 0, len(cachedRes.Authorities))
 	retv.Additional = make([]interface{}, 0, len(cachedRes.Additionals))
@@ -143,8 +163,7 @@ func (s *Cache) GetCachedResult(q Question, ns *NameServer, isAuthority bool, de
 		// remove from cache since it's completely expired
 		s.IterativeCache.Delete(cacheKey)
 		s.VerboseLog(depth+2, "-> no entry found in cache, after expiration for ", cacheKey, ", removing from cache")
-		var emptyRetv SingleQueryResult
-		return emptyRetv, false, false
+		return nil, false, false
 	}
 
 	s.VerboseLog(depth+2, "Cache hit for ", q.Name, ": ", retv)
@@ -213,29 +232,43 @@ func (s *Cache) buildCachedResult(res *SingleQueryResult, depth int, layer strin
 	return &cachedRes
 }
 
-func (s *Cache) SafeAddCachedAnswer(q Question, res *SingleQueryResult, ns *NameServer, layer string, depth int) {
-	//for _, a := range res.Answers {
-	//	ans, ok := a.(Answer)
-	//	if !ok {
-	//		s.VerboseLog(depth+1, "SafeAddCachedAnswer: unable to cast to Answer: ", layer, ": ", a)
-	//		return
-	//	}
-	//	if ok, _ = nameIsBeneath(ans.Name, layer); !ok {
-	//		log.Info("detected poison: ", ans.Name, "(", ans.Type, "): ", layer, ": ", a)
-	//		return
-	//	}
-	//}
-	// TODO - not sure how/in what way to check for poison here that won't cause issues
+func (s *Cache) SafeAddCachedAnswer(q Question, res *SingleQueryResult, ns *NameServer, layer string, depth int, cacheNonAuthoritative bool) {
 	nsString := ""
 	if ns != nil {
 		nsString = ns.String()
+	}
+	// check for poison
+	for _, a := range util.Concat(res.Answers, res.Authorities, res.Additional) {
+		castAns, ok := a.(Answer)
+		if !ok {
+			s.VerboseLog(depth+1, "SafeAddCachedAnswer: unable to cast to Answer: ", layer, ": ", a)
+			return
+		}
+		if ok, _ = nameIsBeneath(castAns.Name, layer); !ok {
+			if len(nsString) > 0 {
+				s.VerboseLog(depth+1, "SafeAddCachedAnswer: detected poison: ", castAns.Name, "(", castAns.Type, "): @", nsString, ", ", layer, " , aborting")
+			} else {
+				s.VerboseLog(depth+1, "SafeAddCachedAnswer: detected poison: ", castAns.Name, "(", castAns.Type, "): ", layer, " , aborting")
+			}
+			return
+		}
+	}
+
+	if !res.Flags.Authoritative && !cacheNonAuthoritative {
+		// don't want to cache non-authoritative responses
+		if len(nsString) > 0 {
+			s.VerboseLog(depth+1, "SafeAddCachedAnswer: aborting since response is non-authoritative: ", q, " @", nsString)
+		} else {
+			s.VerboseLog(depth+1, "SafeAddCachedAnswer: aborting since response is non-authoritative: ", q)
+		}
+		return
 	}
 	cachedRes := s.buildCachedResult(res, depth, layer)
 	if len(cachedRes.Answers) == 0 && len(cachedRes.Authorities) == 0 && len(cachedRes.Additionals) == 0 {
 		s.VerboseLog(depth+1, "SafeAddCachedAnswer: no cacheable records found, aborting")
 		return
 	}
-	s.AddCachedAnswer(q, nsString, false, cachedRes, depth)
+	s.addCachedAnswer(q, nsString, false, cachedRes, depth)
 }
 
 // SafeAddCachedAuthority adds an authority to the cache. This is a special case where the result should only have
@@ -275,5 +308,5 @@ func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, d
 		s.VerboseLog(depth+1, "SafeAddCachedAnswer: no cacheable records found, aborting")
 		return
 	}
-	s.AddCachedAnswer(Question{Name: authName, Type: dns.TypeNS, Class: dns.ClassINET}, nsString, true, cachedRes, depth)
+	s.addCachedAnswer(Question{Name: authName, Type: dns.TypeNS, Class: dns.ClassINET}, nsString, true, cachedRes, depth)
 }

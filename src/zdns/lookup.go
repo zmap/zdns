@@ -409,8 +409,8 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 	if !cacheBasedOnNameServer {
 		cacheNameServer = nil
 	}
-	// First, we check the answer
-	cachedResult, ok := r.cache.GetCachedResult(q, cacheNameServer, depth+1)
+	// First, we check the cache
+	cachedResult, ok := r.cache.GetCachedResults(q, cacheNameServer, depth+1)
 	if ok {
 		isCached = true
 		// set protocol on the result
@@ -424,7 +424,7 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 			// default to UDP
 			cachedResult.Protocol = UDPProtocol
 		}
-		return cachedResult, isCached, StatusNoError, 0, nil
+		return *cachedResult, isCached, StatusNoError, 0, nil
 	}
 
 	// Stop if we hit a nameserver we don't want to hit
@@ -451,20 +451,20 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 			r.verboseLog(depth+2, err)
 			return SingleQueryResult{}, isCached, StatusAuthFail, 0, errors.Wrap(err, "could not get next authority with name: "+name+" and layer: "+layer)
 		}
-		// Only cache the root -> gTLD authoritative lookups
-		if layer == "." && name != layer && authName != layer {
+		if name != layer && authName != layer {
 			// we have a valid authority to check the cache for
 			if authName == "" {
 				r.verboseLog(depth+2, "Can't parse name to authority properly. name: ", name, ", layer: ", layer)
 				return SingleQueryResult{}, isCached, StatusAuthFail, 0, nil
 			}
 			r.verboseLog(depth+2, "Cache auth check for ", authName)
-			cachedResult, ok = r.cache.GetLayerNameServers(authName)
+			// TODO - this will need to be changed for AllNameServers
+			cachedResult, ok = r.cache.GetCachedAuthority(authName, nil, depth+2)
 			if ok {
 				r.verboseLog(depth+2, "Cache auth hit for ", authName)
 				// only want to return if we actually have additionals and authorities from the cache for the caller
 				if len(cachedResult.Additional) > 0 && len(cachedResult.Authorities) > 0 {
-					return cachedResult, true, StatusNoError, 0, nil
+					return *cachedResult, true, StatusNoError, 0, nil
 				}
 				// unsuccessful in retrieving from the cache, we'll continue to the wire
 			}
@@ -476,13 +476,12 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 	result, status, try, err := r.retryingLookup(ctx, q, nameServer, requestIteration)
 	r.verboseLog(depth+2, "Results from wire for name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer, " status: ", status, " , err: ", err, " result: ", result)
 
-	// TODO need to update the cache if this is an auth lookup
-	if !requestIteration && layer == "." && strings.ToLower(q.Name) != layer && authName != layer {
+	if !requestIteration && strings.ToLower(q.Name) != layer && authName != layer {
 		r.verboseLog(depth+2, "Cache auth upsert for ", authName)
-		r.cache.SafeAddLayerNameServers(authName, result, nameServer, depth+2, cacheNonAuthoritative)
+		r.cache.SafeAddCachedAuthority(&result, nameServer, depth+2, layer)
 
 	} else {
-		r.cache.CacheUpdate(layer, result, cacheNameServer, depth+2, cacheNonAuthoritative)
+		r.cache.SafeAddCachedAnswer(q, &result, cacheNameServer, layer, depth+2, cacheNonAuthoritative)
 	}
 	return result, isCached, status, try, err
 }
