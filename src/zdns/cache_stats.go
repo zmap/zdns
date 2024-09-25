@@ -27,25 +27,25 @@ type CacheStatistics struct {
 	Ejects                  atomic.Uint64 // number of cache entries that are ejected due to insertions
 }
 
-func (s *CacheStatistics) incrementHits() {
+func (s *CacheStatistics) IncrementHits() {
 	if s.ShouldCaptureStatistics {
 		s.Hits.Add(1)
 	}
 }
 
-func (s *CacheStatistics) incrementMisses() {
+func (s *CacheStatistics) IncrementMisses() {
 	if s.ShouldCaptureStatistics {
 		s.Misses.Add(1)
 	}
 }
 
-func (s *CacheStatistics) incrementAdds() {
+func (s *CacheStatistics) IncrementAdds() {
 	if s.ShouldCaptureStatistics {
 		s.Adds.Add(1)
 	}
 }
 
-func (s *CacheStatistics) incrementEjects() {
+func (s *CacheStatistics) IncrementEjects() {
 	if s.ShouldCaptureStatistics {
 		s.Ejects.Add(1)
 	}

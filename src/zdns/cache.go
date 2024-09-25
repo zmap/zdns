@@ -14,6 +14,7 @@
 package zdns
 
 import (
+	"fmt"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -21,15 +22,9 @@ import (
 	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/src/internal/cachehash"
-	"github.com/zmap/zdns/src/internal/util"
 )
 
 type IsCached bool
-
-type TimedAnswer struct {
-	Answer    interface{}
-	ExpiresAt time.Time
-}
 
 type CachedKey struct {
 	Question    Question
@@ -38,217 +33,247 @@ type CachedKey struct {
 }
 
 type CachedResult struct {
-	Answers map[interface{}]TimedAnswer
+	Answers     []TimedAnswer
+	Authorities []TimedAnswer
+	Additionals []TimedAnswer
+}
+
+type TimedAnswer struct {
+	Answer    Answer
+	ExpiresAt time.Time
 }
 
 type Cache struct {
 	IterativeCache cachehash.ShardedCacheHash
-	//Hits           atomic.Uint64
-	//Misses         atomic.Uint64
-	//Adds           atomic.Uint64
+	stats          CacheStatistics
 }
 
+// Init initializes the cache with a maximum cacheSize.
 func (s *Cache) Init(cacheSize int) {
 	s.IterativeCache.Init(cacheSize, 4096)
 }
 
 func (s *Cache) VerboseLog(depth int, args ...interface{}) {
-	log.Debug(makeVerbosePrefix(depth), args)
+	log.Debug(makeVerbosePrefix(depth), fmt.Sprint("Cache: ", args))
 }
 
-func (s *Cache) AddCachedAnswer(answer interface{}, ns *NameServer, depth int) {
-	//s.Adds.Add(1)
-	a, ok := answer.(Answer)
-	if !ok {
-		// we can't cache this entry because we have no idea what to name it
-		return
-	}
-	q := questionFromAnswer(a)
-
-	// only cache records that can help prevent future iteration: A(AAA), NS, (C|D)NAME.
-	// This will prevent some entries that will never help future iteration (e.g., PTR)
-	// from causing unnecessary cache evictions.
-	// TODO: this is overly broad right now and will unnecessarily cache some leaf A/AAAA records. However,
-	// it's a lot of work to understand _why_ we're doing a specific lookup and this will still help
-	// in other cases, e.g., PTR lookups
-	if !(q.Type == dns.TypeA || q.Type == dns.TypeAAAA || q.Type == dns.TypeNS || q.Type == dns.TypeDNAME || q.Type == dns.TypeCNAME) {
-		return
-	}
-	expiresAt := time.Now().Add(time.Duration(a.TTL) * time.Second)
-	ca := CachedResult{}
-	ca.Answers = make(map[interface{}]TimedAnswer)
-	cacheKey := CachedKey{q, "", false}
-	if ns != nil {
-		cacheKey.NameServer = ns.String()
-	}
+func (s *Cache) AddCachedAnswer(q Question, nameServer string, isAuthority bool, result *CachedResult, depth int) {
+	cacheKey := CachedKey{q, nameServer, false}
 	s.IterativeCache.Lock(cacheKey)
-	defer s.IterativeCache.Unlock(cacheKey)
-	// don't bother to move this to the top of the linked list. we're going
-	// to add this record back in momentarily and that will take care of this
-	i, ok := s.IterativeCache.GetNoMove(cacheKey)
-	if ok {
-		// record found, check type on interface
-		ca, ok = i.(CachedResult)
-		if !ok {
-			log.Panic("unable to cast cached result")
-		}
+	// this record will replace any existing record with the exact same cache key
+	didExist, didEject := s.IterativeCache.Add(cacheKey, *result)
+	s.IterativeCache.Unlock(cacheKey)
+	if didExist && didEject {
+		log.Panic("cache entry shouldn't be both replaced and evicted: ", q, " ", nameServer, " ", isAuthority)
+	} else if didExist {
+		s.VerboseLog(depth+1, "replaced existing cache entry for ", q, " ", nameServer, " is authority: ", isAuthority)
+	} else if didEject {
+		s.VerboseLog(depth+1, "inserting cache entry caused eviction, entry: ", q, " ", nameServer, " is authority: ", isAuthority)
+	} else {
+		s.VerboseLog(depth+1, "inserted new cache entry for ", q, " ", nameServer, " is authority: ", isAuthority)
 	}
-	// we have an existing record. Let's add this answer to it.
-	ta := TimedAnswer{
-		Answer:    answer,
-		ExpiresAt: expiresAt}
-	ca.Answers[a] = ta
-	s.IterativeCache.Add(cacheKey, ca)
-	s.VerboseLog(depth+1, "Upsert cached answer ", q, " ", ca)
+	if didEject {
+		s.stats.IncrementEjects()
+	}
+	s.stats.IncrementAdds()
 }
 
-func (s *Cache) GetCachedResult(q Question, ns *NameServer, depth int) (SingleQueryResult, bool) {
-	var retv SingleQueryResult
-	cacheKey := CachedKey{q, "", false}
+func (s *Cache) GetCachedResult(q Question, ns *NameServer, isAuthority bool, depth int) (retv SingleQueryResult, isFound, partiallyExpired bool) {
+	isFound = false
+	partiallyExpired = false
+	cacheKey := CachedKey{q, "", isAuthority}
 	if ns != nil {
 		cacheKey.NameServer = ns.String()
-		s.VerboseLog(depth+1, "Cache request for: ", q.Name, " (", q.Type, ") @", cacheKey.NameServer)
+		retv.Resolver = ns.String()
+		if isAuthority {
+			s.VerboseLog(depth+1, "Cache authority request for: ", q.Name, " (", q.Type, ") @", cacheKey.NameServer)
+		} else {
+			s.VerboseLog(depth+1, "Cache request for: ", q.Name, " (", q.Type, ") @", cacheKey.NameServer)
+		}
+	} else if isAuthority {
+		s.VerboseLog(depth+1, "Cache authority request for: ", q.Name, " (", q.Type, ")")
 	} else {
 		s.VerboseLog(depth+1, "Cache request for: ", q.Name, " (", q.Type, ")")
 	}
 	s.IterativeCache.Lock(cacheKey)
+	defer s.IterativeCache.Unlock(cacheKey)
 	unres, ok := s.IterativeCache.Get(cacheKey)
 	if !ok { // nothing found
-		//s.Misses.Add(1)
 		s.VerboseLog(depth+2, "-> no entry found in cache for ", q.Name)
-		s.IterativeCache.Unlock(cacheKey)
-		return retv, false
+		s.stats.IncrementMisses()
+		return retv, false, false
 	}
-	//s.Hits.Add(1)
-	retv.Authorities = make([]interface{}, 0)
-	retv.Answers = make([]interface{}, 0)
-	retv.Additional = make([]interface{}, 0)
+	s.stats.IncrementHits()
 	cachedRes, ok := unres.(CachedResult)
 	if !ok {
 		log.Panic("unable to cast cached result for ", q.Name)
 	}
+	retv.Answers = make([]interface{}, 0, len(cachedRes.Answers))
+	retv.Authorities = make([]interface{}, 0, len(cachedRes.Authorities))
+	retv.Additional = make([]interface{}, 0, len(cachedRes.Additionals))
 	// great we have a result. let's go through the entries and build a result. In the process, throw away anything
 	// that's expired
 	now := time.Now()
-	for k, cachedAnswer := range cachedRes.Answers {
+	for _, cachedAnswer := range cachedRes.Answers {
 		if cachedAnswer.ExpiresAt.Before(now) {
-			// if we have a write lock, we can perform the necessary actions
-			// and then write this back to the cache. However, if we don't,
-			// we need to start this process over with a write lock
-			s.VerboseLog(depth+2, "Expiring cache entry ", k)
-			delete(cachedRes.Answers, k)
+			partiallyExpired = true
+			s.VerboseLog(depth+2, "expiring cache answer ", cachedAnswer.Answer.Name)
 		} else {
-			// this result is valid. append it to the SingleQueryResult we're going to hand to the user
 			retv.Answers = append(retv.Answers, cachedAnswer.Answer)
 		}
 	}
-	s.IterativeCache.Unlock(cacheKey)
+	for _, cachedAuthority := range cachedRes.Authorities {
+		if cachedAuthority.ExpiresAt.Before(now) {
+			partiallyExpired = true
+			s.VerboseLog(depth+2, "expiring cache authority ", cachedAuthority.Answer.Name)
+		} else {
+			retv.Authorities = append(retv.Authorities, cachedAuthority.Answer)
+		}
+	}
+	for _, cachedAdditional := range cachedRes.Additionals {
+		if cachedAdditional.ExpiresAt.Before(now) {
+			partiallyExpired = true
+			s.VerboseLog(depth+2, "expiring cache additional ", cachedAdditional.Answer.Name)
+		} else {
+			retv.Additional = append(retv.Additional, cachedAdditional.Answer)
+		}
+	}
 	// Don't return an empty response.
 	if len(retv.Answers) == 0 && len(retv.Authorities) == 0 && len(retv.Additional) == 0 {
-		s.VerboseLog(depth+2, "-> no entry found in cache, after expiration for ", q.Name)
+		// remove from cache since it's completely expired
+		s.IterativeCache.Delete(cacheKey)
+		s.VerboseLog(depth+2, "-> no entry found in cache, after expiration for ", cacheKey, ", removing from cache")
 		var emptyRetv SingleQueryResult
-		return emptyRetv, false
-	}
-	if ns != nil {
-		retv.Resolver = ns.String()
+		return emptyRetv, false, false
 	}
 
 	s.VerboseLog(depth+2, "Cache hit for ", q.Name, ": ", retv)
-	return retv, true
+	return retv, true, partiallyExpired
 }
 
-func (s *Cache) SafeAddCachedAnswer(a interface{}, ns *NameServer, layer, debugType string, depth int) {
-	ans, ok := a.(Answer)
-	if !ok {
-		s.VerboseLog(depth+1, "unable to cast ", debugType, ": ", layer, ": ", a)
-		return
-	}
-	if ok, _ := nameIsBeneath(ans.Name, layer); !ok {
-		log.Info("detected poison ", debugType, ": ", ans.Name, "(", ans.Type, "): ", layer, ": ", a)
-		return
-	}
-	s.AddCachedAnswer(a, ns, depth)
+func isCacheableType(ans *Answer) bool {
+	// only cache records that can help prevent future iteration: A(AAA), NS, (C|D)NAME.
+	// This will prevent some entries that will never help future iteration (e.g., PTR)
+	// from causing unnecessary cache evictions.
+	//// TODO: this is overly broad right now and will unnecessarily cache some leaf A/AAAA records. However,
+	return ans.RrType == dns.TypeA || ans.RrType == dns.TypeAAAA || ans.RrType == dns.TypeNS || ans.RrType == dns.TypeDNAME || ans.RrType == dns.TypeCNAME
 }
 
-func (s *Cache) SafeAddLayerNameServers(layer string, result SingleQueryResult, ns *NameServer, depth int, cacheNonAuthoritativeAns bool) {
-	authsAndAdditionals := util.Concat(result.Authorities, result.Additional)
-	// build a map of TimedAnswers to add to cache
-	timedAns := make(map[interface{}]TimedAnswer, len(authsAndAdditionals))
-	for _, a := range authsAndAdditionals {
+func (s *Cache) buildCachedResult(res *SingleQueryResult, depth int, layer string) *CachedResult {
+	now := time.Now()
+	cachedRes := CachedResult{}
+	cachedRes.Answers = make([]TimedAnswer, 0, len(res.Answers))
+	for _, a := range res.Answers {
 		castAns, ok := a.(Answer)
 		if !ok {
-			log.Info("unable to cast authority in layer name servers: ", layer, ": ", a)
+			s.VerboseLog(depth+1, "SafeAddCachedAnswer: unable to cast to Answer: ", layer, ": ", a)
 			continue
 		}
-		//if ok, _ = nameIsBeneath(castAns.Name, layer); !ok {
-		//	log.Info("detected poison in adding nameserver authorities: ", castAns.Name, "(", castAns.Type, "): ", layer, ": ", castAns)
-		//	return
-		//}
-		if castAns.RrType != dns.TypeNS && castAns.RrType != dns.TypeA && castAns.RrType != dns.TypeAAAA {
-			log.Info("ignoring unexpected RRType in layer name servers: ", layer, ": ", castAns)
+		if !isCacheableType(&castAns) {
+			s.VerboseLog(depth+1, "SafeAddCachedAnswer: ignoring non-cacheable type: ", layer, ": ", castAns)
 			continue
 		}
-		timedAns[a] = TimedAnswer{
-			Answer:    a,
-			ExpiresAt: time.Now().Add(time.Duration(a.(Answer).TTL) * time.Second),
-		}
+		cachedRes.Answers = append(cachedRes.Answers, TimedAnswer{
+			Answer:    castAns,
+			ExpiresAt: now.Add(time.Duration(castAns.TTL) * time.Second),
+		})
 	}
-	cacheKey := CachedKey{Question: Question{Name: layer, Type: dns.TypeNS}, IsAuthority: true}
-	s.IterativeCache.Lock(cacheKey)
-	defer s.IterativeCache.Unlock(cacheKey)
-	//s.Adds.Add(1)
-	s.IterativeCache.Add(cacheKey, CachedResult{Answers: timedAns})
-}
-
-func (s *Cache) GetLayerNameServers(name string) (SingleQueryResult, bool) {
-	res := SingleQueryResult{}
-	res.Answers = make([]interface{}, 0)
-	res.Authorities = make([]interface{}, 0)
-	res.Additional = make([]interface{}, 0)
-	cacheKey := CachedKey{Question: Question{Name: name, Type: dns.TypeNS}, IsAuthority: true}
-	s.IterativeCache.Lock(cacheKey)
-	defer s.IterativeCache.Unlock(cacheKey)
-	unres, ok := s.IterativeCache.Get(cacheKey)
-	if !ok {
-		//s.Misses.Add(1)
-		return SingleQueryResult{}, false
-	}
-	//s.Hits.Add(1)
-	cachedRes, ok := unres.(CachedResult)
-	if !ok {
-		log.Panic("unable to cast cached result for ", name)
-	}
-	for _, cachedAnswer := range cachedRes.Answers {
-		// check expiration
-		if cachedAnswer.ExpiresAt.Before(time.Now()) {
-			delete(cachedRes.Answers, cachedAnswer.Answer)
-			continue
-		}
-		castAns, ok := cachedAnswer.Answer.(Answer)
+	cachedRes.Authorities = make([]TimedAnswer, 0, len(res.Authorities))
+	for _, a := range res.Authorities {
+		castAns, ok := a.(Answer)
 		if !ok {
-			log.Panic("unable to cast cached answer for ", name)
+			s.VerboseLog(depth+1, "SafeAddCachedAnswer: unable to cast to Answer: ", layer, ": ", a)
+			continue
 		}
-		if castAns.RrType == dns.TypeNS {
-			res.Authorities = append(res.Authorities, castAns)
-		} else if castAns.RrType == dns.TypeA || castAns.RrType == dns.TypeAAAA {
-			res.Additional = append(res.Additional, castAns)
-		} else {
-			log.Info("ignoring unexpected RRType in layer name servers: ", name, ": ", castAns)
+		if !isCacheableType(&castAns) {
+			s.VerboseLog(depth+1, "SafeAddCachedAnswer: ignoring non-cacheable type: ", layer, ": ", castAns)
+			continue
 		}
+		cachedRes.Authorities = append(cachedRes.Authorities, TimedAnswer{
+			Answer:    castAns,
+			ExpiresAt: now.Add(time.Duration(castAns.TTL) * time.Second),
+		})
 	}
-	return res, true
+	cachedRes.Additionals = make([]TimedAnswer, 0, len(res.Additional))
+	for _, a := range res.Additional {
+		castAns, ok := a.(Answer)
+		if !ok {
+			s.VerboseLog(depth+1, "SafeAddCachedAnswer: unable to cast to Answer: ", layer, ": ", a)
+			continue
+		}
+		if !isCacheableType(&castAns) {
+			s.VerboseLog(depth+1, "SafeAddCachedAnswer: ignoring non-cacheable type: ", layer, ": ", castAns)
+			continue
+		}
+		cachedRes.Additionals = append(cachedRes.Additionals, TimedAnswer{
+			Answer:    castAns,
+			ExpiresAt: now.Add(time.Duration(castAns.TTL) * time.Second),
+		})
+	}
+	return &cachedRes
 }
 
-func (s *Cache) CacheUpdate(layer string, result SingleQueryResult, ns *NameServer, depth int, cacheNonAuthoritativeAns bool) {
-	for _, a := range result.Additional {
-		s.SafeAddCachedAnswer(a, ns, layer, "additional", depth)
+func (s *Cache) SafeAddCachedAnswer(q Question, res *SingleQueryResult, ns *NameServer, layer string, depth int) {
+	//for _, a := range res.Answers {
+	//	ans, ok := a.(Answer)
+	//	if !ok {
+	//		s.VerboseLog(depth+1, "SafeAddCachedAnswer: unable to cast to Answer: ", layer, ": ", a)
+	//		return
+	//	}
+	//	if ok, _ = nameIsBeneath(ans.Name, layer); !ok {
+	//		log.Info("detected poison: ", ans.Name, "(", ans.Type, "): ", layer, ": ", a)
+	//		return
+	//	}
+	//}
+	// TODO - not sure how/in what way to check for poison here that won't cause issues
+	nsString := ""
+	if ns != nil {
+		nsString = ns.String()
 	}
-	for _, a := range result.Authorities {
-		s.SafeAddCachedAnswer(a, ns, layer, "authority", depth)
+	cachedRes := s.buildCachedResult(res, depth, layer)
+	if len(cachedRes.Answers) == 0 && len(cachedRes.Authorities) == 0 && len(cachedRes.Additionals) == 0 {
+		s.VerboseLog(depth+1, "SafeAddCachedAnswer: no cacheable records found, aborting")
+		return
 	}
-	if result.Flags.Authoritative || cacheNonAuthoritativeAns {
-		for _, a := range result.Answers {
-			s.SafeAddCachedAnswer(a, ns, layer, "answer", depth)
+	s.AddCachedAnswer(q, nsString, false, cachedRes, depth)
+}
+
+// SafeAddCachedAuthority adds an authority to the cache. This is a special case where the result should only have
+// authorities and additionals records. What layer this authority is for is gathered from the Authority.Name field.
+// This Authority.Name must be below the current layer.
+// Will be cached under an NS record for the authority.
+func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, depth int, layer string) {
+	if len(res.Answers) > 0 {
+		s.VerboseLog(depth+1, "SafeAddCachedAuthority: aborting since authority record shouldn't have answers: ", layer, ": ", res.Answers)
+	}
+	authName := ""
+	for _, auth := range res.Authorities {
+		castAuth, ok := auth.(Answer)
+		if !ok {
+			s.VerboseLog(depth+1, "SafeAddCachedAuthority: unable to cast to Answer: ", layer, ": ", auth)
+			return
+		}
+		if len(authName) == 0 {
+			authName = castAuth.Name
+		} else if authName != castAuth.Name {
+			s.VerboseLog(depth+1, "SafeAddCachedAuthority: multiple authority names: ", layer, ": ", authName, " ", castAuth.Name, " , aborting")
+			return
 		}
 	}
+	// check for poison
+	if ok, _ := nameIsBeneath(authName, layer); !ok {
+		s.VerboseLog(depth+1, "SafeAddCachedAuthority: detected poison: ", authName, "(", dns.TypeNS, "): ", layer, " , aborting")
+		return
+	}
+	nsString := ""
+	if ns != nil {
+		nsString = ns.String()
+	}
+
+	cachedRes := s.buildCachedResult(res, depth, layer)
+	if len(cachedRes.Answers) == 0 && len(cachedRes.Authorities) == 0 && len(cachedRes.Additionals) == 0 {
+		s.VerboseLog(depth+1, "SafeAddCachedAnswer: no cacheable records found, aborting")
+		return
+	}
+	s.AddCachedAnswer(Question{Name: authName, Type: dns.TypeNS, Class: dns.ClassINET}, nsString, true, cachedRes, depth)
 }
