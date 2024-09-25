@@ -27,35 +27,35 @@ type CacheStatistics struct {
 	Ejects                  atomic.Uint64 // number of cache entries that are ejected due to insertions
 }
 
-func (s *Cache) incrementHits() {
-	if s.stats.ShouldCaptureStatistics {
-		s.stats.Hits.Add(1)
+func (s *CacheStatistics) incrementHits() {
+	if s.ShouldCaptureStatistics {
+		s.Hits.Add(1)
 	}
 }
 
-func (s *Cache) incrementMisses() {
-	if s.stats.ShouldCaptureStatistics {
-		s.stats.Misses.Add(1)
+func (s *CacheStatistics) incrementMisses() {
+	if s.ShouldCaptureStatistics {
+		s.Misses.Add(1)
 	}
 }
 
-func (s *Cache) incrementAdds() {
-	if s.stats.ShouldCaptureStatistics {
-		s.stats.Adds.Add(1)
+func (s *CacheStatistics) incrementAdds() {
+	if s.ShouldCaptureStatistics {
+		s.Adds.Add(1)
 	}
 }
 
-func (s *Cache) incrementEjects() {
-	if s.stats.ShouldCaptureStatistics {
-		s.stats.Ejects.Add(1)
+func (s *CacheStatistics) incrementEjects() {
+	if s.ShouldCaptureStatistics {
+		s.Ejects.Add(1)
 	}
 }
 
-func (s *Cache) PrintStatistics() {
-	hits := s.stats.Hits.Load()
-	misses := s.stats.Misses.Load()
-	adds := s.stats.Adds.Load()
-	ejects := s.stats.Ejects.Load()
+func (s *CacheStatistics) PrintStatistics() {
+	hits := s.Hits.Load()
+	misses := s.Misses.Load()
+	adds := s.Adds.Load()
+	ejects := s.Ejects.Load()
 	total := hits + misses
 	hitRate := float64(hits) / float64(total)
 	missRate := float64(misses) / float64(total)
