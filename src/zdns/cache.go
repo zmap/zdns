@@ -59,7 +59,7 @@ func (s *Cache) VerboseLog(depth int, args ...interface{}) {
 }
 
 func (s *Cache) addCachedAnswer(q Question, nameServer string, isAuthority bool, result *CachedResult, depth int) {
-	cacheKey := CachedKey{q, nameServer, false}
+	cacheKey := CachedKey{q, nameServer, isAuthority}
 	s.IterativeCache.Lock(cacheKey)
 	// this record will replace any existing record with the exact same cache key
 	didExist, didEject := s.IterativeCache.Add(cacheKey, *result)
@@ -241,8 +241,8 @@ func (s *Cache) SafeAddCachedAnswer(q Question, res *SingleQueryResult, ns *Name
 	for _, a := range util.Concat(res.Answers, res.Authorities, res.Additional) {
 		castAns, ok := a.(Answer)
 		if !ok {
-			s.VerboseLog(depth+1, "SafeAddCachedAnswer: unable to cast to Answer: ", layer, ": ", a)
-			return
+			// if we can't cast, it won't be added to the cache. We'll log in buildCachedResult
+			continue
 		}
 		if ok, _ = nameIsBeneath(castAns.Name, layer); !ok {
 			if len(nsString) > 0 {
@@ -283,8 +283,8 @@ func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, d
 	for _, auth := range res.Authorities {
 		castAuth, ok := auth.(Answer)
 		if !ok {
-			s.VerboseLog(depth+1, "SafeAddCachedAuthority: unable to cast to Answer: ", layer, ": ", auth)
-			return
+			// if we can't cast, it won't be added to the cache. We'll log in buildCachedResult
+			continue
 		}
 		if len(authName) == 0 {
 			authName = castAuth.Name

@@ -478,7 +478,7 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 
 	if !requestIteration && strings.ToLower(q.Name) != layer && authName != layer {
 		r.verboseLog(depth+2, "Cache auth upsert for ", authName)
-		r.cache.SafeAddCachedAuthority(&result, nameServer, depth+2, layer)
+		r.cache.SafeAddCachedAuthority(&result, cacheNameServer, depth+2, layer)
 
 	} else {
 		r.cache.SafeAddCachedAnswer(q, &result, cacheNameServer, layer, depth+2, cacheNonAuthoritative)
