@@ -271,13 +271,17 @@ func (s *Cache) SafeAddCachedAnswer(q Question, res *SingleQueryResult, ns *Name
 	s.addCachedAnswer(q, nsString, false, cachedRes, depth)
 }
 
+// TODO maybe to reduce cache thrashing we don't keep over-writing the cache entry, only if it's a new entry
+
 // SafeAddCachedAuthority adds an authority to the cache. This is a special case where the result should only have
 // authorities and additionals records. What layer this authority is for is gathered from the Authority.Name field.
 // This Authority.Name must be below the current layer.
 // Will be cached under an NS record for the authority.
 func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, depth int, layer string) {
 	if len(res.Answers) > 0 {
+		// TODO decide if this log should be removed
 		s.VerboseLog(depth+1, "SafeAddCachedAuthority: aborting since authority record shouldn't have answers: ", layer, ": ", res.Answers)
+		res.Answers = make([]interface{}, 0)
 	}
 	authName := ""
 	for _, auth := range res.Authorities {

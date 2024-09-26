@@ -476,7 +476,7 @@ func (r *Resolver) cachedRetryingLookup(ctx context.Context, q Question, nameSer
 	result, status, try, err := r.retryingLookup(ctx, q, nameServer, requestIteration)
 	r.verboseLog(depth+2, "Results from wire for name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer, " status: ", status, " , err: ", err, " result: ", result)
 
-	if !requestIteration && strings.ToLower(q.Name) != layer && authName != layer {
+	if !requestIteration && strings.ToLower(q.Name) != layer && authName != layer && q.Name != authName { // TODO - how to detect if we've retrieved an authority record or a answer record? maybe add q.Name != authName
 		r.verboseLog(depth+2, "Cache auth upsert for ", authName)
 		r.cache.SafeAddCachedAuthority(&result, cacheNameServer, depth+2, layer)
 
