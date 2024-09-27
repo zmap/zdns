@@ -14,9 +14,10 @@
 package zdns
 
 import (
-	"github.com/zmap/dns"
 	"net"
 	"testing"
+
+	"github.com/zmap/dns"
 
 	"github.com/stretchr/testify/assert"
 )
