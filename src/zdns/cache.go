@@ -46,7 +46,7 @@ type TimedAnswer struct {
 
 type Cache struct {
 	IterativeCache cachehash.ShardedCacheHash
-	stats          CacheStatistics
+	Stats          CacheStatistics
 }
 
 // Init initializes the cache with a maximum cacheSize.
@@ -74,9 +74,9 @@ func (s *Cache) addCachedAnswer(q Question, nameServer string, isAuthority bool,
 		s.VerboseLog(depth+1, "inserted new cache entry for ", q, " ", nameServer, " is authority: ", isAuthority)
 	}
 	if didEject {
-		s.stats.IncrementEjects()
+		s.Stats.IncrementEjects()
 	}
-	s.stats.IncrementAdds()
+	s.Stats.IncrementAdds()
 }
 
 func (s *Cache) GetCachedAuthority(authorityName string, ns *NameServer, depth int) (retv *SingleQueryResult, isFound bool) {
@@ -119,10 +119,10 @@ func (s *Cache) getCachedResult(q Question, ns *NameServer, isAuthority bool, de
 	unres, ok := s.IterativeCache.Get(cacheKey)
 	if !ok { // nothing found
 		s.VerboseLog(depth+2, "-> no entry found in cache for ", q.Name)
-		s.stats.IncrementMisses()
+		s.Stats.IncrementMisses()
 		return retv, false, false
 	}
-	s.stats.IncrementHits()
+	s.Stats.IncrementHits()
 	cachedRes, ok := unres.(CachedResult)
 	if !ok {
 		log.Panic("unable to cast cached result for ", q.Name)

@@ -20,44 +20,48 @@ import (
 )
 
 type CacheStatistics struct {
-	ShouldCaptureStatistics bool
-	Hits                    atomic.Uint64 // number of reads to the cache that result in a hit
-	Misses                  atomic.Uint64 // number of reads to the cache that result in a miss
-	Adds                    atomic.Uint64 // number of writes to the cache
-	Ejects                  atomic.Uint64 // number of cache entries that are ejected due to insertions
+	shouldCaptureStatistics bool
+	hits                    atomic.Uint64 // number of reads to the cache that result in a hit
+	misses                  atomic.Uint64 // number of reads to the cache that result in a miss
+	adds                    atomic.Uint64 // number of writes to the cache
+	ejects                  atomic.Uint64 // number of cache entries that are ejected due to insertions
 }
 
 func (s *CacheStatistics) IncrementHits() {
-	if s.ShouldCaptureStatistics {
-		s.Hits.Add(1)
+	if s.shouldCaptureStatistics {
+		s.hits.Add(1)
 	}
 }
 
+func (s *CacheStatistics) CaptureStatistics() {
+	s.shouldCaptureStatistics = true
+}
+
 func (s *CacheStatistics) IncrementMisses() {
-	if s.ShouldCaptureStatistics {
-		s.Misses.Add(1)
+	if s.shouldCaptureStatistics {
+		s.misses.Add(1)
 	}
 }
 
 func (s *CacheStatistics) IncrementAdds() {
-	if s.ShouldCaptureStatistics {
-		s.Adds.Add(1)
+	if s.shouldCaptureStatistics {
+		s.adds.Add(1)
 	}
 }
 
 func (s *CacheStatistics) IncrementEjects() {
-	if s.ShouldCaptureStatistics {
-		s.Ejects.Add(1)
+	if s.shouldCaptureStatistics {
+		s.ejects.Add(1)
 	}
 }
 
 func (s *CacheStatistics) PrintStatistics() {
-	hits := s.Hits.Load()
-	misses := s.Misses.Load()
-	adds := s.Adds.Load()
-	ejects := s.Ejects.Load()
+	hits := s.hits.Load()
+	misses := s.misses.Load()
+	adds := s.adds.Load()
+	ejects := s.ejects.Load()
 	total := hits + misses
 	hitRate := float64(hits) / float64(total)
 	missRate := float64(misses) / float64(total)
-	fmt.Printf("Cache statistics: hits=%d misses=%d adds=%d ejects=%d hitRate=%f missRate=%f\n", hits, misses, adds, ejects, hitRate, missRate)
+	fmt.Printf("Cache statistics: hits=%d misses=%d adds=%d ejects=%d hitRate=%f%% missRate=%f%%\n", hits, misses, adds, ejects, hitRate*100, missRate*100)
 }
