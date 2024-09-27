@@ -2,4 +2,4 @@
 !.golangci.yml
 *.iml
 *.code-workspace
-zdns
+/zdns
