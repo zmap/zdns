@@ -14,7 +14,6 @@
 package zdns
 
 import (
-	"fmt"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -55,8 +54,9 @@ func (s *Cache) Init(cacheSize int) {
 }
 
 func (s *Cache) VerboseLog(depth int, args ...interface{}) {
+	// the makeVerbosePrefix is expensive, so only do it if we're going to log
 	if log.GetLevel() >= log.DebugLevel {
-		log.Debug(makeVerbosePrefix(depth), fmt.Sprint("Cache: ", args))
+		log.Debug(makeVerbosePrefix(depth), args)
 	}
 }
 
