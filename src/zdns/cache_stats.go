@@ -64,5 +64,5 @@ func (s *CacheStatistics) PrintStatistics() {
 	total := hits + misses
 	hitRate := float64(hits) / float64(total)
 	missRate := float64(misses) / float64(total)
-	log.Debugf("Cache statistics: hits=%d misses=%d adds=%d ejects=%d hitRate=%f%% missRate=%f%%\n", hits, misses, adds, ejects, hitRate*100, missRate*100)
+	log.Debugf("Cache statistics: hits=%d misses=%d adds=%d ejects=%d hitRate=%f%% missRate=%f%%", hits, misses, adds, ejects, hitRate*100, missRate*100)
 }
