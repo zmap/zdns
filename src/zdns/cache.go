@@ -100,6 +100,7 @@ func (s *Cache) GetCachedResults(q Question, ns *NameServer, depth int) (retv *S
 }
 
 func (s *Cache) getCachedResult(q Question, ns *NameServer, isAuthority bool, depth int) (retv *SingleQueryResult, isFound, partiallyExpired bool) {
+	retv = &SingleQueryResult{}
 	isFound = false
 	partiallyExpired = false
 	cacheKey := CachedKey{q, "", isAuthority}
