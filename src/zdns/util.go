@@ -43,10 +43,6 @@ func isStatusAnswer(s Status) bool {
 	return false
 }
 
-func questionFromAnswer(a Answer) Question {
-	return Question{Name: a.Name, Type: a.RrType, Class: a.RrClass}
-}
-
 func nameIsBeneath(name, layer string) (bool, string) {
 	name = strings.ToLower(name)
 	layer = strings.ToLower(layer)
