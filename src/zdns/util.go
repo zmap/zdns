@@ -61,7 +61,7 @@ func nameIsBeneath(name, layer string) (bool, string) {
 	return false, ""
 }
 
-func checkGlue(server string, result SingleQueryResult, ipMode IPVersionMode, ipPreference IterationIPPreference) (SingleQueryResult, Status) {
+func checkGlue(server string, result *SingleQueryResult, ipMode IPVersionMode, ipPreference IterationIPPreference) (*SingleQueryResult, Status) {
 	var ansType string
 	if ipMode == IPv4Only {
 		ansType = "A"
@@ -90,7 +90,7 @@ func checkGlue(server string, result SingleQueryResult, ipMode IPVersionMode, ip
 	return checkGlueHelper(server, ansType, result)
 }
 
-func checkGlueHelper(server, ansType string, result SingleQueryResult) (SingleQueryResult, Status) {
+func checkGlueHelper(server, ansType string, result *SingleQueryResult) (*SingleQueryResult, Status) {
 	for _, additional := range result.Additional {
 		ans, ok := additional.(Answer)
 		if !ok {
@@ -104,10 +104,10 @@ func checkGlueHelper(server, ansType string, result SingleQueryResult) (SingleQu
 			retv.Answers = make([]interface{}, 0, 1)
 			retv.Additional = make([]interface{}, 0)
 			retv.Answers = append(retv.Answers, ans)
-			return retv, StatusNoError
+			return &retv, StatusNoError
 		}
 	}
-	return SingleQueryResult{}, StatusError
+	return nil, StatusError
 }
 
 // nextAuthority returns the next authority to query based on the current name and layer
