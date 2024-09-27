@@ -55,7 +55,9 @@ func (s *Cache) Init(cacheSize int) {
 }
 
 func (s *Cache) VerboseLog(depth int, args ...interface{}) {
-	log.Debug(makeVerbosePrefix(depth), fmt.Sprint("Cache: ", args))
+	if log.GetLevel() >= log.DebugLevel {
+		log.Debug(makeVerbosePrefix(depth), fmt.Sprint("Cache: ", args))
+	}
 }
 
 func (s *Cache) addCachedAnswer(q Question, nameServer string, isAuthority bool, result *CachedResult, depth int) {

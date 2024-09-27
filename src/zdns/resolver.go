@@ -691,5 +691,7 @@ func (r *Resolver) randomRootNameServer() *NameServer {
 }
 
 func (r *Resolver) verboseLog(depth int, args ...interface{}) {
-	log.Debug(makeVerbosePrefix(depth), args)
+	if log.GetLevel() >= log.DebugLevel {
+		log.Debug(makeVerbosePrefix(depth), args)
+	}
 }
