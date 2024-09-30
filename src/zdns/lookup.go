@@ -84,18 +84,6 @@ func (r *Resolver) doDstServersLookup(q Question, nameServers []NameServer, isIt
 		return nil, nil, StatusIllegalInput, errors.New("no nameserver specified")
 	}
 
-	// TODO - ensure we're checking blocklist elsewhere, this is deleted
-	//// Stop if we hit a nameserver we don't want to hit
-	//if r.blacklist != nil {
-	//	if blacklisted, blacklistedErr := r.blacklist.IsBlacklisted(nameServer.IP.String()); blacklistedErr != nil {
-	//		var r SingleQueryResult
-	//		return &r, Trace{}, StatusError, fmt.Errorf("could not check blacklist for nameserver %s: %w", nameServer, err)
-	//	} else if blacklisted {
-	//		var r SingleQueryResult
-	//		return &r, Trace{}, StatusBlacklist, nil
-	//	}
-	//}
-
 	if q.Type == dns.TypePTR {
 		var qname string
 		qname, err = dns.ReverseAddr(q.Name)
@@ -144,14 +132,18 @@ func (r *Resolver) lookup(ctx context.Context, q Question, nameServers []NameSer
 		r.verboseLog(1, "MIEKG-OUT: following external lookup for ", q.Name, " (", q.Type, ") with ", tries, " attempts: status: ", status, " , err: ", err)
 		var t TraceStep
 		// TODO check for null res
-		t.Result = res
-		t.NameServer = res.Resolver
+		if res != nil {
+			t.Result = *res
+			t.NameServer = res.Resolver
+		} else {
+			t.Result = SingleQueryResult{}
+		}
 		t.DNSType = q.Type
 		t.DNSClass = q.Class
 		t.Name = q.Name
 		t.Layer = q.Name
 		t.Depth = 1
-		t.Cached = false
+		t.Cached = isCached
 		t.Try = tries
 		trace = Trace{t}
 	}
@@ -327,7 +319,7 @@ func (r *Resolver) LookupAllNameservers(q *Question, nameServer *NameServer) (*C
 }
 
 func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServers []NameServer,
-	depth int, layer string, trace Trace) (SingleQueryResult, Trace, Status, error) {
+	depth int, layer string, trace Trace) (*SingleQueryResult, Trace, Status, error) {
 	if depth > r.maxDepth {
 		r.verboseLog(depth+1, "-> Max recursion depth reached")
 		return nil, trace, StatusError, errors.New("max recursion depth reached")
@@ -359,8 +351,7 @@ func (r *Resolver) iterativeLookup(ctx context.Context, q Question, nameServers 
 		// ctx's have a deadline of the minimum of their deadline and their parent's
 		// retryingLookup doesn't disambiguate of whether the timeout was caused by the iteration timeout or the global timeout
 		// we'll disambiguate here by checking if the iteration context has expired but the global context hasn't
-		// TODO - be sure this is somewhere
-		//r.verboseLog(depth+2, "ITERATIVE_TIMEOUT ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
+		r.verboseLog(depth+2, "ITERATIVE_TIMEOUT ", q, ", Layer: ", layer)
 		status = StatusIterTimeout
 	}
 	if status != StatusNoError || err != nil {
@@ -419,7 +410,7 @@ func (r *Resolver) cyclingLookup(ctx context.Context, q *QuestionWithMetadata, n
 		cacheBasedOnNameServer = false
 		cacheNonAuthoritative = false
 	}
-	var result SingleQueryResult
+	var result *SingleQueryResult
 	var isCached IsCached
 	var status Status
 	var err error
@@ -428,7 +419,7 @@ func (r *Resolver) cyclingLookup(ctx context.Context, q *QuestionWithMetadata, n
 
 	for q.RetriesRemaining >= 0 {
 		if util.HasCtxExpired(&ctx) {
-			return result, false, StatusTimeout, nil
+			return &SingleQueryResult{}, false, StatusTimeout, nil
 		}
 		// get random unqueried nameserver
 		nameServer, queriedNameServers = getRandomNonQueriedNameServer(nameServers, queriedNameServers)
@@ -444,7 +435,7 @@ func (r *Resolver) cyclingLookup(ctx context.Context, q *QuestionWithMetadata, n
 		r.verboseLog(depth+1, "Cycling lookup failed, using a retry. Retries remaining: ", q.RetriesRemaining, " , Name: ", q.Q, ", Layer: ", layer, ", Nameserver: ", nameServer)
 		q.RetriesRemaining--
 	}
-	return SingleQueryResult{}, false, StatusError, errors.New("cycling lookup function did not exit properly")
+	return &SingleQueryResult{}, false, StatusError, errors.New("cycling lookup function did not exit properly")
 }
 
 // getRandomNonQueriedNameServer returns a random name server from the list of name servers that has not been queried yet
@@ -470,12 +461,12 @@ func getRandomNonQueriedNameServer(nameServers []NameServer, queriedNameServers 
 // requestIteration is whether to set the "recursion desired" bit in the DNS query
 // cacheBasedOnNameServer is whether to consider a cache hit based on DNS question and nameserver, or just question
 // cacheNonAuthoritative is whether to cache non-authoritative answers, usually used for lookups using an external resolver
-func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *NameServer, layer string, depth int, requestIteration, cacheBasedOnNameServer, cacheNonAuthoritative bool) (SingleQueryResult, IsCached, Status, error) {
+func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *NameServer, layer string, depth int, requestIteration, cacheBasedOnNameServer, cacheNonAuthoritative bool) (*SingleQueryResult, IsCached, Status, error) {
 	var isCached IsCached
 	isCached = false
 	r.verboseLog(depth+1, "Cached retrying lookup. Name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
 	if isValid, reason := nameServer.IsValid(); !isValid {
-		return SingleQueryResult{}, false, StatusIllegalInput, fmt.Errorf("invalid nameserver (%s): %s", nameServer.String(), reason)
+		return &SingleQueryResult{}, false, StatusIllegalInput, fmt.Errorf("invalid nameserver (%s): %s", nameServer.String(), reason)
 	}
 	// create a context for this network lookup
 	lookupCtx, cancel := context.WithTimeout(ctx, r.networkTimeout)
@@ -508,9 +499,9 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 	// Stop if we hit a nameserver we don't want to hit
 	if r.blacklist != nil {
 		if blacklisted, isBlacklistedErr := r.blacklist.IsBlacklisted(nameServer.IP.String()); isBlacklistedErr != nil {
-			return nil, isCached, StatusError, 0, errors.Wrapf(isBlacklistedErr, "could not check blacklist for nameserver IP: %s", nameServer.IP.String())
+			return nil, isCached, StatusError, errors.Wrapf(isBlacklistedErr, "could not check blacklist for nameserver IP: %s", nameServer.IP.String())
 		} else if blacklisted {
-			return nil, isCached, StatusBlacklist, 0, nil
+			return &SingleQueryResult{}, isCached, StatusBlacklist, nil
 		}
 	}
 	var authName string
@@ -525,13 +516,13 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 		authName, err = nextAuthority(name, layer)
 		if err != nil {
 			r.verboseLog(depth+2, err)
-			return SingleQueryResult{}, isCached, StatusAuthFail, errors.Wrap(err, "could not get next authority with name: "+name+" and layer: "+layer)
+			return &SingleQueryResult{}, isCached, StatusAuthFail, errors.Wrap(err, "could not get next authority with name: "+name+" and layer: "+layer)
 		}
 		if name != layer && authName != layer {
 			// we have a valid authority to check the cache for
 			if authName == "" {
 				r.verboseLog(depth+2, "Can't parse name to authority properly. name: ", name, ", layer: ", layer)
-				return SingleQueryResult{}, isCached, StatusAuthFail, nil
+				return &SingleQueryResult{}, isCached, StatusAuthFail, nil
 			}
 			r.verboseLog(depth+2, "Cache auth check for ", authName)
 			// TODO - this will need to be changed for AllNameServers
@@ -540,7 +531,7 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 				r.verboseLog(depth+2, "Cache auth hit for ", authName)
 				// only want to return if we actually have additionals and authorities from the cache for the caller
 				if len(cachedResult.Additional) > 0 && len(cachedResult.Authorities) > 0 {
-					return cachedResult, true, StatusNoError, 0, nil
+					return cachedResult, true, StatusNoError, nil
 				}
 				// unsuccessful in retrieving from the cache, we'll continue to the wire
 			}
@@ -548,17 +539,16 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 	}
 
 	// Alright, we're not sure what to do, go to the wire.
-	// TODO - add the cache miss/Results verbose log
 	r.verboseLog(depth+2, "Cache miss for ", q, ", Layer: ", layer, ", Nameserver: ", nameServer, " going to the wire in retryingLookup")
 	connInfo, err := r.getConnectionInfo(nameServer)
 	if err != nil {
-		return SingleQueryResult{}, false, StatusError, fmt.Errorf("could not get a connection info to query nameserver %s: %v", nameServer, err)
+		return &SingleQueryResult{}, false, StatusError, fmt.Errorf("could not get a connection info to query nameserver %s: %v", nameServer, err)
 	}
 	// check that our connection info is valid
 	if connInfo == nil {
-		return SingleQueryResult{}, false, StatusError, fmt.Errorf("no connection info for nameserver: %s", nameServer)
+		return &SingleQueryResult{}, false, StatusError, fmt.Errorf("no connection info for nameserver: %s", nameServer)
 	}
-	var result SingleQueryResult
+	var result *SingleQueryResult
 	var status Status
 	if r.dnsOverHTTPSEnabled {
 		r.verboseLog(1, "****WIRE LOOKUP*** ", DoHProtocol, " ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
@@ -578,11 +568,11 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 		r.verboseLog(1, "****WIRE LOOKUP*** ", TCPProtocol, " ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
 		result, status, err = wireLookupTCP(lookupCtx, connInfo, q, nameServer, r.ednsOptions, requestIteration, r.dnsSecEnabled, r.checkingDisabledBit)
 	} else {
-		return SingleQueryResult{}, false, StatusError, errors.New("no connection info for nameserver")
+		return &SingleQueryResult{}, false, StatusError, errors.New("no connection info for nameserver")
 	}
 
 	if err != nil {
-		return SingleQueryResult{}, isCached, status, errors.Wrap(err, "could not perform lookup")
+		return &SingleQueryResult{}, isCached, status, errors.Wrap(err, "could not perform lookup")
 	}
 	r.verboseLog(depth+2, "Results from wire for name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer, " status: ", status, " , err: ", err, " result: ", result)
 
@@ -596,7 +586,7 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 			r.cache.SafeAddCachedAnswer(q, result, cacheNameServer, layer, depth+2, cacheNonAuthoritative)
 		}
 	}
-	return result, isCached, status, try, err
+	return result, isCached, status, err
 }
 
 func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, rootCAs *x509.CertPool, shouldVerifyServerCert, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (*SingleQueryResult, Status, error) {
@@ -902,17 +892,16 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 	nameServers := make([]NameServer, 0, len(result.Authorities))
 	for i, elem := range result.Authorities {
 		if util.HasCtxExpired(&ctx) {
-			return SingleQueryResult{}, newTrace, StatusTimeout, nil
+			return &SingleQueryResult{}, newTrace, StatusTimeout, nil
 		}
 		var ns *NameServer
 		var nsStatus Status
 		r.verboseLog(depth+1, "Trying Authority: ", elem)
-		ns, nsStatus, newLayer, newTrace = r.extractAuthority(ctx, elem, layer, depth, &result, newTrace)
+		ns, nsStatus, newLayer, newTrace = r.extractAuthority(ctx, elem, layer, depth, result, newTrace)
 		r.verboseLog(depth+1, "Output from extract authorities: ", ns.String())
 		if nsStatus == StatusIterTimeout {
 			r.verboseLog(depth+2, "--> Hit iterative timeout: ")
-			var r SingleQueryResult
-			return r, newTrace, StatusIterTimeout, nil
+			return &SingleQueryResult{}, newTrace, StatusIterTimeout, nil
 		}
 		if nsStatus != StatusNoError {
 			var err error
@@ -933,8 +922,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, q Question, depth i
 
 	if len(nameServers) == 0 {
 		r.verboseLog(depth+1, fmt.Sprintf("--> Auth found no valid nameservers for name: %s Terminating", q.Name))
-		var r SingleQueryResult
-		return r, newTrace, StatusServFail, errors.New("no valid nameservers found")
+		return &SingleQueryResult{}, newTrace, StatusServFail, errors.New("no valid nameservers found")
 	}
 
 	iterateResult, newTrace, status, err := r.iterativeLookup(ctx, q, nameServers, depth+1, newLayer, newTrace)
