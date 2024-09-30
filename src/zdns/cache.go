@@ -274,7 +274,7 @@ func (s *Cache) SafeAddCachedAnswer(q Question, res *SingleQueryResult, ns *Name
 	s.addCachedAnswer(q, nsString, false, cachedRes, depth)
 }
 
-// SafeAddCachedAuthority adds an authority to the cache. This is a special case where the result should only have
+// SafeAddCachedAuthority Writes an authority to the cache. This is a special case where the result should only have
 // authorities and additionals records. What layer this authority is for is gathered from the Authority.Name field.
 // This Authority.Name must be below the current layer.
 // Will be cached under an NS record for the authority.

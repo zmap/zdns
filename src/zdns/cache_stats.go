@@ -16,16 +16,23 @@ package zdns
 
 import (
 	"sync/atomic"
-
-	log "github.com/sirupsen/logrus"
 )
 
 type CacheStatistics struct {
 	shouldCaptureStatistics bool
 	hits                    atomic.Uint64 // number of reads to the cache that result in a hit
 	misses                  atomic.Uint64 // number of reads to the cache that result in a miss
-	adds                    atomic.Uint64 // number of writes to the cache
+	writes                  atomic.Uint64 // number of writes to the cache
 	ejects                  atomic.Uint64 // number of cache entries that are ejected due to insertions
+}
+
+type CacheStatisticsMetadata struct {
+	Hits     uint64  `json:"hits"`
+	Misses   uint64  `json:"misses"`
+	Writes   uint64  `json:"writes"`
+	Ejects   uint64  `json:"ejects"`
+	HitRate  float64 `json:"hit_rate"`
+	MissRate float64 `json:"miss_rate"`
 }
 
 func (s *CacheStatistics) IncrementHits() {
@@ -38,6 +45,10 @@ func (s *CacheStatistics) CaptureStatistics() {
 	s.shouldCaptureStatistics = true
 }
 
+func (s *CacheStatistics) ShouldCaptureStatistics() bool {
+	return s.shouldCaptureStatistics
+}
+
 func (s *CacheStatistics) IncrementMisses() {
 	if s.shouldCaptureStatistics {
 		s.misses.Add(1)
@@ -46,7 +57,7 @@ func (s *CacheStatistics) IncrementMisses() {
 
 func (s *CacheStatistics) IncrementAdds() {
 	if s.shouldCaptureStatistics {
-		s.adds.Add(1)
+		s.writes.Add(1)
 	}
 }
 
@@ -56,13 +67,22 @@ func (s *CacheStatistics) IncrementEjects() {
 	}
 }
 
-func (s *CacheStatistics) PrintStatistics() {
+func (s *CacheStatistics) GetStatistics() *CacheStatisticsMetadata {
 	hits := s.hits.Load()
 	misses := s.misses.Load()
-	adds := s.adds.Load()
+	writes := s.writes.Load()
 	ejects := s.ejects.Load()
+	metadata := CacheStatisticsMetadata{
+		Hits:   hits,
+		Misses: misses,
+		Writes: writes,
+		Ejects: ejects,
+	}
 	total := hits + misses
-	hitRate := float64(hits) / float64(total)
-	missRate := float64(misses) / float64(total)
-	log.Debugf("Cache statistics: hits=%d misses=%d adds=%d ejects=%d hitRate=%f%% missRate=%f%%", hits, misses, adds, ejects, hitRate*100, missRate*100)
+	if total == 0 {
+		return &metadata
+	}
+	metadata.HitRate = float64(hits) / float64(total)
+	metadata.MissRate = float64(misses) / float64(total)
+	return &metadata
 }
