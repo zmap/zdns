@@ -42,7 +42,7 @@ func (c *ShardedCacheHash) getShard(k interface{}) *CacheHash {
 	return &c.shards[c.getShardID(k)]
 }
 
-func (c *ShardedCacheHash) Add(k interface{}, v interface{}) bool {
+func (c *ShardedCacheHash) Add(k interface{}, v interface{}) (didExist, didEject bool) {
 	return c.getShard(k).Upsert(k, v)
 }
 
