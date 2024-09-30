@@ -48,16 +48,17 @@ type routineMetadata struct {
 }
 
 type Metadata struct {
-	Names       int            `json:"names"`
-	Lookups     int            `json:"lookups"`
-	Status      map[string]int `json:"statuses"`
-	StartTime   string         `json:"start_time"`
-	EndTime     string         `json:"end_time"`
-	NameServers []string       `json:"name_servers"`
-	Timeout     int            `json:"timeout"`
-	Retries     int            `json:"retries"`
-	Conf        *CLIConf       `json:"conf"`
-	ZDNSVersion string         `json:"zdns_version"`
+	Names           int                           `json:"names"`
+	Lookups         int                           `json:"lookups"`
+	Status          map[string]int                `json:"statuses"`
+	StartTime       string                        `json:"start_time"`
+	EndTime         string                        `json:"end_time"`
+	NameServers     []string                      `json:"name_servers"`
+	Timeout         int                           `json:"timeout"`
+	Retries         int                           `json:"retries"`
+	Conf            *CLIConf                      `json:"conf"`
+	ZDNSVersion     string                        `json:"zdns_version"`
+	CacheStatistics *zdns.CacheStatisticsMetadata `json:"cache_statistics,omitempty"`
 }
 
 func populateCLIConfig(gc *CLIConf) *CLIConf {
@@ -202,6 +203,9 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	}
 	config.Cache = new(zdns.Cache)
 	config.Cache.Init(gc.CacheSize)
+	if gc.Verbosity >= 5 {
+		config.Cache.Stats.CaptureStatistics()
+	}
 	config.Retries = gc.Retries
 	config.MaxDepth = gc.MaxDepth
 	config.CheckingDisabledBit = gc.CheckingDisabled
@@ -533,6 +537,10 @@ func Run(gc CLIConf) {
 	if gc.MetadataFilePath != "" {
 		// we're done processing data. aggregate all the data from individual routines
 		metaData := aggregateMetadata(metaChan)
+		if resolverConfig.Cache.Stats.ShouldCaptureStatistics() {
+			// we only capture cache statistics in verbosity=5 to prevent unnecessary overhead
+			metaData.CacheStatistics = resolverConfig.Cache.Stats.GetStatistics()
+		}
 		metaData.StartTime = startTime
 		metaData.EndTime = time.Now().Format(gc.TimeFormat)
 		metaData.NameServers = gc.NameServers

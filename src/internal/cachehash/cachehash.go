@@ -70,8 +70,9 @@ func (c *CacheHash) Eject() {
 // Upsert upserts a new key-value pair into the cache.
 // If the key already exists, the value is updated and the key is moved to the front of the list.
 // If the key does not exist in the cache, the key-value pair is added to the front of the list.
-// Returns whether the key already existed in the cache.
-func (c *CacheHash) Upsert(k interface{}, v interface{}) bool {
+// Returns whether the key already existed in the cache and if the cache had to eject an entry to insert this one.
+func (c *CacheHash) Upsert(k interface{}, v interface{}) (didExist, didEject bool) {
+	didEject = false
 	var updatedKV keyValue
 	updatedKV.Key = k
 	updatedKV.Value = v
@@ -80,16 +81,17 @@ func (c *CacheHash) Upsert(k interface{}, v interface{}) bool {
 		// update value to have the new value
 		e.Value = updatedKV
 		c.l.MoveToFront(e)
-		return true
+		return true, didEject
 	}
 	if c.len >= c.maxLen {
 		// cache is full, remove oldest key-value pair
+		didEject = true
 		c.Eject()
 	}
 	e = c.l.PushFront(updatedKV)
 	c.len++
 	c.h[k] = e
-	return false
+	return false, didEject
 }
 
 // First returns the key-value pair at the front of the list.
