@@ -44,17 +44,17 @@ type GeneralOptions struct {
 	LookupAllNameServers bool   `long:"all-nameservers" description:"Perform the lookup via all the nameservers for the domain."`
 	CacheSize            int    `long:"cache-size" default:"10000" description:"how many items can be stored in internal recursive cache"`
 	GoMaxProcs           int    `long:"go-processes" default:"0" description:"number of OS processes (GOMAXPROCS by default)"`
-	IterationTimeout     int    `long:"iteration-timeout" default:"4" description:"timeout for a single iterative step in an iterative query, in seconds. Only applicable with --iterative"`
+	IterationTimeout     int    `long:"iteration-timeout" default:"8" description:"timeout for a single iterative step in an iterative query, in seconds. Only applicable with --iterative"`
 	IterativeResolution  bool   `long:"iterative" description:"Perform own iteration instead of relying on recursive resolver"`
 	MaxDepth             int    `long:"max-depth" default:"10" description:"how deep should we recurse when performing iterative lookups"`
 	NameServerMode       bool   `long:"name-server-mode" description:"Treats input as nameservers to query with a static query rather than queries to send to a static name server"`
 	NameServersString    string `long:"name-servers" description:"List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53."`
 	UseNanoseconds       bool   `long:"nanoseconds" description:"Use nanosecond resolution timestamps in output"`
-	NetworkTimeout       int    `long:"network-timeout" default:"2" description:"timeout for network operations, in seconds"`
+	NetworkTimeout       int    `long:"network-timeout" default:"2" description:"timeout for round trip network operations, in seconds"`
 	DisableFollowCNAMEs  bool   `long:"no-follow-cnames" description:"do not follow CNAMEs/DNAMEs in the lookup process"`
-	Retries              int    `long:"retries" default:"1" description:"how many times should zdns retry query against a new nameserver if timeout or temporary failure"`
+	Retries              int    `long:"retries" default:"3" description:"how many times should zdns retry query against a new nameserver if timeout or temporary failure"`
 	Threads              int    `short:"t" long:"threads" default:"100" description:"number of lightweight go threads"`
-	Timeout              int    `long:"timeout" default:"15" description:"timeout for resolving a individual name, in seconds"`
+	Timeout              int    `long:"timeout" default:"20" description:"timeout for resolving a individual name, in seconds"`
 	Version              bool   `long:"version" short:"v" description:"Print the version of zdns and exit"`
 }
 
