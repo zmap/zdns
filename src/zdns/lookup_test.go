@@ -15,6 +15,7 @@ package zdns
 
 import (
 	"encoding/hex"
+	"math/rand"
 	"net"
 	"reflect"
 	"regexp"
@@ -40,8 +41,9 @@ var protocolStatus = make(map[domainNS]Status)
 
 type MockLookupClient struct{}
 
-func (mc MockLookupClient) DoSingleDstServerLookup(r *Resolver, q Question, nameServer *NameServer, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
-	curDomainNs := domainNS{domain: q.Name, ns: nameServer.String()}
+func (mc MockLookupClient) DoDstServersLookup(r *Resolver, q Question, nameServers []NameServer, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
+	ns := nameServers[rand.Intn(len(nameServers))]
+	curDomainNs := domainNS{domain: q.Name, ns: ns.String()}
 	if res, ok := mockResults[curDomainNs]; ok {
 		var status = StatusNoError
 		if protStatus, ok := protocolStatus[curDomainNs]; ok {

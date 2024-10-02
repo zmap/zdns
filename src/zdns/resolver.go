@@ -37,6 +37,7 @@ import (
 const (
 	defaultTimeout               = 15 * time.Second // timeout for resolving a single name
 	defaultIterativeTimeout      = 4 * time.Second  // timeout for single iteration in an iterative query
+	defaultNetworkTimeout        = 2 * time.Second  // timeout for a single on-the-wire network call
 	defaultTransportMode         = UDPOrTCP
 	defaultShouldRecycleSockets  = true
 	defaultLogVerbosity          = 3 // 1 = lowest, 5 = highest
@@ -76,6 +77,7 @@ type ResolverConfig struct {
 	ShouldRecycleSockets  bool
 
 	IterativeTimeout      time.Duration // applicable to iterative queries only, timeout for a single iteration step
+	NetworkTimeout        time.Duration // timeout for a single on-the-wire network call
 	Timeout               time.Duration // timeout for the resolution of a single name
 	MaxDepth              int
 	ExternalNameServersV4 []NameServer // v4 name servers used for external lookups
@@ -235,6 +237,7 @@ func NewResolverConfig() *ResolverConfig {
 
 		Timeout:          defaultTimeout,
 		IterativeTimeout: defaultIterativeTimeout,
+		NetworkTimeout:   defaultNetworkTimeout,
 		MaxDepth:         defaultMaxDepth,
 
 		DNSSecEnabled:       defaultDNSSECEnabled,
@@ -274,8 +277,9 @@ type Resolver struct {
 	iterationIPPreference IterationIPPreference
 	shouldRecycleSockets  bool
 
-	iterativeTimeout           time.Duration
-	timeout                    time.Duration // timeout for the network conns
+	networkTimeout             time.Duration // timeout for a single on-the-wire network call
+	iterativeTimeout           time.Duration // timeout for a layer of the iterative lookup
+	timeout                    time.Duration // timeout for the entire domain lookup
 	maxDepth                   int
 	externalNameServers        []NameServer // name servers used by external lookups (either OS or user specified)
 	rootNameServers            []NameServer // root servers used for iterative lookups
@@ -355,6 +359,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 			r.externalNameServers = append(r.externalNameServers, *ns.DeepCopy())
 		}
 	}
+	r.networkTimeout = config.NetworkTimeout
 	r.iterativeTimeout = config.IterativeTimeout
 	r.maxDepth = config.MaxDepth
 	r.rootNameServers = make([]NameServer, 0, len(config.RootNameServersV4)+len(config.RootNameServersV6))
@@ -590,7 +595,6 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer *NameServer) (*SingleQu
 		log.Fatal("resolver has been closed, cannot perform lookup")
 	}
 	// If dstServer is not provided, AND we're in HTTPS/TLS/TCP mode, AND we have a pre-existing external name server, use it
-
 	if dstServer == nil && r.lastUsedExternalNameServer == nil {
 		dstServer = r.randomExternalNameServer()
 		log.Info("no name server provided for external lookup, using  random external name server: ", dstServer)
@@ -604,7 +608,7 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer *NameServer) (*SingleQu
 	}
 	// dstServer has been validated and has a port, continue with lookup
 	r.lastUsedExternalNameServer = dstServer
-	lookup, trace, status, err := r.lookupClient.DoSingleDstServerLookup(r, *q, dstServer, false)
+	lookup, trace, status, err := r.lookupClient.DoDstServersLookup(r, *q, []NameServer{*dstServer}, false)
 	return lookup, trace, status, err
 }
 
@@ -618,7 +622,7 @@ func (r *Resolver) IterativeLookup(q *Question) (*SingleQueryResult, Trace, Stat
 	if r.isClosed {
 		log.Fatal("resolver has been closed, cannot perform lookup")
 	}
-	return r.lookupClient.DoSingleDstServerLookup(r, *q, r.randomRootNameServer(), true)
+	return r.lookupClient.DoDstServersLookup(r, *q, r.rootNameServers, true)
 }
 
 // Close cleans up any resources used by the resolver. This should be called when the resolver is no longer needed.
@@ -680,14 +684,6 @@ func (r *Resolver) randomExternalNameServer() *NameServer {
 		log.Fatal("no external name servers specified")
 	}
 	return &r.externalNameServers[rand.Intn(l)]
-}
-
-func (r *Resolver) randomRootNameServer() *NameServer {
-	l := len(r.rootNameServers)
-	if r.rootNameServers == nil || l == 0 {
-		log.Fatal("no root name servers specified")
-	}
-	return &r.rootNameServers[rand.Intn(l)]
 }
 
 func (r *Resolver) verboseLog(depth int, args ...interface{}) {

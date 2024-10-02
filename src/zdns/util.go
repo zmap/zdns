@@ -43,6 +43,11 @@ func isStatusAnswer(s Status) bool {
 	return false
 }
 
+// getTryNumber returns the one-indexed try that the lookup succeeded on
+func getTryNumber(totalRetries, retriesRemaining int) int {
+	return totalRetries - retriesRemaining + 1
+}
+
 func nameIsBeneath(name, layer string) (bool, string) {
 	name = strings.ToLower(name)
 	layer = strings.ToLower(layer)

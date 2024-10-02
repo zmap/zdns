@@ -26,6 +26,12 @@ type DNSFlags struct {
 	ErrorCode          int  `json:"error_code" groups:"flags,long,trace"`
 }
 
+// QuestionWithMetadata wraps a DNS question with other metadata to be used in the lookup process
+type QuestionWithMetadata struct {
+	Q                Question
+	RetriesRemaining *int // number of retries available
+}
+
 type Question struct {
 	Type  uint16
 	Class uint16

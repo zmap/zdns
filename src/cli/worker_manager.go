@@ -191,6 +191,7 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	}
 
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
+	config.NetworkTimeout = time.Second * time.Duration(gc.NetworkTimeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
 	config.LookupAllNameServers = gc.LookupAllNameServers
 	config.FollowCNAMEs = !gc.DisableFollowCNAMEs // ZFlags only allows default-false bool flags. We'll invert here.
