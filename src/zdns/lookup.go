@@ -540,24 +540,25 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 		return &SingleQueryResult{}, false, StatusError, fmt.Errorf("no connection info for nameserver: %s", nameServer)
 	}
 	var result *SingleQueryResult
+	var rawResp *dns.Msg
 	var status Status
 	if r.dnsOverHTTPSEnabled {
 		r.verboseLog(1, "****WIRE LOOKUP*** ", DoHProtocol, " ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
-		result, status, err = doDoHLookup(lookupCtx, connInfo.httpsClient, q, nameServer, requestIteration, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
+		result, rawResp, status, err = doDoHLookup(lookupCtx, connInfo.httpsClient, q, nameServer, requestIteration, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
 	} else if r.dnsOverTLSEnabled {
 		r.verboseLog(1, "****WIRE LOOKUP*** ", DoTProtocol, " ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
-		result, status, err = doDoTLookup(lookupCtx, connInfo, q, nameServer, r.rootCAs, r.verifyServerCert, requestIteration, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
+		result, rawResp, status, err = doDoTLookup(lookupCtx, connInfo, q, nameServer, r.rootCAs, r.verifyServerCert, requestIteration, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
 	} else if connInfo.udpClient != nil {
 		r.verboseLog(1, "****WIRE LOOKUP*** ", UDPProtocol, " ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
-		result, status, err = wireLookupUDP(lookupCtx, connInfo, q, nameServer, r.ednsOptions, requestIteration, r.dnsSecEnabled, r.checkingDisabledBit)
+		result, rawResp, status, err = wireLookupUDP(lookupCtx, connInfo, q, nameServer, r.ednsOptions, requestIteration, r.dnsSecEnabled, r.checkingDisabledBit)
 		if status == StatusTruncated && connInfo.tcpClient != nil {
 			// result truncated, try again with TCP
 			r.verboseLog(1, "****WIRE LOOKUP*** ", TCPProtocol, " ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
-			result, status, err = wireLookupTCP(lookupCtx, connInfo, q, nameServer, r.ednsOptions, requestIteration, r.dnsSecEnabled, r.checkingDisabledBit)
+			result, rawResp, status, err = wireLookupTCP(lookupCtx, connInfo, q, nameServer, r.ednsOptions, requestIteration, r.dnsSecEnabled, r.checkingDisabledBit)
 		}
 	} else if connInfo.tcpClient != nil {
 		r.verboseLog(1, "****WIRE LOOKUP*** ", TCPProtocol, " ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
-		result, status, err = wireLookupTCP(lookupCtx, connInfo, q, nameServer, r.ednsOptions, requestIteration, r.dnsSecEnabled, r.checkingDisabledBit)
+		result, rawResp, status, err = wireLookupTCP(lookupCtx, connInfo, q, nameServer, r.ednsOptions, requestIteration, r.dnsSecEnabled, r.checkingDisabledBit)
 	} else {
 		return &SingleQueryResult{}, false, StatusError, errors.New("no connection info for nameserver")
 	}
@@ -580,7 +581,7 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 	return result, isCached, status, err
 }
 
-func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, rootCAs *x509.CertPool, shouldVerifyServerCert, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (*SingleQueryResult, Status, error) {
+func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, rootCAs *x509.CertPool, shouldVerifyServerCert, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (*SingleQueryResult, *dns.Msg, Status, error) {
 	m := new(dns.Msg)
 	m.SetQuestion(dotName(q.Name), q.Type)
 	m.Question[0].Qclass = q.Class
@@ -613,7 +614,7 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 		}
 		tcpConn, err := dialer.DialContext(ctx, "tcp", nameServer.String())
 		if err != nil {
-			return nil, StatusError, errors.Wrap(err, "could not connect to server")
+			return nil, nil, StatusError, errors.Wrap(err, "could not connect to server")
 		}
 		// Now wrap the connection with TLS
 		tlsConn := tls.Client(tcpConn, &tls.Config{
@@ -633,18 +634,18 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 			if closeErr != nil {
 				log.Errorf("error closing TLS connection: %v", err)
 			}
-			return nil, StatusError, errors.Wrap(err, "could not perform TLS handshake")
+			return nil, nil, StatusError, errors.Wrap(err, "could not perform TLS handshake")
 		}
 		connInfo.tlsHandshake = tlsConn.GetHandshakeLog()
 		connInfo.tlsConn = &dns.Conn{Conn: tlsConn}
 	}
 	err := connInfo.tlsConn.WriteMsg(m)
 	if err != nil {
-		return nil, "", errors.Wrap(err, "could not write query over DoT to server")
+		return nil, nil, "", errors.Wrap(err, "could not write query over DoT to server")
 	}
 	responseMsg, err := connInfo.tlsConn.ReadMsg()
 	if err != nil {
-		return nil, StatusError, errors.Wrap(err, "could not unpack DNS message from DoT server")
+		return nil, nil, StatusError, errors.Wrap(err, "could not unpack DNS message from DoT server")
 	}
 	res := SingleQueryResult{
 		Resolver:    connInfo.tlsConn.Conn.RemoteAddr().String(),
@@ -666,7 +667,7 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 	return constructSingleQueryResultFromDNSMsg(&res, responseMsg)
 }
 
-func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameServer *NameServer, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (*SingleQueryResult, Status, error) {
+func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameServer *NameServer, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (*SingleQueryResult, *dns.Msg, Status, error) {
 	m := new(dns.Msg)
 	m.SetQuestion(dotName(q.Name), q.Type)
 	m.Question[0].Qclass = q.Class
@@ -679,10 +680,10 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 	}
 	bytes, err := m.Pack()
 	if err != nil {
-		return nil, StatusError, errors.Wrap(err, "could not pack DNS message")
+		return nil, nil, StatusError, errors.Wrap(err, "could not pack DNS message")
 	}
 	if strings.Contains(nameServer.DomainName, "http://") {
-		return nil, StatusError, errors.New("DoH name server must use HTTPS")
+		return nil, nil, StatusError, errors.New("DoH name server must use HTTPS")
 	}
 	httpsDomain := nameServer.DomainName
 	if !strings.HasPrefix(httpsDomain, "https://") {
@@ -693,14 +694,14 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 	}
 	req, err := http.NewRequest("POST", httpsDomain, strings.NewReader(string(bytes)))
 	if err != nil {
-		return nil, StatusError, errors.Wrap(err, "could not create HTTP request")
+		return nil, nil, StatusError, errors.Wrap(err, "could not create HTTP request")
 	}
 	req.Header.Set("Content-Type", "application/dns-message")
 	req.Header.Set("Accept", "application/dns-message")
 	req = req.WithContext(ctx)
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return nil, StatusError, errors.Wrap(err, "could not perform HTTP request")
+		return nil, nil, StatusError, errors.Wrap(err, "could not perform HTTP request")
 	}
 	defer func(Body io.ReadCloser) {
 		err = Body.Close()
@@ -710,13 +711,13 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 	}(resp.Body)
 	bytes, err = io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, StatusError, errors.Wrap(err, "could not read HTTP response")
+		return nil, nil, StatusError, errors.Wrap(err, "could not read HTTP response")
 	}
 
 	r := new(dns.Msg)
 	err = r.Unpack(bytes)
 	if err != nil {
-		return nil, StatusError, errors.Wrap(err, "could not unpack DNS message")
+		return nil, nil, StatusError, errors.Wrap(err, "could not unpack DNS message")
 	}
 	res := SingleQueryResult{
 		Resolver:    nameServer.DomainName,
@@ -738,7 +739,7 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 }
 
 // wireLookupTCP performs a DNS lookup on-the-wire over TCP with the given parameters
-func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, ednsOptions []dns.EDNS0, recursive, dnssec, checkingDisabled bool) (*SingleQueryResult, Status, error) {
+func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, ednsOptions []dns.EDNS0, recursive, dnssec, checkingDisabled bool) (*SingleQueryResult, *dns.Msg, Status, error) {
 	res := SingleQueryResult{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 	res.Resolver = nameServer.String()
 
@@ -761,7 +762,7 @@ func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, na
 		var addr *net.TCPAddr
 		addr, err = net.ResolveTCPAddr("tcp", nameServer.String())
 		if err != nil {
-			return nil, StatusError, fmt.Errorf("could not resolve TCP address %s: %v", nameServer.String(), err)
+			return nil, nil, StatusError, fmt.Errorf("could not resolve TCP address %s: %v", nameServer.String(), err)
 		}
 		r, _, err = connInfo.tcpClient.ExchangeWithConnToContext(ctx, m, connInfo.tcpConn, addr)
 		if err != nil && err.Error() == "EOF" {
@@ -782,17 +783,17 @@ func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, na
 	if err != nil || r == nil {
 		if nerr, ok := err.(net.Error); ok {
 			if nerr.Timeout() {
-				return &res, StatusTimeout, nil
+				return &res, r, StatusTimeout, nil
 			}
 		}
-		return &res, StatusError, err
+		return &res, r, StatusError, err
 	}
 
 	return constructSingleQueryResultFromDNSMsg(&res, r)
 }
 
 // wireLookupUDP performs a DNS lookup on-the-wire over UDP with the given parameters
-func wireLookupUDP(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, ednsOptions []dns.EDNS0, recursive, dnssec, checkingDisabled bool) (*SingleQueryResult, Status, error) {
+func wireLookupUDP(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, ednsOptions []dns.EDNS0, recursive, dnssec, checkingDisabled bool) (*SingleQueryResult, *dns.Msg, Status, error) {
 	res := SingleQueryResult{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
 	res.Resolver = nameServer.String()
 	res.Protocol = "udp"
@@ -817,22 +818,22 @@ func wireLookupUDP(ctx context.Context, connInfo *ConnectionInfo, q Question, na
 		r, _, err = connInfo.udpClient.ExchangeContext(ctx, m, nameServer.String())
 	}
 	if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
-		return &res, StatusTruncated, err
+		return &res, r, StatusTruncated, err
 	}
 	if err != nil || r == nil {
 		if nerr, ok := err.(net.Error); ok {
 			if nerr.Timeout() {
-				return &res, StatusTimeout, nil
+				return &res, r, StatusTimeout, nil
 			}
 		}
-		return &res, StatusError, err
+		return &res, r, StatusError, err
 	}
 
 	return constructSingleQueryResultFromDNSMsg(&res, r)
 }
 
 // fills out all the fields in a SingleQueryResult from a dns.Msg directly.
-func constructSingleQueryResultFromDNSMsg(res *SingleQueryResult, r *dns.Msg) (*SingleQueryResult, Status, error) {
+func constructSingleQueryResultFromDNSMsg(res *SingleQueryResult, r *dns.Msg) (*SingleQueryResult, *dns.Msg, Status, error) {
 	if r.Rcode != dns.RcodeSuccess {
 		for _, ans := range r.Extra {
 			inner := ParseAnswer(ans)
@@ -840,7 +841,7 @@ func constructSingleQueryResultFromDNSMsg(res *SingleQueryResult, r *dns.Msg) (*
 				res.Additional = append(res.Additional, inner)
 			}
 		}
-		return res, TranslateDNSErrorCode(r.Rcode), nil
+		return res, r, TranslateDNSErrorCode(r.Rcode), nil
 	}
 
 	res.Flags.Response = r.Response
@@ -871,7 +872,7 @@ func constructSingleQueryResultFromDNSMsg(res *SingleQueryResult, r *dns.Msg) (*
 			res.Authorities = append(res.Authorities, inner)
 		}
 	}
-	return res, StatusNoError, nil
+	return res, r, StatusNoError, nil
 }
 
 func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *QuestionWithMetadata, depth int, result *SingleQueryResult, layer string, trace Trace) (*SingleQueryResult, Trace, Status, error) {
