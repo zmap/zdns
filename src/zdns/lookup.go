@@ -33,6 +33,11 @@ import (
 	"github.com/zmap/zdns/src/internal/util"
 )
 
+const (
+	zoneSigningKeyFlag = 256
+	keySigningKeyFlag  = 257
+)
+
 // GetDNSServers returns a list of IPv4, IPv6 DNS servers from a file, or an error if one occurs
 func GetDNSServers(path string) (ipv4, ipv6 []string, err error) {
 	c, err := dns.ClientConfigFromFile(path)
@@ -569,6 +574,14 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 	r.verboseLog(depth+2, "Results from wire for name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer, " status: ", status, " , err: ", err, " result: ", result)
 
 	if status == StatusNoError && result != nil {
+		if r.dnsSecEnabled {
+			validated, err := r.validateChainOfDNSSECTrust(ctx, rawResp, q, nameServer, !requestIteration, depth+2)
+			r.verboseLog(depth+2, "DNSSEC validation result: ", validated, " err: ", err)
+			if err != nil {
+				return result, isCached, StatusError, errors.Wrap(err, "could not validate chain of DNSSEC trust")
+			}
+		}
+
 		// only cache answers that don't have errors
 		if !requestIteration && strings.ToLower(q.Name) != layer && authName != layer && !result.Flags.Authoritative { // TODO - how to detect if we've retrieved an authority record or a answer record? maybe add q.Name != authName
 			r.verboseLog(depth+2, "Cache auth upsert for ", authName)
@@ -990,6 +1003,122 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 		}
 	}
 	return nil, StatusServFail, layer, trace
+}
+
+func (r *Resolver) validateChainOfDNSSECTrust(ctx context.Context, msg *dns.Msg, q Question, nameServer *NameServer, isIterative bool, depth int) (bool, error) {
+	typeToRRSets := make(map[uint16][]dns.RR)
+	typeToRRSigs := make(map[uint16][]*dns.RRSIG)
+
+	// Extract all the RRSets from the message
+	for _, rr := range msg.Answer {
+		rrType := rr.Header().Rrtype
+		if rrType == dns.TypeRRSIG {
+			rrSig := rr.(*dns.RRSIG)
+			typeToRRSigs[rrSig.TypeCovered] = append(typeToRRSigs[rrSig.TypeCovered], rrSig)
+		} else {
+			typeToRRSets[rrType] = append(typeToRRSets[rrType], rr)
+		}
+	}
+
+	// Shortcut checks on RRSIG cardinality
+	if len(typeToRRSigs) == 0 {
+		// No RRSIGs, possibly because DNSSEC is not enabled... or we are hijacked
+		r.verboseLog(depth+1, "DNSSEC: No RRSIGs found")
+		return false, nil
+	}
+
+	if len(typeToRRSets) != len(typeToRRSigs) {
+		return false, errors.New("mismatched number of RRsets and RRSIGs")
+	}
+
+	// Verify if for each RRset there is a corresponding RRSIG
+	for rrType := range typeToRRSets {
+		if _, ok := typeToRRSigs[rrType]; !ok {
+			return false, fmt.Errorf("found RRset for type %s but no RRSIG", dns.TypeToString[rrType])
+		}
+	}
+
+	r.verboseLog(depth+1, fmt.Sprintf("DNSSEC: Found %d RRsets and %d RRSIGs", len(typeToRRSets), len(typeToRRSigs)))
+
+	if q.Type == dns.TypeDNSKEY {
+		// Find Key Signing Key (KSK) and Zone Signing Key (ZSK)
+		var ksk *dns.DNSKEY
+		for _, rr := range typeToRRSets[dns.TypeDNSKEY] {
+			dnskey := rr.(*dns.DNSKEY)
+			if dnskey.Flags == keySigningKeyFlag {
+				ksk = dnskey
+			} else if dnskey.Flags == zoneSigningKeyFlag {
+				continue
+			} else {
+				return false, fmt.Errorf("unknown DNSKEY flag: %d", dnskey.Flags)
+			}
+		}
+
+		if ksk == nil {
+			return false, errors.New("could not find KSK")
+		}
+
+		// Verify the RRSIGs for the DNSKEY RRset
+		// TODO: key tag?
+		if err := typeToRRSigs[dns.TypeDNSKEY][0].Verify(ksk, typeToRRSets[dns.TypeDNSKEY]); err != nil {
+			return false, errors.Wrap(err, "could not verify DNSKEY RRSIG")
+		}
+
+		// TODO: we'll just trust KSK for now (but we should find DS record and verify it)
+
+		return true, nil
+	}
+
+	// Gather DNSKEYs
+	// TODO: > 1 ZSK?
+	var zsk *dns.DNSKEY
+	retries := r.retries
+	dnskeyQuestion := QuestionWithMetadata{
+		Q: Question{
+			Name:  q.Name,
+			Type:  dns.TypeDNSKEY,
+			Class: q.Class,
+		},
+		RetriesRemaining: &retries,
+	}
+	res, _, status, err := r.lookup(ctx, &dnskeyQuestion, []NameServer{*nameServer}, isIterative)
+	if status != StatusNoError || err != nil {
+		return false, fmt.Errorf("cannot get DNSKEYs, status: %s, err: %v", status, err)
+	}
+
+	// Type converting ZSK
+	for _, rr := range res.Answers {
+		switch rr := rr.(type) {
+		case DNSKEYAnswer:
+			// We don't care about KSK here. It must have been validated during DNSKEY lookup.
+			if rr.Flags == 256 { // TODO: magic number
+				zsk = &dns.DNSKEY{
+					Hdr:       dns.RR_Header{Name: dns.CanonicalName(rr.Name), Rrtype: rr.RrType, Class: dns.StringToClass[rr.Class], Ttl: rr.TTL},
+					Flags:     rr.Flags,
+					Protocol:  rr.Protocol,
+					Algorithm: rr.Algorithm,
+					PublicKey: rr.PublicKey,
+				}
+			}
+		case RRSIGAnswer:
+			continue // It's normal to have RRSIGs in any DNSSEC-enabled response.
+		default:
+			r.verboseLog(depth+1, fmt.Sprintf("DNSSEC: Found unexpected RRset in DNSKEY answer: %v", rr))
+			continue
+		}
+	}
+
+	// Verify the RRSIGs for each RRset
+	for rrType, rrSet := range typeToRRSets {
+		sig := typeToRRSigs[rrType][0]
+		// TODO should make use of sig.KeyTag.
+		r.verboseLog(depth+1, fmt.Sprintf("DNSSEC: Verifying RRSIG for type %s", dns.TypeToString[rrType]))
+		if err := sig.Verify(zsk, rrSet); err != nil {
+			return false, errors.Wrapf(err, "could not verify RRSIG for type %s", dns.TypeToString[rrType])
+		}
+	}
+
+	return true, nil
 }
 
 // CheckTxtRecords common function for all modules based on search in TXT record
