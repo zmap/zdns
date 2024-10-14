@@ -570,7 +570,7 @@ class Tests(unittest.TestCase):
             "cert_usage": 3,
             "selector": 1,
             "matching_type": 1,
-            "certificate": "c1e715b41a893a35c8310e746552a6cd51ebaeadb2bf01d6e38e773f7adebe90"
+            "certificate": "2a8f1dbc25611cd32da057c5dde9c4d55db6dd9b386b402ede4b7507d93ede8d"
         }, {
             "type": "TLSA",
             "class": "IN",
@@ -578,7 +578,7 @@ class Tests(unittest.TestCase):
             "cert_usage": 3,
             "selector": 1,
             "matching_type": 1,
-            "certificate": "2a8f1dbc25611cd32da057c5dde9c4d55db6dd9b386b402ede4b7507d93ede8d"
+            "certificate": "b05d5a0b10095ab7d38710aa70b85c5227cfb9cae23c93ee2bf8fdbedfffdb39"
         }
     ]
 
