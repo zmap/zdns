@@ -1,6 +1,9 @@
 all: zdns
 
-zdns:
+generate:
+	go generate ./...
+
+zdns: generate
 	go build -o zdns
 
 clean:
