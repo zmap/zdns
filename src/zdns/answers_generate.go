@@ -27,10 +27,9 @@ package zdns
 `
 
 var baseAnsFunc = template.Must(template.New("answerHeaderFunc").Parse(`
-func (ans *Answer) BaseAns() *Answer { return ans }
-{{range .}}  func (ans *{{.}}) BaseAns() *Answer { return &ans.Answer }
+func (ans Answer) BaseAns() *Answer { return &ans }
+{{range .}}  func (ans {{.}}) BaseAns() *Answer { return &ans.Answer }
 {{end}}
-
 `))
 
 func main() {
