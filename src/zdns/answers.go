@@ -24,6 +24,12 @@ import (
 	"github.com/miekg/dns"
 )
 
+//go:generate go run answers_generate.go
+
+type WithBaseAnswer interface {
+	BaseAns() *Answer
+}
+
 type Answer struct {
 	TTL     uint32 `json:"ttl" groups:"ttl,normal,long,trace"`
 	Type    string `json:"type,omitempty" groups:"short,normal,long,trace"`
