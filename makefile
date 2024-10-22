@@ -1,6 +1,9 @@
 all: zdns
 
-zdns:
+generate:
+	go generate ./...
+
+zdns: generate
 	go build -o zdns
 
 clean:
@@ -37,5 +40,5 @@ benchmark: zdns
 
 ci: zdns lint test integration-tests license-check
 
-.PHONY: zdns clean test integration-tests lint ci license-check benchmark
+.PHONY: generate zdns clean test integration-tests lint ci license-check benchmark
 
