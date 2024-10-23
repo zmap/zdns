@@ -896,13 +896,18 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 	newTrace := trace
 	nameServers := make([]NameServer, 0, len(result.Authorities))
 	for i, elem := range result.Authorities {
+		if _, ok := elem.(DSAnswer); ok {
+			// DS records are not nameservers, skip them
+			continue
+		}
+
 		if util.HasCtxExpired(&ctx) {
 			return &SingleQueryResult{}, newTrace, StatusTimeout, nil
 		}
 		var ns *NameServer
 		var nsStatus Status
 		r.verboseLog(depth+1, "Trying Authority: ", elem)
-		ns, nsStatus, newLayer, newTrace = r.extractAuthority(ctx, elem, layer, qWithMeta.RetriesRemaining, depth, result, newTrace)
+		ns, nsStatus, nextLayer, newTrace := r.extractAuthority(ctx, elem, layer, qWithMeta.RetriesRemaining, depth, result, newTrace)
 		r.verboseLog(depth+1, "Output from extract authorities: ", ns.String())
 		if nsStatus == StatusIterTimeout {
 			r.verboseLog(depth+2, "--> Hit iterative timeout: ")
@@ -921,6 +926,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 			}
 		} else {
 			// We have a valid nameserver
+			newLayer = nextLayer
 			nameServers = append(nameServers, *ns)
 		}
 	}
