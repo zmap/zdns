@@ -78,12 +78,43 @@ type DNSKEYAnswer struct {
 	PublicKey string `json:"public_key" groups:"short,normal,long,trace"`
 }
 
+func (r *DNSKEYAnswer) ToVanillaType() *dns.DNSKEY {
+	return &dns.DNSKEY{
+		Hdr: dns.RR_Header{
+			Name:   dns.CanonicalName(r.Name),
+			Rrtype: r.RrType,
+			Class:  dns.StringToClass[r.Class],
+			Ttl:    r.TTL,
+		},
+		Flags:     r.Flags,
+		Protocol:  r.Protocol,
+		Algorithm: r.Algorithm,
+		PublicKey: r.PublicKey,
+	}
+}
+
 type DSAnswer struct {
 	Answer
 	KeyTag     uint16 `json:"key_tag" groups:"short,normal,long,trace"`
 	Algorithm  uint8  `json:"algorithm" groups:"short,normal,long,trace"`
 	DigestType uint8  `json:"digest_type" groups:"short,normal,long,trace"`
 	Digest     string `json:"digest" groups:"short,normal,long,trace"`
+}
+
+func (r *DSAnswer) ToVanillaType() *dns.DS {
+	return &dns.DS{
+		Hdr: dns.RR_Header{
+
+			Name:   dns.CanonicalName(r.Name),
+			Rrtype: r.RrType,
+			Class:  dns.StringToClass[r.Class],
+			Ttl:    r.TTL,
+		},
+		KeyTag:     r.KeyTag,
+		Algorithm:  r.Algorithm,
+		DigestType: r.DigestType,
+		Digest:     r.Digest,
+	}
 }
 
 type GPOSAnswer struct {
@@ -184,6 +215,36 @@ type RRSIGAnswer struct {
 	KeyTag      uint16 `json:"keytag" groups:"short,normal,long,trace"`
 	SignerName  string `json:"signer_name" groups:"short,normal,long,trace"`
 	Signature   string `json:"signature" groups:"short,normal,long,trace"`
+}
+
+func (r *RRSIGAnswer) ToVanillaType() *dns.RRSIG {
+	expiration, err := dns.StringToTime(r.Expiration)
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse expiration time: %s", r.Expiration))
+	}
+
+	inception, err := dns.StringToTime(r.Inception)
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse inception time: %s", r.Inception))
+	}
+
+	return &dns.RRSIG{
+		Hdr: dns.RR_Header{
+			Name:   dns.CanonicalName(r.Name),
+			Rrtype: r.RrType,
+			Class:  dns.StringToClass[r.Class],
+			Ttl:    r.TTL,
+		},
+		TypeCovered: r.TypeCovered,
+		Algorithm:   r.Algorithm,
+		Labels:      r.Labels,
+		OrigTtl:     r.OriginalTTL,
+		Expiration:  expiration,
+		Inception:   inception,
+		KeyTag:      r.KeyTag,
+		SignerName:  r.SignerName,
+		Signature:   r.Signature,
+	}
 }
 
 type RPAnswer struct {
