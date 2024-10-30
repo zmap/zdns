@@ -29,6 +29,9 @@ import (
 const ZDNSVersion = "1.1.0"
 
 func dotName(name string) string {
+	if strings.HasSuffix(name, ".") {
+		log.Fatal("name already has trailing dot")
+	}
 	return strings.Join([]string{name, "."}, "")
 }
 
