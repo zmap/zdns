@@ -17,7 +17,7 @@ require (
 	gotest.tools/v3 v3.5.1
 )
 
-replace github.com/miekg/dns => github.com/zmap/dns v1.1.63-zdns
+replace github.com/miekg/dns => github.com/zmap/dns v1.1.63-zdns1
 
 require (
 	github.com/asergeyev/nradix v0.0.0-20220715161825-e451993e425c // indirect
@@ -36,7 +36,6 @@ require (
 	github.com/prometheus/procfs v0.9.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/weppos/publicsuffix-go v0.40.2 // indirect
-	github.com/zmap/dns v1.1.63 // indirect
 	github.com/zmap/rc2 v0.0.0-20190804163417-abaa70531248 // indirect
 	golang.org/x/crypto v0.26.0 // indirect
 	golang.org/x/mod v0.18.0 // indirect
