@@ -108,7 +108,7 @@ func (r *Resolver) doDstServersLookup(q Question, nameServers []NameServer, isIt
 		return r.followingLookup(ctx, &questionWithMeta, nameServers, isIterative)
 	}
 	var trace Trace
-	res, trace, status, err := r.lookup(ctx, &questionWithMeta, nameServers, isIterative, trace, 1)
+	res, trace, status, err := r.lookup(ctx, &questionWithMeta, nameServers, isIterative, trace)
 	if err != nil {
 		return res, nil, status, fmt.Errorf("could not perform retrying lookup for name %v: %w", q.Name, err)
 	}
@@ -116,7 +116,7 @@ func (r *Resolver) doDstServersLookup(q Question, nameServers []NameServer, isIt
 }
 
 // lookup performs a DNS lookup for a given question against a slice of interchangeable nameservers, taking care of iterative and external lookups
-func (r *Resolver) lookup(ctx context.Context, qWithMeta *QuestionWithMetadata, nameServers []NameServer, isIterative bool, trace Trace, depth int) (*SingleQueryResult, Trace, Status, error) {
+func (r *Resolver) lookup(ctx context.Context, qWithMeta *QuestionWithMetadata, nameServers []NameServer, isIterative bool, trace Trace) (*SingleQueryResult, Trace, Status, error) {
 	var res *SingleQueryResult
 	var isCached IsCached
 	var status Status
@@ -125,15 +125,15 @@ func (r *Resolver) lookup(ctx context.Context, qWithMeta *QuestionWithMetadata, 
 		return res, trace, StatusTimeout, nil
 	}
 	if isIterative {
-		r.verboseLog(depth, "MIEKG-IN: following iterative lookup for ", qWithMeta.Q.Name, " (", qWithMeta.Q.Type, ")")
-		res, trace, status, err = r.iterativeLookup(ctx, qWithMeta, nameServers, depth, ".", trace)
-		r.verboseLog(depth, "MIEKG-OUT: following iterative lookup for ", qWithMeta.Q.Name, " (", qWithMeta.Q.Type, "): status: ", status, " , err: ", err)
+		r.verboseLog(1, "MIEKG-IN: following iterative lookup for ", qWithMeta.Q.Name, " (", qWithMeta.Q.Type, ")")
+		res, trace, status, err = r.iterativeLookup(ctx, qWithMeta, nameServers, 1, ".", trace)
+		r.verboseLog(1, "MIEKG-OUT: following iterative lookup for ", qWithMeta.Q.Name, " (", qWithMeta.Q.Type, "): status: ", status, " , err: ", err)
 	} else {
 		tries := 0
 		// external lookup
-		r.verboseLog(depth, "MIEKG-IN: following external lookup for ", qWithMeta.Q.Name, " (", qWithMeta.Q.Type, ")")
-		res, isCached, status, trace, err = r.cyclingLookup(ctx, qWithMeta, nameServers, qWithMeta.Q.Name, depth, true, trace)
-		r.verboseLog(depth, "MIEKG-OUT: following external lookup for ", qWithMeta.Q.Name, " (", qWithMeta.Q.Type, ") with ", tries, " attempts: status: ", status, " , err: ", err)
+		r.verboseLog(1, "MIEKG-IN: following external lookup for ", qWithMeta.Q.Name, " (", qWithMeta.Q.Type, ")")
+		res, isCached, status, trace, err = r.cyclingLookup(ctx, qWithMeta, nameServers, qWithMeta.Q.Name, 1, true, trace)
+		r.verboseLog(1, "MIEKG-OUT: following external lookup for ", qWithMeta.Q.Name, " (", qWithMeta.Q.Type, ") with ", tries, " attempts: status: ", status, " , err: ", err)
 		var t TraceStep
 		// TODO check for null res
 		if res != nil {
@@ -146,7 +146,7 @@ func (r *Resolver) lookup(ctx context.Context, qWithMeta *QuestionWithMetadata, 
 		t.DNSClass = qWithMeta.Q.Class
 		t.Name = qWithMeta.Q.Name
 		t.Layer = qWithMeta.Q.Name
-		t.Depth = depth
+		t.Depth = 1
 		t.Cached = isCached
 		t.Try = tries
 		trace = append(trace, t)
@@ -175,7 +175,7 @@ func (r *Resolver) followingLookup(ctx context.Context, qWithMeta *QuestionWithM
 	r.verboseLog(0, "MIEKG-IN: starting a C/DNAME following lookup for ", originalName, " (", qWithMeta.Q.Type, ")")
 	for i := 0; i < r.maxDepth; i++ {
 		qWithMeta.Q.Name = currName // update the question with the current name, this allows following CNAMEs
-		iterRes, trace, iterStatus, lookupErr := r.lookup(ctx, qWithMeta, nameServers, isIterative, trace, 1)
+		iterRes, trace, iterStatus, lookupErr := r.lookup(ctx, qWithMeta, nameServers, isIterative, trace)
 		if iterStatus != StatusNoError || lookupErr != nil {
 			if i == 0 {
 				// only have 1 result to return
