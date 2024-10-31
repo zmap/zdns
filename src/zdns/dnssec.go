@@ -137,7 +137,7 @@ func (r *Resolver) getDNSKEYs(ctx context.Context, signerDomain string, nameServ
 		RetriesRemaining: &retries,
 	}
 
-	res, trace, status, err := r.lookup(ctx, &dnskeyQuestion, []NameServer{*nameServer}, isIterative, trace, depth)
+	res, trace, status, err := r.lookup(ctx, &dnskeyQuestion, []NameServer{*nameServer}, isIterative, trace)
 	if status != StatusNoError || err != nil {
 		return nil, nil, trace, fmt.Errorf("cannot get DNSKEYs for signer domain %s, status: %s, err: %v", signerDomain, status, err)
 	}
