@@ -17,7 +17,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/zmap/dns"
+	"github.com/miekg/dns"
 
 	"github.com/stretchr/testify/assert"
 )

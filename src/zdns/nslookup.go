@@ -16,8 +16,8 @@ package zdns
 import (
 	"strings"
 
+	"github.com/miekg/dns"
 	"github.com/pkg/errors"
-	"github.com/zmap/dns"
 )
 
 /*

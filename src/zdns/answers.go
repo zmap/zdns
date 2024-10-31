@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/zmap/dns"
+	"github.com/miekg/dns"
 )
 
 type Answer struct {

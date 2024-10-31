@@ -20,9 +20,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/miekg/dns"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/zmap/dns"
 )
 
 func populateNetworkingConfig(gc *CLIConf) error {

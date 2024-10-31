@@ -18,7 +18,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/zmap/dns"
+	"github.com/miekg/dns"
 	"gotest.tools/v3/assert"
 
 	"github.com/zmap/zdns/src/zdns"

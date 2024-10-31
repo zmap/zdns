@@ -23,7 +23,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/zmap/dns"
+	"github.com/miekg/dns"
 )
 
 const ZDNSVersion = "1.1.0"
