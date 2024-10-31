@@ -887,9 +887,10 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 	newTrace := trace
 	nameServers := make([]NameServer, 0, len(result.Authorities))
 	for i, elem := range result.Authorities {
-		if _, ok := elem.(DSAnswer); ok {
-			// DS records are not nameservers but may present in the section
-			// https://datatracker.ietf.org/doc/html/rfc4035#section-3.1.4
+		// Skip DS and RRSIG records as they are not nameservers but may present in the section
+		// https://datatracker.ietf.org/doc/html/rfc4035#section-3.1.4
+		switch elem.(type) {
+		case DSAnswer, RRSIGAnswer:
 			continue
 		}
 
