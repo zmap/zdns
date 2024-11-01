@@ -140,7 +140,10 @@ func marshalIntSlice(v interface{}) ([]byte, error) {
 			case uint8:
 				converted := make([]byte, len(v))
 				for i, val := range v {
-					converted[i] = val.(byte)
+					converted[i], ok = val.(byte)
+				}
+				if !ok {
+					return nil, errors.New("failed to convert interface to byte (uint8)")
 				}
 				return converted, nil
 			case uint16:
