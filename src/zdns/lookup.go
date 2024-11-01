@@ -505,7 +505,8 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 			r.verboseLog(depth+2, err)
 			return &SingleQueryResult{}, isCached, StatusAuthFail, trace, errors.Wrap(err, "could not get next authority with name: "+name+" and layer: "+layer)
 		}
-		if name != layer && authName != layer {
+		// DS records are special, we need to query the parent zone and therefore cannot use the cache
+		if name != layer && authName != layer && q.Type != dns.TypeDS {
 			// we have a valid authority to check the cache for
 			if authName == "" {
 				r.verboseLog(depth+2, "Can't parse name to authority properly. name: ", name, ", layer: ", layer)

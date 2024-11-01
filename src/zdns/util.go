@@ -29,9 +29,14 @@ import (
 const ZDNSVersion = "1.1.0"
 
 func dotName(name string) string {
+	if name == "." {
+		return name
+	}
+
 	if strings.HasSuffix(name, ".") {
 		log.Fatal("name already has trailing dot")
 	}
+
 	return strings.Join([]string{name, "."}, "")
 }
 
@@ -121,6 +126,10 @@ func nextAuthority(name, layer string) (string, error) {
 	// (This is dealt with elsewhere)
 	if strings.HasSuffix(name, "in-addr.arpa") && layer == "." {
 		return "in-addr.arpa", nil
+	}
+
+	if name == "." && layer == "." {
+		return ".", nil
 	}
 
 	idx := strings.LastIndex(name, ".")

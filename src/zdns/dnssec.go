@@ -18,10 +18,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/miekg/dns"
 	"github.com/pkg/errors"
-	"github.com/zmap/dns"
+	rootanchors "github.com/zmap/go-dns-root-anchors"
 )
 
+const rootZone = "."
 const (
 	zoneSigningKeyFlag = 256
 	keySigningKeyFlag  = 257
@@ -127,7 +129,11 @@ func (r *Resolver) getDNSKEYs(ctx context.Context, signerDomain string, nameServ
 	zsks := make(map[uint16]*dns.DNSKEY)
 
 	retries := r.retries
-	nameWithoutTrailingDot := strings.TrimSuffix(dns.CanonicalName(signerDomain), ".")
+	nameWithoutTrailingDot := strings.TrimSuffix(dns.CanonicalName(signerDomain), rootZone)
+	if signerDomain == rootZone {
+		nameWithoutTrailingDot = rootZone
+	}
+
 	dnskeyQuestion := QuestionWithMetadata{
 		Q: Question{
 			Name:  nameWithoutTrailingDot,
@@ -137,7 +143,7 @@ func (r *Resolver) getDNSKEYs(ctx context.Context, signerDomain string, nameServ
 		RetriesRemaining: &retries,
 	}
 
-	res, trace, status, err := r.lookup(ctx, &dnskeyQuestion, []NameServer{*nameServer}, isIterative, trace)
+	res, trace, status, err := r.lookup(ctx, &dnskeyQuestion, r.rootNameServers, isIterative, trace)
 	if status != StatusNoError || err != nil {
 		return nil, nil, trace, fmt.Errorf("cannot get DNSKEYs for signer domain %s, status: %s, err: %v", signerDomain, status, err)
 	}
@@ -168,9 +174,81 @@ func (r *Resolver) getDNSKEYs(ctx context.Context, signerDomain string, nameServ
 		return nil, nil, trace, errors.New("missing at least one KSK or ZSK in DNSKEY answer")
 	}
 
-	// TODO: Validate KSKs with DS records
+	// Validate KSKs with DS records
+	if valid, trace, err := r.validateDSRecords(ctx, signerDomain, ksks, nameServer, isIterative, trace, depth); !valid {
+		return nil, nil, trace, errors.Wrap(err, "DS validation failed")
+	}
 
 	return ksks, zsks, trace, nil
+}
+
+// validateDSRecords validates DS records against DNSKEY records.
+//
+// Parameters:
+// - ctx: Context for cancellation and timeout control.
+// - signerDomain: The signer domain to query for DS records.
+// - dnskeyMap: A map of KeyTag to KSKs to validate against.
+// - nameServer: The nameserver to use for the DNS query.
+// - isIterative: Boolean indicating if the query should be iterative.
+// - trace: The trace context for tracking the request path.
+// - depth: The recursion or verification depth for logging purposes.
+//
+// Returns:
+// - bool: Returns true if all DS records are valid; otherwise, false.
+// - Trace: Updated trace context with the DS query included.
+// - error: If validation fails for any DS record, returns an error with details.
+func (r *Resolver) validateDSRecords(ctx context.Context, signerDomain string, dnskeyMap map[uint16]*dns.DNSKEY, nameServer *NameServer, isIterative bool, trace Trace, depth int) (bool, Trace, error) {
+	retries := r.retries
+	nameWithoutTrailingDot := strings.TrimSuffix(dns.CanonicalName(signerDomain), rootZone)
+
+	dsQuestion := QuestionWithMetadata{
+		Q: Question{
+			Name:  nameWithoutTrailingDot,
+			Type:  dns.TypeDS,
+			Class: dns.ClassINET,
+		},
+		RetriesRemaining: &retries,
+	}
+
+	dsRecords := make(map[uint16]dns.DS)
+	if signerDomain == rootZone {
+		// Root zone, use the root anchors
+		dsRecords = rootanchors.GetValidDSRecords()
+	} else {
+		res, trace, status, err := r.lookup(ctx, &dsQuestion, r.rootNameServers, isIterative, trace)
+		if status != StatusNoError || err != nil {
+			return false, trace, fmt.Errorf("cannot get DS records for signer domain %s, status: %s, err: %v", signerDomain, status, err)
+		}
+
+		// RRSIGs of res should have been verified before returning to here.
+
+		for _, rr := range res.Answers {
+			zTypedDS, ok := rr.(DSAnswer)
+			if !ok {
+				r.verboseLog(depth, fmt.Sprintf("DNSSEC: Non-DS RR type in DS answer: %v", rr))
+				continue
+			}
+			ds := zTypedDS.ToVanillaType()
+			dsRecords[ds.KeyTag] = *ds
+		}
+	}
+
+	for _, ksk := range dnskeyMap {
+		authenticDS, ok := dsRecords[ksk.KeyTag()]
+		if !ok {
+			return false, trace, fmt.Errorf("no DS record found for KSK with KeyTag %d", ksk.KeyTag())
+		}
+
+		actualDS := ksk.ToDS(authenticDS.DigestType)
+		actualDigest := strings.ToUpper(actualDS.Digest)
+		authenticDigest := strings.ToUpper(authenticDS.Digest)
+		if actualDigest != authenticDigest {
+			r.verboseLog(depth, fmt.Sprintf("DNSSEC: DS record mismatch for KSK with KeyTag %d: expected %s, got %s", ksk.KeyTag(), authenticDigest, actualDigest))
+			return false, trace, fmt.Errorf("DS record mismatch for KSK with KeyTag %d", ksk.KeyTag())
+		}
+	}
+
+	return true, trace, nil
 }
 
 // validateRRSIG verifies multiple RRSIGs for a given RRset. For each RRSIG, it retrieves the necessary
