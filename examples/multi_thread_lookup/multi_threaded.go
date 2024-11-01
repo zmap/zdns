@@ -17,8 +17,8 @@ import (
 	"net"
 	"sync"
 
+	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
-	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/examples/utils"
 	"github.com/zmap/zdns/src/zdns"

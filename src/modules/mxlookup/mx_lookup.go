@@ -16,9 +16,9 @@ package mxlookup
 import (
 	"strings"
 
+	"github.com/miekg/dns"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/zdns"

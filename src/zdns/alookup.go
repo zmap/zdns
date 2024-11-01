@@ -18,7 +18,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/zmap/dns"
+	"github.com/miekg/dns"
 
 	"github.com/zmap/zdns/src/internal/util"
 )

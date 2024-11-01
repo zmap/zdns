@@ -15,7 +15,7 @@
 package bindversion
 
 import (
-	"github.com/zmap/dns"
+	"github.com/miekg/dns"
 
 	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/zdns"

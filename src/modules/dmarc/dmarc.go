@@ -17,7 +17,7 @@ import (
 	"errors"
 	"regexp"
 
-	"github.com/zmap/dns"
+	"github.com/miekg/dns"
 
 	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/zdns"

@@ -18,7 +18,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/zmap/dns"
+	"github.com/miekg/dns"
 
 	"github.com/zmap/zdns/src/internal/cachehash"
 	"github.com/zmap/zdns/src/internal/util"
