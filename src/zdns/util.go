@@ -40,6 +40,13 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
+func removeTrailingDotIfNotRoot(name string) string {
+	if name == "." {
+		return name
+	}
+	return strings.TrimSuffix(name, ".")
+}
+
 func TranslateMiekgErrorCode(err int) Status {
 	return Status(dns.RcodeToString[err])
 }
