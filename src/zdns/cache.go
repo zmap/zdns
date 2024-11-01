@@ -39,7 +39,7 @@ type CachedResult struct {
 }
 
 type TimedAnswer struct {
-	Answer    Answer
+	Answer    WithBaseAnswer
 	ExpiresAt time.Time
 }
 
@@ -140,7 +140,7 @@ func (s *Cache) getCachedResult(q Question, ns *NameServer, isAuthority bool, de
 	for _, cachedAnswer := range cachedRes.Answers {
 		if cachedAnswer.ExpiresAt.Before(now) {
 			partiallyExpired = true
-			s.VerboseLog(depth+2, "expiring cache answer ", cachedAnswer.Answer.Name)
+			s.VerboseLog(depth+2, "expiring cache answer ", cachedAnswer.Answer.BaseAns().Name)
 		} else {
 			retv.Answers = append(retv.Answers, cachedAnswer.Answer)
 		}
@@ -148,7 +148,7 @@ func (s *Cache) getCachedResult(q Question, ns *NameServer, isAuthority bool, de
 	for _, cachedAuthority := range cachedRes.Authorities {
 		if cachedAuthority.ExpiresAt.Before(now) {
 			partiallyExpired = true
-			s.VerboseLog(depth+2, "expiring cache authority ", cachedAuthority.Answer.Name)
+			s.VerboseLog(depth+2, "expiring cache authority ", cachedAuthority.Answer.BaseAns().Name)
 		} else {
 			retv.Authorities = append(retv.Authorities, cachedAuthority.Answer)
 		}
@@ -156,7 +156,7 @@ func (s *Cache) getCachedResult(q Question, ns *NameServer, isAuthority bool, de
 	for _, cachedAdditional := range cachedRes.Additionals {
 		if cachedAdditional.ExpiresAt.Before(now) {
 			partiallyExpired = true
-			s.VerboseLog(depth+2, "expiring cache additional ", cachedAdditional.Answer.Name)
+			s.VerboseLog(depth+2, "expiring cache additional ", cachedAdditional.Answer.BaseAns().Name)
 		} else {
 			retv.Additional = append(retv.Additional, cachedAdditional.Answer)
 		}
@@ -169,68 +169,68 @@ func (s *Cache) getCachedResult(q Question, ns *NameServer, isAuthority bool, de
 		return nil, false, false
 	}
 
-	s.VerboseLog(depth+2, "Cache hit for ", q.Name, ": ", retv)
+	s.VerboseLog(depth+2, "Cache hit for ", q.Name, ": ", *retv)
 	return retv, true, partiallyExpired
 }
 
-func isCacheableType(ans *Answer) bool {
+func isCacheableType(ans WithBaseAnswer) bool {
 	// only cache records that can help prevent future iteration: A(AAA), NS, (C|D)NAME.
 	// This will prevent some entries that will never help future iteration (e.g., PTR)
 	// from causing unnecessary cache evictions.
 	//// TODO: this is overly broad right now and will unnecessarily cache some leaf A/AAAA records. However,
-	return ans.RrType == dns.TypeA || ans.RrType == dns.TypeAAAA || ans.RrType == dns.TypeNS || ans.RrType == dns.TypeDNAME || ans.RrType == dns.TypeCNAME
+
+	rrType := ans.BaseAns().RrType
+	return rrType == dns.TypeA || rrType == dns.TypeAAAA || rrType == dns.TypeNS || rrType == dns.TypeDNAME || rrType == dns.TypeCNAME || rrType == dns.TypeDS || rrType == dns.TypeDNSKEY
 }
 
 func (s *Cache) buildCachedResult(res *SingleQueryResult, depth int, layer string) *CachedResult {
 	now := time.Now()
 	cachedRes := CachedResult{}
 	cachedRes.Answers = make([]TimedAnswer, 0, len(res.Answers))
-	for _, a := range res.Answers {
-		castAns, ok := a.(Answer)
+
+	var getExpirationForSafeAnswer = func(a any) (WithBaseAnswer, time.Time) {
+		castAns, ok := a.(WithBaseAnswer)
 		if !ok {
-			s.VerboseLog(depth+1, "SafeAddCachedAnswer: unable to cast to Answer: ", layer, ": ", a)
-			continue
+			s.VerboseLog(depth+1, "SafeAddCachedAnswer: unable to cast to WithBaseAnswer: ", layer, ": ", a)
+			return nil, time.Time{}
 		}
-		if !isCacheableType(&castAns) {
+
+		if !isCacheableType(castAns) {
 			s.VerboseLog(depth+1, "SafeAddCachedAnswer: ignoring non-cacheable type: ", layer, ": ", castAns)
-			continue
+			return nil, time.Time{}
 		}
-		cachedRes.Answers = append(cachedRes.Answers, TimedAnswer{
-			Answer:    castAns,
-			ExpiresAt: now.Add(time.Duration(castAns.TTL) * time.Second),
-		})
+
+		return castAns, now.Add(time.Duration(castAns.BaseAns().TTL) * time.Second)
+	}
+
+	for _, a := range res.Answers {
+		castAns, expiresAt := getExpirationForSafeAnswer(a)
+		if castAns != nil {
+			cachedRes.Answers = append(cachedRes.Answers, TimedAnswer{
+				Answer:    castAns,
+				ExpiresAt: expiresAt,
+			})
+		}
 	}
 	cachedRes.Authorities = make([]TimedAnswer, 0, len(res.Authorities))
 	for _, a := range res.Authorities {
-		castAns, ok := a.(Answer)
-		if !ok {
-			s.VerboseLog(depth+1, "SafeAddCachedAnswer: unable to cast to Answer: ", layer, ": ", a)
-			continue
+		castAns, expiresAt := getExpirationForSafeAnswer(a)
+		if castAns != nil {
+			cachedRes.Authorities = append(cachedRes.Authorities, TimedAnswer{
+				Answer:    castAns,
+				ExpiresAt: expiresAt,
+			})
 		}
-		if !isCacheableType(&castAns) {
-			s.VerboseLog(depth+1, "SafeAddCachedAnswer: ignoring non-cacheable type: ", layer, ": ", castAns)
-			continue
-		}
-		cachedRes.Authorities = append(cachedRes.Authorities, TimedAnswer{
-			Answer:    castAns,
-			ExpiresAt: now.Add(time.Duration(castAns.TTL) * time.Second),
-		})
 	}
 	cachedRes.Additionals = make([]TimedAnswer, 0, len(res.Additional))
 	for _, a := range res.Additional {
-		castAns, ok := a.(Answer)
-		if !ok {
-			s.VerboseLog(depth+1, "SafeAddCachedAnswer: unable to cast to Answer: ", layer, ": ", a)
-			continue
+		castAns, expiresAt := getExpirationForSafeAnswer(a)
+		if castAns != nil {
+			cachedRes.Additionals = append(cachedRes.Additionals, TimedAnswer{
+				Answer:    castAns,
+				ExpiresAt: expiresAt,
+			})
 		}
-		if !isCacheableType(&castAns) {
-			s.VerboseLog(depth+1, "SafeAddCachedAnswer: ignoring non-cacheable type: ", layer, ": ", castAns)
-			continue
-		}
-		cachedRes.Additionals = append(cachedRes.Additionals, TimedAnswer{
-			Answer:    castAns,
-			ExpiresAt: now.Add(time.Duration(castAns.TTL) * time.Second),
-		})
 	}
 	return &cachedRes
 }
@@ -242,16 +242,17 @@ func (s *Cache) SafeAddCachedAnswer(q Question, res *SingleQueryResult, ns *Name
 	}
 	// check for poison
 	for _, a := range util.Concat(res.Answers, res.Authorities, res.Additional) {
-		castAns, ok := a.(Answer)
+		castAns, ok := a.(WithBaseAnswer)
 		if !ok {
 			// if we can't cast, it won't be added to the cache. We'll log in buildCachedResult
 			continue
 		}
-		if ok, _ = nameIsBeneath(castAns.Name, layer); !ok {
+		baseAns := castAns.BaseAns()
+		if ok, _ = nameIsBeneath(baseAns.Name, layer); !ok {
 			if len(nsString) > 0 {
-				s.VerboseLog(depth+1, "SafeAddCachedAnswer: detected poison: ", castAns.Name, "(", castAns.Type, "): @", nsString, ", ", layer, " , aborting")
+				s.VerboseLog(depth+1, "SafeAddCachedAnswer: detected poison: ", baseAns.Name, "(", baseAns.Type, "): @", nsString, ", ", layer, " , aborting")
 			} else {
-				s.VerboseLog(depth+1, "SafeAddCachedAnswer: detected poison: ", castAns.Name, "(", castAns.Type, "): ", layer, " , aborting")
+				s.VerboseLog(depth+1, "SafeAddCachedAnswer: detected poison: ", baseAns.Name, "(", baseAns.Type, "): ", layer, " , aborting")
 			}
 			return
 		}
@@ -285,15 +286,16 @@ func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, d
 	}
 	authName := ""
 	for _, auth := range res.Authorities {
-		castAuth, ok := auth.(Answer)
+		castAuth, ok := auth.(WithBaseAnswer)
 		if !ok {
 			// if we can't cast, it won't be added to the cache. We'll log in buildCachedResult
 			continue
 		}
+		baseAns := castAuth.BaseAns()
 		if len(authName) == 0 {
-			authName = castAuth.Name
-		} else if authName != castAuth.Name {
-			s.VerboseLog(depth+1, "SafeAddCachedAuthority: multiple authority names: ", layer, ": ", authName, " ", castAuth.Name, " , aborting")
+			authName = baseAns.Name
+		} else if authName != baseAns.Name {
+			s.VerboseLog(depth+1, "SafeAddCachedAuthority: multiple authority names: ", layer, ": ", authName, " ", baseAns.Name, " , aborting")
 			return
 		}
 	}
