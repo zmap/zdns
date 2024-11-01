@@ -684,7 +684,9 @@ func handleWorkerInput(gc *CLIConf, rc *zdns.ResolverConfig, line string, resolv
 		if err != nil {
 			log.Fatalf("unable to marshal result to JSON: %v", err)
 		}
+		//log.Warn("Data: ", data)
 		cleansedData := replaceIntSliceInterface(data)
+		//log.Warn("Data: ", cleansedData)
 		jsonRes, err := json.Marshal(cleansedData)
 		if err != nil {
 			log.Fatalf("unable to marshal JSON result: %v", err)
