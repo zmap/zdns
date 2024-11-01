@@ -33,9 +33,8 @@ func (r *Resolver) validateChainOfDNSSECTrust(ctx context.Context, msg *dns.Msg,
 	typeToRRSets := make(map[uint16][]dns.RR)
 	typeToRRSigs := make(map[uint16][]*dns.RRSIG)
 
-	if msg.Authoritative {
-		updateTypeMapWithRRs(typeToRRSets, typeToRRSigs, msg.Answer)
-	} else {
+	updateTypeMapWithRRs(typeToRRSets, typeToRRSigs, msg.Answer)
+	if !msg.Authoritative && isIterative {
 		updateTypeMapWithRRs(typeToRRSets, typeToRRSigs, msg.Ns)
 	}
 
