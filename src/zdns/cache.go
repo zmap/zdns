@@ -309,6 +309,32 @@ func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, d
 		nsString = ns.String()
 	}
 
+	// Referrals may contain DS records in the authority section. These need to be cached under the child name.
+	var dsRRs []interface{}
+	var otherRRs []interface{}
+	for _, rr := range res.Authorities {
+		if dsRR, ok := rr.(DSAnswer); ok {
+			dsRRs = append(dsRRs, dsRR)
+		} else {
+			otherRRs = append(otherRRs, rr)
+		}
+	}
+
+	if len(dsRRs) > 0 {
+		dsRes := &SingleQueryResult{
+			Answers:            dsRRs,
+			Protocol:           res.Protocol,
+			Resolver:           res.Resolver,
+			Flags:              res.Flags,
+			TLSServerHandshake: res.TLSServerHandshake,
+		}
+		dsRes.Flags.Authoritative = true
+		delegateName := removeTrailingDotIfNotRoot(dsRRs[0].(DSAnswer).BaseAns().Name)
+		dsCachedRes := s.buildCachedResult(dsRes, depth, layer)
+		s.addCachedAnswer(Question{Name: delegateName, Type: dns.TypeDS, Class: dns.ClassINET}, nsString, false, dsCachedRes, depth)
+	}
+
+	res.Authorities = otherRRs
 	cachedRes := s.buildCachedResult(res, depth, layer)
 	if len(cachedRes.Answers) == 0 && len(cachedRes.Authorities) == 0 && len(cachedRes.Additionals) == 0 {
 		s.VerboseLog(depth+1, "SafeAddCachedAnswer: no cacheable records found, aborting")

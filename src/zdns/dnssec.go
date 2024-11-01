@@ -129,7 +129,7 @@ func (r *Resolver) getDNSKEYs(ctx context.Context, signerDomain string, nameServ
 	zsks := make(map[uint16]*dns.DNSKEY)
 
 	retries := r.retries
-	nameWithoutTrailingDot := strings.TrimSuffix(dns.CanonicalName(signerDomain), rootZone)
+	nameWithoutTrailingDot := removeTrailingDotIfNotRoot(signerDomain)
 	if signerDomain == rootZone {
 		nameWithoutTrailingDot = rootZone
 	}
@@ -199,7 +199,7 @@ func (r *Resolver) getDNSKEYs(ctx context.Context, signerDomain string, nameServ
 // - error: If validation fails for any DS record, returns an error with details.
 func (r *Resolver) validateDSRecords(ctx context.Context, signerDomain string, dnskeyMap map[uint16]*dns.DNSKEY, nameServer *NameServer, isIterative bool, trace Trace, depth int) (bool, Trace, error) {
 	retries := r.retries
-	nameWithoutTrailingDot := strings.TrimSuffix(dns.CanonicalName(signerDomain), rootZone)
+	nameWithoutTrailingDot := removeTrailingDotIfNotRoot(signerDomain)
 
 	dsQuestion := QuestionWithMetadata{
 		Q: Question{
