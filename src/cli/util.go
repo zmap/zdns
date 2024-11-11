@@ -71,7 +71,7 @@ func marshalIntSlice(v interface{}) ([]byte, error) {
 	case []uint:
 		return json.Marshal(v)
 	case []uint8:
-		return json.Marshal(v)
+		return v, nil
 	case []uint16:
 		return json.Marshal(v)
 	case []uint32:
@@ -138,14 +138,14 @@ func marshalIntSlice(v interface{}) ([]byte, error) {
 				}
 				return json.Marshal(converted)
 			case uint8:
-				converted := make([]uint8, len(v))
+				converted := make([]byte, len(v))
 				for i, val := range v {
-					converted[i], ok = val.(uint8)
-					if !ok {
-						return nil, errors.New("failed to convert interface to uint8")
-					}
+					converted[i], ok = val.(byte)
 				}
-				return json.Marshal(converted)
+				if !ok {
+					return nil, errors.New("failed to convert interface to byte (uint8)")
+				}
+				return converted, nil
 			case uint16:
 				converted := make([]uint16, len(v))
 				for i, val := range v {
