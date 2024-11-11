@@ -521,7 +521,7 @@ func Run(gc CLIConf) {
 	go func() {
 		iohandlers.StatusHandler(statusChan, &routineWG)
 	}()
-	routineWG.Add(3)
+	routineWG.Add(3) // input, output, and status handlers
 
 	// create pool of worker goroutines
 	var lookupWG sync.WaitGroup

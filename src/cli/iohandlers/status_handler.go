@@ -37,8 +37,8 @@ type scanStats struct {
 func StatusHandler(statusChan <-chan zdns.Status, wg *sync.WaitGroup) {
 	stats := scanStats{
 		statusOccurance: make(map[zdns.Status]int),
+		scanStartTime:   time.Now(),
 	}
-	stats.scanStartTime = time.Now()
 	timer := time.Tick(time.Second)
 statusLoop:
 	for {
@@ -55,7 +55,6 @@ statusLoop:
 				getStatusOccuranceString(stats.statusOccurance))
 		case status, ok := <-statusChan:
 			if !ok {
-				// TODO check that this syntax is valid
 				// status chan closed, exiting
 				break statusLoop
 			}
@@ -98,8 +97,8 @@ func getStatusOccuranceString(statusOccurances map[zdns.Status]int) string {
 		return statusesAndOccurances[i].occurance > statusesAndOccurances[j].occurance
 	})
 	returnStr := ""
-	for _, statusAndOccurance := range statusesAndOccurances {
-		returnStr += fmt.Sprintf("%s: %d, ", statusAndOccurance.status, statusAndOccurance.occurance)
+	for _, statusOccurance := range statusesAndOccurances {
+		returnStr += fmt.Sprintf("%s: %d, ", statusOccurance.status, statusOccurance.occurance)
 	}
 	// remove trailing comma
 	returnStr = strings.TrimSuffix(returnStr, ", ")
