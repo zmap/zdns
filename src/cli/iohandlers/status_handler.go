@@ -16,6 +16,7 @@ package iohandlers
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -27,14 +28,16 @@ import (
 // time elapsed, domains scanned total, avg. per second, per status entry, ordered largest to smallest
 
 type scanStats struct {
-	scanStartTime     time.Time
-	domainsScanned    int
-	statusCardinality map[zdns.Status]int
+	scanStartTime   time.Time
+	domainsScanned  int
+	statusOccurance map[zdns.Status]int
 }
 
 // statusHandler prints a per-second update to the user scan progress and per-status statistics
 func StatusHandler(statusChan <-chan zdns.Status, wg *sync.WaitGroup) {
-	stats := scanStats{}
+	stats := scanStats{
+		statusOccurance: make(map[zdns.Status]int),
+	}
 	stats.scanStartTime = time.Now()
 	timer := time.Tick(time.Second)
 statusLoop:
@@ -42,12 +45,14 @@ statusLoop:
 		select {
 		case <-timer:
 			// print per-second summary
-			scanDuration := time.Since(stats.scanStartTime)
-			fmt.Printf("%s; %d domains scanned; %f domains/sec.; %s\n",
-				scanDuration,
+			timeSinceStart := time.Since(stats.scanStartTime)
+			fmt.Printf("%02dh:%02dm:%02ds; %d domains scanned; %.02f domains/sec.; %s\n",
+				int(timeSinceStart.Hours()),
+				int(timeSinceStart.Minutes())%60,
+				int(timeSinceStart.Seconds())%60,
 				stats.domainsScanned,
-				float64(stats.domainsScanned)/scanDuration.Seconds(),
-				getStatusOccuranceString(stats.statusCardinality))
+				float64(stats.domainsScanned)/timeSinceStart.Seconds(),
+				getStatusOccuranceString(stats.statusOccurance))
 		case status, ok := <-statusChan:
 			if !ok {
 				// TODO check that this syntax is valid
@@ -58,36 +63,42 @@ statusLoop:
 			incrementStatus(stats, status)
 		}
 	}
-	fmt.Printf("%s; Scan Complete, no more input. %d domains scanned; %f domains/sec.; %s\n",
-		time.Since(stats.scanStartTime),
+	timeSinceStart := time.Since(stats.scanStartTime)
+	fmt.Printf("%02dh:%02dm:%02ds; Scan Complete, no more input. %d domains scanned; %.02f domains/sec.; %s\n",
+		int(timeSinceStart.Hours()),
+		int(timeSinceStart.Minutes())%60,
+		int(timeSinceStart.Seconds())%60,
 		stats.domainsScanned,
 		float64(stats.domainsScanned)/time.Since(stats.scanStartTime).Seconds(),
-		getStatusOccuranceString(stats.statusCardinality))
+		getStatusOccuranceString(stats.statusOccurance))
 	wg.Done()
 }
 
 func incrementStatus(stats scanStats, status zdns.Status) {
-	if _, ok := stats.statusCardinality[status]; !ok {
-		stats.statusCardinality[status] = 0
+	if _, ok := stats.statusOccurance[status]; !ok {
+		stats.statusOccurance[status] = 0
 	}
-	stats.statusCardinality[status] += 1
+	stats.statusOccurance[status] += 1
 }
 
 func getStatusOccuranceString(statusOccurances map[zdns.Status]int) string {
-	type statusAndCardinality struct {
+	type statusAndOccurance struct {
 		status    zdns.Status
 		occurance int
 	}
-	statusesAndCards := make([]statusAndCardinality, 0, len(statusOccurances))
+	statusesAndOccurances := make([]statusAndOccurance, 0, len(statusOccurances))
 	for status, occurance := range statusOccurances {
-		statusesAndCards = append(statusesAndCards, statusAndCardinality{
+		statusesAndOccurances = append(statusesAndOccurances, statusAndOccurance{
 			status:    status,
 			occurance: occurance,
 		})
 	}
-	// TODO Sort these by occurance, largest to smallest
+	// sort by occurance
+	sort.Slice(statusesAndOccurances, func(i, j int) bool {
+		return statusesAndOccurances[i].occurance > statusesAndOccurances[j].occurance
+	})
 	returnStr := ""
-	for _, statusAndOccurance := range statusesAndCards {
+	for _, statusAndOccurance := range statusesAndOccurances {
 		returnStr += fmt.Sprintf("%s: %d, ", statusAndOccurance.status, statusAndOccurance.occurance)
 	}
 	// remove trailing comma
