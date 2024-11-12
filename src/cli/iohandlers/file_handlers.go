@@ -60,17 +60,17 @@ func (h *FileInputHandler) FeedChannel(in chan<- string, wg *sync.WaitGroup) err
 	return nil
 }
 
-type St struct {
+type FileOutputHandler struct {
 	filepath string
 }
 
-func NewFileOutputHandler(filepath string) *St {
-	return &St{
+func NewFileOutputHandler(filepath string) *FileOutputHandler {
+	return &FileOutputHandler{
 		filepath: filepath,
 	}
 }
 
-func (h *St) WriteResults(results <-chan string, wg *sync.WaitGroup) error {
+func (h *FileOutputHandler) WriteResults(results <-chan string, wg *sync.WaitGroup) error {
 	defer (*wg).Done()
 
 	var f *os.File
