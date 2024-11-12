@@ -452,7 +452,13 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 			if err != nil {
 				return nil, fmt.Errorf("unable to find default IP address to open socket: %w", err)
 			}
-			localAddr = &conn.LocalAddr().(*net.UDPAddr).IP
+
+			localUDPAddr, ok := conn.LocalAddr().(*net.UDPAddr)
+			if !ok {
+				return nil, errors.New("unable to get local address from connection")
+			}
+			localAddr = &localUDPAddr.IP
+
 			// cleanup socket
 			if err = conn.Close(); err != nil {
 				log.Error("unable to close test connection to Google public DNS: ", err)
