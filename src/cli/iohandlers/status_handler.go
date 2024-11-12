@@ -24,9 +24,6 @@ import (
 	"github.com/zmap/zdns/src/zdns"
 )
 
-// Notes
-// time elapsed, domains scanned total, avg. per second, per status entry, ordered largest to smallest
-
 type scanStats struct {
 	scanStartTime   time.Time
 	domainsScanned  int
