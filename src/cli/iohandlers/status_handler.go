@@ -39,11 +39,11 @@ func StatusHandler(statusChan <-chan zdns.Status, wg *sync.WaitGroup) {
 		statusOccurance: make(map[zdns.Status]int),
 		scanStartTime:   time.Now(),
 	}
-	timer := time.Tick(time.Second)
+	ticker := time.NewTicker(time.Second)
 statusLoop:
 	for {
 		select {
-		case <-timer:
+		case <-ticker.C:
 			// print per-second summary
 			timeSinceStart := time.Since(stats.scanStartTime)
 			fmt.Printf("%02dh:%02dm:%02ds; %d domains scanned; %.02f domains/sec.; %s\n",
