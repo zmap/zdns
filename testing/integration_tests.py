@@ -40,23 +40,19 @@ def recursiveSort(obj):
 class Tests(unittest.TestCase):
     maxDiff = None
     ZDNS_EXECUTABLE = "./zdns"
-    ADDITIONAL_FLAGS = " --threads=10"  # flags used with every test
+    ADDITIONAL_FLAGS = " --threads=10 --quiet"  # flags used with every test
 
     def run_zdns_check_failure(self, flags, name, expected_err, executable=ZDNS_EXECUTABLE):
         flags = flags + self.ADDITIONAL_FLAGS
         c = f"echo '{name}' | {executable} {flags}; exit 0"
-        o = subprocess.check_output(c, shell=True, stderr=subprocess.STDOUT).decode('utf-8').rstrip()
-        # remove per-second logs/output, only keep json-lines or fatal errors
-        filtered_output = "\n".join(line for line in o.splitlines() if line.startswith('{') and line.endswith('}') or "fatal" in line)
-        self.assertEqual(expected_err in filtered_output, True)
+        o = subprocess.check_output(c, shell=True, stderr=subprocess.STDOUT)
+        self.assertEqual(expected_err in o.decode(), True)
 
     def run_zdns(self, flags, name, executable=ZDNS_EXECUTABLE):
         flags = flags + self.ADDITIONAL_FLAGS
         c = f"echo '{name}' | {executable} {flags}"
-        o = subprocess.check_output(c, shell=True).decode('utf-8').rstrip()
-        # remove per-second logs/output, only keep json-lines
-        filtered_output = "\n".join(line for line in o.splitlines() if line.startswith('{') and line.endswith('}'))
-        return c, json.loads(filtered_output)
+        o = subprocess.check_output(c, shell=True)
+        return c, json.loads(o.rstrip())
 
     # Runs zdns with a given name(s) input and flags, returns the command and JSON objects from the piped JSON-Lines output
     # Used when running a ZDNS command that should return multiple lines of output, and you want those in a list
@@ -64,10 +60,8 @@ class Tests(unittest.TestCase):
         if append_flags:
             flags = flags + self.ADDITIONAL_FLAGS
         c = f"echo '{name}' | {executable} {flags}"
-        o = subprocess.check_output(c, shell=True).decode('utf-8').rstrip()
-        # remove per-second logs/output, only keep json-lines
-        filtered_output = "\n".join(line for line in o.splitlines() if line.startswith('{') and line.endswith('}'))
-        output_lines = filtered_output.strip().splitlines()
+        o = subprocess.check_output(c, shell=True)
+        output_lines = o.decode('utf-8').strip().splitlines()
         json_objects = [json.loads(line.rstrip()) for line in output_lines]
         return c, json_objects
 
