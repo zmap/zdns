@@ -16,13 +16,21 @@ package iohandlers
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
+	"os"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/zmap/zdns/src/internal/util"
 	"github.com/zmap/zdns/src/zdns"
 )
+
+type StatusHandler struct {
+	filePath string
+}
 
 type scanStats struct {
 	scanStartTime   time.Time
@@ -30,8 +38,41 @@ type scanStats struct {
 	statusOccurance map[zdns.Status]int
 }
 
-// statusHandler prints a per-second update to the user scan progress and per-status statistics
-func StatusHandler(statusChan <-chan zdns.Status, wg *sync.WaitGroup) {
+func NewStatusHandler(filePath string) *StatusHandler {
+	return &StatusHandler{
+		filePath: filePath,
+	}
+}
+
+// LogPeriodicUpdates prints a per-second update to the user scan progress and per-status statistics
+func (h *StatusHandler) LogPeriodicUpdates(statusChan <-chan zdns.Status, wg *sync.WaitGroup) error {
+	defer wg.Done()
+	// open file for writing
+	var f *os.File
+	if h.filePath == "" || h.filePath == "-" {
+		f = os.Stderr
+	} else {
+		// open file for writing
+		var err error
+		f, err = os.OpenFile(h.filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, util.DefaultFilePermissions)
+		if err != nil {
+			return errors.Wrap(err, "unable to open status file")
+		}
+		defer func(f *os.File) {
+			if err := f.Close(); err != nil {
+				log.Errorf("unable to close status file: %v", err)
+			}
+		}(f)
+	}
+	if err := h.statusLoop(statusChan, f); err != nil {
+		return errors.Wrap(err, "error encountered in status loop")
+	}
+	return nil
+}
+
+// statusLoop will print a per-second summary of the scan progress and per-status statistics
+func (h *StatusHandler) statusLoop(statusChan <-chan zdns.Status, statusFile *os.File) error {
+	// initialize stats
 	stats := scanStats{
 		statusOccurance: make(map[zdns.Status]int),
 		scanStartTime:   time.Now(),
@@ -43,13 +84,16 @@ statusLoop:
 		case <-ticker.C:
 			// print per-second summary
 			timeSinceStart := time.Since(stats.scanStartTime)
-			fmt.Printf("%02dh:%02dm:%02ds; %d domains scanned; %.02f domains/sec.; %s\n",
+			s := fmt.Sprintf("%02dh:%02dm:%02ds; %d domains scanned; %.02f domains/sec.; %s\n",
 				int(timeSinceStart.Hours()),
 				int(timeSinceStart.Minutes())%60,
 				int(timeSinceStart.Seconds())%60,
 				stats.domainsScanned,
 				float64(stats.domainsScanned)/timeSinceStart.Seconds(),
 				getStatusOccuranceString(stats.statusOccurance))
+			if _, err := statusFile.WriteString(s); err != nil {
+				return errors.Wrap(err, "unable to write periodic status update")
+			}
 		case status, ok := <-statusChan:
 			if !ok {
 				// status chan closed, exiting
@@ -60,14 +104,17 @@ statusLoop:
 		}
 	}
 	timeSinceStart := time.Since(stats.scanStartTime)
-	fmt.Printf("%02dh:%02dm:%02ds; Scan Complete, no more input. %d domains scanned; %.02f domains/sec.; %s\n",
+	s := fmt.Sprintf("%02dh:%02dm:%02ds; Scan Complete, no more input. %d domains scanned; %.02f domains/sec.; %s\n",
 		int(timeSinceStart.Hours()),
 		int(timeSinceStart.Minutes())%60,
 		int(timeSinceStart.Seconds())%60,
 		stats.domainsScanned,
 		float64(stats.domainsScanned)/time.Since(stats.scanStartTime).Seconds(),
 		getStatusOccuranceString(stats.statusOccurance))
-	wg.Done()
+	if _, err := statusFile.WriteString(s); err != nil {
+		return errors.Wrap(err, "unable to write final status update")
+	}
+	return nil
 }
 
 func incrementStatus(stats scanStats, status zdns.Status) {

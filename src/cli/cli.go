@@ -37,6 +37,9 @@ type InputHandler interface {
 type OutputHandler interface {
 	WriteResults(results <-chan string, wg *sync.WaitGroup) error
 }
+type StatusHandler interface {
+	LogPeriodicUpdates(statusChan <-chan zdns.Status, wg *sync.WaitGroup) error
+}
 
 // GeneralOptions core options for all ZDNS modules
 // Order here is the order they'll be printed to the user, so preserve alphabetical order
@@ -96,9 +99,11 @@ type InputOutputOptions struct {
 	MetadataFilePath             string `long:"metadata-file" description:"where should JSON metadata be saved, defaults to no metadata output. Use '-' for stderr."`
 	MetadataFormat               bool   `long:"metadata-passthrough" description:"if input records have the form 'name,METADATA', METADATA will be propagated to the output"`
 	OutputFilePath               string `short:"o" long:"output-file" default:"-" description:"where should JSON output be saved, defaults to stdout"`
+	Quiet                        bool   `short:"q" long:"quiet" description:"do not print status updates"`
 	NameOverride                 string `long:"override-name" description:"name overrides all passed in names. Commonly used with --name-server-mode."`
 	NamePrefix                   string `long:"prefix" description:"name to be prepended to what's passed in (e.g., www.)"`
 	ResultVerbosity              string `long:"result-verbosity" default:"normal" description:"Sets verbosity of each output record. Options: short, normal, long, trace"`
+	StatusUpdatesFilePath        string `short:"u" long:"status-updates-file" default:"-" description:"file to write scan progress to, defaults to stderr"`
 	Verbosity                    int    `long:"verbosity" default:"3" description:"log verbosity: 1 (lowest)--5 (highest)"`
 }
 
@@ -116,6 +121,7 @@ type CLIConf struct {
 	ClientSubnet       *dns.EDNS0_SUBNET
 	InputHandler       InputHandler
 	OutputHandler      OutputHandler
+	StatusHandler      StatusHandler
 	CLIModule          string                  // the module name as passed in by the user
 	ActiveModuleNames  []string                // names of modules that are active in this invocation of zdns. Mostly used with MULTIPLE
 	ActiveModules      map[string]LookupModule // map of module names to modules

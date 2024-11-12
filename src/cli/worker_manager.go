@@ -162,6 +162,9 @@ func populateCLIConfig(gc *CLIConf) *CLIConf {
 	if gc.OutputHandler == nil {
 		gc.OutputHandler = iohandlers.NewFileOutputHandler(gc.OutputFilePath)
 	}
+	if gc.StatusHandler == nil {
+		gc.StatusHandler = iohandlers.NewStatusHandler(gc.StatusUpdatesFilePath)
+	}
 	return gc
 }
 
@@ -503,25 +506,33 @@ func Run(gc CLIConf) {
 		log.Fatal("Output handler is nil")
 	}
 
+	statusHandler := gc.StatusHandler
+	if statusHandler == nil {
+		log.Fatal("Status handler is nil")
+	}
+
 	// Use handlers to populate the input and output/results channel
 	go func() {
-		inErr := inHandler.FeedChannel(inChan, &routineWG)
-		if inErr != nil {
+		if inErr := inHandler.FeedChannel(inChan, &routineWG); inErr != nil {
 			log.Fatal(fmt.Sprintf("could not feed input channel: %v", inErr))
 		}
 	}()
 
 	go func() {
-		outErr := outHandler.WriteResults(outChan, &routineWG)
-		if outErr != nil {
+		if outErr := outHandler.WriteResults(outChan, &routineWG); outErr != nil {
 			log.Fatal(fmt.Sprintf("could not write output results from output channel: %v", outErr))
 		}
 	}()
+	routineWG.Add(2) // input and output handlers
 
-	go func() {
-		iohandlers.StatusHandler(statusChan, &routineWG)
-	}()
-	routineWG.Add(3) // input, output, and status handlers
+	if !gc.Quiet {
+		go func() {
+			if statusErr := statusHandler.LogPeriodicUpdates(statusChan, &routineWG); statusErr != nil {
+				log.Fatal(fmt.Sprintf("could not log periodic status updates: %v", statusErr))
+			}
+		}()
+		routineWG.Add(1) // status handler
+	}
 
 	// create pool of worker goroutines
 	var lookupWG sync.WaitGroup
@@ -676,7 +687,9 @@ func handleWorkerInput(gc *CLIConf, rc *zdns.ResolverConfig, line string, resolv
 				lookupRes.Error = err.Error()
 			}
 			res.Results[moduleName] = lookupRes
-			statusChan <- status
+			if !gc.Quiet {
+				statusChan <- status
+			}
 		}
 		metadata.Status[status]++
 		metadata.Lookups++
