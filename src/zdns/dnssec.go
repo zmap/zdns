@@ -29,7 +29,7 @@ const (
 	keySigningKeyFlag  = 257
 )
 
-func (r *Resolver) validateChainOfDNSSECTrust(ctx context.Context, msg *dns.Msg, q Question, nameServer *NameServer, isIterative bool, depth int, trace Trace) (bool, Trace, error) {
+func (r *Resolver) validateChainOfDNSSECTrust(ctx context.Context, msg *dns.Msg, nameServer *NameServer, isIterative bool, depth int, trace Trace) (bool, Trace, error) {
 	typeToRRSets := make(map[uint16][]dns.RR)
 	typeToRRSigs := make(map[uint16][]*dns.RRSIG)
 
@@ -80,10 +80,10 @@ func isDNSSECRecordType(rrType uint16) bool {
 func updateTypeMapWithRRs(typeToRRSets map[uint16][]dns.RR, typeToRRSigs map[uint16][]*dns.RRSIG, rrs []dns.RR) {
 	for _, rr := range rrs {
 		rrType := rr.Header().Rrtype
-		if rrType == dns.TypeRRSIG {
-			rrSig := rr.(*dns.RRSIG)
-			typeToRRSigs[rrSig.TypeCovered] = append(typeToRRSigs[rrSig.TypeCovered], rrSig)
-		} else {
+		switch rr := rr.(type) {
+		case *dns.RRSIG:
+			typeToRRSigs[rr.TypeCovered] = append(typeToRRSigs[rr.TypeCovered], rr)
+		default:
 			typeToRRSets[rrType] = append(typeToRRSets[rrType], rr)
 		}
 	}
@@ -192,7 +192,9 @@ func (r *Resolver) getDNSKEYs(ctx context.Context, signerDomain string, nameServ
 	}
 
 	// Validate KSKs with DS records
-	if valid, trace, err := r.validateDSRecords(ctx, signerDomain, ksks, nameServer, isIterative, trace, depth); !valid {
+	var valid bool
+	valid, trace, err = r.validateDSRecords(ctx, signerDomain, ksks, nameServer, isIterative, trace, depth)
+	if !valid {
 		return nil, nil, trace, errors.Wrap(err, "DS validation failed")
 	}
 
@@ -232,7 +234,8 @@ func (r *Resolver) validateDSRecords(ctx context.Context, signerDomain string, d
 		// Root zone, use the root anchors
 		dsRecords = rootanchors.GetValidDSRecords()
 	} else {
-		res, trace, status, err := r.lookup(ctx, &dsQuestion, r.rootNameServers, isIterative, trace)
+		res, newTrace, status, err := r.lookup(ctx, &dsQuestion, r.rootNameServers, isIterative, trace)
+		trace = newTrace
 		if status != StatusNoError || err != nil {
 			return false, trace, fmt.Errorf("cannot get DS records for signer domain %s, status: %s, err: %v", signerDomain, status, err)
 		}
@@ -299,7 +302,7 @@ func (r *Resolver) validateRRSIG(ctx context.Context, rrSetType uint16, rrSet []
 	} else {
 		// For other RRset types, fetch DNSKEYs for each RRSIG's signer domain
 		for _, rrsig := range rrsigs {
-			r.verboseLog(depth, fmt.Sprintf("DNSSEC: Verifying RRSIG with signer %s", rrsig.SignerName))
+			r.verboseLog(depth, "DNSSEC: Verifying RRSIG with signer", rrsig.SignerName)
 
 			_, zskMap, updatedTrace, err := r.getDNSKEYs(ctx, rrsig.SignerName, nameServer, isIterative, trace, depth+1)
 			dnskeyMap = zskMap
@@ -325,7 +328,7 @@ func (r *Resolver) validateRRSIG(ctx context.Context, rrSetType uint16, rrSet []
 		r.verboseLog(depth, fmt.Sprintf("DNSSEC: RRSIG with keytag=%d failed to verify", keyTag))
 	}
 
-	return false, trace, fmt.Errorf("could not verify any RRSIG for RRset")
+	return false, trace, errors.New("could not verify any RRSIG for RRset")
 }
 
 // validateRRSIGs verifies multiple RRsets and their corresponding RRSIGs. It iterates over each RRset, retrieves

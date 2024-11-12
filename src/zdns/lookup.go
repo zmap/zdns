@@ -175,7 +175,8 @@ func (r *Resolver) followingLookup(ctx context.Context, qWithMeta *QuestionWithM
 	r.verboseLog(0, "MIEKG-IN: starting a C/DNAME following lookup for ", originalName, " (", qWithMeta.Q.Type, ")")
 	for i := 0; i < r.maxDepth; i++ {
 		qWithMeta.Q.Name = currName // update the question with the current name, this allows following CNAMEs
-		iterRes, trace, iterStatus, lookupErr := r.lookup(ctx, qWithMeta, nameServers, isIterative, trace)
+		iterRes, newTrace, iterStatus, lookupErr := r.lookup(ctx, qWithMeta, nameServers, isIterative, trace)
+		trace = newTrace
 		if iterStatus != StatusNoError || lookupErr != nil {
 			if i == 0 {
 				// only have 1 result to return
@@ -567,7 +568,8 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 
 	if status == StatusNoError && result != nil {
 		if r.dnsSecEnabled {
-			validated, trace, err := r.validateChainOfDNSSECTrust(ctx, rawResp, q, nameServer, !requestIteration, depth+2, trace)
+			var validated bool
+			validated, trace, err = r.validateChainOfDNSSECTrust(ctx, rawResp, nameServer, !requestIteration, depth+2, trace)
 			r.verboseLog(depth+2, "DNSSEC validation result: ", validated, " err: ", err)
 			if err != nil {
 				return result, isCached, StatusError, trace, errors.Wrap(err, "could not validate chain of DNSSEC trust")
@@ -900,13 +902,16 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 		}
 		var ns *NameServer
 		var nsStatus Status
+		var nextLayer string
 		r.verboseLog(depth+1, "Trying Authority: ", elem)
-		ns, nsStatus, nextLayer, newTrace := r.extractAuthority(ctx, elem, layer, qWithMeta.RetriesRemaining, depth, result, newTrace)
+		ns, nsStatus, nextLayer, newTrace = r.extractAuthority(ctx, elem, layer, qWithMeta.RetriesRemaining, depth, result, newTrace)
 		r.verboseLog(depth+1, "Output from extract authorities: ", ns.String())
+
 		if nsStatus == StatusIterTimeout {
 			r.verboseLog(depth+2, "--> Hit iterative timeout: ")
 			return &SingleQueryResult{}, newTrace, StatusIterTimeout, nil
 		}
+
 		if nsStatus != StatusNoError {
 			var err error
 			newStatus, err := handleStatus(nsStatus, err)
