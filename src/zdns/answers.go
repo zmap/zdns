@@ -410,7 +410,7 @@ func makeEDNSAnswer(cAns *dns.OPT) EDNSAnswer {
 				KeyLease: opt.KeyLease,
 			}
 		case *dns.EDNS0_NSID: //OPT 3
-			hexDecoded, err := hex.DecodeString(o.(*dns.EDNS0_NSID).Nsid)
+			hexDecoded, err := hex.DecodeString(opt.Nsid)
 			if err != nil {
 				continue
 			}
@@ -443,7 +443,7 @@ func makeEDNSAnswer(cAns *dns.OPT) EDNSAnswer {
 				Expire: opt.Expire,
 			}
 		case *dns.EDNS0_COOKIE: //OPT 11
-			optRes.Cookie = &Edns0Cookie{Cookie: o.(*dns.EDNS0_COOKIE).Cookie}
+			optRes.Cookie = &Edns0Cookie{Cookie: opt.Cookie}
 		case *dns.EDNS0_TCP_KEEPALIVE: //OPT 11
 			optRes.TCPKeepalive = &Edns0TCPKeepalive{
 				Code:    opt.Code,
@@ -451,7 +451,7 @@ func makeEDNSAnswer(cAns *dns.OPT) EDNSAnswer {
 				Length:  opt.Length, // deprecated, always equal to 0, keeping it here for a better readability
 			}
 		case *dns.EDNS0_PADDING: //OPT 12
-			optRes.Padding = &Edns0Padding{Padding: o.(*dns.EDNS0_PADDING).String()}
+			optRes.Padding = &Edns0Padding{Padding: opt.String()}
 		case *dns.EDNS0_EDE: //OPT 15
 			optRes.EDE = append(optRes.EDE, &Edns0Ede{
 				InfoCode:      opt.InfoCode,
