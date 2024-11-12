@@ -16,13 +16,14 @@ package iohandlers
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/zmap/zdns/src/internal/util"
 	"github.com/zmap/zdns/src/zdns"
@@ -35,6 +36,7 @@ type StatusHandler struct {
 type scanStats struct {
 	scanStartTime   time.Time
 	domainsScanned  int
+	domainsSuccess  int // number of domains that returned either NXDOMAIN or NOERROR
 	statusOccurance map[zdns.Status]int
 }
 
@@ -84,12 +86,13 @@ statusLoop:
 		case <-ticker.C:
 			// print per-second summary
 			timeSinceStart := time.Since(stats.scanStartTime)
-			s := fmt.Sprintf("%02dh:%02dm:%02ds; %d domains scanned; %.02f domains/sec.; %s\n",
+			s := fmt.Sprintf("%02dh:%02dm:%02ds; %d domains scanned; %.02f domains/sec.; %.01f%% success rate; %s\n",
 				int(timeSinceStart.Hours()),
 				int(timeSinceStart.Minutes())%60,
 				int(timeSinceStart.Seconds())%60,
 				stats.domainsScanned,
 				float64(stats.domainsScanned)/timeSinceStart.Seconds(),
+				float64(stats.domainsSuccess*100)/float64(stats.domainsScanned),
 				getStatusOccuranceString(stats.statusOccurance))
 			if _, err := statusFile.WriteString(s); err != nil {
 				return errors.Wrap(err, "unable to write periodic status update")
@@ -100,28 +103,29 @@ statusLoop:
 				break statusLoop
 			}
 			stats.domainsScanned += 1
-			incrementStatus(stats, status)
+			if status == zdns.StatusNoError || status == zdns.StatusNXDomain {
+				stats.domainsSuccess += 1
+			}
+			if _, ok = stats.statusOccurance[status]; !ok {
+				// initialize status if not seen before
+				stats.statusOccurance[status] = 0
+			}
+			stats.statusOccurance[status] += 1
 		}
 	}
 	timeSinceStart := time.Since(stats.scanStartTime)
-	s := fmt.Sprintf("%02dh:%02dm:%02ds; Scan Complete, no more input. %d domains scanned; %.02f domains/sec.; %s\n",
+	s := fmt.Sprintf("%02dh:%02dm:%02ds; Scan Complete, no more input. %d domains scanned; %.02f domains/sec.; %.01f%% success rate; %s\n",
 		int(timeSinceStart.Hours()),
 		int(timeSinceStart.Minutes())%60,
 		int(timeSinceStart.Seconds())%60,
 		stats.domainsScanned,
 		float64(stats.domainsScanned)/time.Since(stats.scanStartTime).Seconds(),
+		float64(stats.domainsSuccess*100)/float64(stats.domainsScanned),
 		getStatusOccuranceString(stats.statusOccurance))
 	if _, err := statusFile.WriteString(s); err != nil {
 		return errors.Wrap(err, "unable to write final status update")
 	}
 	return nil
-}
-
-func incrementStatus(stats scanStats, status zdns.Status) {
-	if _, ok := stats.statusOccurance[status]; !ok {
-		stats.statusOccurance[status] = 0
-	}
-	stats.statusOccurance[status] += 1
 }
 
 func getStatusOccuranceString(statusOccurances map[zdns.Status]int) string {
