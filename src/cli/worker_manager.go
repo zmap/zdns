@@ -525,7 +525,7 @@ func Run(gc CLIConf) {
 	}()
 	routineWG.Add(2) // input and output handlers
 
-	if !gc.Quiet {
+	if !gc.QuietStatusUpdates {
 		go func() {
 			if statusErr := statusHandler.LogPeriodicUpdates(statusChan, &routineWG); statusErr != nil {
 				log.Fatal(fmt.Sprintf("could not log periodic status updates: %v", statusErr))
@@ -687,7 +687,7 @@ func handleWorkerInput(gc *CLIConf, rc *zdns.ResolverConfig, line string, resolv
 				lookupRes.Error = err.Error()
 			}
 			res.Results[moduleName] = lookupRes
-			if !gc.Quiet {
+			if !gc.QuietStatusUpdates {
 				statusChan <- status
 			}
 		}

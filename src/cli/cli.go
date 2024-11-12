@@ -99,7 +99,7 @@ type InputOutputOptions struct {
 	MetadataFilePath             string `long:"metadata-file" description:"where should JSON metadata be saved, defaults to no metadata output. Use '-' for stderr."`
 	MetadataFormat               bool   `long:"metadata-passthrough" description:"if input records have the form 'name,METADATA', METADATA will be propagated to the output"`
 	OutputFilePath               string `short:"o" long:"output-file" default:"-" description:"where should JSON output be saved, defaults to stdout"`
-	Quiet                        bool   `short:"q" long:"quiet" description:"do not print status updates"`
+	QuietStatusUpdates           bool   `short:"q" long:"quiet" description:"do not print status updates"`
 	NameOverride                 string `long:"override-name" description:"name overrides all passed in names. Commonly used with --name-server-mode."`
 	NamePrefix                   string `long:"prefix" description:"name to be prepended to what's passed in (e.g., www.)"`
 	ResultVerbosity              string `long:"result-verbosity" default:"normal" description:"Sets verbosity of each output record. Options: short, normal, long, trace"`
