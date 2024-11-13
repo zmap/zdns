@@ -99,10 +99,10 @@ func (r *Resolver) doDstServersLookup(q Question, nameServers []NameServer, isIt
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	defer cancel()
-	retries := r.retries
+	r.retriesRemaining = r.retries
 	questionWithMeta := QuestionWithMetadata{
 		Q:                q,
-		RetriesRemaining: &retries,
+		RetriesRemaining: &r.retriesRemaining,
 	}
 	if r.followCNAMEs {
 		return r.followingLookup(ctx, &questionWithMeta, nameServers, isIterative)
@@ -904,7 +904,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 		var nsStatus Status
 		var nextLayer string
 		r.verboseLog(depth+1, "Trying Authority: ", elem)
-		ns, nsStatus, nextLayer, newTrace = r.extractAuthority(ctx, elem, layer, qWithMeta.RetriesRemaining, depth, result, newTrace)
+		ns, nsStatus, nextLayer, newTrace = r.extractAuthority(ctx, elem, layer, depth, result, newTrace)
 		r.verboseLog(depth+1, "Output from extract authorities: ", ns.String())
 
 		if nsStatus == StatusIterTimeout {
@@ -949,7 +949,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 	}
 }
 
-func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, layer string, retriesRemaining *int, depth int, result *SingleQueryResult, trace Trace) (*NameServer, Status, string, Trace) {
+func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, layer string, depth int, result *SingleQueryResult, trace Trace) (*NameServer, Status, string, Trace) {
 	// Is it an answer
 	ans, ok := authority.(Answer)
 	if !ok {
@@ -983,7 +983,7 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 		} else {
 			q.Q.Type = dns.TypeA
 		}
-		q.RetriesRemaining = retriesRemaining
+		q.RetriesRemaining = &r.retriesRemaining
 		res, trace, status, _ = r.iterativeLookup(ctx, &q, r.rootNameServers, depth+1, ".", trace)
 	}
 	if status == StatusIterTimeout || status == StatusNoNeededGlue {

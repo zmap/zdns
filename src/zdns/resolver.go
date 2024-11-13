@@ -269,8 +269,9 @@ type Resolver struct {
 	connInfoIPv4Loopback        *ConnectionInfo // used for IPv4 lookups to loopback nameservers
 	connInfoIPv6Loopback        *ConnectionInfo // used for IPv6 lookups to loopback nameservers
 
-	retries  int
-	logLevel log.Level
+	retries          int
+	retriesRemaining int
+	logLevel         log.Level
 
 	transportMode         transportMode
 	ipVersionMode         IPVersionMode

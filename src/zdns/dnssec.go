@@ -145,7 +145,6 @@ func (r *Resolver) getDNSKEYs(ctx context.Context, signerDomain string, nameServ
 	ksks := make(map[uint16]*dns.DNSKEY)
 	zsks := make(map[uint16]*dns.DNSKEY)
 
-	retries := r.retries
 	nameWithoutTrailingDot := removeTrailingDotIfNotRoot(signerDomain)
 	if signerDomain == rootZone {
 		nameWithoutTrailingDot = rootZone
@@ -157,7 +156,7 @@ func (r *Resolver) getDNSKEYs(ctx context.Context, signerDomain string, nameServ
 			Type:  dns.TypeDNSKEY,
 			Class: dns.ClassINET,
 		},
-		RetriesRemaining: &retries,
+		RetriesRemaining: &r.retriesRemaining,
 	}
 
 	res, trace, status, err := r.lookup(ctx, &dnskeyQuestion, r.rootNameServers, isIterative, trace)
@@ -217,7 +216,6 @@ func (r *Resolver) getDNSKEYs(ctx context.Context, signerDomain string, nameServ
 // - Trace: Updated trace context with the DS query included.
 // - error: If validation fails for any DS record, returns an error with details.
 func (r *Resolver) validateDSRecords(ctx context.Context, signerDomain string, dnskeyMap map[uint16]*dns.DNSKEY, nameServer *NameServer, isIterative bool, trace Trace, depth int) (bool, Trace, error) {
-	retries := r.retries
 	nameWithoutTrailingDot := removeTrailingDotIfNotRoot(signerDomain)
 
 	dsQuestion := QuestionWithMetadata{
@@ -226,7 +224,7 @@ func (r *Resolver) validateDSRecords(ctx context.Context, signerDomain string, d
 			Type:  dns.TypeDS,
 			Class: dns.ClassINET,
 		},
-		RetriesRemaining: &retries,
+		RetriesRemaining: &r.retriesRemaining,
 	}
 
 	dsRecords := make(map[uint16]dns.DS)
