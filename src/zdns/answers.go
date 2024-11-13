@@ -220,12 +220,12 @@ type RRSIGAnswer struct {
 func (r *RRSIGAnswer) ToVanillaType() *dns.RRSIG {
 	expiration, err := dns.StringToTime(r.Expiration)
 	if err != nil {
-		panic(fmt.Sprintf("failed to parse expiration time: %s", r.Expiration))
+		panic("failed to parse expiration time: " + r.Expiration)
 	}
 
 	inception, err := dns.StringToTime(r.Inception)
 	if err != nil {
-		panic(fmt.Sprintf("failed to parse inception time: %s", r.Inception))
+		panic("failed to parse inception time: " + r.Inception)
 	}
 
 	return &dns.RRSIG{

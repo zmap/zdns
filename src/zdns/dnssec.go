@@ -354,7 +354,7 @@ func (r *Resolver) validateRRSIGs(ctx context.Context, typeToRRSets map[uint16][
 			return false, trace, fmt.Errorf("no RRSIG found for type %s", dns.TypeToString[rrType])
 		}
 
-		r.verboseLog(depth, fmt.Sprintf("DNSSEC: Verifying RRSIGs for type %s", dns.TypeToString[rrType]))
+		r.verboseLog(depth, "DNSSEC: Verifying RRSIGs for type", dns.TypeToString[rrType])
 
 		// Validate the RRSIGs for the RRset using validateRRSIG
 		passed, updatedTrace, err := r.validateRRSIG(ctx, rrType, rrSet, rrsigs, nameServer, isIterative, trace, depth+1)
