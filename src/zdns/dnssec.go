@@ -49,8 +49,12 @@ func (r *Resolver) validateChainOfDNSSECTrust(ctx context.Context, msg *dns.Msg,
 	typeToRRSetsWithRRSIGs := make(map[uint16][]dns.RR)
 	for rrType := range typeToRRSets {
 		if _, ok := typeToRRSigs[rrType]; !ok {
+			// The RRSet must be validated if it contains an authoritative answer or DNSSEC-related records
+			// Otherwise, it might be an unsigned referral and does not have to be signed.
 			if msg.Authoritative || isDNSSECRecordType(rrType) {
 				return false, trace, fmt.Errorf("found RRset for type %s but no RRSIG", dns.TypeToString[rrType])
+			} else {
+				r.verboseLog(depth+1, fmt.Sprintf("DNSSEC: Found RRset for type %s but no RRSIG", dns.TypeToString[rrType]))
 			}
 		} else {
 			typeToRRSetsWithRRSIGs[rrType] = typeToRRSets[rrType]
