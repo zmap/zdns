@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/miekg/dns"
 	"github.com/pkg/errors"
@@ -318,6 +319,13 @@ func (r *Resolver) validateRRSIG(ctx context.Context, rrSetType uint16, rrSet []
 	// Attempt to verify each RRSIG using only the DNSKEY matching its KeyTag
 	for _, rrsig := range rrsigs {
 		keyTag := rrsig.KeyTag
+
+		// Check if the RRSIG is still valid
+		if !rrsig.ValidityPeriod(time.Now()) {
+			r.verboseLog(depth, "DNSSEC: RRSIG with keytag=", keyTag, "has expired or is not yet valid")
+			continue
+		}
+
 		matchingKey, found := dnskeyMap[keyTag]
 		if !found {
 			return false, trace, fmt.Errorf("no matching DNSKEY found for RRSIG with key tag %d", keyTag)
@@ -327,6 +335,7 @@ func (r *Resolver) validateRRSIG(ctx context.Context, rrSetType uint16, rrSet []
 		if err := rrsig.Verify(matchingKey, rrSet); err == nil {
 			return true, trace, nil
 		}
+
 		r.verboseLog(depth, fmt.Sprintf("DNSSEC: RRSIG with keytag=%d failed to verify", keyTag))
 	}
 
