@@ -269,8 +269,8 @@ github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9de
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 github.com/zmap/dns v1.1.63-zdns1 h1:vaZIXXLZqjmZTGcpu9qPDcunqWfxeRMh0OwLiCxcjsI=
 github.com/zmap/dns v1.1.63-zdns1/go.mod h1:L50pXblXGxDFLaon9W4vGSfC1rGIcBL29sS7sNvNKuI=
-github.com/zmap/go-dns-root-anchors v0.0.0-20241013070941-7d9393cc3f64 h1:nimnL754tetLIX/BtOp7lXk5H2/Jqo472MYBNhWTgAo=
-github.com/zmap/go-dns-root-anchors v0.0.0-20241013070941-7d9393cc3f64/go.mod h1:AkYq/HWOOEFPx6YgVn2oYjaZjLw2R/HV5WUWfJrFQ6s=
+github.com/zmap/go-dns-root-anchors v0.0.0-20241116225636-aa592d6ee59f h1:XffIjsyncaK1BH7GpceohPRnesxBaO7lduwbXG05ICo=
+github.com/zmap/go-dns-root-anchors v0.0.0-20241116225636-aa592d6ee59f/go.mod h1:AkYq/HWOOEFPx6YgVn2oYjaZjLw2R/HV5WUWfJrFQ6s=
 github.com/zmap/go-iptree v0.0.0-20210731043055-d4e632617837 h1:DjHnADS2r2zynZ3WkCFAQ+PNYngMSNceRROi0pO6c3M=
 github.com/zmap/go-iptree v0.0.0-20210731043055-d4e632617837/go.mod h1:9vp0bxqozzQwcjBwenEXfKVq8+mYbwHkQ1NF9Ap0DMw=
 github.com/zmap/rc2 v0.0.0-20131011165748-24b9757f5521/go.mod h1:3YZ9o3WnatTIZhuOtot4IcUfzoKVjUHqu6WALIyI0nE=
