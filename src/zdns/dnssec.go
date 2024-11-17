@@ -58,7 +58,14 @@ func (v *dNSSECValidator) validate(depth int, trace Trace) (*DNSSECResult, Trace
 		return nil, trace, nil
 	}
 
-	// TODO: how to collect DS and DNSKEY records?
+	for _, ds := range v.ds {
+		parsed := ParseAnswer(ds).(DSAnswer)
+		result.DS = append(result.DS, &parsed)
+	}
+	for _, dnskey := range v.dNSKEY {
+		parsed := ParseAnswer(dnskey).(DNSKEYAnswer)
+		result.DNSKEY = append(result.DNSKEY, &parsed)
+	}
 
 	result.populateStatus()
 
@@ -78,34 +85,26 @@ func (v *dNSSECValidator) validateSection(section []dns.RR, depth int, trace Tra
 		rrsigs, ok := typeToRRSigs[rrType]
 		if !ok {
 			v.r.verboseLog(depth+1, fmt.Sprintf("DNSSEC: Found RRset for type %s without RRSIG coverage", dns.TypeToString[rrType]))
-			continue
-		}
-
-		v.r.verboseLog(depth, "DNSSEC: Verifying RRSIGs for type", dns.TypeToString[rrType])
-
-		// Validate the RRSIGs for the RRset using validateRRSIG
-		passed, updatedTrace, err := v.validateRRSIG(rrType, rrSet, rrsigs, trace, depth+1)
-		trace = updatedTrace
-		if passed {
-			setResult.Status = DNSSECSecure
-			// TODO: set the validated RRSIG in the result
 		} else {
-			v.r.verboseLog(depth+1, "could not verify any RRSIG for type ", dns.TypeToString[rrType], ": ", err)
+			v.r.verboseLog(depth, "DNSSEC: Verifying RRSIGs for type", dns.TypeToString[rrType])
+
+			// Validate the RRSIGs for the RRset using validateRRSIG
+			sigUsed, updatedTrace, err := v.validateRRSIG(rrType, rrSet, rrsigs, trace, depth+1)
+			trace = updatedTrace
+			if sigUsed != nil {
+				setResult.Status = DNSSECSecure
+
+				sigParsed := ParseAnswer(sigUsed).(RRSIGAnswer)
+				setResult.Signature = &sigParsed
+			} else {
+				v.r.verboseLog(depth+1, "could not verify any RRSIG for type ", dns.TypeToString[rrType], ": ", err)
+			}
 		}
 
 		result = append(result, setResult)
 	}
 
 	return result, trace, nil
-}
-
-func isDNSSECRecordType(rrType uint16) bool {
-	switch rrType {
-	case dns.TypeDNSKEY, dns.TypeRRSIG, dns.TypeDS, dns.TypeNSEC, dns.TypeNSEC3, dns.TypeNSEC3PARAM:
-		return true
-	default:
-		return false
-	}
 }
 
 func getTypeMapFromRRs(rrs []dns.RR) (map[uint16][]dns.RR, map[uint16][]*dns.RRSIG) {
@@ -298,7 +297,8 @@ func (v *dNSSECValidator) validateDSRecords(signerDomain string, dnskeyMap map[u
 		authenticDigest := strings.ToUpper(authenticDS.Digest)
 		if actualDigest != authenticDigest {
 			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: DS record mismatch for KSK with KeyTag %d: expected %s, got %s", ksk.KeyTag(), authenticDigest, actualDigest))
-			return false, trace, fmt.Errorf("DS record mismatch for KSK with KeyTag %d", ksk.KeyTag())
+		} else {
+			v.ds = append(v.ds, actualDS)
 		}
 	}
 
@@ -323,7 +323,7 @@ func (v *dNSSECValidator) validateDSRecords(signerDomain string, dnskeyMap map[u
 // - bool: Returns true if at least one RRSIG is successfully verified for the RRset.
 // - Trace: Updated trace context including the DNSKEY retrievals and verifications.
 // - error: If no RRSIG is verified, returns an error describing the failure.
-func (v *dNSSECValidator) validateRRSIG(rrSetType uint16, rrSet []dns.RR, rrsigs []*dns.RRSIG, trace Trace, depth int) (bool, Trace, error) {
+func (v *dNSSECValidator) validateRRSIG(rrSetType uint16, rrSet []dns.RR, rrsigs []*dns.RRSIG, trace Trace, depth int) (*dns.RRSIG, Trace, error) {
 	var dnskeyMap map[uint16]*dns.DNSKEY
 	var err error
 
@@ -331,7 +331,7 @@ func (v *dNSSECValidator) validateRRSIG(rrSetType uint16, rrSet []dns.RR, rrsigs
 	if rrSetType == dns.TypeDNSKEY {
 		dnskeyMap, err = parseKSKsFromAnswer(rrSet)
 		if err != nil {
-			return false, trace, fmt.Errorf("failed to parse KSKs from DNSKEY answer: %v", err)
+			return nil, trace, fmt.Errorf("failed to parse KSKs from DNSKEY answer: %v", err)
 		}
 	} else {
 		// For other RRset types, fetch DNSKEYs for each RRSIG's signer domain
@@ -341,7 +341,7 @@ func (v *dNSSECValidator) validateRRSIG(rrSetType uint16, rrSet []dns.RR, rrsigs
 			_, zskMap, updatedTrace, err := v.getDNSKEYs(rrsig.SignerName, trace, depth+1)
 			dnskeyMap = zskMap
 			if err != nil {
-				return false, updatedTrace, fmt.Errorf("failed to retrieve DNSKEYs for signer domain %s: %v", rrsig.SignerName, err)
+				return nil, updatedTrace, fmt.Errorf("failed to retrieve DNSKEYs for signer domain %s: %v", rrsig.SignerName, err)
 			}
 			trace = updatedTrace
 		}
@@ -359,16 +359,17 @@ func (v *dNSSECValidator) validateRRSIG(rrSetType uint16, rrSet []dns.RR, rrsigs
 
 		matchingKey, found := dnskeyMap[keyTag]
 		if !found {
-			return false, trace, fmt.Errorf("no matching DNSKEY found for RRSIG with key tag %d", keyTag)
+			return nil, trace, fmt.Errorf("no matching DNSKEY found for RRSIG with key tag %d", keyTag)
 		}
 
 		// Verify the RRSIG with the matching DNSKEY
 		if err := rrsig.Verify(matchingKey, rrSet); err == nil {
-			return true, trace, nil
+			v.dNSKEY = append(v.dNSKEY, matchingKey)
+			return rrsig, trace, nil
 		}
 
 		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: RRSIG with keytag=%d failed to verify", keyTag))
 	}
 
-	return false, trace, errors.New("could not verify any RRSIG for RRset")
+	return nil, trace, errors.New("could not verify any RRSIG for RRset")
 }

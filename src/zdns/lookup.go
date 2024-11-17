@@ -571,10 +571,10 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 			var dnssecResult *DNSSECResult
 			validator := makeDNSSECValidator(r, ctx, rawResp, nameServer, !requestIteration)
 			dnssecResult, trace, err = validator.validate(depth+2, trace)
-			r.verboseLog(depth+2, "DNSSEC validation status: ", dnssecResult.Status, " err: ", err)
-			if err != nil {
+			if err != nil || dnssecResult == nil {
 				return result, isCached, StatusError, trace, errors.Wrap(err, "error when validating DNSSEC")
 			}
+			r.verboseLog(depth+2, "DNSSEC validation status: ", dnssecResult.Status, " err: ", err)
 			result.DNSSECResult = dnssecResult
 		}
 

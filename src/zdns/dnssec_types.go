@@ -31,9 +31,9 @@ const (
 
 // DNSSECPerSetResult represents the validation result for an RRSet
 type DNSSECPerSetResult struct {
-	RrType       string
-	Status       DNSSECStatus
-	ValidatedSig *RRSIGAnswer
+	RrType    string
+	Status    DNSSECStatus
+	Signature *RRSIGAnswer
 }
 
 // DNSSECResult captures all information generated during a DNSSEC validation
@@ -53,8 +53,8 @@ type dNSSECValidator struct {
 	nameServer  *NameServer
 	isIterative bool
 
-	ds     []*DSAnswer
-	dNSKEY []*DNSKEYAnswer
+	ds     []*dns.DS
+	dNSKEY []*dns.DNSKEY
 }
 
 // makeDNSSECValidator creates a new DNSSECValidator instance
@@ -66,8 +66,8 @@ func makeDNSSECValidator(r *Resolver, ctx context.Context, msg *dns.Msg, nameSer
 		nameServer:  nameServer,
 		isIterative: isIterative,
 
-		ds:     make([]*DSAnswer, 0),
-		dNSKEY: make([]*DNSKEYAnswer, 0),
+		ds:     make([]*dns.DS, 0),
+		dNSKEY: make([]*dns.DNSKEY, 0),
 	}
 }
 
