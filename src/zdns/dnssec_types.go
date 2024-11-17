@@ -13,6 +13,12 @@
  */
 package zdns
 
+import (
+	"context"
+
+	"github.com/miekg/dns"
+)
+
 // DNSSECStatus represents the overall validation status according to RFC 4035
 type DNSSECStatus string
 
@@ -38,6 +44,31 @@ type DNSSECResult struct {
 	Answer        []DNSSECPerSetResult
 	Additionals   []DNSSECPerSetResult
 	Authoritative []DNSSECPerSetResult
+}
+
+type dNSSECValidator struct {
+	r           *Resolver
+	ctx         context.Context
+	msg         *dns.Msg
+	nameServer  *NameServer
+	isIterative bool
+
+	ds     []*DSAnswer
+	dNSKEY []*DNSKEYAnswer
+}
+
+// makeDNSSECValidator creates a new DNSSECValidator instance
+func makeDNSSECValidator(r *Resolver, ctx context.Context, msg *dns.Msg, nameServer *NameServer, isIterative bool) *dNSSECValidator {
+	return &dNSSECValidator{
+		r:           r,
+		ctx:         ctx,
+		msg:         msg,
+		nameServer:  nameServer,
+		isIterative: isIterative,
+
+		ds:     make([]*DSAnswer, 0),
+		dNSKEY: make([]*DNSKEYAnswer, 0),
+	}
 }
 
 // makeDNSSECResult creates and initializes a new DNSSECResult instance
