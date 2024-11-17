@@ -25,6 +25,7 @@ const (
 
 // DNSSECPerSetResult represents the validation result for an RRSet
 type DNSSECPerSetResult struct {
+	RrType       string
 	Status       DNSSECStatus
 	ValidatedSig *RRSIGAnswer
 }
@@ -34,9 +35,9 @@ type DNSSECResult struct {
 	Status        DNSSECStatus
 	DS            []*DSAnswer
 	DNSKEY        []*DNSKEYAnswer
-	Answer        map[string]DNSSECPerSetResult
-	Additionals   map[string]DNSSECPerSetResult
-	Authoritative map[string]DNSSECPerSetResult
+	Answer        []DNSSECPerSetResult
+	Additionals   []DNSSECPerSetResult
+	Authoritative []DNSSECPerSetResult
 }
 
 // makeDNSSECResult creates and initializes a new DNSSECResult instance
@@ -45,13 +46,13 @@ func makeDNSSECResult() *DNSSECResult {
 		Status:        DNSSECIndeterminate,
 		DS:            make([]*DSAnswer, 0),
 		DNSKEY:        make([]*DNSKEYAnswer, 0),
-		Answer:        make(map[string]DNSSECPerSetResult),
-		Additionals:   make(map[string]DNSSECPerSetResult),
-		Authoritative: make(map[string]DNSSECPerSetResult),
+		Answer:        make([]DNSSECPerSetResult, 0),
+		Additionals:   make([]DNSSECPerSetResult, 0),
+		Authoritative: make([]DNSSECPerSetResult, 0),
 	}
 }
 
-// AreAnswersSecure checks if all RR sets in the answer section are secure
+// AreAnswersSecure checks if all RR sets in the answer section are secure.
 func (r *DNSSECResult) AreAnswersSecure() bool {
 	for _, result := range r.Answer {
 		if result.Status != DNSSECSecure {
@@ -59,4 +60,64 @@ func (r *DNSSECResult) AreAnswersSecure() bool {
 		}
 	}
 	return true
+}
+
+// OverallStatus returns the overall validation status.
+// If any RR set is bogus, the overall status is bogus.
+// If any RR set in answer section or any DNSSEC-related RRSet is insecure, the overall status is insecure.
+// If any RR set in answer section or any DNSSEC-related RRSet is indeterminate, the overall status is indeterminate.
+// Otherwise, the overall status is secure.
+// This function should be called after all PerSetResults are populated, and the result should is stored in r.Status.
+func (r *DNSSECResult) populateStatus() {
+	isDNSSECType := func(rrType string) bool {
+		switch rrType {
+		case "DNSKEY", "RRSIG", "DS", "NSEC", "NSEC3", "NSEC3PARAM":
+			return true
+		default:
+			return false
+		}
+	}
+
+	r.Status = DNSSECSecure
+
+	// Check for bogus results first (highest priority)
+	checkSections := [][]DNSSECPerSetResult{r.Answer, r.Additionals, r.Authoritative}
+	for _, section := range checkSections {
+		for _, result := range section {
+			if result.Status == DNSSECBogus {
+				r.Status = DNSSECBogus
+				return
+			}
+		}
+	}
+
+	for _, result := range r.Answer {
+		if result.Status == DNSSECInsecure {
+			r.Status = DNSSECInsecure
+			return
+		}
+
+		if result.Status == DNSSECIndeterminate {
+			r.Status = DNSSECIndeterminate
+		}
+	}
+
+	// Check DNSSEC-related RRsets in other sections
+	for _, section := range [][]DNSSECPerSetResult{r.Additionals, r.Authoritative} {
+		for _, result := range section {
+			if isDNSSECType(result.RrType) {
+				if result.Status == DNSSECInsecure {
+					r.Status = DNSSECInsecure
+					return
+				}
+
+				if r.Status != DNSSECSecure && result.Status == DNSSECIndeterminate {
+					r.Status = DNSSECIndeterminate
+					return
+				}
+			}
+		}
+	}
+
+	// If we get here, either everything is secure or we have an indeterminate result
 }

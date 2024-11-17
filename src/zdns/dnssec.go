@@ -30,47 +30,74 @@ const (
 	keySigningKeyFlag  = 257
 )
 
-func (r *Resolver) validateChainOfDNSSECTrust(ctx context.Context, msg *dns.Msg, nameServer *NameServer, isIterative bool, depth int, trace Trace) (bool, Trace, error) {
-	typeToRRSets := make(map[uint16][]dns.RR)
-	typeToRRSigs := make(map[uint16][]*dns.RRSIG)
+func (r *Resolver) validateChainOfDNSSECTrust(ctx context.Context, msg *dns.Msg, nameServer *NameServer, isIterative bool, depth int, trace Trace) (*DNSSECResult, Trace, error) {
+	result := makeDNSSECResult()
 
-	updateTypeMapWithRRs(typeToRRSets, typeToRRSigs, msg.Answer)
-	if !msg.Authoritative && isIterative {
-		updateTypeMapWithRRs(typeToRRSets, typeToRRSigs, msg.Ns)
+	// Validate the answer section
+	sectionRes, trace, err := r.validateSection(ctx, msg.Answer, nameServer, isIterative, depth, trace)
+	if err != nil {
+		return nil, trace, err // Never return incomplete results
+	}
+	result.Answer = sectionRes
+
+	// Validate the additional section
+	sectionRes, trace, err = r.validateSection(ctx, msg.Extra, nameServer, isIterative, depth, trace)
+	if err != nil {
+		return nil, trace, err
+	}
+	result.Additionals = sectionRes
+
+	// Validate the authoritative section
+	sectionRes, trace, err = r.validateSection(ctx, msg.Ns, nameServer, isIterative, depth, trace)
+	if err != nil {
+		return nil, trace, err
+	}
+	result.Authoritative = sectionRes
+
+	// Check if all RR sets in the answer section are secure
+	if !result.AreAnswersSecure() {
+		return nil, trace, nil
 	}
 
-	// Shortcut checks on RRSIG cardinality
-	if len(typeToRRSigs) == 0 {
-		// No RRSIGs, possibly because DNSSEC is not enabled... or we are hijacked
-		r.verboseLog(depth+1, "DNSSEC: No RRSIGs found")
-		return false, trace, nil
-	}
+	// TODO: how to collect DS and DNSKEY records?
+
+	result.populateStatus()
+
+	return result, trace, nil
+}
+func (r *Resolver) validateSection(ctx context.Context, section []dns.RR, nameServer *NameServer, isIterative bool, depth int, trace Trace) ([]DNSSECPerSetResult, Trace, error) {
+	typeToRRSets, typeToRRSigs := getTypeMapFromRRs(section)
+	result := make([]DNSSECPerSetResult, 0)
 
 	// Verify if for each RRset there is a corresponding RRSIG
-	typeToRRSetsWithRRSIGs := make(map[uint16][]dns.RR)
-	for rrType := range typeToRRSets {
-		if _, ok := typeToRRSigs[rrType]; !ok {
-			// The RRSet must be validated if it contains an authoritative answer or DNSSEC-related records
-			// Otherwise, it might be an unsigned referral and does not have to be signed.
-			if msg.Authoritative || isDNSSECRecordType(rrType) {
-				return false, trace, fmt.Errorf("found RRset for type %s but no RRSIG", dns.TypeToString[rrType])
-			} else {
-				r.verboseLog(depth+1, fmt.Sprintf("DNSSEC: Found RRset for type %s but no RRSIG", dns.TypeToString[rrType]))
-			}
-		} else {
-			typeToRRSetsWithRRSIGs[rrType] = typeToRRSets[rrType]
+	for rrType, rrSet := range typeToRRSets {
+		setResult := DNSSECPerSetResult{
+			RrType: dns.TypeToString[rrType],
+			Status: DNSSECIndeterminate,
 		}
+
+		rrsigs, ok := typeToRRSigs[rrType]
+		if !ok {
+			r.verboseLog(depth+1, fmt.Sprintf("DNSSEC: Found RRset for type %s without RRSIG coverage", dns.TypeToString[rrType]))
+			continue
+		}
+
+		r.verboseLog(depth, "DNSSEC: Verifying RRSIGs for type", dns.TypeToString[rrType])
+
+		// Validate the RRSIGs for the RRset using validateRRSIG
+		passed, updatedTrace, err := r.validateRRSIG(ctx, rrType, rrSet, rrsigs, nameServer, isIterative, trace, depth+1)
+		trace = updatedTrace
+		if passed {
+			setResult.Status = DNSSECSecure
+			// TODO: set the validated RRSIG in the result
+		} else {
+			r.verboseLog(depth+1, "could not verify any RRSIG for type ", dns.TypeToString[rrType], ": ", err)
+		}
+
+		result = append(result, setResult)
 	}
-	typeToRRSets = typeToRRSetsWithRRSIGs
 
-	r.verboseLog(depth+1, fmt.Sprintf("DNSSEC: Found %d RRsets with RRSIGs", len(typeToRRSets)))
-
-	passed, trace, err := r.validateRRSIGs(ctx, typeToRRSets, typeToRRSigs, nameServer, isIterative, trace, depth)
-	if err != nil {
-		return false, trace, errors.Wrap(err, "could not validate RRSIGs")
-	}
-
-	return passed, trace, nil
+	return result, trace, nil
 }
 
 func isDNSSECRecordType(rrType uint16) bool {
@@ -82,7 +109,10 @@ func isDNSSECRecordType(rrType uint16) bool {
 	}
 }
 
-func updateTypeMapWithRRs(typeToRRSets map[uint16][]dns.RR, typeToRRSigs map[uint16][]*dns.RRSIG, rrs []dns.RR) {
+func getTypeMapFromRRs(rrs []dns.RR) (map[uint16][]dns.RR, map[uint16][]*dns.RRSIG) {
+	typeToRRSets := make(map[uint16][]dns.RR)
+	typeToRRSigs := make(map[uint16][]*dns.RRSIG)
+
 	for _, rr := range rrs {
 		rrType := rr.Header().Rrtype
 		switch rr := rr.(type) {
@@ -92,6 +122,8 @@ func updateTypeMapWithRRs(typeToRRSets map[uint16][]dns.RR, typeToRRSigs map[uin
 			typeToRRSets[rrType] = append(typeToRRSets[rrType], rr)
 		}
 	}
+
+	return typeToRRSets, typeToRRSigs
 }
 
 // parseKSKsFromAnswer extracts only KSKs (Key Signing Keys) from a DNSKEY RRset answer,
@@ -296,7 +328,7 @@ func (r *Resolver) validateRRSIG(ctx context.Context, rrSetType uint16, rrSet []
 	var dnskeyMap map[uint16]*dns.DNSKEY
 	var err error
 
-	// If RRset type is DNSKEY, use pre-parsed KSKs from the answer directly
+	// If RRset type is DNSKEY, use parsed KSKs from the answer directly
 	if rrSetType == dns.TypeDNSKEY {
 		dnskeyMap, err = parseKSKsFromAnswer(rrSet)
 		if err != nil {
@@ -340,40 +372,4 @@ func (r *Resolver) validateRRSIG(ctx context.Context, rrSetType uint16, rrSet []
 	}
 
 	return false, trace, errors.New("could not verify any RRSIG for RRset")
-}
-
-// validateRRSIGs verifies multiple RRsets and their corresponding RRSIGs. It iterates over each RRset, retrieves
-// the RRSIGs, and attempts to verify each RRSIG using validateRRSIG, using KSKs for DNSKEY RRset type and ZSKs
-// for other types.
-//
-// Parameters:
-// - ctx: Context for cancellation and timeout control.
-// - typeToRRSets: A map of RR types to slices of DNS Resource Records (RRsets) of that type.
-// - typeToRRSigs: A map of RR types to slices of RRSIGs associated with each RRset.
-// - nameServer: The nameserver to use for DNSKEY retrievals.
-// - isIterative: Boolean indicating if the DNSKEY queries should be iterative.
-// - depth: The recursion or verification depth for logging purposes.
-//
-// Returns:
-// - bool: Returns true if all RRSIGs for all RRsets are verified; otherwise, false if any RRSIG fails verification.
-// - Trace: Updated trace context with all verification attempts included.
-// - error: If verification fails for any RRSIG, returns an error with details.
-func (r *Resolver) validateRRSIGs(ctx context.Context, typeToRRSets map[uint16][]dns.RR, typeToRRSigs map[uint16][]*dns.RRSIG, nameServer *NameServer, isIterative bool, trace Trace, depth int) (bool, Trace, error) {
-	for rrType, rrSet := range typeToRRSets {
-		rrsigs, ok := typeToRRSigs[rrType]
-		if !ok || len(rrsigs) == 0 {
-			return false, trace, fmt.Errorf("no RRSIG found for type %s", dns.TypeToString[rrType])
-		}
-
-		r.verboseLog(depth, "DNSSEC: Verifying RRSIGs for type", dns.TypeToString[rrType])
-
-		// Validate the RRSIGs for the RRset using validateRRSIG
-		passed, updatedTrace, err := r.validateRRSIG(ctx, rrType, rrSet, rrsigs, nameServer, isIterative, trace, depth+1)
-		trace = updatedTrace
-		if !passed {
-			return false, trace, fmt.Errorf("could not verify any RRSIG for type %s: %v", dns.TypeToString[rrType], err)
-		}
-	}
-
-	return true, trace, nil
 }

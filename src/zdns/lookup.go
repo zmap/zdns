@@ -568,12 +568,13 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 
 	if status == StatusNoError && result != nil {
 		if r.dnsSecEnabled {
-			var validated bool
-			validated, trace, err = r.validateChainOfDNSSECTrust(ctx, rawResp, nameServer, !requestIteration, depth+2, trace)
-			r.verboseLog(depth+2, "DNSSEC validation result: ", validated, " err: ", err)
+			var dnssecResult *DNSSECResult
+			dnssecResult, trace, err = r.validateChainOfDNSSECTrust(ctx, rawResp, nameServer, !requestIteration, depth+2, trace)
+			r.verboseLog(depth+2, "DNSSEC validation status: ", dnssecResult.Status, " err: ", err)
 			if err != nil {
-				return result, isCached, StatusError, trace, errors.Wrap(err, "could not validate chain of DNSSEC trust")
+				return result, isCached, StatusError, trace, errors.Wrap(err, "error when validating DNSSEC")
 			}
+			result.DNSSECResult = dnssecResult
 		}
 
 		// only cache answers that don't have errors
