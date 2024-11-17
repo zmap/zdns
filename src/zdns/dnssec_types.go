@@ -31,19 +31,19 @@ const (
 
 // DNSSECPerSetResult represents the validation result for an RRSet
 type DNSSECPerSetResult struct {
-	RrType    string
-	Status    DNSSECStatus
-	Signature *RRSIGAnswer
+	RrType    string       `json:"rr_type"`
+	Status    DNSSECStatus `json:"status"`
+	Signature *RRSIGAnswer `json:"sig"`
 }
 
 // DNSSECResult captures all information generated during a DNSSEC validation
 type DNSSECResult struct {
-	Status        DNSSECStatus
-	DS            []*DSAnswer
-	DNSKEY        []*DNSKEYAnswer
-	Answer        []DNSSECPerSetResult
-	Additionals   []DNSSECPerSetResult
-	Authoritative []DNSSECPerSetResult
+	Status        DNSSECStatus         `json:"status" groups:"normal,long,trace"`
+	DS            []*DSAnswer          `json:"ds" groups:"long,trace"`
+	DNSKEY        []*DNSKEYAnswer      `json:"dnskey" groups:"long,trace"`
+	Answer        []DNSSECPerSetResult `json:"answer" groups:"long,trace"`
+	Additionals   []DNSSECPerSetResult `json:"additionals" groups:"long,trace"`
+	Authoritative []DNSSECPerSetResult `json:"authoritative" groups:"long,trace"`
 }
 
 type dNSSECValidator struct {
