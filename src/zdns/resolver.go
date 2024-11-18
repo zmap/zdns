@@ -292,6 +292,7 @@ type Resolver struct {
 	lookupAllNameServers       bool
 	followCNAMEs               bool // whether iterative lookups should follow CNAMEs/DNAMEs
 
+	cfClient             *CFClient // Cloudflare client for DNS over HTTPS
 	dnsSecEnabled        bool
 	shouldValidateDNSSEC bool           // whether to validate DNSSEC
 	dnsOverHTTPSEnabled  bool           // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
@@ -340,6 +341,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 
 		timeout: config.Timeout,
 
+		cfClient:             NewCFClient("https://1.1.1.1/dns-query"),
 		dnsOverHTTPSEnabled:  config.DNSOverHTTPS,
 		dnsOverTLSEnabled:    config.DNSOverTLS,
 		rootCAs:              config.RootCAs,

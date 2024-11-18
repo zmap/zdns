@@ -105,10 +105,13 @@ func (r *Resolver) doDstServersLookup(q Question, nameServers []NameServer, isIt
 		RetriesRemaining: &r.retriesRemaining,
 	}
 	if r.followCNAMEs {
-		return r.followingLookup(ctx, &questionWithMeta, nameServers, isIterative)
+		res, trace, status, err := r.followingLookup(ctx, &questionWithMeta, nameServers, isIterative)
+		res.CFResult = r.cfClient.MakeDNSRequest(questionWithMeta.Q.Name, questionWithMeta.Q.Type)
+		return res, trace, status, err
 	}
 	var trace Trace
 	res, trace, status, err := r.lookup(ctx, &questionWithMeta, nameServers, isIterative, trace)
+	res.CFResult = r.cfClient.MakeDNSRequest(questionWithMeta.Q.Name, questionWithMeta.Q.Type)
 	if err != nil {
 		return res, nil, status, fmt.Errorf("could not perform retrying lookup for name %v: %w", q.Name, err)
 	}
