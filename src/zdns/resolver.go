@@ -272,8 +272,9 @@ type Resolver struct {
 	connInfoIPv4Loopback        *ConnectionInfo // used for IPv4 lookups to loopback nameservers
 	connInfoIPv6Loopback        *ConnectionInfo // used for IPv6 lookups to loopback nameservers
 
-	retries          int // constant, configured max number of retries
-	retriesRemaining int // number of retries left in the current lookup
+	retries          int               // constant, configured max number of retries
+	retriesRemaining int               // number of retries left in the current lookup
+	pendingQueries   map[Question]bool // map of pending queries, to prevent cyclic queries
 	logLevel         log.Level
 
 	transportMode         transportMode
@@ -328,6 +329,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 
 		retries:              config.Retries,
 		logLevel:             config.LogLevel,
+		pendingQueries:       make(map[Question]bool),
 		lookupAllNameServers: config.LookupAllNameServers,
 
 		transportMode:         config.TransportMode,

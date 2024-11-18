@@ -49,7 +49,16 @@ const (
 	StatusIterTimeout  Status = "ITERATIVE_TIMEOUT"
 	StatusNoAuth       Status = "NOAUTH"
 	StatusNoNeededGlue Status = "NONEEDEDGLUE" // When a nameserver is authoritative for itself and the parent nameserver doesn't provide the glue to look it up
+	StatusCircular     Status = "CIRCULAR"     // When circular query dependencies are detected
 )
+
+func isStatusRetryable(status Status) bool {
+	switch status {
+	case StatusServFail, StatusNXDomain, StatusRefused, StatusTruncated, StatusError, StatusTimeout, StatusIterTimeout:
+		return true
+	}
+	return false
+}
 
 var RootServersV4 = []NameServer{
 	{IP: net.ParseIP("198.41.0.4"), Port: 53},     // A

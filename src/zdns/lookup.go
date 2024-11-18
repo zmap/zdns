@@ -414,7 +414,11 @@ func (r *Resolver) cyclingLookup(ctx context.Context, qWithMeta *QuestionWithMet
 		} else if *qWithMeta.RetriesRemaining == 0 {
 			r.verboseLog(depth+1, "Cycling lookup failed - out of retries. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 			return result, isCached, status, trace, errors.New("cycling lookup failed - out of retries")
+		} else if !isStatusRetryable(status) {
+			r.verboseLog(depth+1, "Cycling lookup failed - unretryable status:", status, "Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
+			return result, isCached, status, trace, err
 		}
+
 		r.verboseLog(depth+1, "Cycling lookup failed with status:", status, "err: ", err, ", using a retry. Retries remaining: ", *qWithMeta.RetriesRemaining, " , Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 		*qWithMeta.RetriesRemaining--
 	}
@@ -445,6 +449,15 @@ func getRandomNonQueriedNameServer(nameServers []NameServer, queriedNameServers 
 // cacheBasedOnNameServer is whether to consider a cache hit based on DNS question and nameserver, or just question
 // cacheNonAuthoritative is whether to cache non-authoritative answers, usually used for lookups using an external resolver
 func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *NameServer, layer string, depth int, requestIteration, cacheBasedOnNameServer, cacheNonAuthoritative bool, trace Trace) (*SingleQueryResult, IsCached, Status, Trace, error) {
+	// check for circular queries. This may be problematic if NS has circular references and we're trying to perform a DNSSEC validation
+	if _, ok := r.pendingQueries[q]; ok {
+		return &SingleQueryResult{}, false, StatusCircular, trace, errors.New("circular query detected")
+	}
+	r.pendingQueries[q] = true
+	defer func() {
+		delete(r.pendingQueries, q)
+	}()
+
 	var isCached IsCached
 	isCached = false
 	r.verboseLog(depth+1, "Cached retrying lookup. Name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer)
