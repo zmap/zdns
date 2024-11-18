@@ -338,14 +338,9 @@ func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, d
 		}
 	}
 
-	res = &SingleQueryResult{
-		Answers:            otherRRs,
-		Protocol:           res.Protocol,
-		Resolver:           res.Resolver,
-		Flags:              res.Flags,
-		TLSServerHandshake: res.TLSServerHandshake,
-	}
-	cachedRes := s.buildCachedResult(res, depth, layer)
+	copiedRes := *res
+	copiedRes.Authorities = otherRRs
+	cachedRes := s.buildCachedResult(&copiedRes, depth, layer)
 	if len(cachedRes.Answers) == 0 && len(cachedRes.Authorities) == 0 && len(cachedRes.Additionals) == 0 {
 		s.VerboseLog(depth+1, "SafeAddCachedAnswer: no cacheable records found, aborting")
 		return
