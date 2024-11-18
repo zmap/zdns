@@ -64,8 +64,8 @@ type dNSSECValidator struct {
 	nameServer  *NameServer
 	isIterative bool
 
-	ds     []*dns.DS
-	dNSKEY []*dns.DNSKEY
+	ds     map[dns.DS]bool
+	dNSKEY map[dns.DNSKEY]bool
 }
 
 // makeDNSSECValidator creates a new DNSSECValidator instance
@@ -77,8 +77,8 @@ func makeDNSSECValidator(r *Resolver, ctx context.Context, msg *dns.Msg, nameSer
 		nameServer:  nameServer,
 		isIterative: isIterative,
 
-		ds:     make([]*dns.DS, 0),
-		dNSKEY: make([]*dns.DNSKEY, 0),
+		ds:     make(map[dns.DS]bool),
+		dNSKEY: make(map[dns.DNSKEY]bool),
 	}
 }
 

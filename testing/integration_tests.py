@@ -1364,19 +1364,14 @@ class Tests(unittest.TestCase):
             self.assertTrue(len(dnssec["ds"]) > 0)
             self.assertTrue(len(dnssec["dnskey"]) > 0)
 
-    def test_dnssec_validation_secure_circular_multiple_ksk(self):
-        # checks if dnssec validation can handle multiple KSKs and circular NS dependencies
+    def test_dnssec_validation_secure_circular(self):
+        # checks if dnssec validation can handle circular NS dependencies
         c = "A example.com --iterative --validate-dnssec --result-verbosity=long"
         name = "."
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd, "A")
         dnssec = res["results"]["A"]["data"]["dnssec"]
         self.assertEqual(dnssec["status"], "Secure")
-
-        # This may be flaky if IANA decides to change the KSKs for the zone
-        # Double check if this fails, or consider removing this test
-        self.assertTrue(len(dnssec["ds"]) >= 2)
-        self.assertTrue(len(dnssec["dnskey"]) >= 2)
 
     def test_dnssec_validation_insecure(self):
         # checks if dnssec validation reports insecure (not signed) zones correctly

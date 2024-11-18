@@ -44,12 +44,12 @@ func (v *dNSSECValidator) validate(depth int, trace Trace) (*DNSSECResult, Trace
 	sectionRes, trace = v.validateSection(v.msg.Ns, depth, trace)
 	result.Authoritative = sectionRes
 
-	for _, ds := range v.ds {
-		parsed := ParseAnswer(ds).(DSAnswer) //nolint:golint,errcheck
+	for ds := range v.ds {
+		parsed := ParseAnswer(&ds).(DSAnswer) //nolint:golint,errcheck
 		result.DS = append(result.DS, &parsed)
 	}
-	for _, dnskey := range v.dNSKEY {
-		parsed := ParseAnswer(dnskey).(DNSKEYAnswer) //nolint:golint,errcheck
+	for dnskey := range v.dNSKEY {
+		parsed := ParseAnswer(&dnskey).(DNSKEYAnswer) //nolint:golint,errcheck
 		result.DNSKEY = append(result.DNSKEY, &parsed)
 	}
 
@@ -307,7 +307,7 @@ func (v *dNSSECValidator) validateDSRecords(signerDomain string, dnskeyMap map[u
 		} else {
 			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: DS record for KSK with KeyTag %d is valid", ksk.KeyTag()))
 
-			v.ds = append(v.ds, actualDS)
+			v.ds[*actualDS] = true
 			validatedKSKs[ksk.KeyTag()] = ksk
 		}
 	}
@@ -378,7 +378,7 @@ func (v *dNSSECValidator) validateRRSIG(rrSetType uint16, rrSet []dns.RR, rrsigs
 
 		// Verify the RRSIG with the matching DNSKEY
 		if err := rrsig.Verify(matchingKey, rrSet); err == nil {
-			v.dNSKEY = append(v.dNSKEY, matchingKey)
+			v.dNSKEY[*matchingKey] = true
 			return rrsig, trace, nil
 		}
 
