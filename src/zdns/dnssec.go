@@ -58,25 +58,25 @@ func (v *dNSSECValidator) validate(depth int, trace Trace) (*DNSSECResult, Trace
 	return result, trace
 }
 func (v *dNSSECValidator) validateSection(section []dns.RR, depth int, trace Trace) ([]DNSSECPerSetResult, Trace) {
-	typeToRRSets, typeToRRSigs := getTypeMapFromRRs(section)
+	typeToRRSets, typeToRRSigs := splitRRsetsAndSigs(section)
 	result := make([]DNSSECPerSetResult, 0)
 
 	// Verify if for each RRset there is a corresponding RRSIG
-	for rrType, rrSet := range typeToRRSets {
+	for rrsKey, rrSet := range typeToRRSets {
 		setResult := DNSSECPerSetResult{
-			RrType: dns.TypeToString[rrType],
+			RRset:  rrsKey,
 			Status: DNSSECIndeterminate,
 		}
 
-		rrsigs, ok := typeToRRSigs[rrType]
+		rrsigs, ok := typeToRRSigs[rrsKey]
 		if !ok {
-			v.r.verboseLog(depth+1, fmt.Sprintf("DNSSEC: Found RRset for type %s without RRSIG coverage", dns.TypeToString[rrType]))
+			v.r.verboseLog(depth+1, "DNSSEC: Found RRset without RRSIG coverage,"+rrsKey.String())
 			setResult.Status = DNSSECInsecure
 		} else {
-			v.r.verboseLog(depth, "DNSSEC: Verifying RRSIGs for type", dns.TypeToString[rrType])
+			v.r.verboseLog(depth, "DNSSEC: Verifying RRSIGs for RRset", rrsKey.String())
 
 			// Validate the RRSIGs for the RRset using validateRRSIG
-			sigUsed, updatedTrace, err := v.validateRRSIG(rrType, rrSet, rrsigs, trace, depth+1)
+			sigUsed, updatedTrace, err := v.validateRRSIG(rrsKey.Type, rrSet, rrsigs, trace, depth+1)
 			trace = updatedTrace
 			if sigUsed != nil {
 				setResult.Status = DNSSECSecure
@@ -84,7 +84,7 @@ func (v *dNSSECValidator) validateSection(section []dns.RR, depth int, trace Tra
 				sigParsed := ParseAnswer(sigUsed).(RRSIGAnswer) //nolint:golint,errcheck
 				setResult.Signature = &sigParsed
 			} else {
-				v.r.verboseLog(depth+1, "could not verify any RRSIG for type", dns.TypeToString[rrType], ":", err)
+				v.r.verboseLog(depth+1, "could not verify any RRSIG for RRset", rrsKey.String(), "err:", err)
 				// TODO: This check for bogus is not comprehensive or entirely accurate.
 				// If the error is due to the inability to retrieve DNSKEY or DS records, the status should be indeterminate.
 				// If a DS record exists at the SOA, but no RRSIG is found here, the status should be bogus (this case is not handled here).
@@ -104,17 +104,22 @@ func (v *dNSSECValidator) validateSection(section []dns.RR, depth int, trace Tra
 	return result, trace
 }
 
-func getTypeMapFromRRs(rrs []dns.RR) (map[uint16][]dns.RR, map[uint16][]*dns.RRSIG) {
-	typeToRRSets := make(map[uint16][]dns.RR)
-	typeToRRSigs := make(map[uint16][]*dns.RRSIG)
+func splitRRsetsAndSigs(rrs []dns.RR) (map[RRsetKey][]dns.RR, map[RRsetKey][]*dns.RRSIG) {
+	typeToRRSets := make(map[RRsetKey][]dns.RR)
+	typeToRRSigs := make(map[RRsetKey][]*dns.RRSIG)
 
 	for _, rr := range rrs {
-		rrType := rr.Header().Rrtype
+		rrsKey := RRsetKey{
+			Name:  rr.Header().Name,
+			Class: rr.Header().Class,
+		}
 		switch rr := rr.(type) {
 		case *dns.RRSIG:
-			typeToRRSigs[rr.TypeCovered] = append(typeToRRSigs[rr.TypeCovered], rr)
+			rrsKey.Type = rr.TypeCovered
+			typeToRRSigs[rrsKey] = append(typeToRRSigs[rrsKey], rr)
 		default:
-			typeToRRSets[rrType] = append(typeToRRSets[rrType], rr)
+			rrsKey.Type = rr.Header().Rrtype
+			typeToRRSets[rrsKey] = append(typeToRRSets[rrsKey], rr)
 		}
 	}
 

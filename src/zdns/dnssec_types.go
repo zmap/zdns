@@ -29,9 +29,19 @@ const (
 	DNSSECIndeterminate DNSSECStatus = "Indeterminate"
 )
 
+type RRsetKey struct {
+	Name  string `json:"name"`
+	Type  uint16 `json:"type"`
+	Class uint16 `json:"class"`
+}
+
+func (r *RRsetKey) String() string {
+	return "name: " + r.Name + ", type: " + dns.TypeToString[r.Type] + ", class: " + dns.ClassToString[r.Class]
+}
+
 // DNSSECPerSetResult represents the validation result for an RRSet
 type DNSSECPerSetResult struct {
-	RrType    string       `json:"rr_type"`
+	RRset     RRsetKey     `json:"rrset"`
 	Status    DNSSECStatus `json:"status"`
 	Signature *RRSIGAnswer `json:"sig"`
 	Error     string       `json:"error"`
@@ -91,9 +101,9 @@ func makeDNSSECResult() *DNSSECResult {
 // Otherwise, the overall status is secure.
 // This function should be called after all PerSetResults are populated, and the result should is stored in r.Status.
 func (r *DNSSECResult) populateStatus() {
-	isDNSSECType := func(rrType string) bool {
+	isDNSSECType := func(rrType uint16) bool {
 		switch rrType {
-		case "DNSKEY", "RRSIG", "DS", "NSEC", "NSEC3", "NSEC3PARAM":
+		case dns.TypeDNSKEY, dns.TypeRRSIG, dns.TypeDS, dns.TypeNSEC, dns.TypeNSEC3, dns.TypeNSEC3PARAM:
 			return true
 		default:
 			return false
@@ -127,7 +137,7 @@ func (r *DNSSECResult) populateStatus() {
 	// Check DNSSEC-related RRsets in other sections
 	for _, section := range [][]DNSSECPerSetResult{r.Additionals, r.Authoritative} {
 		for _, result := range section {
-			if isDNSSECType(result.RrType) {
+			if isDNSSECType(result.RRset.Type) {
 				if result.Status == DNSSECInsecure {
 					r.Status = DNSSECInsecure
 					return
