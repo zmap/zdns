@@ -29,6 +29,23 @@ const (
 	keySigningKeyFlag  = 257
 )
 
+// validate performs DNSSEC validation for all sections of a DNS message.
+// It validates the Answer, Additional, and Authority sections independently,
+// collects all encountered DS and DNSKEY records, and determines the overall
+// DNSSEC status.
+//
+// Parameters:
+// - depth: Current recursion depth for logging purposes
+// - trace: Trace context for tracking validation path
+//
+// Returns:
+// - *DNSSECResult: Contains validation results for all message sections:
+//   - Status: Overall DNSSEC validation status (Secure/Insecure/Bogus/Indeterminate)
+//   - DS: Collection of DS records actually used during validation
+//   - DNSKEY: Collection of DNSKEY records actually used during validation
+//   - Answer/Additionals/Authoritative: Per-RRset validation results
+//
+// - Trace: Updated trace context containing validation path
 func (v *dNSSECValidator) validate(depth int, trace Trace) (*DNSSECResult, Trace) {
 	result := makeDNSSECResult()
 
@@ -57,6 +74,17 @@ func (v *dNSSECValidator) validate(depth int, trace Trace) (*DNSSECResult, Trace
 
 	return result, trace
 }
+
+// validateSection validates DNSSEC records for a given DNS message section.
+//
+// Parameters:
+// - section: DNS message section containing RRs to validate
+// - depth: Current recursion depth for logging
+// - trace: Trace context for tracking request path
+//
+// Returns:
+// - []DNSSECPerSetResult: Results of DNSSEC validation per RRset
+// - Trace: Updated trace context
 func (v *dNSSECValidator) validateSection(section []dns.RR, depth int, trace Trace) ([]DNSSECPerSetResult, Trace) {
 	typeToRRSets, typeToRRSigs := splitRRsetsAndSigs(section)
 	result := make([]DNSSECPerSetResult, 0)
@@ -104,6 +132,14 @@ func (v *dNSSECValidator) validateSection(section []dns.RR, depth int, trace Tra
 	return result, trace
 }
 
+// splitRRsetsAndSigs separates DNS resource records into RRsets and their corresponding RRSIGs.
+//
+// Parameters:
+// - rrs: Slice of DNS resource records to split
+//
+// Returns:
+// - map[RRsetKey][]dns.RR: Map of RRset keys to their resource records
+// - map[RRsetKey][]*dns.RRSIG: Map of RRset keys to their RRSIG records
 func splitRRsetsAndSigs(rrs []dns.RR) (map[RRsetKey][]dns.RR, map[RRsetKey][]*dns.RRSIG) {
 	typeToRRSets := make(map[RRsetKey][]dns.RR)
 	typeToRRSigs := make(map[RRsetKey][]*dns.RRSIG)
@@ -126,16 +162,15 @@ func splitRRsetsAndSigs(rrs []dns.RR) (map[RRsetKey][]dns.RR, map[RRsetKey][]*dn
 	return typeToRRSets, typeToRRSigs
 }
 
-// parseKSKsFromAnswer extracts only KSKs (Key Signing Keys) from a DNSKEY RRset answer,
-// populating a map where the KeyTag is the key and the DNSKEY is the value.
-// This function skips ZSKs and returns an error if any unexpected flags or types are encountered.
+// parseKSKsFromAnswer extracts Key Signing Keys (KSKs) from a DNSKEY RRset answer.
+// Records with ZSK flags are ignored and non-DNSKEY records cause an error.
 //
 // Parameters:
-// - rrSet: The DNSKEY RRset answer to parse.
+// - rrSet: The DNSKEY RRset to parse
 //
 // Returns:
-// - map[uint16]*dns.DNSKEY: A map of KeyTag to KSKs.
-// - error: An error if an unexpected flag or type is encountered.
+// - map[uint16]*dns.DNSKEY: Map of KeyTag to KSK records
+// - error: Error if invalid records are found or no KSKs present
 func parseKSKsFromAnswer(rrSet []dns.RR) (map[uint16]*dns.DNSKEY, error) {
 	ksks := make(map[uint16]*dns.DNSKEY)
 
@@ -162,22 +197,18 @@ func parseKSKsFromAnswer(rrSet []dns.RR) (map[uint16]*dns.DNSKEY, error) {
 	return ksks, nil
 }
 
-// getDNSKEYs retrieves and separates KSKs and ZSKs from the signer domain's DNSKEYs,
-// returning maps of KeyTags to DNSKEYs for both KSKs and ZSKs.
+// getDNSKEYs retrieves and validates DNSKEY records from the signer domain.
 //
 // Parameters:
-// - ctx: Context for cancellation and timeout control.
-// - signerDomain: The signer domain extracted from the RRSIG's SignerName field.
-// - nameServer: The nameserver to use for the DNS query.
-// - isIterative: Boolean indicating if the query should be iterative.
-// - trace: The trace context for tracking the request path.
-// - depth: The recursion or verification depth for logging purposes.
+// - signerDomain: Domain name to query for DNSKEY records
+// - trace: Trace context
+// - depth: Current recursion depth for logging
 //
 // Returns:
-// - ksks: Map of KeyTag to KSKs (Key Signing Keys) retrieved from the signer domain.
-// - zsks: Map of KeyTag to ZSKs (Zone Signing Keys) retrieved from the signer domain.
-// - Trace: Updated trace context with the DNSKEY query included.
-// - error: If the DNSKEY query fails or returns an unexpected status.
+// - map[uint16]*dns.DNSKEY: Map of KeyTag to KSK records
+// - map[uint16]*dns.DNSKEY: Map of KeyTag to ZSK records
+// - Trace: Updated trace context
+// - error: Error if DNSKEY retrieval or validation fails
 func (v *dNSSECValidator) getDNSKEYs(signerDomain string, trace Trace, depth int) (map[uint16]*dns.DNSKEY, map[uint16]*dns.DNSKEY, Trace, error) {
 	ksks := make(map[uint16]*dns.DNSKEY)
 	zsks := make(map[uint16]*dns.DNSKEY)
@@ -238,21 +269,19 @@ func (v *dNSSECValidator) getDNSKEYs(signerDomain string, trace Trace, depth int
 	return ksks, zsks, trace, nil
 }
 
-// validateDSRecords validates DS records against DNSKEY records.
+// validateDSRecords validates DS records against DNSKEY records,
+// dropping KSKs with no matching DS record.
 //
 // Parameters:
-// - ctx: Context for cancellation and timeout control.
-// - signerDomain: The signer domain to query for DS records.
-// - dnskeyMap: A map of KeyTag to KSKs to validate against.
-// - nameServer: The nameserver to use for the DNS query.
-// - isIterative: Boolean indicating if the query should be iterative.
-// - trace: The trace context for tracking the request path.
-// - depth: The recursion or verification depth for logging purposes.
+// - signerDomain: The signer domain to query for DS records
+// - dnskeyMap: A map of KeyTag to KSKs to validate against
+// - trace: The trace context for tracking request path
+// - depth: The recursion depth for logging purposes
 //
 // Returns:
-// - bool: Returns true if all DS records are valid; otherwise, false.
-// - Trace: Updated trace context with the DS query included.
-// - error: If validation fails for any DS record, returns an error with details.
+// - map[uint16]*dns.DNSKEY: Map of validated KSKs
+// - Trace: Updated trace context
+// - error: If validation fails for any DS record
 func (v *dNSSECValidator) validateDSRecords(signerDomain string, dnskeyMap map[uint16]*dns.DNSKEY, trace Trace, depth int) (map[uint16]*dns.DNSKEY, Trace, error) {
 	nameWithoutTrailingDot := removeTrailingDotIfNotRoot(signerDomain)
 
@@ -319,24 +348,21 @@ func (v *dNSSECValidator) validateDSRecords(signerDomain string, dnskeyMap map[u
 	return validatedKSKs, trace, nil
 }
 
-// validateRRSIG verifies multiple RRSIGs for a given RRset. For each RRSIG, it retrieves the necessary
-// DNSKEYs (KSKs for DNSKEY RRsets, ZSKs for others) from either the answer directly (for DNSKEY types) or
-// by querying the signer domain. Each RRSIG is validated only with the DNSKEY matching its KeyTag.
+// validateRRSIG verifies RRSIGs for a given RRset using appropriate DNSKEYs.
+// For DNSKEY RRsets, KSKs from the answer are used. For other types,
+// ZSKs are retrieved from the signer domain.
 //
 // Parameters:
-// - ctx: Context for cancellation and timeout control.
-// - rrSetType: The type of the RRset (e.g., dns.TypeA, dns.TypeDNSKEY).
-// - rrSet: The RRset that is being verified.
-// - rrsigs: A slice of RRSIGs associated with the RRset.
-// - nameServer: The nameserver to use for DNSKEY retrievals.
-// - isIterative: Boolean indicating if the DNSKEY queries should be iterative.
-// - trace: The trace context for tracking the request path.
-// - depth: The recursion or verification depth for logging purposes.
+// - rrSetType: Type of records being validated
+// - rrSet: Set of records to validate
+// - rrsigs: RRSIG records to verify
+// - trace: Trace context
+// - depth: Current recursion depth for logging
 //
 // Returns:
-// - bool: Returns true if at least one RRSIG is successfully verified for the RRset.
-// - Trace: Updated trace context including the DNSKEY retrievals and verifications.
-// - error: If no RRSIG is verified, returns an error describing the failure.
+// - *dns.RRSIG: First successfully validated RRSIG, or nil if none
+// - Trace: Updated trace context
+// - error: Error if no RRSIG could be validated
 func (v *dNSSECValidator) validateRRSIG(rrSetType uint16, rrSet []dns.RR, rrsigs []*dns.RRSIG, trace Trace, depth int) (*dns.RRSIG, Trace, error) {
 	var dnskeyMap map[uint16]*dns.DNSKEY
 	var err error
