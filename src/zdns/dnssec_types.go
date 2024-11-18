@@ -34,6 +34,7 @@ type DNSSECPerSetResult struct {
 	RrType    string       `json:"rr_type"`
 	Status    DNSSECStatus `json:"status"`
 	Signature *RRSIGAnswer `json:"sig"`
+	Error     string       `json:"error"`
 }
 
 // DNSSECResult captures all information generated during a DNSSEC validation
@@ -81,16 +82,6 @@ func makeDNSSECResult() *DNSSECResult {
 		Additionals:   make([]DNSSECPerSetResult, 0),
 		Authoritative: make([]DNSSECPerSetResult, 0),
 	}
-}
-
-// AreAnswersSecure checks if all RR sets in the answer section are secure.
-func (r *DNSSECResult) AreAnswersSecure() bool {
-	for _, result := range r.Answer {
-		if result.Status != DNSSECSecure {
-			return false
-		}
-	}
-	return true
 }
 
 // OverallStatus returns the overall validation status.

@@ -29,34 +29,20 @@ const (
 	keySigningKeyFlag  = 257
 )
 
-func (v *dNSSECValidator) validate(depth int, trace Trace) (*DNSSECResult, Trace, error) {
+func (v *dNSSECValidator) validate(depth int, trace Trace) (*DNSSECResult, Trace) {
 	result := makeDNSSECResult()
 
 	// Validate the answer section
-	sectionRes, trace, err := v.validateSection(v.msg.Answer, depth, trace)
-	if err != nil {
-		return nil, trace, err // Never return incomplete results
-	}
+	sectionRes, trace := v.validateSection(v.msg.Answer, depth, trace)
 	result.Answer = sectionRes
 
 	// Validate the additional section
-	sectionRes, trace, err = v.validateSection(v.msg.Extra, depth, trace)
-	if err != nil {
-		return nil, trace, err
-	}
+	sectionRes, trace = v.validateSection(v.msg.Extra, depth, trace)
 	result.Additionals = sectionRes
 
 	// Validate the authoritative section
-	sectionRes, trace, err = v.validateSection(v.msg.Ns, depth, trace)
-	if err != nil {
-		return nil, trace, err
-	}
+	sectionRes, trace = v.validateSection(v.msg.Ns, depth, trace)
 	result.Authoritative = sectionRes
-
-	// Check if all RR sets in the answer section are secure
-	if !result.AreAnswersSecure() {
-		return nil, trace, nil
-	}
 
 	for _, ds := range v.ds {
 		parsed := ParseAnswer(ds).(DSAnswer)
@@ -69,9 +55,9 @@ func (v *dNSSECValidator) validate(depth int, trace Trace) (*DNSSECResult, Trace
 
 	result.populateStatus()
 
-	return result, trace, nil
+	return result, trace
 }
-func (v *dNSSECValidator) validateSection(section []dns.RR, depth int, trace Trace) ([]DNSSECPerSetResult, Trace, error) {
+func (v *dNSSECValidator) validateSection(section []dns.RR, depth int, trace Trace) ([]DNSSECPerSetResult, Trace) {
 	typeToRRSets, typeToRRSigs := getTypeMapFromRRs(section)
 	result := make([]DNSSECPerSetResult, 0)
 
@@ -97,14 +83,15 @@ func (v *dNSSECValidator) validateSection(section []dns.RR, depth int, trace Tra
 				sigParsed := ParseAnswer(sigUsed).(RRSIGAnswer)
 				setResult.Signature = &sigParsed
 			} else {
-				v.r.verboseLog(depth+1, "could not verify any RRSIG for type ", dns.TypeToString[rrType], ": ", err)
+				v.r.verboseLog(depth+1, "could not verify any RRSIG for type", dns.TypeToString[rrType], ":", err)
+				setResult.Error = err.Error()
 			}
 		}
 
 		result = append(result, setResult)
 	}
 
-	return result, trace, nil
+	return result, trace
 }
 
 func getTypeMapFromRRs(rrs []dns.RR) (map[uint16][]dns.RR, map[uint16][]*dns.RRSIG) {
@@ -195,8 +182,10 @@ func (v *dNSSECValidator) getDNSKEYs(signerDomain string, trace Trace, depth int
 	}
 
 	res, trace, status, err := v.r.lookup(v.ctx, &dnskeyQuestion, v.r.rootNameServers, v.isIterative, trace)
-	if status != StatusNoError || err != nil {
-		return nil, nil, trace, fmt.Errorf("cannot get DNSKEYs for signer domain %s, status: %s, err: %v", signerDomain, status, err)
+	// DNSSECResult may be nil if the response is from the cache.
+	if status != StatusNoError || err != nil || (res.DNSSECResult != nil && res.DNSSECResult.Status != DNSSECSecure) {
+		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DNSKEYs for signer domain %s, query status: %s, err: %v", signerDomain, status, err))
+		return nil, nil, trace, fmt.Errorf("cannot get DNSKEYs for signer domain %s", signerDomain)
 	}
 
 	// RRSIGs of res should have been verified before returning to here.
@@ -226,9 +215,8 @@ func (v *dNSSECValidator) getDNSKEYs(signerDomain string, trace Trace, depth int
 	}
 
 	// Validate KSKs with DS records
-	var valid bool
-	valid, trace, err = v.validateDSRecords(signerDomain, ksks, trace, depth)
-	if !valid {
+	ksks, trace, err = v.validateDSRecords(signerDomain, ksks, trace, depth)
+	if err != nil || ksks == nil {
 		return nil, nil, trace, errors.Wrap(err, "DS validation failed")
 	}
 
@@ -250,7 +238,7 @@ func (v *dNSSECValidator) getDNSKEYs(signerDomain string, trace Trace, depth int
 // - bool: Returns true if all DS records are valid; otherwise, false.
 // - Trace: Updated trace context with the DS query included.
 // - error: If validation fails for any DS record, returns an error with details.
-func (v *dNSSECValidator) validateDSRecords(signerDomain string, dnskeyMap map[uint16]*dns.DNSKEY, trace Trace, depth int) (bool, Trace, error) {
+func (v *dNSSECValidator) validateDSRecords(signerDomain string, dnskeyMap map[uint16]*dns.DNSKEY, trace Trace, depth int) (map[uint16]*dns.DNSKEY, Trace, error) {
 	nameWithoutTrailingDot := removeTrailingDotIfNotRoot(signerDomain)
 
 	dsQuestion := QuestionWithMetadata{
@@ -267,10 +255,12 @@ func (v *dNSSECValidator) validateDSRecords(signerDomain string, dnskeyMap map[u
 		// Root zone, use the root anchors
 		dsRecords = rootanchors.GetValidDSRecords()
 	} else {
+		// DNSSECResult may be nil if the response is from the cache.
 		res, newTrace, status, err := v.r.lookup(v.ctx, &dsQuestion, v.r.rootNameServers, v.isIterative, trace)
 		trace = newTrace
-		if status != StatusNoError || err != nil {
-			return false, trace, fmt.Errorf("cannot get DS records for signer domain %s, status: %s, err: %v", signerDomain, status, err)
+		if status != StatusNoError || err != nil || (res.DNSSECResult != nil && res.DNSSECResult.Status != DNSSECSecure) {
+			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DS records for signer domain %s, query status: %s,  err: %v", signerDomain, status, err))
+			return nil, trace, fmt.Errorf("failed to get DS records for signer domain %s", signerDomain)
 		}
 
 		// RRSIGs of res should have been verified before returning to here.
@@ -286,10 +276,12 @@ func (v *dNSSECValidator) validateDSRecords(signerDomain string, dnskeyMap map[u
 		}
 	}
 
+	validatedKSKs := make(map[uint16]*dns.DNSKEY)
 	for _, ksk := range dnskeyMap {
 		authenticDS, ok := dsRecords[ksk.KeyTag()]
 		if !ok {
-			return false, trace, fmt.Errorf("no DS record found for KSK with KeyTag %d", ksk.KeyTag())
+			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: No DS record found for KSK with KeyTag %d", ksk.KeyTag()))
+			continue
 		}
 
 		actualDS := ksk.ToDS(authenticDS.DigestType)
@@ -298,11 +290,18 @@ func (v *dNSSECValidator) validateDSRecords(signerDomain string, dnskeyMap map[u
 		if actualDigest != authenticDigest {
 			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: DS record mismatch for KSK with KeyTag %d: expected %s, got %s", ksk.KeyTag(), authenticDigest, actualDigest))
 		} else {
+			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: DS record for KSK with KeyTag %d is valid", ksk.KeyTag()))
+
 			v.ds = append(v.ds, actualDS)
+			validatedKSKs[ksk.KeyTag()] = ksk
 		}
 	}
 
-	return true, trace, nil
+	if len(validatedKSKs) == 0 {
+		return nil, trace, errors.New("no valid KSK found")
+	}
+
+	return validatedKSKs, trace, nil
 }
 
 // validateRRSIG verifies multiple RRSIGs for a given RRset. For each RRSIG, it retrieves the necessary
