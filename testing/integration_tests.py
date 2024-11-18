@@ -1288,6 +1288,55 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd, "A")
 
+    def test_dnssec_validation_secure(self):
+        # checks if dnssec validation is performed
+        DOMAINS = [
+            "cloudflare.com",
+            "internetsociety.org",
+            "dnssec-tools.org",
+            "dnssec-deployment.org",
+        ]
+        for domain in DOMAINS:
+            c = f"A {domain} --iterative --validate-dnssec --result-verbosity=long"
+            name = "."
+            cmd, res = self.run_zdns(c, name)
+            self.assertSuccess(res, cmd, "A")
+            dnssec = res["results"]["A"]["data"]["dnssec"]
+            self.assertEqual(dnssec["status"], "Secure")
+            self.assertTrue(len(dnssec["ds"]) > 0)
+            self.assertTrue(len(dnssec["dnskey"]) > 0)
+
+    def test_dnssec_validation_secure_circular(self):
+        # checks if dnssec validation can handle circular NS dependencies
+        c = "A example.com --iterative --validate-dnssec --result-verbosity=long"
+        name = "."
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "A")
+        dnssec = res["results"]["A"]["data"]["dnssec"]
+        self.assertEqual(dnssec["status"], "Secure")
+
+    def test_dnssec_validation_insecure(self):
+        # checks if dnssec validation reports insecure (not signed) zones correctly
+        c = "A outlook.com --iterative --validate-dnssec --result-verbosity=long"
+        name = "."
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "A")
+        dnssec = res["results"]["A"]["data"]["dnssec"]
+        self.assertEqual(dnssec["status"], "Insecure")
+        self.assertTrue(len(dnssec["ds"]) == 0)
+        self.assertTrue(len(dnssec["dnskey"]) == 0)
+
+    def test_dnssec_validation_bogus(self):
+        # checks if dnssec validation reports bogus zones correctly
+        DOMAINS = ["dnssec-failed.org", "rhybar.cz"]
+        for domain in DOMAINS:
+            c = f"A {domain} --iterative --validate-dnssec --result-verbosity=long"
+            name = "."
+            cmd, res = self.run_zdns(c, name)
+            self.assertSuccess(res, cmd, "A")
+            dnssec = res["results"]["A"]["data"]["dnssec"]
+            self.assertEqual(dnssec["status"], "Bogus")
+
     def test_timetamps(self):
         c = "A"
         name = "zdns-testing.com"
