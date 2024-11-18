@@ -106,7 +106,9 @@ func (r *Resolver) doDstServersLookup(q Question, nameServers []NameServer, isIt
 	}
 	if r.followCNAMEs {
 		res, trace, status, err := r.followingLookup(ctx, &questionWithMeta, nameServers, isIterative)
-		res.CFResult = r.cfClient.MakeDNSRequest(questionWithMeta.Q.Name, questionWithMeta.Q.Type)
+		if res != nil {
+			res.CFResult = r.cfClient.MakeDNSRequest(questionWithMeta.Q.Name, questionWithMeta.Q.Type)
+		}
 		return res, trace, status, err
 	}
 	var trace Trace
