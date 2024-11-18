@@ -64,6 +64,7 @@ type QueryOptions struct {
 	ClassString        string `long:"class" default:"INET" description:"DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY."`
 	ClientSubnetString string `long:"client-subnet" description:"Client subnet in CIDR format for EDNS0."`
 	Dnssec             bool   `long:"dnssec" description:"Requests DNSSEC records by setting the DNSSEC OK (DO) bit"`
+	ValidateDNSSEC     bool   `long:"validate-dnssec" description:"Validate DNSSEC records, only applicable with --iterative"`
 	UseNSID            bool   `long:"nsid" description:"Request NSID."`
 }
 

@@ -211,7 +211,17 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config.MaxDepth = gc.MaxDepth
 	config.CheckingDisabledBit = gc.CheckingDisabled
 	config.ShouldRecycleSockets = !gc.DisableRecycleSockets
-	config.DNSSecEnabled = gc.Dnssec
+
+	config.ShouldValidateDNSSEC = gc.ValidateDNSSEC
+	if config.ShouldValidateDNSSEC {
+		config.DNSSecEnabled = true
+		if !gc.IterativeResolution {
+			log.Fatal("DNSSEC validation is only supported with iterative resolution")
+		}
+	} else {
+		config.DNSSecEnabled = gc.Dnssec
+	}
+
 	config.DNSConfigFilePath = gc.DNSConfigFilePath
 
 	config.LogLevel = log.Level(gc.Verbosity)

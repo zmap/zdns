@@ -49,6 +49,7 @@ const (
 	defaultCacheSize             = 10000
 	defaultShouldTrace           = false
 	defaultDNSSECEnabled         = false
+	defaultShouldValidateDNSSEC  = false
 	defaultIPVersionMode         = IPv4Only
 	defaultIterationIPPreference = PreferIPv4
 	DefaultNameServerConfigFile  = "/etc/resolv.conf"
@@ -88,15 +89,16 @@ type ResolverConfig struct {
 	FollowCNAMEs          bool         // whether iterative lookups should follow CNAMEs/DNAMEs
 	DNSConfigFilePath     string       // path to the DNS config file, ex: /etc/resolv.conf
 
-	DNSSecEnabled       bool
-	DNSOverHTTPS        bool           // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
-	DNSOverTLS          bool           // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
-	RootCAs             *x509.CertPool // Root CAs for DoT/DoH Server Verification
-	VerifyServerCert    bool           // Verify server certificates for DoT/DoH
-	HTTPSClientIPv4     *http.Client   // for DoH, per docs should be shared amongst requests
-	HTTPSClientIPv6     *http.Client   // for DoH, per docs should be shared amongst requests
-	EdnsOptions         []dns.EDNS0
-	CheckingDisabledBit bool
+	DNSSecEnabled        bool
+	ShouldValidateDNSSEC bool           // whether to validate DNSSEC
+	DNSOverHTTPS         bool           // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
+	DNSOverTLS           bool           // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
+	RootCAs              *x509.CertPool // Root CAs for DoT/DoH Server Verification
+	VerifyServerCert     bool           // Verify server certificates for DoT/DoH
+	HTTPSClientIPv4      *http.Client   // for DoH, per docs should be shared amongst requests
+	HTTPSClientIPv6      *http.Client   // for DoH, per docs should be shared amongst requests
+	EdnsOptions          []dns.EDNS0
+	CheckingDisabledBit  bool
 }
 
 // Validate checks if the ResolverConfig is valid, returns an error describing the issue if it is not.
@@ -240,8 +242,9 @@ func NewResolverConfig() *ResolverConfig {
 		NetworkTimeout:   defaultNetworkTimeout,
 		MaxDepth:         defaultMaxDepth,
 
-		DNSSecEnabled:       defaultDNSSECEnabled,
-		CheckingDisabledBit: defaultCheckingDisabledBit,
+		DNSSecEnabled:        defaultDNSSECEnabled,
+		ShouldValidateDNSSEC: defaultShouldValidateDNSSEC,
+		CheckingDisabledBit:  defaultCheckingDisabledBit,
 	}
 }
 
@@ -288,14 +291,15 @@ type Resolver struct {
 	lookupAllNameServers       bool
 	followCNAMEs               bool // whether iterative lookups should follow CNAMEs/DNAMEs
 
-	dnsSecEnabled       bool
-	dnsOverHTTPSEnabled bool           // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
-	dnsOverTLSEnabled   bool           // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
-	rootCAs             *x509.CertPool // Root CAs for DoT/DoH Server Verification
-	verifyServerCert    bool           // Verify server certificates for DoT/DoH
-	ednsOptions         []dns.EDNS0
-	checkingDisabledBit bool
-	isClosed            bool // true if the resolver has been closed, lookup will panic if called after Close
+	dnsSecEnabled        bool
+	shouldValidateDNSSEC bool           // whether to validate DNSSEC
+	dnsOverHTTPSEnabled  bool           // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
+	dnsOverTLSEnabled    bool           // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
+	rootCAs              *x509.CertPool // Root CAs for DoT/DoH Server Verification
+	verifyServerCert     bool           // Verify server certificates for DoT/DoH
+	ednsOptions          []dns.EDNS0
+	checkingDisabledBit  bool
+	isClosed             bool // true if the resolver has been closed, lookup will panic if called after Close
 }
 
 // InitResolver creates a new Resolver struct using the ResolverConfig. The Resolver is used to perform DNS lookups.
@@ -334,13 +338,14 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 
 		timeout: config.Timeout,
 
-		dnsOverHTTPSEnabled: config.DNSOverHTTPS,
-		dnsOverTLSEnabled:   config.DNSOverTLS,
-		rootCAs:             config.RootCAs,
-		verifyServerCert:    config.VerifyServerCert,
-		dnsSecEnabled:       config.DNSSecEnabled,
-		ednsOptions:         config.EdnsOptions,
-		checkingDisabledBit: config.CheckingDisabledBit,
+		dnsOverHTTPSEnabled:  config.DNSOverHTTPS,
+		dnsOverTLSEnabled:    config.DNSOverTLS,
+		rootCAs:              config.RootCAs,
+		verifyServerCert:     config.VerifyServerCert,
+		dnsSecEnabled:        config.DNSSecEnabled,
+		shouldValidateDNSSEC: config.ShouldValidateDNSSEC,
+		ednsOptions:          config.EdnsOptions,
+		checkingDisabledBit:  config.CheckingDisabledBit,
 	}
 	log.SetLevel(r.logLevel)
 	// Deep copy local address so Resolver is independent of the config
