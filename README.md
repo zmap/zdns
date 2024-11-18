@@ -311,7 +311,7 @@ result verbosity levels: `short`, `normal` (default), `long`, and `trace`:
 
 Users can also include specific additional fields using the `--include-fields`
 flag and specifying a list of fields, e.g., `--include-fields=flags,resolver`.
-Additional fields are: class, protocol, ttl, resolver, flags.
+Additional fields are: class, protocol, ttl, resolver, flags, dnssec.
 
 Name Server Mode
 ----------------

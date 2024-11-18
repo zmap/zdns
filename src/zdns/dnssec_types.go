@@ -49,12 +49,12 @@ type DNSSECPerSetResult struct {
 
 // DNSSECResult captures all information generated during a DNSSEC validation
 type DNSSECResult struct {
-	Status        DNSSECStatus         `json:"status" groups:"normal,long,trace"`
-	DS            []*DSAnswer          `json:"ds" groups:"long,trace"`
-	DNSKEY        []*DNSKEYAnswer      `json:"dnskey" groups:"long,trace"`
-	Answer        []DNSSECPerSetResult `json:"answer" groups:"long,trace"`
-	Additionals   []DNSSECPerSetResult `json:"additionals" groups:"long,trace"`
-	Authoritative []DNSSECPerSetResult `json:"authoritative" groups:"long,trace"`
+	Status        DNSSECStatus         `json:"status" groups:"dnssec,dnssec,normal,long,trace"`
+	DS            []*DSAnswer          `json:"ds" groups:"dnssec,long,trace"`
+	DNSKEY        []*DNSKEYAnswer      `json:"dnskey" groups:"dnssec,long,trace"`
+	Answer        []DNSSECPerSetResult `json:"answer" groups:"dnssec,long,trace"`
+	Additionals   []DNSSECPerSetResult `json:"additionals" groups:"dnssec,long,trace"`
+	Authoritative []DNSSECPerSetResult `json:"authoritative" groups:"dnssec,long,trace"`
 }
 
 type dNSSECValidator struct {
