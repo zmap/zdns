@@ -71,6 +71,7 @@ func (v *dNSSECValidator) validateSection(section []dns.RR, depth int, trace Tra
 		rrsigs, ok := typeToRRSigs[rrType]
 		if !ok {
 			v.r.verboseLog(depth+1, fmt.Sprintf("DNSSEC: Found RRset for type %s without RRSIG coverage", dns.TypeToString[rrType]))
+			setResult.Status = DNSSECInsecure
 		} else {
 			v.r.verboseLog(depth, "DNSSEC: Verifying RRSIGs for type", dns.TypeToString[rrType])
 
@@ -84,6 +85,15 @@ func (v *dNSSECValidator) validateSection(section []dns.RR, depth int, trace Tra
 				setResult.Signature = &sigParsed
 			} else {
 				v.r.verboseLog(depth+1, "could not verify any RRSIG for type", dns.TypeToString[rrType], ":", err)
+				// TODO: This check for bogus is not comprehensive or entirely accurate.
+				// If the error is due to the inability to retrieve DNSKEY or DS records, the status should be indeterminate.
+				// If a DS record exists at the SOA, but no RRSIG is found here, the status should be bogus (this case is not handled here).
+				// If no DS record is found at the SOA, the status should be insecure because a chain of trust cannot be established.
+				// However, this is unlikely in this context because an RRSIG should not exist without a corresponding DS record,
+				// unless the domain starts a different trust anchor (which most resolvers would not trust anyway).
+				// Distinguishing between these cases requires additional context, which would involve storing or querying more information
+				// about the domain. These operations can be costly, so we need to decide if the additional complexity is worth it.
+				setResult.Status = DNSSECBogus
 				setResult.Error = err.Error()
 			}
 		}
