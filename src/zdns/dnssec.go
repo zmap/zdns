@@ -49,6 +49,12 @@ const (
 func (v *dNSSECValidator) validate(depth int, trace Trace) (*DNSSECResult, Trace) {
 	result := makeDNSSECResult()
 
+	if !hasRRSIG(v.msg) {
+		v.r.verboseLog(depth, "DNSSEC: No RRSIG records found in message")
+		result.Status = DNSSECInsecure // This can't be secure, but it could be bogus instead
+		return result, trace
+	}
+
 	// Validate the answer section
 	sectionRes, trace := v.validateSection(v.msg.Answer, depth, trace)
 	result.Answer = sectionRes
@@ -130,6 +136,32 @@ func (v *dNSSECValidator) validateSection(section []dns.RR, depth int, trace Tra
 	}
 
 	return result, trace
+}
+
+// hasRRSIG checks if any RRSIG records exist in any section of a DNS message.
+func hasRRSIG(msg *dns.Msg) bool {
+	// Check Answer section
+	for _, rr := range msg.Answer {
+		if _, ok := rr.(*dns.RRSIG); ok {
+			return true
+		}
+	}
+
+	// Check Authority section
+	for _, rr := range msg.Ns {
+		if _, ok := rr.(*dns.RRSIG); ok {
+			return true
+		}
+	}
+
+	// Check Additional section
+	for _, rr := range msg.Extra {
+		if _, ok := rr.(*dns.RRSIG); ok {
+			return true
+		}
+	}
+
+	return false
 }
 
 // splitRRsetsAndSigs separates DNS resource records into RRsets and their corresponding RRSIGs.
