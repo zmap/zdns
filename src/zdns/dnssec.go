@@ -45,11 +45,11 @@ func (v *dNSSECValidator) validate(depth int, trace Trace) (*DNSSECResult, Trace
 	result.Authoritative = sectionRes
 
 	for _, ds := range v.ds {
-		parsed := ParseAnswer(ds).(DSAnswer)
+		parsed := ParseAnswer(ds).(DSAnswer) //nolint:golint,errcheck
 		result.DS = append(result.DS, &parsed)
 	}
 	for _, dnskey := range v.dNSKEY {
-		parsed := ParseAnswer(dnskey).(DNSKEYAnswer)
+		parsed := ParseAnswer(dnskey).(DNSKEYAnswer) //nolint:golint,errcheck
 		result.DNSKEY = append(result.DNSKEY, &parsed)
 	}
 
@@ -80,7 +80,7 @@ func (v *dNSSECValidator) validateSection(section []dns.RR, depth int, trace Tra
 			if sigUsed != nil {
 				setResult.Status = DNSSECSecure
 
-				sigParsed := ParseAnswer(sigUsed).(RRSIGAnswer)
+				sigParsed := ParseAnswer(sigUsed).(RRSIGAnswer) //nolint:golint,errcheck
 				setResult.Signature = &sigParsed
 			} else {
 				v.r.verboseLog(depth+1, "could not verify any RRSIG for type", dns.TypeToString[rrType], ":", err)
