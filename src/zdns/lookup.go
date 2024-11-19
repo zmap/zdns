@@ -897,30 +897,35 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 	if len(result.Authorities) == 0 {
 		return nil, trace, StatusNoAuth, nil
 	}
-	var newLayer string
-	newTrace := trace
-	nameServers := make([]NameServer, 0, len(result.Authorities))
-	for i, elem := range result.Authorities {
-		// Skip DS and RRSIG records as they are not nameservers but may present in the section
-		// https://datatracker.ietf.org/doc/html/rfc4035#section-3.1.4
+
+	// Shuffle authorities to try them in random order
+	authorities := make([]interface{}, len(result.Authorities))
+	copy(authorities, result.Authorities)
+	rand.Shuffle(len(authorities), func(i, j int) {
+		authorities[i], authorities[j] = authorities[j], authorities[i]
+	})
+
+	for _, elem := range authorities {
+		// Skip DS and RRSIG records
 		switch elem.(type) {
 		case DSAnswer, RRSIGAnswer:
 			continue
 		}
 
 		if util.HasCtxExpired(&ctx) {
-			return &SingleQueryResult{}, newTrace, StatusTimeout, nil
+			return &SingleQueryResult{}, trace, StatusTimeout, nil
 		}
-		var ns *NameServer
-		var nsStatus Status
-		var nextLayer string
+
 		r.verboseLog(depth+1, "Trying Authority: ", elem)
-		ns, nsStatus, nextLayer, newTrace = r.extractAuthority(ctx, elem, layer, depth, result, newTrace)
+
+		// Extract authority details
+		ns, nsStatus, nextLayer, newTrace := r.extractAuthority(ctx, elem, layer, depth, result, trace)
+		trace = newTrace
 		r.verboseLog(depth+1, "Output from extract authorities: ", ns.String())
 
 		if nsStatus == StatusIterTimeout {
-			r.verboseLog(depth+2, "--> Hit iterative timeout: ")
-			return &SingleQueryResult{}, newTrace, StatusIterTimeout, nil
+			r.verboseLog(depth+2, "--> Hit iterative timeout")
+			return &SingleQueryResult{}, trace, StatusIterTimeout, nil
 		}
 
 		if nsStatus != StatusNoError {
@@ -931,33 +936,29 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 			} else {
 				r.verboseLog(depth+2, "--> Auth find failed for name ", qWithMeta.Q.Name, " with status: ", newStatus)
 			}
-			if i+1 == len(result.Authorities) {
-				r.verboseLog(depth+2, "--> No more authorities to try for name ", qWithMeta.Q.Name, ", terminating: ", nsStatus)
-			}
-		} else {
-			// We have a valid nameserver
-			newLayer = nextLayer
-			nameServers = append(nameServers, *ns)
+			continue
 		}
+
+		// Try iterative lookup immediately with this nameserver
+		iterateResult, newTrace, status, err := r.iterativeLookup(ctx, qWithMeta, []NameServer{*ns}, depth+1, nextLayer, trace)
+		trace = newTrace
+
+		if status == StatusNoNeededGlue {
+			r.verboseLog(depth+2, "--> Auth resolution of ", ns, " was unsuccessful. No glue to follow")
+			continue
+		}
+
+		if isStatusAnswer(status) {
+			r.verboseLog(depth+1, "--> Auth Resolution of ", ns, " success: ", status)
+			return iterateResult, trace, status, err
+		}
+
+		r.verboseLog(depth+2, "--> Iterative resolution of ", qWithMeta.Q.Name, " at ", ns, " Failed: ", status)
 	}
 
-	if len(nameServers) == 0 {
-		r.verboseLog(depth+1, fmt.Sprintf("--> Auth found no valid nameservers for name: %s Terminating", qWithMeta.Q.Name))
-		return &SingleQueryResult{}, newTrace, StatusServFail, errors.New("no valid nameservers found")
-	}
-
-	iterateResult, newTrace, status, err := r.iterativeLookup(ctx, qWithMeta, nameServers, depth+1, newLayer, newTrace)
-	if status == StatusNoNeededGlue {
-		r.verboseLog((depth + 2), "--> Auth resolution of ", nameServers, " was unsuccessful. No glue to follow", status)
-		return iterateResult, newTrace, status, err
-	} else if isStatusAnswer(status) {
-		r.verboseLog((depth + 1), "--> Auth Resolution of ", nameServers, " success: ", status)
-		return iterateResult, newTrace, status, err
-	} else {
-		// We don't allow the continue fall through in order to report the last auth failure code, not STATUS_ERROR
-		r.verboseLog((depth + 2), "--> Iterative resolution of ", qWithMeta.Q.Name, " at ", nameServers, " Failed. Last auth. Terminating: ", status)
-		return iterateResult, newTrace, status, err
-	}
+	// If we get here, all authorities failed
+	r.verboseLog(depth+2, "--> No more authorities to try for name ", qWithMeta.Q.Name, ", terminating")
+	return &SingleQueryResult{}, trace, StatusServFail, errors.New("no valid nameservers found or all lookups failed")
 }
 
 func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, layer string, depth int, result *SingleQueryResult, trace Trace) (*NameServer, Status, string, Trace) {
@@ -995,7 +996,12 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 			q.Q.Type = dns.TypeA
 		}
 		q.RetriesRemaining = &r.retriesRemaining
+
+		// A/AAAA records for NSes are not on the chain of trust, so we don't need to validate DNSSEC
+		// Doing this to save us some time (this can propogate A LOT of queries in certain cases)
+		r.shouldValidateDNSSEC = false
 		res, trace, status, _ = r.iterativeLookup(ctx, &q, r.rootNameServers, depth+1, ".", trace)
+		r.shouldValidateDNSSEC = true
 	}
 	if status == StatusIterTimeout || status == StatusNoNeededGlue {
 		return nil, status, "", trace
