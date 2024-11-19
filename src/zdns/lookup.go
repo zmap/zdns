@@ -582,7 +582,7 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 		}
 
 		// only cache answers that don't have errors and pass DNSSEC validation
-		if !r.shouldValidateDNSSEC || result.DNSSECResult.Status == DNSSECSecure {
+		if !r.shouldValidateDNSSEC || result.DNSSECResult.Status != DNSSECBogus {
 			if !requestIteration && strings.ToLower(q.Name) != layer && authName != layer && !result.Flags.Authoritative { // TODO - how to detect if we've retrieved an authority record or a answer record? maybe add q.Name != authName
 				r.verboseLog(depth+2, "Cache auth upsert for ", authName)
 				r.cache.SafeAddCachedAuthority(result, cacheNameServer, depth+2, layer)
@@ -590,7 +590,7 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 				r.cache.SafeAddCachedAnswer(q, result, cacheNameServer, layer, depth+2, cacheNonAuthoritative)
 			}
 		} else {
-			r.verboseLog(depth+2, "skipping cache for domain", q.Name, "and type", dns.TypeToString[q.Type], "due to DNSSEC insecure")
+			r.verboseLog(depth+2, "skipping cache for domain", q.Name, "and type", dns.TypeToString[q.Type], "due to DNSSEC bogus status")
 		}
 	} else if r.shouldValidateDNSSEC {
 		result.DNSSECResult = makeDNSSECResult()

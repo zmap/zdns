@@ -104,7 +104,6 @@ func (v *dNSSECValidator) validateSection(section []dns.RR, depth int, trace Tra
 
 		rrsigs, ok := typeToRRSigs[rrsKey]
 		if !ok {
-			v.r.verboseLog(depth+1, "DNSSEC: Found RRset without RRSIG coverage,"+rrsKey.String())
 			setResult.Status = DNSSECInsecure
 		} else {
 			v.r.verboseLog(depth, "DNSSEC: Verifying RRSIGs for RRset", rrsKey.String())
@@ -194,45 +193,42 @@ func splitRRsetsAndSigs(rrs []dns.RR) (map[RRsetKey][]dns.RR, map[RRsetKey][]*dn
 	return typeToRRSets, typeToRRSigs
 }
 
-// parseKSKsFromAnswer extracts Key Signing Keys (KSKs) from a DNSKEY RRset answer.
-// Records with ZSK flags are ignored and non-DNSKEY records cause an error.
+// findSEPsFromAnswer extracts SEP keys from a DNSKEY RRset answer.
 //
 // Parameters:
 // - rrSet: The DNSKEY RRset to parse
 //
 // Returns:
-// - map[uint16]*dns.DNSKEY: Map of KeyTag to KSK records
-// - error: Error if invalid records are found or no KSKs present
-func (v *dNSSECValidator) parseKSKsFromAnswer(rrSet []dns.RR, signerDomain string, depth int, trace Trace) (map[uint16]*dns.DNSKEY, Trace, error) {
-	ksks := make(map[uint16]*dns.DNSKEY)
+// - map[uint16]*dns.DNSKEY: Map of KeyTag to SEP key records
+// - error: Error if invalid records are found or no SEP present
+func (v *dNSSECValidator) findSEPsFromAnswer(rrSet []dns.RR, signerDomain string, depth int, trace Trace) (map[uint16]*dns.DNSKEY, Trace, error) {
+	dnskeys := make(map[uint16]*dns.DNSKEY)
 
 	for _, rr := range rrSet {
 		dnskey, ok := rr.(*dns.DNSKEY)
 		if !ok {
 			return nil, trace, fmt.Errorf("invalid RR type in DNSKEY RRset: %v", rr)
 		}
+
 		switch dnskey.Flags {
-		case keySigningKeyFlag:
-			ksks[dnskey.KeyTag()] = dnskey
-		case zoneSigningKeyFlag:
-			// Skip ZSKs
-			continue
+		case keySigningKeyFlag, zoneSigningKeyFlag:
+			dnskeys[dnskey.KeyTag()] = dnskey
 		default:
 			return nil, trace, fmt.Errorf("unexpected DNSKEY flag: %d", dnskey.Flags)
 		}
 	}
 
-	if len(ksks) == 0 {
-		return nil, trace, errors.New("could not find any KSK in DNSKEY RRset")
+	if len(dnskeys) == 0 {
+		return nil, trace, errors.New("could not find any DNSKEY")
 	}
 
-	// Validate KSKs with DS records
-	ksks, trace, err := v.validateDSRecords(signerDomain, ksks, trace, depth)
+	// Find SEP keys
+	sepKeys, trace, err := v.findSEPs(signerDomain, dnskeys, trace, depth)
 	if err != nil {
-		return nil, trace, errors.Wrap(err, "DS validation failed")
+		return nil, trace, err
 	}
 
-	return ksks, nil, nil
+	return sepKeys, nil, nil
 }
 
 // getDNSKEYs retrieves and validates DNSKEY records from the signer domain.
@@ -243,13 +239,12 @@ func (v *dNSSECValidator) parseKSKsFromAnswer(rrSet []dns.RR, signerDomain strin
 // - depth: Current recursion depth for logging
 //
 // Returns:
-// - map[uint16]*dns.DNSKEY: Map of KeyTag to KSK records
-// - map[uint16]*dns.DNSKEY: Map of KeyTag to ZSK records
+// - map[uint16]*dns.DNSKEY: Map of KeyTag to SEP DNSKEY records
+// - map[uint16]*dns.DNSKEY: Map of KeyTag to DNSKEY records
 // - Trace: Updated trace context
 // - error: Error if DNSKEY retrieval or validation fails
 func (v *dNSSECValidator) getDNSKEYs(signerDomain string, trace Trace, depth int) (map[uint16]*dns.DNSKEY, map[uint16]*dns.DNSKEY, Trace, error) {
-	ksks := make(map[uint16]*dns.DNSKEY)
-	zsks := make(map[uint16]*dns.DNSKEY)
+	dnskeys := make(map[uint16]*dns.DNSKEY)
 
 	nameWithoutTrailingDot := removeTrailingDotIfNotRoot(signerDomain)
 	if signerDomain == rootZone {
@@ -274,7 +269,7 @@ func (v *dNSSECValidator) getDNSKEYs(signerDomain string, trace Trace, depth int
 
 	// RRSIGs of res should have been verified before returning to here.
 
-	// Separate DNSKEYs into KSKs and ZSKs maps based on flags
+	// Construct key tag to DNSKEY map
 	for _, rr := range res.Answers {
 		zTypedKey, ok := rr.(DNSKEYAnswer)
 		if !ok {
@@ -284,45 +279,44 @@ func (v *dNSSECValidator) getDNSKEYs(signerDomain string, trace Trace, depth int
 		dnskey := zTypedKey.ToVanillaType()
 
 		switch dnskey.Flags {
-		case keySigningKeyFlag:
-			ksks[dnskey.KeyTag()] = dnskey
-		case zoneSigningKeyFlag:
-			zsks[dnskey.KeyTag()] = dnskey
+		case keySigningKeyFlag, zoneSigningKeyFlag:
+			dnskeys[dnskey.KeyTag()] = dnskey
 		default:
 			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Unexpected DNSKEY flag %d in DNSKEY answer", dnskey.Flags))
 		}
 	}
 
-	// Error if no KSK/ZSK is found
-	if len(ksks) == 0 || len(zsks) == 0 {
-		return nil, nil, trace, errors.New("missing at least one KSK or ZSK in DNSKEY answer")
+	// Error if no DNSKEY is found
+	if len(dnskeys) == 0 {
+		return nil, nil, trace, errors.New("missing at least one DNSKEY answer")
 	}
 
-	// Validate KSKs with DS records
+	// Find SEP keys
 	// Don't actually need to because this have must been checked during the lookup for DNSKEY records.
 	// Keeping this here only so we can include matched DS records in the output.
-	ksks, trace, err = v.validateDSRecords(signerDomain, ksks, trace, depth)
-	if err != nil || ksks == nil {
-		return nil, nil, trace, errors.Wrap(err, "DS validation failed")
+	var sepKeys map[uint16]*dns.DNSKEY
+	sepKeys, trace, err = v.findSEPs(signerDomain, dnskeys, trace, depth)
+	if err != nil {
+		return nil, nil, trace, err
 	}
 
-	return ksks, zsks, trace, nil
+	return sepKeys, dnskeys, trace, nil
 }
 
-// validateDSRecords validates DS records against DNSKEY records,
-// dropping KSKs with no matching DS record.
+// findSEPs validates DS records against DNSKEY records,
+// to find the SEP (Secure Entry Point) keys for a given signer domain.
 //
 // Parameters:
 // - signerDomain: The signer domain to query for DS records
-// - dnskeyMap: A map of KeyTag to KSKs to validate against
+// - dnskeyMap: A map of KeyTag to DNSKEYs to search for SEP keys
 // - trace: The trace context for tracking request path
 // - depth: The recursion depth for logging purposes
 //
 // Returns:
-// - map[uint16]*dns.DNSKEY: Map of validated KSKs
+// - map[uint16]*dns.DNSKEY: Map of KeyTag to SEP DNSKEY records
 // - Trace: Updated trace context
 // - error: If validation fails for any DS record
-func (v *dNSSECValidator) validateDSRecords(signerDomain string, dnskeyMap map[uint16]*dns.DNSKEY, trace Trace, depth int) (map[uint16]*dns.DNSKEY, Trace, error) {
+func (v *dNSSECValidator) findSEPs(signerDomain string, dnskeyMap map[uint16]*dns.DNSKEY, trace Trace, depth int) (map[uint16]*dns.DNSKEY, Trace, error) {
 	nameWithoutTrailingDot := removeTrailingDotIfNotRoot(signerDomain)
 
 	dsQuestion := QuestionWithMetadata{
@@ -360,36 +354,41 @@ func (v *dNSSECValidator) validateDSRecords(signerDomain string, dnskeyMap map[u
 		}
 	}
 
-	validatedKSKs := make(map[uint16]*dns.DNSKEY)
-	for _, ksk := range dnskeyMap {
-		authenticDS, ok := dsRecords[ksk.KeyTag()]
+	sepKeys := make(map[uint16]*dns.DNSKEY)
+	for _, key := range dnskeyMap {
+		authenticDS, ok := dsRecords[key.KeyTag()]
 		if !ok {
-			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: No DS record found for KSK with KeyTag %d", ksk.KeyTag()))
+			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: No DS record found for DNSKEY with KeyTag %d", key.KeyTag()))
 			continue
 		}
 
-		actualDS := ksk.ToDS(authenticDS.DigestType)
+		actualDS := key.ToDS(authenticDS.DigestType)
+		if actualDS == nil {
+			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to convert DNSKEY with KeyTag %d to DS record", key.KeyTag()))
+			continue
+		}
+
 		actualDigest := strings.ToUpper(actualDS.Digest)
 		authenticDigest := strings.ToUpper(authenticDS.Digest)
 		if actualDigest != authenticDigest {
-			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: DS record mismatch for KSK with KeyTag %d: expected %s, got %s", ksk.KeyTag(), authenticDigest, actualDigest))
+			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: DS record mismatch for DNSKEY with KeyTag %d: expected %s, got %s", key.KeyTag(), authenticDigest, actualDigest))
 		} else {
-			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: DS record for KSK with KeyTag %d is valid", ksk.KeyTag()))
+			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Delegation verified for DNSKEY with KeyTag %d, SEP established", key.KeyTag()))
 
 			v.ds[*actualDS] = true
-			validatedKSKs[ksk.KeyTag()] = ksk
+			sepKeys[key.KeyTag()] = key
 		}
 	}
 
-	if len(validatedKSKs) == 0 {
-		return nil, trace, errors.New("no valid KSK found")
+	if len(sepKeys) == 0 {
+		return nil, trace, errors.New("no SEP matching DS found")
 	}
 
-	return validatedKSKs, trace, nil
+	return sepKeys, trace, nil
 }
 
 // validateRRSIG verifies RRSIGs for a given RRset using appropriate DNSKEYs.
-// For DNSKEY RRsets, KSKs from the answer are used. For other types,
+// For DNSKEY RRsets, SEPs from the answer are used. For other types,
 // ZSKs are retrieved from the signer domain.
 //
 // Parameters:
@@ -410,11 +409,11 @@ func (v *dNSSECValidator) validateRRSIG(rrSetType uint16, rrSet []dns.RR, rrsigs
 	// Attempt to verify each RRSIG using only the DNSKEY matching its KeyTag
 	lastErr := errors.New("no RRSIG to verify")
 	for _, rrsig := range rrsigs {
-		// If RRset type is DNSKEY, use parsed KSKs from the answer directly
+		// If RRset type is DNSKEY, use SEPs found from the answer directly
 		if rrSetType == dns.TypeDNSKEY {
-			dnskeyMap, trace, err = v.parseKSKsFromAnswer(rrSet, rrsig.SignerName, depth, trace)
+			dnskeyMap, trace, err = v.findSEPsFromAnswer(rrSet, rrsig.SignerName, depth, trace)
 			if err != nil {
-				return nil, trace, fmt.Errorf("failed to parse KSKs from DNSKEY answer: %v", err)
+				return nil, trace, err
 			}
 		} else {
 			// For other RRset types, fetch DNSKEYs for each RRSIG's signer domain
