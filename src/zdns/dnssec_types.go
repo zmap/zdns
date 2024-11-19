@@ -29,11 +29,7 @@ const (
 	DNSSECIndeterminate DNSSECStatus = "Indeterminate"
 )
 
-type RRsetKey struct {
-	Name  string `json:"name"`
-	Type  uint16 `json:"type"`
-	Class uint16 `json:"class"`
-}
+type RRsetKey Question
 
 func (r *RRsetKey) String() string {
 	return "name: " + r.Name + ", type: " + dns.TypeToString[r.Type] + ", class: " + dns.ClassToString[r.Class]
@@ -55,6 +51,15 @@ type DNSSECResult struct {
 	Answer        []DNSSECPerSetResult `json:"answer" groups:"dnssec,long,trace"`
 	Additionals   []DNSSECPerSetResult `json:"additionals" groups:"dnssec,long,trace"`
 	Authoritative []DNSSECPerSetResult `json:"authoritative" groups:"dnssec,long,trace"`
+}
+
+func getResultForRRset(rrsetKey RRsetKey, results []DNSSECPerSetResult) *DNSSECPerSetResult {
+	for _, result := range results {
+		if result.RRset == rrsetKey {
+			return &result
+		}
+	}
+	return nil
 }
 
 type dNSSECValidator struct {

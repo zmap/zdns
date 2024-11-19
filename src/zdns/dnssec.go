@@ -59,13 +59,18 @@ func (v *dNSSECValidator) validate(depth int, trace Trace) (*DNSSECResult, Trace
 	sectionRes, trace := v.validateSection(v.msg.Answer, depth, trace)
 	result.Answer = sectionRes
 
-	// Validate the additional section
-	sectionRes, trace = v.validateSection(v.msg.Extra, depth, trace)
-	result.Additionals = sectionRes
+	// If the message is authoritative, we drop the additional and authoritative sections
+	// in Resolver.iterativeLookup, hence no need to validate them here. Validating them
+	// causes circular lookups in some cases and can confuse the user.
+	if !v.msg.Authoritative {
+		// Validate the additional section
+		sectionRes, trace = v.validateSection(v.msg.Extra, depth, trace)
+		result.Additionals = sectionRes
 
-	// Validate the authoritative section
-	sectionRes, trace = v.validateSection(v.msg.Ns, depth, trace)
-	result.Authoritative = sectionRes
+		// Validate the authoritative section
+		sectionRes, trace = v.validateSection(v.msg.Ns, depth, trace)
+		result.Authoritative = sectionRes
+	}
 
 	for ds := range v.ds {
 		parsed := ParseAnswer(&ds).(DSAnswer) //nolint:golint,errcheck
@@ -265,10 +270,20 @@ func (v *dNSSECValidator) getDNSKEYs(signerDomain string, trace Trace, depth int
 	}
 
 	res, trace, status, err := v.r.lookup(v.ctx, &dnskeyQuestion, v.r.rootNameServers, v.isIterative, trace)
-	// DNSSECResult may be nil if the response is from the cache.
-	if status != StatusNoError || err != nil || (res.DNSSECResult != nil && res.DNSSECResult.Status != DNSSECSecure) {
-		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DNSKEYs for signer domain %s, query status: %s, err: %v", signerDomain, status, err))
-		return nil, nil, trace, fmt.Errorf("cannot get DNSKEYs for signer domain %s", signerDomain)
+	if status != StatusNoError {
+		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DNSKEYs for signer domain %s, query status: %s", signerDomain, status))
+		return nil, nil, trace, fmt.Errorf("DNSKEY fetch failed, query status: %s", status)
+	} else if err != nil {
+		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DNSKEYs for signer domain %s, err: %v", signerDomain, err))
+		return nil, nil, trace, fmt.Errorf("DNSKEY fetch failed, err: %v", err)
+	} else if res.DNSSECResult != nil && res.DNSSECResult.Status != DNSSECSecure { // 	// DNSSECResult may be nil if the response is from the cache.
+		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DNSKEYs for signer domain %s, DNSSEC status: %s", signerDomain, res.DNSSECResult.Status))
+
+		if prevResult := getResultForRRset(RRsetKey(dnskeyQuestion.Q), res.DNSSECResult.Answer); prevResult != nil && prevResult.Error != "" {
+			return nil, nil, trace, fmt.Errorf("DNSKEY fetch failed: %s", prevResult.Error)
+		} else {
+			return nil, nil, trace, fmt.Errorf("DNSKEY fetch failed, DNSSEC status: %s", res.DNSSECResult.Status)
+		}
 	}
 
 	// RRSIGs of res should have been verified before returning to here.
@@ -340,9 +355,20 @@ func (v *dNSSECValidator) findSEPs(signerDomain string, dnskeyMap map[uint16]*dn
 		// DNSSECResult may be nil if the response is from the cache.
 		res, newTrace, status, err := v.r.lookup(v.ctx, &dsQuestion, v.r.rootNameServers, v.isIterative, trace)
 		trace = newTrace
-		if status != StatusNoError || err != nil || (res.DNSSECResult != nil && res.DNSSECResult.Status != DNSSECSecure) {
-			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DS records for signer domain %s, query status: %s,  err: %v", signerDomain, status, err))
-			return nil, trace, fmt.Errorf("failed to get DS records for signer domain %s", signerDomain)
+		if status != StatusNoError {
+			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DS records for signer domain %s, query status: %s", signerDomain, status))
+			return nil, trace, fmt.Errorf("DS fetch failed, query status: %s", status)
+		} else if err != nil {
+			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DS records for signer domain %s, err: %v", signerDomain, err))
+			return nil, trace, fmt.Errorf("DS fetch failed, err: %v", err)
+		} else if res.DNSSECResult != nil && res.DNSSECResult.Status != DNSSECSecure {
+			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DS records for signer domain %s, DNSSEC status: %s", signerDomain, res.DNSSECResult.Status))
+
+			if prevResult := getResultForRRset(RRsetKey(dsQuestion.Q), res.DNSSECResult.Answer); prevResult != nil && prevResult.Error != "" {
+				return nil, trace, fmt.Errorf("DS fetch failed: %s", prevResult.Error)
+			} else {
+				return nil, trace, fmt.Errorf("DS fetch failed, DNSSEC status: %s", res.DNSSECResult.Status)
+			}
 		}
 
 		// RRSIGs of res should have been verified before returning to here.
@@ -453,11 +479,12 @@ func (v *dNSSECValidator) validateRRSIG(rrSetType uint16, rrSet []dns.RR, rrsigs
 		if err := rrsig.Verify(matchingKey, rrSet); err == nil {
 			v.dNSKEY[*matchingKey] = true
 			return rrsig, trace, nil
+		} else {
+			lastErr = fmt.Errorf("RRSIG with keytag=%d failed to verify: %v", keyTag, err)
+			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: RRSIG with keytag=%d failed to verify: %v", keyTag, err))
+			continue
 		}
-
-		lastErr = fmt.Errorf("RRSIG with keytag=%d failed to verify", keyTag)
-		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: RRSIG with keytag=%d failed to verify", keyTag))
 	}
 
-	return nil, trace, errors.Wrap(lastErr, "could not verify any RRSIG for RRset")
+	return nil, trace, lastErr
 }
