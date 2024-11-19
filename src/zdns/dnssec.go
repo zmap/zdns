@@ -381,6 +381,7 @@ func (v *dNSSECValidator) findSEPs(signerDomain string, dnskeyMap map[uint16]*dn
 	}
 
 	if len(sepKeys) == 0 {
+		v.r.verboseLog(depth, "DNSSEC: No SEP found for signer domain", signerDomain)
 		return nil, trace, errors.New("no SEP matching DS found")
 	}
 
@@ -422,7 +423,7 @@ func (v *dNSSECValidator) validateRRSIG(rrSetType uint16, rrSet []dns.RR, rrsigs
 			_, zskMap, updatedTrace, err := v.getDNSKEYs(rrsig.SignerName, trace, depth+1)
 			dnskeyMap = zskMap
 			if err != nil {
-				lastErr = fmt.Errorf("failed to retrieve DNSKEYs for signer domain %s: %v", rrsig.SignerName, err)
+				lastErr = err
 				continue
 			}
 			trace = updatedTrace
