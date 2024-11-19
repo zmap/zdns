@@ -197,9 +197,13 @@ func splitRRsetsAndSigs(rrs []dns.RR) (map[RRsetKey][]dns.RR, map[RRsetKey][]*dn
 //
 // Parameters:
 // - rrSet: The DNSKEY RRset to parse
+// - signerDomain: The domain for which SEP keys are being found
+// - depth: Current recursion depth for logging
+// - trace: Trace context for tracking validation path
 //
 // Returns:
 // - map[uint16]*dns.DNSKEY: Map of KeyTag to SEP key records
+// - Trace: Updated trace context
 // - error: Error if invalid records are found or no SEP present
 func (v *dNSSECValidator) findSEPsFromAnswer(rrSet []dns.RR, signerDomain string, depth int, trace Trace) (map[uint16]*dns.DNSKEY, Trace, error) {
 	dnskeys := make(map[uint16]*dns.DNSKEY)
