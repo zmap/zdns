@@ -893,6 +893,8 @@ func constructSingleQueryResultFromDNSMsg(res *SingleQueryResult, r *dns.Msg) (*
 	return res, r, StatusNoError, nil
 }
 
+// iterateOnAuthorities takes the authorities from the referrals of a nameserver, shuffles them, and iteratively tries to do a lookup against them.
+// If one succeeds, we return without trying the others. If one fails, we iterate to the next.
 func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *QuestionWithMetadata, depth int, result *SingleQueryResult, layer string, trace Trace) (*SingleQueryResult, Trace, Status, error) {
 	if len(result.Authorities) == 0 {
 		return nil, trace, StatusNoAuth, nil
@@ -999,9 +1001,10 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 
 		// A/AAAA records for NSes are not on the chain of trust, so we don't need to validate DNSSEC
 		// Doing this to save us some time (this can propogate A LOT of queries in certain cases)
+		prevSecValue := r.shouldValidateDNSSEC
 		r.shouldValidateDNSSEC = false
 		res, trace, status, _ = r.iterativeLookup(ctx, &q, r.rootNameServers, depth+1, ".", trace)
-		r.shouldValidateDNSSEC = true
+		r.shouldValidateDNSSEC = prevSecValue
 	}
 	if status == StatusIterTimeout || status == StatusNoNeededGlue {
 		return nil, status, "", trace
