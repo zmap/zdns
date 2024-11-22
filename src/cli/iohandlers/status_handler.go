@@ -86,7 +86,7 @@ statusLoop:
 		case <-ticker.C:
 			// print per-second summary
 			timeSinceStart := time.Since(stats.scanStartTime)
-			s := fmt.Sprintf("%02dh:%02dm:%02ds; %d domains scanned; %.02f domains/sec.; %.01f%% success rate; %s\n",
+			s := fmt.Sprintf("%02dh:%02dm:%02ds; %d names scanned; %.02f names/sec; %.01f%% success rate; %s\n",
 				int(timeSinceStart.Hours()),
 				int(timeSinceStart.Minutes())%60,
 				int(timeSinceStart.Seconds())%60,
@@ -114,7 +114,7 @@ statusLoop:
 		}
 	}
 	timeSinceStart := time.Since(stats.scanStartTime)
-	s := fmt.Sprintf("%02dh:%02dm:%02ds; Scan Complete, no more input. %d domains scanned; %.02f domains/sec.; %.01f%% success rate; %s\n",
+	s := fmt.Sprintf("%02dh:%02dm:%02ds; Scan Complete; %d names scanned; %.02f names/sec; %.01f%% success rate; %s\n",
 		int(timeSinceStart.Hours()),
 		int(timeSinceStart.Minutes())%60,
 		int(timeSinceStart.Seconds())%60,
