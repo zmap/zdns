@@ -162,6 +162,9 @@ func populateCLIConfig(gc *CLIConf) *CLIConf {
 	if gc.OutputHandler == nil {
 		gc.OutputHandler = iohandlers.NewFileOutputHandler(gc.OutputFilePath)
 	}
+	if gc.StatusHandler == nil {
+		gc.StatusHandler = iohandlers.NewStatusHandler(gc.StatusUpdatesFilePath)
+	}
 	return gc
 }
 
@@ -500,6 +503,7 @@ func Run(gc CLIConf) {
 	inChan := make(chan string)
 	outChan := make(chan string)
 	metaChan := make(chan routineMetadata, gc.Threads)
+	statusChan := make(chan zdns.Status)
 	var routineWG sync.WaitGroup
 
 	inHandler := gc.InputHandler
@@ -512,20 +516,33 @@ func Run(gc CLIConf) {
 		log.Fatal("Output handler is nil")
 	}
 
+	statusHandler := gc.StatusHandler
+	if statusHandler == nil {
+		log.Fatal("Status handler is nil")
+	}
+
 	// Use handlers to populate the input and output/results channel
 	go func() {
-		inErr := inHandler.FeedChannel(inChan, &routineWG)
-		if inErr != nil {
+		if inErr := inHandler.FeedChannel(inChan, &routineWG); inErr != nil {
 			log.Fatal(fmt.Sprintf("could not feed input channel: %v", inErr))
 		}
 	}()
+
 	go func() {
-		outErr := outHandler.WriteResults(outChan, &routineWG)
-		if outErr != nil {
+		if outErr := outHandler.WriteResults(outChan, &routineWG); outErr != nil {
 			log.Fatal(fmt.Sprintf("could not write output results from output channel: %v", outErr))
 		}
 	}()
-	routineWG.Add(2)
+	routineWG.Add(2) // input and output handlers
+
+	if !gc.QuietStatusUpdates {
+		go func() {
+			if statusErr := statusHandler.LogPeriodicUpdates(statusChan, &routineWG); statusErr != nil {
+				log.Fatal(fmt.Sprintf("could not log periodic status updates: %v", statusErr))
+			}
+		}()
+		routineWG.Add(1) // status handler
+	}
 
 	// create pool of worker goroutines
 	var lookupWG sync.WaitGroup
@@ -535,7 +552,7 @@ func Run(gc CLIConf) {
 	for i := 0; i < gc.Threads; i++ {
 		i := i
 		go func(threadID int) {
-			initWorkerErr := doLookupWorker(&gc, resolverConfig, inChan, outChan, metaChan, &lookupWG)
+			initWorkerErr := doLookupWorker(&gc, resolverConfig, inChan, outChan, metaChan, statusChan, &lookupWG)
 			if initWorkerErr != nil {
 				log.Fatalf("could not start lookup worker #%d: %v", i, initWorkerErr)
 			}
@@ -544,6 +561,7 @@ func Run(gc CLIConf) {
 	lookupWG.Wait()
 	close(outChan)
 	close(metaChan)
+	close(statusChan)
 	routineWG.Wait()
 	if gc.MetadataFilePath != "" {
 		// we're done processing data. aggregate all the data from individual routines
@@ -590,7 +608,7 @@ func Run(gc CLIConf) {
 }
 
 // doLookupWorker is a single worker thread that processes lookups from the input channel. It calls wg.Done when it is finished.
-func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, inputChan <-chan string, output chan<- string, metaChan chan<- routineMetadata, wg *sync.WaitGroup) error {
+func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, inputChan <-chan string, outputChan chan<- string, metaChan chan<- routineMetadata, statusChan chan<- zdns.Status, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	resolver, err := zdns.InitResolver(rc)
 	if err != nil {
@@ -600,7 +618,7 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, inputChan <-chan strin
 	metadata.Status = make(map[zdns.Status]int)
 
 	for line := range inputChan {
-		handleWorkerInput(gc, rc, line, resolver, &metadata, output)
+		handleWorkerInput(gc, rc, line, resolver, &metadata, outputChan, statusChan)
 	}
 	// close the resolver, freeing up resources
 	resolver.Close()
@@ -608,7 +626,7 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, inputChan <-chan strin
 	return nil
 }
 
-func handleWorkerInput(gc *CLIConf, rc *zdns.ResolverConfig, line string, resolver *zdns.Resolver, metadata *routineMetadata, output chan<- string) {
+func handleWorkerInput(gc *CLIConf, rc *zdns.ResolverConfig, line string, resolver *zdns.Resolver, metadata *routineMetadata, outputChan chan<- string, statusChan chan<- zdns.Status) {
 	// we'll process each module sequentially, parallelism is per-domain
 	res := zdns.Result{Results: make(map[string]zdns.SingleModuleResult, len(gc.ActiveModules))}
 	// get the fields that won't change for each lookup module
@@ -679,6 +697,9 @@ func handleWorkerInput(gc *CLIConf, rc *zdns.ResolverConfig, line string, resolv
 				lookupRes.Error = err.Error()
 			}
 			res.Results[moduleName] = lookupRes
+			if !gc.QuietStatusUpdates {
+				statusChan <- status
+			}
 		}
 		metadata.Status[status]++
 		metadata.Lookups++
@@ -699,7 +720,7 @@ func handleWorkerInput(gc *CLIConf, rc *zdns.ResolverConfig, line string, resolv
 		if err != nil {
 			log.Fatalf("unable to marshal JSON result: %v", err)
 		}
-		output <- string(jsonRes)
+		outputChan <- string(jsonRes)
 	}
 	metadata.Names++
 }
