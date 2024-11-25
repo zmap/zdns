@@ -309,7 +309,38 @@ func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, d
 		nsString = ns.String()
 	}
 
-	cachedRes := s.buildCachedResult(res, depth, layer)
+	// Referrals may contain DS records in the authority section. These need to be cached under the child name.
+	delegateToDSRRs := make(map[string][]interface{})
+	var otherRRs []interface{}
+	for _, rr := range res.Authorities {
+		if dsRR, ok := rr.(DSAnswer); ok {
+			delegateName := removeTrailingDotIfNotRoot(dsRR.BaseAns().Name)
+			delegateToDSRRs[delegateName] = append(delegateToDSRRs[delegateName], dsRR)
+		} else {
+			otherRRs = append(otherRRs, rr)
+		}
+	}
+
+	if len(delegateToDSRRs) > 0 {
+		s.VerboseLog(depth+1, "SafeAddCachedAuthority: found DS records in authority section, caching under child names")
+
+		for delegateName, dsRRs := range delegateToDSRRs {
+			dsRes := &SingleQueryResult{
+				Answers:            dsRRs,
+				Protocol:           res.Protocol,
+				Resolver:           res.Resolver,
+				Flags:              res.Flags,
+				TLSServerHandshake: res.TLSServerHandshake,
+			}
+			dsRes.Flags.Authoritative = true
+			dsCachedRes := s.buildCachedResult(dsRes, depth, layer)
+			s.addCachedAnswer(Question{Name: delegateName, Type: dns.TypeDS, Class: dns.ClassINET}, nsString, false, dsCachedRes, depth)
+		}
+	}
+
+	copiedRes := *res
+	copiedRes.Authorities = otherRRs
+	cachedRes := s.buildCachedResult(&copiedRes, depth, layer)
 	if len(cachedRes.Answers) == 0 && len(cachedRes.Authorities) == 0 && len(cachedRes.Additionals) == 0 {
 		s.VerboseLog(depth+1, "SafeAddCachedAnswer: no cacheable records found, aborting")
 		return
