@@ -18,6 +18,7 @@
  * - https://datatracker.ietf.org/doc/html/rfc4033
  * - https://datatracker.ietf.org/doc/html/rfc4034
  * - https://datatracker.ietf.org/doc/html/rfc4035 (probably the most relevant one)
+ * - https://datatracker.ietf.org/doc/html/rfc6840
  * - https://datatracker.ietf.org/doc/html/rfc8914
  * - https://datatracker.ietf.org/doc/html/rfc7958
  *
