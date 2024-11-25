@@ -11,6 +11,22 @@
  * implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+
+/*
+ * DNSSEC validator of ZDNS.
+ * RFC reference:
+ * - https://datatracker.ietf.org/doc/html/rfc4033
+ * - https://datatracker.ietf.org/doc/html/rfc4034
+ * - https://datatracker.ietf.org/doc/html/rfc4035 (probably the most relevant one)
+ * - https://datatracker.ietf.org/doc/html/rfc6840
+ * - https://datatracker.ietf.org/doc/html/rfc8914
+ * - https://datatracker.ietf.org/doc/html/rfc7958
+ *
+ * Other references:
+ * - https://www.cloudflare.com/learning/dns/dnssec/how-dnssec-works/
+ * - https://dnsviz.net/
+ */
+
 package zdns
 
 import (
