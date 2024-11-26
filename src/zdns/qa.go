@@ -79,7 +79,7 @@ type SingleQueryResult struct {
 	Additional         []interface{} `json:"additionals,omitempty" groups:"short,normal,long,trace"`
 	Authorities        []interface{} `json:"authorities,omitempty" groups:"short,normal,long,trace"`
 	Protocol           string        `json:"protocol" groups:"protocol,normal,long,trace"`
-	Resolver           string        `json:"resolver" groups:"resolver,normal,long,trace"`
+	Resolver           string        `json:"resolver" groups:"resolver,normal,long,trace"` // IP address
 	Flags              DNSFlags      `json:"flags" groups:"flags,long,trace"`
 	TLSServerHandshake interface{}   `json:"tls_handshake,omitempty" groups:"normal,long,trace"` // used for --tls and --https, JSON string of the TLS handshake
 }
@@ -87,12 +87,11 @@ type SingleQueryResult struct {
 type ExtendedResult struct {
 	Res        SingleQueryResult `json:"result,omitempty" groups:"short,normal,long,trace"`
 	Status     Status            `json:"status" groups:"short,normal,long,trace"`
-	Nameserver string            `json:"nameserver" groups:"short,normal,long,trace"`
-	Trace      Trace             `json:"trace,omitempty" groups:"trace"`
+	Nameserver string            `json:"nameserver" groups:"short,normal,long,trace"` // NS domain name
 }
 
-type CombinedResults struct {
-	Results []ExtendedResult `json:"results" groups:"short,normal,long,trace"`
+type AllNameServersResult struct {
+	LayeredResponses map[string][]ExtendedResult `json:"per_layer_responses" groups:"short,normal,long,trace"` //
 }
 
 type IPResult struct {

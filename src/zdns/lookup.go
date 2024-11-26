@@ -121,7 +121,7 @@ func (r *Resolver) lookup(ctx context.Context, qWithMeta *QuestionWithMetadata, 
 	var trace Trace
 	var status Status
 	var err error
-	if util.HasCtxExpired(&ctx) {
+	if util.HasCtxExpired(ctx) {
 		return res, trace, StatusTimeout, nil
 	}
 	if isIterative {
@@ -273,55 +273,65 @@ func isLookupComplete(originalName string, candidateSet map[string][]Answer, cNa
 	return false
 }
 
-// TODO - This is incomplete. We only lookup all nameservers for the initial name server lookup, then just send the DNS query to this set.
-// If we want to iteratively lookup all nameservers at each level of the query, we need to fix this.
-// Issue - https://github.com/zmap/zdns/issues/362
-func (r *Resolver) LookupAllNameservers(q *Question, nameServer *NameServer) (*CombinedResults, Trace, Status, error) {
-	var retv CombinedResults
-	var curServer string
-
-	// Lookup both ipv4 and ipv6 addresses of nameservers.
-	nsResults, nsTrace, nsStatus, nsError := r.DoNSLookup(q.Name, nameServer, false, true, true)
-
-	// Terminate early if nameserver lookup also failed
-	if nsStatus != StatusNoError {
-		return nil, nsTrace, nsStatus, nsError
+// LookupAllNameservers will send a query to all name servers at each level of DNS resolution. It starts at the root,
+// queries each NS, and then builds a de-duplicated list of the union of all responses. It repeats this process to the TLD
+// NS servers, etc.
+func (r *Resolver) LookupAllNameservers(ctx context.Context, q *Question, perNameServerRetriesLimit int) (*AllNameServersResult, Trace, Status, error) {
+	//retriesRemaining := r.retries // make a copy so we can decrement freely in the lookup process
+	////qWithMeta := &QuestionWithMetadata{
+	////	Q: *q,
+	////	RetriesRemaining: &retriesRemaining,
+	////}
+	retv := AllNameServersResult{
+		LayeredResponses: make(map[string][]ExtendedResult),
 	}
-	if nsResults == nil {
-		return nil, nsTrace, nsStatus, errors.New("no results from nameserver lookup")
+	var trace Trace
+	//trace := Trace{}
+	currentLayer := "."
+	layerResults, currTrace, err := r.queryAllNameServersInLayer(ctx, perNameServerRetriesLimit, q, r.rootNameServers)
+	trace = append(trace, currTrace...)
+	if err != nil {
+		return &retv, trace, StatusError, errors.Wrapf(err, "error encountered on layer %s", currentLayer)
+	} else {
+		retv.LayeredResponses[currentLayer] = layerResults
 	}
 
-	// fullTrace holds the complete trace including all lookups
-	var fullTrace = Trace{}
-	if nsTrace != nil {
-		fullTrace = append(fullTrace, nsTrace...)
-	}
-	for _, nserver := range nsResults.Servers {
-		// Use all the ipv4 and ipv6 addresses of each nameserver
-		nameserver := nserver.Name
-		ips := util.Concat(nserver.IPv4Addresses, nserver.IPv6Addresses)
-		for _, ip := range ips {
-			// construct the nameserver
-			res, trace, status, err := r.ExternalLookup(q, &NameServer{
-				IP:   net.ParseIP(ip),
-				Port: DefaultDNSPort,
-			})
+	return &retv, trace, StatusNoError, nil
+}
+
+func (r *Resolver) queryAllNameServersInLayer(ctx context.Context, perNameServerRetriesLimit int, q *Question, currentNameServers []NameServer) ([]ExtendedResult, Trace, error) {
+	trace := make([]TraceStep, 0)
+	currentLayerResults := make([]ExtendedResult, 0, len(currentNameServers))
+	for _, nameServer := range currentNameServers {
+		var extResult *ExtendedResult
+		for retry := 0; retry < perNameServerRetriesLimit; retry++ {
+			if util.HasCtxExpired(ctx) {
+				return currentLayerResults, trace, errors.New("context expired")
+			}
+			result, currTrace, status, err := r.ExternalLookup(q, &nameServer)
+			trace = append(trace, currTrace...)
+			if err == nil && status == StatusNoError {
+				extResult = &ExtendedResult{
+					Res:        *result,
+					Status:     status,
+					Nameserver: nameServer.DomainName,
+				}
+				// successful result, continue to next nameserver
+				break
+			}
 			if err != nil {
-				// log and move on
-				log.Errorf("lookup for domain %s to nameserver %s failed with error %s. Continueing to next nameserver", q.Name, curServer, err)
-				continue
+				log.Debugf("LookupAllNameservers of name %s errored for %s: %v", q.Name, nameServer.IP.String(), err)
+			} else {
+				log.Debugf("LookupAllNameservers of name %s failed for %s: %v", q.Name, nameServer.IP.String(), status)
 			}
-
-			fullTrace = append(fullTrace, trace...)
-			extendedResult := ExtendedResult{
-				Res:        *res,
-				Status:     status,
-				Nameserver: nameserver,
-			}
-			retv.Results = append(retv.Results, extendedResult)
+		}
+		if extResult == nil {
+			log.Debugf("LookupAllNameservers of name %s against nameserver %s ran out of retries, continueing to next nameserver", q.Name, nameServer.IP.String())
+		} else {
+			currentLayerResults = append(currentLayerResults, *extResult)
 		}
 	}
-	return &retv, fullTrace, StatusNoError, nil
+	return currentLayerResults, trace, nil
 }
 
 func (r *Resolver) iterativeLookup(ctx context.Context, qWithMeta *QuestionWithMetadata, nameServers []NameServer,
@@ -331,7 +341,7 @@ func (r *Resolver) iterativeLookup(ctx context.Context, qWithMeta *QuestionWithM
 		return nil, trace, StatusError, errors.New("max recursion depth reached")
 	}
 	// check that context hasn't expired
-	if util.HasCtxExpired(&ctx) {
+	if util.HasCtxExpired(ctx) {
 		r.verboseLog(depth+1, "-> Context expired")
 		return nil, trace, StatusTimeout, nil
 	}
@@ -352,7 +362,7 @@ func (r *Resolver) iterativeLookup(ctx context.Context, qWithMeta *QuestionWithM
 		t.Try = getTryNumber(r.retries, *qWithMeta.RetriesRemaining)
 		trace = append(trace, t)
 	}
-	if status == StatusTimeout && util.HasCtxExpired(&iterationStepCtx) && !util.HasCtxExpired(&ctx) {
+	if status == StatusTimeout && util.HasCtxExpired(iterationStepCtx) && !util.HasCtxExpired(ctx) {
 		// ctx's have a deadline of the minimum of their deadline and their parent's
 		// retryingLookup doesn't disambiguate of whether the timeout was caused by the iteration timeout or the global timeout
 		// we'll disambiguate here by checking if the iteration context has expired but the global context hasn't
@@ -409,7 +419,7 @@ func (r *Resolver) cyclingLookup(ctx context.Context, qWithMeta *QuestionWithMet
 	var nameServer *NameServer
 
 	for *qWithMeta.RetriesRemaining >= 0 {
-		if util.HasCtxExpired(&ctx) {
+		if util.HasCtxExpired(ctx) {
 			return &SingleQueryResult{}, false, StatusTimeout, nil
 		}
 		// get random unqueried nameserver
@@ -882,7 +892,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 	newTrace := trace
 	nameServers := make([]NameServer, 0, len(result.Authorities))
 	for i, elem := range result.Authorities {
-		if util.HasCtxExpired(&ctx) {
+		if util.HasCtxExpired(ctx) {
 			return &SingleQueryResult{}, newTrace, StatusTimeout, nil
 		}
 		var ns *NameServer
