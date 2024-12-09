@@ -49,7 +49,7 @@ type DNSSECResult struct {
 	DS            []*DSAnswer          `json:"ds" groups:"dnssec,long,trace"`
 	DNSKEY        []*DNSKEYAnswer      `json:"dnskey" groups:"dnssec,long,trace"`
 	Answer        []DNSSECPerSetResult `json:"answer" groups:"dnssec,long,trace"`
-	Additionals   []DNSSECPerSetResult `json:"additionals" groups:"dnssec,long,trace"`
+	Additional    []DNSSECPerSetResult `json:"additional" groups:"dnssec,long,trace"`
 	Authoritative []DNSSECPerSetResult `json:"authoritative" groups:"dnssec,long,trace"`
 }
 
@@ -94,7 +94,7 @@ func makeDNSSECResult() *DNSSECResult {
 		DS:            make([]*DSAnswer, 0),
 		DNSKEY:        make([]*DNSKEYAnswer, 0),
 		Answer:        make([]DNSSECPerSetResult, 0),
-		Additionals:   make([]DNSSECPerSetResult, 0),
+		Additional:    make([]DNSSECPerSetResult, 0),
 		Authoritative: make([]DNSSECPerSetResult, 0),
 	}
 }
@@ -118,7 +118,7 @@ func (r *DNSSECResult) populateStatus() {
 	r.Status = DNSSECSecure
 
 	// Check for bogus results first (highest priority)
-	checkSections := [][]DNSSECPerSetResult{r.Answer, r.Additionals, r.Authoritative}
+	checkSections := [][]DNSSECPerSetResult{r.Answer, r.Additional, r.Authoritative}
 	for _, section := range checkSections {
 		for _, result := range section {
 			if result.Status == DNSSECBogus {
@@ -140,7 +140,7 @@ func (r *DNSSECResult) populateStatus() {
 	}
 
 	// Check DNSSEC-related RRsets in other sections
-	for _, section := range [][]DNSSECPerSetResult{r.Additionals, r.Authoritative} {
+	for _, section := range [][]DNSSECPerSetResult{r.Additional, r.Authoritative} {
 		for _, result := range section {
 			if isDNSSECType(result.RRset.Type) {
 				if result.Status == DNSSECInsecure {

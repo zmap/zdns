@@ -59,7 +59,7 @@ const (
 //   - Status: Overall DNSSEC validation status (Secure/Insecure/Bogus/Indeterminate)
 //   - DS: Collection of DS records actually used during validation
 //   - DNSKEY: Collection of DNSKEY records actually used during validation
-//   - Answer/Additionals/Authoritative: Per-RRset validation results
+//   - Answer/Additional/Authoritative: Per-RRset validation results
 //
 // - Trace: Updated trace context containing validation path
 func (v *dNSSECValidator) validate(depth int, trace Trace) (*DNSSECResult, Trace) {
@@ -81,7 +81,7 @@ func (v *dNSSECValidator) validate(depth int, trace Trace) (*DNSSECResult, Trace
 	if !v.msg.Authoritative {
 		// Validate the additional section
 		sectionRes, trace = v.validateSection(v.msg.Extra, depth, trace)
-		result.Additionals = sectionRes
+		result.Additional = sectionRes
 
 		// Validate the authoritative section
 		sectionRes, trace = v.validateSection(v.msg.Ns, depth, trace)
