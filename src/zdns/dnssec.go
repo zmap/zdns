@@ -51,6 +51,7 @@ const (
 // DNSSEC status.
 //
 // Parameters:
+// - msg: DNS message to validate
 // - depth: Current recursion depth for logging purposes
 // - trace: Trace context for tracking validation path
 //
@@ -59,45 +60,57 @@ const (
 //   - Status: Overall DNSSEC validation status (Secure/Insecure/Bogus/Indeterminate)
 //   - DS: Collection of DS records actually used during validation
 //   - DNSKEY: Collection of DNSKEY records actually used during validation
-//   - Answer/Additionals/Authoritative: Per-RRset validation results
+//   - Answer/Additional/Authoritative: Per-RRset validation results
 //
 // - Trace: Updated trace context containing validation path
-func (v *dNSSECValidator) validate(depth int, trace Trace) (*DNSSECResult, Trace) {
+func (v *dNSSECValidator) validate(layer string, msg *dns.Msg, nameServer *NameServer, depth int, trace Trace) (*DNSSECResult, Trace) {
 	result := makeDNSSECResult()
+	if v.status != DNSSECSecure {
+		result.Status = v.status
+		result.Reason = v.reason
+		return result, trace
+	}
+
+	v.resetDNSSECValidator(msg, nameServer)
 
 	if !hasRRSIG(v.msg) {
 		v.r.verboseLog(depth, "DNSSEC: No RRSIG records found in message")
 		result.Status = DNSSECInsecure // This can't be secure, but it could be bogus instead
-		return result, trace
+		result.Reason = "No RRSIG records found in message"
+	} else {
+		// Validate the answer section
+		var sectionRes []DNSSECPerSetResult
+		sectionRes, trace = v.validateSection(v.msg.Answer, depth, trace)
+		result.Answer = sectionRes
+
+		// If the message is authoritative, we drop the additional and authoritative sections
+		// in Resolver.iterativeLookup, hence no need to validate them here. Validating them
+		// causes circular lookups in some cases and can confuse the user.
+		if !v.msg.Authoritative {
+			// Validate the additional section
+			sectionRes, trace = v.validateSection(v.msg.Extra, depth, trace)
+			result.Additional = sectionRes
+
+			// Validate the authoritative section
+			sectionRes, trace = v.validateSection(v.msg.Ns, depth, trace)
+			result.Authoritative = sectionRes
+		}
+
+		for ds := range v.ds {
+			parsed := ParseAnswer(&ds).(DSAnswer) //nolint:golint,errcheck
+			result.DS = append(result.DS, &parsed)
+		}
+		for dnskey := range v.dNSKEY {
+			parsed := ParseAnswer(&dnskey).(DNSKEYAnswer) //nolint:golint,errcheck
+			result.DNSKEY = append(result.DNSKEY, &parsed)
+		}
+
+		result.populateStatus()
 	}
 
-	// Validate the answer section
-	sectionRes, trace := v.validateSection(v.msg.Answer, depth, trace)
-	result.Answer = sectionRes
-
-	// If the message is authoritative, we drop the additional and authoritative sections
-	// in Resolver.iterativeLookup, hence no need to validate them here. Validating them
-	// causes circular lookups in some cases and can confuse the user.
-	if !v.msg.Authoritative {
-		// Validate the additional section
-		sectionRes, trace = v.validateSection(v.msg.Extra, depth, trace)
-		result.Additionals = sectionRes
-
-		// Validate the authoritative section
-		sectionRes, trace = v.validateSection(v.msg.Ns, depth, trace)
-		result.Authoritative = sectionRes
-	}
-
-	for ds := range v.ds {
-		parsed := ParseAnswer(&ds).(DSAnswer) //nolint:golint,errcheck
-		result.DS = append(result.DS, &parsed)
-	}
-	for dnskey := range v.dNSKEY {
-		parsed := ParseAnswer(&dnskey).(DNSKEYAnswer) //nolint:golint,errcheck
-		result.DNSKEY = append(result.DNSKEY, &parsed)
-	}
-
-	result.populateStatus()
+	v.r.verboseLog(depth, "DNSSEC: Validation result for layer", layer, ":", result.Status)
+	v.status = result.Status
+	v.reason = fmt.Sprintf("zone %s: %s", layer, result.Reason)
 
 	return result, trace
 }
@@ -421,7 +434,7 @@ func (v *dNSSECValidator) findSEPs(signerDomain string, dnskeyMap map[uint16]*dn
 		} else {
 			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Delegation verified for DNSKEY with KeyTag %d, SEP established", key.KeyTag()))
 
-			v.ds[*actualDS] = true
+			v.ds[*actualDS] = struct{}{}
 			sepKeys[key.KeyTag()] = key
 		}
 	}
@@ -493,7 +506,7 @@ func (v *dNSSECValidator) validateRRSIG(rrSetType uint16, rrSet []dns.RR, rrsigs
 
 		// Verify the RRSIG with the matching DNSKEY
 		if err := rrsig.Verify(matchingKey, rrSet); err == nil {
-			v.dNSKEY[*matchingKey] = true
+			v.dNSKEY[*matchingKey] = struct{}{}
 			return rrsig, trace, nil
 		} else {
 			lastErr = fmt.Errorf("RRSIG with keytag=%d failed to verify: %v", keyTag, err)

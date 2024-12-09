@@ -294,14 +294,16 @@ type Resolver struct {
 
 	cfClient             *CFClient // Cloudflare client for DNS over HTTPS
 	dnsSecEnabled        bool
-	shouldValidateDNSSEC bool           // whether to validate DNSSEC
-	dnsOverHTTPSEnabled  bool           // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
-	dnsOverTLSEnabled    bool           // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
-	rootCAs              *x509.CertPool // Root CAs for DoT/DoH Server Verification
-	verifyServerCert     bool           // Verify server certificates for DoT/DoH
-	ednsOptions          []dns.EDNS0
-	checkingDisabledBit  bool
-	isClosed             bool // true if the resolver has been closed, lookup will panic if called after Close
+	shouldValidateDNSSEC bool             // whether to validate DNSSEC
+	validator            *dNSSECValidator // DNSSEC validator for the current lookup
+
+	dnsOverHTTPSEnabled bool           // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
+	dnsOverTLSEnabled   bool           // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
+	rootCAs             *x509.CertPool // Root CAs for DoT/DoH Server Verification
+	verifyServerCert    bool           // Verify server certificates for DoT/DoH
+	ednsOptions         []dns.EDNS0
+	checkingDisabledBit bool
+	isClosed            bool // true if the resolver has been closed, lookup will panic if called after Close
 }
 
 // InitResolver creates a new Resolver struct using the ResolverConfig. The Resolver is used to perform DNS lookups.
