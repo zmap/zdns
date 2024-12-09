@@ -46,6 +46,7 @@ type DNSSECPerSetResult struct {
 // DNSSECResult captures all information generated during a DNSSEC validation
 type DNSSECResult struct {
 	Status        DNSSECStatus         `json:"status" groups:"dnssec,dnssec,normal,long,trace"`
+	Reason        string               `json:"reason" groups:"dnssec,dnssec,normal,long,trace"`
 	DS            []*DSAnswer          `json:"ds" groups:"dnssec,long,trace"`
 	DNSKEY        []*DNSKEYAnswer      `json:"dnskey" groups:"dnssec,long,trace"`
 	Answer        []DNSSECPerSetResult `json:"answer" groups:"dnssec,long,trace"`
@@ -63,34 +64,44 @@ func getResultForRRset(rrsetKey RRsetKey, results []DNSSECPerSetResult) *DNSSECP
 }
 
 type dNSSECValidator struct {
+	// Info shared across all validations for a chain of queries
 	r           *Resolver
 	ctx         context.Context
-	msg         *dns.Msg
-	nameServer  *NameServer
 	isIterative bool
+	status      DNSSECStatus
+	reason      string
 
-	ds     map[dns.DS]bool
-	dNSKEY map[dns.DNSKEY]bool
+	// Temporary info for a single validation
+	msg        *dns.Msg
+	nameServer *NameServer
+	ds         map[dns.DS]struct{}
+	dNSKEY     map[dns.DNSKEY]struct{}
 }
 
 // makeDNSSECValidator creates a new DNSSECValidator instance
-func makeDNSSECValidator(r *Resolver, ctx context.Context, msg *dns.Msg, nameServer *NameServer, isIterative bool) *dNSSECValidator {
+func makeDNSSECValidator(r *Resolver, ctx context.Context, isIterative bool) *dNSSECValidator {
 	return &dNSSECValidator{
 		r:           r,
 		ctx:         ctx,
-		msg:         msg,
-		nameServer:  nameServer,
 		isIterative: isIterative,
-
-		ds:     make(map[dns.DS]bool),
-		dNSKEY: make(map[dns.DNSKEY]bool),
+		status:      DNSSECSecure,
+		reason:      "",
 	}
+}
+
+// resetDNSSECValidator resets the DNSSECValidator instance for a new message
+func (v *dNSSECValidator) resetDNSSECValidator(msg *dns.Msg, nameServer *NameServer) {
+	v.msg = msg
+	v.nameServer = nameServer
+	v.ds = make(map[dns.DS]struct{})
+	v.dNSKEY = make(map[dns.DNSKEY]struct{})
 }
 
 // makeDNSSECResult creates and initializes a new DNSSECResult instance
 func makeDNSSECResult() *DNSSECResult {
 	return &DNSSECResult{
 		Status:        DNSSECIndeterminate,
+		Reason:        "",
 		DS:            make([]*DSAnswer, 0),
 		DNSKEY:        make([]*DNSKEYAnswer, 0),
 		Answer:        make([]DNSSECPerSetResult, 0),
@@ -123,6 +134,7 @@ func (r *DNSSECResult) populateStatus() {
 		for _, result := range section {
 			if result.Status == DNSSECBogus {
 				r.Status = DNSSECBogus
+				r.Reason = result.Error
 				return
 			}
 		}
@@ -131,11 +143,13 @@ func (r *DNSSECResult) populateStatus() {
 	for _, result := range r.Answer {
 		if result.Status == DNSSECInsecure {
 			r.Status = DNSSECInsecure
+			r.Reason = result.Error
 			return
 		}
 
 		if result.Status == DNSSECIndeterminate {
 			r.Status = DNSSECIndeterminate
+			r.Reason = result.Error
 		}
 	}
 
@@ -145,11 +159,13 @@ func (r *DNSSECResult) populateStatus() {
 			if isDNSSECType(result.RRset.Type) {
 				if result.Status == DNSSECInsecure {
 					r.Status = DNSSECInsecure
+					r.Reason = result.Error
 					return
 				}
 
 				if r.Status != DNSSECSecure && result.Status == DNSSECIndeterminate {
 					r.Status = DNSSECIndeterminate
+					r.Reason = result.Error
 					return
 				}
 			}

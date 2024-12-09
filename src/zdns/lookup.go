@@ -99,19 +99,27 @@ func (r *Resolver) doDstServersLookup(q Question, nameServers []NameServer, isIt
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	defer cancel()
+
+	if r.shouldValidateDNSSEC {
+		r.validator = makeDNSSECValidator(r, ctx, isIterative)
+	}
 	r.retriesRemaining = r.retries
+
 	questionWithMeta := QuestionWithMetadata{
 		Q:                q,
 		RetriesRemaining: &r.retriesRemaining,
 	}
+
 	if r.followCNAMEs {
 		return r.followingLookup(ctx, &questionWithMeta, nameServers, isIterative)
 	}
+
 	var trace Trace
 	res, trace, status, err := r.lookup(ctx, &questionWithMeta, nameServers, isIterative, trace)
 	if err != nil {
 		return res, nil, status, fmt.Errorf("could not perform retrying lookup for name %v: %w", q.Name, err)
 	}
+
 	return res, trace, status, err
 }
 
@@ -576,8 +584,7 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 
 	if status == StatusNoError && result != nil {
 		if r.shouldValidateDNSSEC {
-			validator := makeDNSSECValidator(r, ctx, rawResp, nameServer, !requestIteration)
-			result.DNSSECResult, trace = validator.validate(depth+2, trace)
+			result.DNSSECResult, trace = r.validator.validate(layer, rawResp, nameServer, depth+2, trace)
 			r.verboseLog(depth+2, "DNSSEC validation status:", result.DNSSECResult.Status)
 		}
 
