@@ -225,6 +225,11 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 			log.Fatal("unable to parse blacklist file: ", err)
 		}
 	}
+	// This must occur after setting the DNSConfigFilePath above, so that ZDNS knows where to fetch the DNS Config
+	config, err := populateIPTransportMode(gc, config)
+	if err != nil {
+		log.Fatal("could not populate IP transport mode: ", err)
+	}
 	// This is used in extractAuthorities where we need to know whether to request A or AAAA records to continue iteration
 	// Must be set after populating IPTransportMode
 	if config.IPVersionMode == zdns.IPv4Only {
@@ -239,11 +244,6 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 		log.Fatal("Cannot specify both --prefer-ipv4-iteration and --prefer-ipv6-iteration")
 	} else {
 		config.IterationIPPreference = zdns.GetIterationIPPreference(gc.PreferIPv4Iteration, gc.PreferIPv6Iteration)
-	}
-	// This must occur after setting the DNSConfigFilePath above, so that ZDNS knows where to fetch the DNS Config
-	config, err := populateIPTransportMode(gc, config)
-	if err != nil {
-		log.Fatal("could not populate IP transport mode: ", err)
 	}
 	// This must occur after setting IPTransportMode, so that ZDNS knows whether to use IPv4 or IPv6 nameservers
 	config, err = populateNameServers(gc, config)

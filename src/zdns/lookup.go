@@ -565,7 +565,9 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 	if err != nil {
 		return &SingleQueryResult{}, isCached, status, errors.Wrap(err, "could not perform lookup")
 	}
-	r.verboseLog(depth+2, "Results from wire for name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer, " status: ", status, " , err: ", err, " result: ", result)
+	if result != nil {
+		r.verboseLog(depth+2, "Results from wire for name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer, " status: ", status, " , err: ", err, " result: ", *result)
+	}
 
 	if status == StatusNoError && result != nil {
 		// only cache answers that don't have errors
@@ -959,7 +961,9 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 		var q QuestionWithMetadata
 		q.Q.Name = server
 		q.Q.Class = dns.ClassINET
-		if r.ipVersionMode != IPv4Only && r.iterationIPPreference == PreferIPv6 {
+		if r.ipVersionMode == IPv6Only {
+			q.Q.Type = dns.TypeAAAA
+		} else if r.ipVersionMode == IPv4OrIPv6 && r.iterationIPPreference == PreferIPv6 {
 			q.Q.Type = dns.TypeAAAA
 		} else {
 			q.Q.Type = dns.TypeA
