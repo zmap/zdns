@@ -108,9 +108,19 @@ func (v *dNSSECValidator) validate(layer string, msg *dns.Msg, nameServer *NameS
 		result.populateStatus()
 	}
 
-	v.r.verboseLog(depth, "DNSSEC: Validation result for layer", layer, ":", result.Status)
+	// DNSKEY/DS queries may have failed, so we need to check the status again here
+	if v.status != DNSSECSecure {
+		result := makeDNSSECResult()
+		result.Status = v.status
+		result.Reason = v.reason
+		return result, trace
+	}
+
 	v.status = result.Status
-	v.reason = fmt.Sprintf("zone %s: %s", layer, result.Reason)
+	if result.Reason != "" {
+		result.Reason = fmt.Sprintf("zone %s: %s", layer, result.Reason)
+		v.reason = result.Reason
+	}
 
 	return result, trace
 }
@@ -311,7 +321,7 @@ func (v *dNSSECValidator) getDNSKEYs(signerDomain string, trace Trace, depth int
 		if prevResult := getResultForRRset(RRsetKey(dnskeyQuestion.Q), res.DNSSECResult.Answer); prevResult != nil && prevResult.Error != "" {
 			return nil, nil, trace, fmt.Errorf("DNSKEY fetch failed: %s", prevResult.Error)
 		} else {
-			return nil, nil, trace, fmt.Errorf("DNSKEY fetch failed, DNSSEC status: %s", res.DNSSECResult.Status)
+			return nil, nil, trace, errors.New(res.DNSSECResult.Reason)
 		}
 	}
 
@@ -351,20 +361,8 @@ func (v *dNSSECValidator) getDNSKEYs(signerDomain string, trace Trace, depth int
 	return sepKeys, dnskeys, trace, nil
 }
 
-// findSEPs validates DS records against DNSKEY records,
-// to find the SEP (Secure Entry Point) keys for a given signer domain.
-//
-// Parameters:
-// - signerDomain: The signer domain to query for DS records
-// - dnskeyMap: A map of KeyTag to DNSKEYs to search for SEP keys
-// - trace: The trace context for tracking request path
-// - depth: The recursion depth for logging purposes
-//
-// Returns:
-// - map[uint16]*dns.DNSKEY: Map of KeyTag to SEP DNSKEY records
-// - Trace: Updated trace context
-// - error: If validation fails for any DS record
-func (v *dNSSECValidator) findSEPs(signerDomain string, dnskeyMap map[uint16]*dns.DNSKEY, trace Trace, depth int) (map[uint16]*dns.DNSKEY, Trace, error) {
+// fetchDSRecords retrieves DS records for a given signer domain
+func (v *dNSSECValidator) fetchDSRecords(signerDomain string, trace Trace, depth int) (map[uint16]dns.DS, Trace, error) {
 	nameWithoutTrailingDot := removeTrailingDotIfNotRoot(signerDomain)
 
 	dsQuestion := QuestionWithMetadata{
@@ -396,7 +394,7 @@ func (v *dNSSECValidator) findSEPs(signerDomain string, dnskeyMap map[uint16]*dn
 			if prevResult := getResultForRRset(RRsetKey(dsQuestion.Q), res.DNSSECResult.Answer); prevResult != nil && prevResult.Error != "" {
 				return nil, trace, fmt.Errorf("DS fetch failed: %s", prevResult.Error)
 			} else {
-				return nil, trace, fmt.Errorf("DS fetch failed, DNSSEC status: %s", res.DNSSECResult.Status)
+				return nil, trace, errors.New(res.DNSSECResult.Reason)
 			}
 		}
 
@@ -411,6 +409,28 @@ func (v *dNSSECValidator) findSEPs(signerDomain string, dnskeyMap map[uint16]*dn
 			ds := zTypedDS.ToVanillaType()
 			dsRecords[ds.KeyTag] = *ds
 		}
+	}
+
+	return dsRecords, trace, nil
+}
+
+// findSEPs validates DS records against DNSKEY records,
+// to find the SEP (Secure Entry Point) keys for a given signer domain.
+//
+// Parameters:
+// - signerDomain: The signer domain to query for DS records
+// - dnskeyMap: A map of KeyTag to DNSKEYs to search for SEP keys
+// - trace: The trace context for tracking request path
+// - depth: The recursion depth for logging purposes
+//
+// Returns:
+// - map[uint16]*dns.DNSKEY: Map of KeyTag to SEP DNSKEY records
+// - Trace: Updated trace context
+// - error: If validation fails for any DS record
+func (v *dNSSECValidator) findSEPs(signerDomain string, dnskeyMap map[uint16]*dns.DNSKEY, trace Trace, depth int) (map[uint16]*dns.DNSKEY, Trace, error) {
+	dsRecords, trace, err := v.fetchDSRecords(signerDomain, trace, depth)
+	if err != nil {
+		return nil, trace, err
 	}
 
 	sepKeys := make(map[uint16]*dns.DNSKEY)
