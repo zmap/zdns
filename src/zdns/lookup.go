@@ -345,8 +345,8 @@ func (r *Resolver) extractNameServersFromLayerResults(layerResults []ExtendedRes
 	v6NameServers := make(map[string]NameServer)
 	for _, authorities := range uniqueAuthorities {
 		if authorities.RrType == dns.TypeNS {
-			v4NameServers[strings.TrimSuffix(authorities.Answer, ".")] = NameServer{DomainName: authorities.Answer}
-			v6NameServers[strings.TrimSuffix(authorities.Answer, ".")] = NameServer{DomainName: authorities.Answer}
+			v4NameServers[strings.TrimSuffix(authorities.Answer, ".")] = NameServer{DomainName: strings.TrimSuffix(authorities.Answer, ".")}
+			v6NameServers[strings.TrimSuffix(authorities.Answer, ".")] = NameServer{DomainName: strings.TrimSuffix(authorities.Answer, ".")}
 		}
 	}
 	for _, additionals := range uniqueAdditionals {
@@ -367,20 +367,91 @@ func (r *Resolver) extractNameServersFromLayerResults(layerResults []ExtendedRes
 			}
 		}
 	}
-	// convert to slice
-	nameServersSlice := make([]NameServer, 0, len(v4NameServers))
+	// dedupe
+
+	uniqNameServersSet := make(map[string]NameServer)
 	if r.ipVersionMode != IPv6Only {
 		for _, ns := range v4NameServers {
-			nameServersSlice = append(nameServersSlice, ns)
+			key := ns.DomainName + ns.IP.String()
+			if _, ok := uniqNameServersSet[key]; !ok {
+				uniqNameServersSet[key] = ns
+
+			}
 		}
 	}
 	if r.ipVersionMode != IPv4Only {
 		for _, ns := range v6NameServers {
-			nameServersSlice = append(nameServersSlice, ns)
+			key := ns.DomainName + ns.IP.String()
+			if _, ok := uniqNameServersSet[key]; !ok {
+				uniqNameServersSet[key] = ns
+			}
 		}
 	}
 
-	return nameServersSlice, nil
+	uniqNameServers := make([]NameServer, 0, len(uniqNameServersSet))
+	for _, ns := range uniqNameServersSet {
+		uniqNameServers = append(uniqNameServers, ns)
+	}
+
+	return uniqNameServers, nil
+}
+
+func (r *Resolver) populateNameServerIP(ctx context.Context, nameServer *NameServer) (Trace, error) {
+	if nameServer.IP != nil {
+		// already have an IP
+		return nil, nil
+	}
+	retries := r.retries
+	var q Question
+	if r.ipVersionMode == IPv4Only {
+		q = Question{dns.TypeA, dns.ClassINET, nameServer.DomainName}
+	} else if r.ipVersionMode == IPv6Only {
+		q = Question{dns.TypeAAAA, dns.ClassINET, nameServer.DomainName}
+	} else if r.iterationIPPreference == PreferIPv4 {
+		q = Question{dns.TypeA, dns.ClassINET, nameServer.DomainName}
+	} else {
+		q = Question{dns.TypeAAAA, dns.ClassINET, nameServer.DomainName}
+	}
+	res, nsTrace, status, err := r.followingLookup(ctx, &QuestionWithMetadata{
+		Q:                q,
+		RetriesRemaining: &retries,
+	}, r.rootNameServers, true)
+	if err == nil && status == StatusNoError {
+		for _, ans := range res.Answers {
+			if a, ok := ans.(Answer); ok {
+				if a.RrType == q.Type {
+					nameServer.IP = net.ParseIP(a.Answer)
+					return nsTrace, nil
+				}
+			}
+		}
+	}
+	// if we get here, we couldn't find an IP for the nameserver, let's try with the other A/AAAA if we can
+	if r.ipVersionMode == IPv4OrIPv6 {
+		if q.Type == dns.TypeA {
+			q.Type = dns.TypeAAAA
+		} else {
+			q.Type = dns.TypeA
+		}
+		res, nsTrace, status, err = r.followingLookup(ctx, &QuestionWithMetadata{
+			Q:                q,
+			RetriesRemaining: &retries,
+		}, r.rootNameServers, true)
+		if err == nil && status == StatusNoError {
+			for _, ans := range res.Answers {
+				if a, ok := ans.(Answer); ok {
+					if a.RrType == q.Type {
+						nameServer.IP = net.ParseIP(a.Answer)
+						return nsTrace, nil
+					}
+				}
+			}
+		}
+	}
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not find IP for nameserver: %s", nameServer.DomainName)
+	}
+	return nil, errors.Errorf("could not find IP for nameserver: %s", nameServer.DomainName)
 }
 
 // queryAllNameServersInLayer queries all nameservers in a given layer
@@ -394,6 +465,15 @@ func (r *Resolver) queryAllNameServersInLayer(ctx context.Context, perNameServer
 		for retry := 0; retry < perNameServerRetriesLimit; retry++ {
 			if util.HasCtxExpired(ctx) {
 				return currentLayerResults, trace, false, errors.New("context expired")
+			}
+			if nameServer.IP == nil {
+				nsTrace, err := r.populateNameServerIP(ctx, &nameServer)
+				if err != nil {
+					log.Debugf("LookupAllNameservers of name %s errored for %s: %v", q.Name, nameServer.DomainName, err)
+					continue
+				}
+				trace = append(trace, nsTrace...)
+				// we've populated NS IP, we can proceed
 			}
 			result, currTrace, status, err := r.ExternalLookup(q, &nameServer)
 			trace = append(trace, currTrace...)
