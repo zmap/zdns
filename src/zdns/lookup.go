@@ -276,37 +276,124 @@ func isLookupComplete(originalName string, candidateSet map[string][]Answer, cNa
 // LookupAllNameservers will send a query to all name servers at each level of DNS resolution. It starts at the root,
 // queries each NS, and then builds a de-duplicated list of the union of all responses. It repeats this process to the TLD
 // NS servers, etc.
-func (r *Resolver) LookupAllNameservers(ctx context.Context, q *Question, perNameServerRetriesLimit int) (*AllNameServersResult, Trace, Status, error) {
-	//retriesRemaining := r.retries // make a copy so we can decrement freely in the lookup process
-	////qWithMeta := &QuestionWithMetadata{
-	////	Q: *q,
-	////	RetriesRemaining: &retriesRemaining,
-	////}
+func (r *Resolver) LookupAllNameservers(q *Question) (*AllNameServersResult, Trace, Status, error) {
+	perNameServerRetriesLimit := 2
+	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
+	defer cancel()
 	retv := AllNameServersResult{
 		LayeredResponses: make(map[string][]ExtendedResult),
 	}
 	var trace Trace
-	//trace := Trace{}
 	currentLayer := "."
-	layerResults, currTrace, err := r.queryAllNameServersInLayer(ctx, perNameServerRetriesLimit, q, r.rootNameServers)
-	trace = append(trace, currTrace...)
-	if err != nil {
-		return &retv, trace, StatusError, errors.Wrapf(err, "error encountered on layer %s", currentLayer)
-	} else {
-		retv.LayeredResponses[currentLayer] = layerResults
-	}
+	isAuthoritative := false
+	var err error
+	currentLayerNameServers := r.rootNameServers
 
+	for isAuthoritative == false {
+		var layerResults []ExtendedResult
+		currTrace := make(Trace, 0)
+		layerResults, currTrace, isAuthoritative, err = r.queryAllNameServersInLayer(ctx, perNameServerRetriesLimit, q, currentLayerNameServers)
+		trace = append(trace, currTrace...)
+		if err != nil {
+			return &retv, trace, StatusError, errors.Wrapf(err, "error encountered on layer %s", currentLayer)
+		} else {
+			retv.LayeredResponses[currentLayer] = layerResults
+		}
+		if isAuthoritative {
+			return &retv, trace, StatusNoError, nil
+		}
+		// Set the next layer to query
+		currentLayer, err = nextAuthority(q.Name, currentLayer)
+		if err != nil {
+			return &retv, trace, StatusError, errors.Wrapf(err, "error determining next authority for layer %s", currentLayer)
+		}
+		currentLayerNameServers, err = r.extractNameServersFromLayerResults(layerResults)
+		if err != nil {
+			return &retv, trace, StatusError, errors.Wrapf(err, "error extracting nameservers from layer %s", currentLayer)
+		}
+	}
 	return &retv, trace, StatusNoError, nil
 }
 
-func (r *Resolver) queryAllNameServersInLayer(ctx context.Context, perNameServerRetriesLimit int, q *Question, currentNameServers []NameServer) ([]ExtendedResult, Trace, error) {
+// extractNameServersFromLayerResults
+// extracts unique nameservers from Additionals/Authorities. Uniques by nameserver name, not by IP
+func (r *Resolver) extractNameServersFromLayerResults(layerResults []ExtendedResult) ([]NameServer, error) {
+	type mapKey struct {
+		Type   uint16
+		Name   string
+		Answer string
+	}
+	uniqueAdditionals := make(map[mapKey]Answer)
+	uniqueAuthorities := make(map[mapKey]Answer)
+	for _, res := range layerResults {
+		if res.Status != StatusNoError {
+			continue
+		}
+		for _, ans := range res.Res.Additional {
+			if a, ok := ans.(Answer); ok {
+				uniqueAdditionals[mapKey{Type: a.RrType, Name: a.Name, Answer: a.Answer}] = a
+			}
+		}
+		for _, ans := range res.Res.Authorities {
+			if a, ok := ans.(Answer); ok {
+				uniqueAuthorities[mapKey{Type: a.RrType, Name: a.Name, Answer: a.Answer}] = a
+			}
+		}
+	}
+	// We have a map of unique additional and authority records. Now we need to extract the nameservers from them.
+	v4NameServers := make(map[string]NameServer)
+	v6NameServers := make(map[string]NameServer)
+	for _, authorities := range uniqueAuthorities {
+		if authorities.RrType == dns.TypeNS {
+			v4NameServers[strings.TrimSuffix(authorities.Answer, ".")] = NameServer{DomainName: authorities.Answer}
+			v6NameServers[strings.TrimSuffix(authorities.Answer, ".")] = NameServer{DomainName: authorities.Answer}
+		}
+	}
+	for _, additionals := range uniqueAdditionals {
+		if strings.HasSuffix(additionals.Name, ".") {
+			// TODO checking here to see if this is an issue
+			log.Fatalf("Name %s has a trailing dot", additionals.Name)
+		}
+		if additionals.RrType == dns.TypeA {
+			if ns, ok := v4NameServers[additionals.Name]; ok {
+				ns.IP = net.ParseIP(additionals.Answer)
+				v4NameServers[additionals.Name] = ns
+			}
+		}
+		if additionals.RrType == dns.TypeAAAA {
+			if ns, ok := v6NameServers[additionals.Name]; ok {
+				ns.IP = net.ParseIP(additionals.Answer)
+				v6NameServers[additionals.Name] = ns
+			}
+		}
+	}
+	// convert to slice
+	nameServersSlice := make([]NameServer, 0, len(v4NameServers))
+	if r.ipVersionMode != IPv6Only {
+		for _, ns := range v4NameServers {
+			nameServersSlice = append(nameServersSlice, ns)
+		}
+	}
+	if r.ipVersionMode != IPv4Only {
+		for _, ns := range v6NameServers {
+			nameServersSlice = append(nameServersSlice, ns)
+		}
+	}
+
+	return nameServersSlice, nil
+}
+
+// queryAllNameServersInLayer queries all nameservers in a given layer
+// Returns a slice of ExtendedResults from each NS, a Trace, whether any answer is authoritative, and an error if one occurs
+func (r *Resolver) queryAllNameServersInLayer(ctx context.Context, perNameServerRetriesLimit int, q *Question, currentNameServers []NameServer) ([]ExtendedResult, Trace, bool, error) {
 	trace := make([]TraceStep, 0)
 	currentLayerResults := make([]ExtendedResult, 0, len(currentNameServers))
+	isAuthoritative := false
 	for _, nameServer := range currentNameServers {
 		var extResult *ExtendedResult
 		for retry := 0; retry < perNameServerRetriesLimit; retry++ {
 			if util.HasCtxExpired(ctx) {
-				return currentLayerResults, trace, errors.New("context expired")
+				return currentLayerResults, trace, false, errors.New("context expired")
 			}
 			result, currTrace, status, err := r.ExternalLookup(q, &nameServer)
 			trace = append(trace, currTrace...)
@@ -315,6 +402,9 @@ func (r *Resolver) queryAllNameServersInLayer(ctx context.Context, perNameServer
 					Res:        *result,
 					Status:     status,
 					Nameserver: nameServer.DomainName,
+				}
+				if result.Flags.Authoritative {
+					isAuthoritative = true
 				}
 				// successful result, continue to next nameserver
 				break
@@ -331,7 +421,7 @@ func (r *Resolver) queryAllNameServersInLayer(ctx context.Context, perNameServer
 			currentLayerResults = append(currentLayerResults, *extResult)
 		}
 	}
-	return currentLayerResults, trace, nil
+	return currentLayerResults, trace, isAuthoritative, nil
 }
 
 func (r *Resolver) iterativeLookup(ctx context.Context, qWithMeta *QuestionWithMetadata, nameServers []NameServer,

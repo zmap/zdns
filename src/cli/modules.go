@@ -167,7 +167,7 @@ func (lm *BasicLookupModule) NewFlags() interface{} {
 
 func (lm *BasicLookupModule) Lookup(resolver *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
 	if lm.LookupAllNameServers {
-		return resolver.LookupAllNameservers(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass}, nameServer)
+		return resolver.LookupAllNameservers(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass})
 	}
 	if lm.IsIterative {
 		return resolver.IterativeLookup(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass})
