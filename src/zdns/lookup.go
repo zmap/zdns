@@ -273,10 +273,41 @@ func isLookupComplete(originalName string, candidateSet map[string][]Answer, cNa
 	return false
 }
 
-// LookupAllNameservers will send a query to all name servers at each level of DNS resolution. It starts at the root,
+// LookupAllNameserversExternal will query all of a resolvers ExternalNameServers for a given question
+func (r *Resolver) LookupAllNameserversExternal(q *Question, nameServers []NameServer) ([]SingleQueryResult, Trace, Status, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
+	defer cancel()
+	retv := make([]SingleQueryResult, 0)
+	var trace Trace
+	if len(nameServers) == 0 && len(r.externalNameServers) == 0 {
+		return retv, trace, StatusIllegalInput, errors.New("no external nameservers specified")
+	}
+	if len(nameServers) == 0 {
+		nameServers = r.externalNameServers
+	}
+
+	for _, ns := range nameServers {
+		if util.HasCtxExpired(ctx) {
+			return retv, trace, StatusTimeout, errors.New("context expired")
+		}
+		result, currTrace, status, err := r.ExternalLookup(q, &ns)
+		trace = append(trace, currTrace...)
+		if err != nil {
+			log.Errorf("LookupAllNameserversExternal of name %s errored for %s/%s: %v", q.Name, ns.DomainName, ns.IP.String(), err)
+			continue
+		}
+		if status == StatusNoError {
+			retv = append(retv, *result)
+			log.Debugf("LookupAllNameserversExternal of name %s succeeded for %s/%s", q.Name, ns.DomainName, ns.IP.String())
+		}
+	}
+	return retv, trace, StatusNoError, nil
+}
+
+// LookupAllNameserversIterative will send a query to all name servers at each level of DNS resolution. It starts at the root,
 // queries each NS, and then builds a de-duplicated list of the union of all responses. It repeats this process to the TLD
 // NS servers, etc.
-func (r *Resolver) LookupAllNameservers(q *Question) (*AllNameServersResult, Trace, Status, error) {
+func (r *Resolver) LookupAllNameserversIterative(q *Question) (*AllNameServersResult, Trace, Status, error) {
 	perNameServerRetriesLimit := 2
 	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	defer cancel()
@@ -367,8 +398,6 @@ func (r *Resolver) extractNameServersFromLayerResults(layerResults []ExtendedRes
 			}
 		}
 	}
-	// dedupe
-
 	uniqNameServersSet := make(map[string]NameServer)
 	if r.ipVersionMode != IPv6Only {
 		for _, ns := range v4NameServers {
@@ -387,12 +416,10 @@ func (r *Resolver) extractNameServersFromLayerResults(layerResults []ExtendedRes
 			}
 		}
 	}
-
 	uniqNameServers := make([]NameServer, 0, len(uniqNameServersSet))
 	for _, ns := range uniqNameServersSet {
 		uniqNameServers = append(uniqNameServers, ns)
 	}
-
 	return uniqNameServers, nil
 }
 
@@ -469,7 +496,7 @@ func (r *Resolver) queryAllNameServersInLayer(ctx context.Context, perNameServer
 			if nameServer.IP == nil {
 				nsTrace, err := r.populateNameServerIP(ctx, &nameServer)
 				if err != nil {
-					log.Debugf("LookupAllNameservers of name %s errored for %s: %v", q.Name, nameServer.DomainName, err)
+					log.Debugf("LookupAllNameserversIterative of name %s errored for %s: %v", q.Name, nameServer.DomainName, err)
 					continue
 				}
 				trace = append(trace, nsTrace...)
@@ -490,13 +517,13 @@ func (r *Resolver) queryAllNameServersInLayer(ctx context.Context, perNameServer
 				break
 			}
 			if err != nil {
-				log.Debugf("LookupAllNameservers of name %s errored for %s: %v", q.Name, nameServer.IP.String(), err)
+				log.Debugf("LookupAllNameserversIterative of name %s errored for %s: %v", q.Name, nameServer.IP.String(), err)
 			} else {
-				log.Debugf("LookupAllNameservers of name %s failed for %s: %v", q.Name, nameServer.IP.String(), status)
+				log.Debugf("LookupAllNameserversIterative of name %s failed for %s: %v", q.Name, nameServer.IP.String(), status)
 			}
 		}
 		if extResult == nil {
-			log.Debugf("LookupAllNameservers of name %s against nameserver %s ran out of retries, continueing to next nameserver", q.Name, nameServer.IP.String())
+			log.Debugf("LookupAllNameserversIterative of name %s against nameserver %s ran out of retries, continueing to next nameserver", q.Name, nameServer.IP.String())
 		} else {
 			currentLayerResults = append(currentLayerResults, *extResult)
 		}

@@ -1581,7 +1581,7 @@ func TestAllNsLookupOneNs(t *testing.T) {
 		Name:  "example.com",
 	}
 
-	results, _, _, err := resolver.LookupAllNameservers(&q, ns1)
+	results, _, _, err := resolver.LookupAllNameserversIterative(&q, ns1)
 	require.NoError(t, err)
 	verifyCombinedResult(t, results.Results, expectedRes)
 }
@@ -1703,7 +1703,7 @@ func TestAllNsLookupOneNsMultipleIps(t *testing.T) {
 		Name:  "example.com",
 	}
 
-	results, _, _, err := resolver.LookupAllNameservers(&q, ns1)
+	results, _, _, err := resolver.LookupAllNameserversIterative(&q, ns1)
 	require.NoError(t, err)
 	verifyCombinedResult(t, results.Results, expectedRes)
 }
@@ -1816,7 +1816,7 @@ func TestAllNsLookupTwoNs(t *testing.T) {
 		Name:  "example.com",
 	}
 
-	results, _, _, err := resolver.LookupAllNameservers(&q, ns1)
+	results, _, _, err := resolver.LookupAllNameserversIterative(&q, ns1)
 	require.NoError(t, err)
 	verifyCombinedResult(t, results.Results, expectedRes)
 }
@@ -1916,7 +1916,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 		Name:  "example.com",
 	}
 
-	results, _, _, err := resolver.LookupAllNameservers(&q, ns1)
+	results, _, _, err := resolver.LookupAllNameserversIterative(&q, ns1)
 	require.NoError(t, err)
 	verifyCombinedResult(t, results.Results, expectedRes)
 }
@@ -1934,7 +1934,7 @@ func TestAllNsLookupNXDomain(t *testing.T) {
 		Name:  "example.com",
 	}
 
-	res, _, status, err := resolver.LookupAllNameservers(&q, ns1)
+	res, _, status, err := resolver.LookupAllNameserversIterative(&q, ns1)
 
 	assert.Equal(t, StatusNXDomain, status)
 	assert.Nil(t, res)
@@ -1959,7 +1959,7 @@ func TestAllNsLookupServFail(t *testing.T) {
 		Class: dns.ClassINET,
 		Name:  "example.com",
 	}
-	res, _, status, err := resolver.LookupAllNameservers(&q, ns1)
+	res, _, status, err := resolver.LookupAllNameserversIterative(&q, ns1)
 
 	assert.Equal(t, StatusServFail, status)
 	assert.Nil(t, res)
