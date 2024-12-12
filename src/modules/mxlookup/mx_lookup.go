@@ -56,6 +56,9 @@ type MXLookupModule struct {
 
 // CLIInit initializes the MXLookupModule with the given parameters, used to call MXLookup from the command line
 func (mxMod *MXLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig) error {
+	if gc.LookupAllNameServers {
+		return errors.New("MXLOOKUP module does not support --all-nameservers")
+	}
 	if !mxMod.IPv4Lookup && !mxMod.IPv6Lookup {
 		// need to use one of the two
 		mxMod.IPv4Lookup = true

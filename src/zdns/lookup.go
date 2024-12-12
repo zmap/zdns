@@ -273,7 +273,8 @@ func isLookupComplete(originalName string, candidateSet map[string][]Answer, cNa
 	return false
 }
 
-// LookupAllNameserversExternal will query all of a resolvers ExternalNameServers for a given question
+// LookupAllNameserversExternal will query all nameServers with the given question and return the results
+// If nameServers is empty, it will use the externalNameServers from the resolver
 func (r *Resolver) LookupAllNameserversExternal(q *Question, nameServers []NameServer) ([]SingleQueryResult, Trace, Status, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	defer cancel()
@@ -304,10 +305,12 @@ func (r *Resolver) LookupAllNameserversExternal(q *Question, nameServers []NameS
 	return retv, trace, StatusNoError, nil
 }
 
-// LookupAllNameserversIterative will send a query to all name servers at each level of DNS resolution. It starts at the root,
-// queries each NS, and then builds a de-duplicated list of the union of all responses. It repeats this process to the TLD
-// NS servers, etc.
-func (r *Resolver) LookupAllNameserversIterative(q *Question) (*AllNameServersResult, Trace, Status, error) {
+// LookupAllNameserversIterative will send a query to all name servers at each level of DNS resolution.
+// It starts at either the provided rootNameServers or r.rootNameServers if none are provided as arguments and queries all.
+// If the responses contain an authoritative answer, the function will return the result and a trace for each queried nameserver.
+// If the responses do not contain an authoritative answer, the function will continue to the next layer of nameservers.
+// At each layer, we'll de-duplicate the referral nameservers from the previous layer and query them.
+func (r *Resolver) LookupAllNameserversIterative(q *Question, rootNameServers []NameServer) (*AllNameServersResult, Trace, Status, error) {
 	perNameServerRetriesLimit := 2
 	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	defer cancel()
@@ -318,7 +321,11 @@ func (r *Resolver) LookupAllNameserversIterative(q *Question) (*AllNameServersRe
 	currentLayer := "."
 	isAuthoritative := false
 	var err error
-	currentLayerNameServers := r.rootNameServers
+	currentLayerNameServers := rootNameServers
+	if len(currentLayerNameServers) == 0 {
+		// no root nameservers provided, use the resolver's root nameservers
+		currentLayerNameServers = r.rootNameServers
+	}
 
 	for isAuthoritative == false {
 		var layerResults []ExtendedResult

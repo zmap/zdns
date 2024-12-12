@@ -165,9 +165,15 @@ func (lm *BasicLookupModule) NewFlags() interface{} {
 	return lm
 }
 
+// Lookup performs a DNS lookup using the given resolver and lookupName.
+// The behavior with respect to the nameServers is determined by the LookupAllNameServers and IsIterative fields.
+// non-Iterative + all-Nameservers query -> we'll send a query to each of the resolver's external nameservers
+// non-Iterative query -> we'll send a query to the nameserver provided. If none provided, a random nameserver from the resolver's external nameservers will be used
+// iterative + all-Nameservers query -> we'll send a query to each root NS and query all nameservers down the chain.
+// iterative query -> we'll send a query to a random root NS and query all nameservers down the chain.
 func (lm *BasicLookupModule) Lookup(resolver *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
 	if lm.LookupAllNameServers && lm.IsIterative {
-		return resolver.LookupAllNameserversIterative(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass})
+		return resolver.LookupAllNameserversIterative(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass}, nil)
 	}
 	if lm.LookupAllNameServers {
 		return resolver.LookupAllNameserversExternal(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass}, nil)

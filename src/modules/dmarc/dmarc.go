@@ -42,6 +42,9 @@ type DmarcLookupModule struct {
 
 // CLIInit initializes the DMARC lookup module
 func (dmarcMod *DmarcLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig) error {
+	if gc.LookupAllNameServers {
+		return errors.New("DMARC module does not support --all-nameservers")
+	}
 	dmarcMod.re = regexp.MustCompile(dmarcPrefixRegexp)
 	dmarcMod.BasicLookupModule.DNSType = dns.TypeTXT
 	dmarcMod.BasicLookupModule.DNSClass = dns.ClassINET

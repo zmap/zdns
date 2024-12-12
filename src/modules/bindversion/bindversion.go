@@ -16,6 +16,7 @@ package bindversion
 
 import (
 	"github.com/miekg/dns"
+	"github.com/pkg/errors"
 
 	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/zdns"
@@ -42,6 +43,9 @@ func init() {
 
 // CLIInit initializes the BindVersion lookup module
 func (bindVersionMod *BindVersionLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig) error {
+	if gc.LookupAllNameServers {
+		return errors.New("AXFR module does not support --all-nameservers")
+	}
 	return bindVersionMod.BasicLookupModule.CLIInit(gc, rc)
 }
 
