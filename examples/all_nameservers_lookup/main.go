@@ -14,8 +14,8 @@
 package main
 
 import (
-	"context"
 	"net"
+	"time"
 
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
@@ -29,14 +29,29 @@ func main() {
 	domain := "google.com"
 	dnsQuestion := &zdns.Question{Name: domain, Type: dns.TypeA, Class: dns.ClassINET}
 	resolver := initializeResolver()
-
-	log.Warn("\n\n This lookup just used the Cloudflare recursive resolver, let's run our own recursion.")
 	// Iterative Lookups start at the root nameservers and follow the chain of referrals to the authoritative nameservers.
-	result, _, status, err := resolver.LookupAllNameservers(context.Background(), dnsQuestion, 2)
+	result, _, status, err := resolver.LookupAllNameserversIterative(dnsQuestion, nil)
 	if err != nil {
 		log.Fatal("Error looking up domain: ", err)
 	}
 	log.Warnf("Result: %v", result)
+	log.Warnf("Status: %v", status)
+	log.Info("We can also specify which root nameservers to use by setting the argument.")
+
+	result, _, status, err = resolver.LookupAllNameserversIterative(dnsQuestion, []zdns.NameServer{{IP: net.ParseIP("198.41.0.4"), Port: 53}}) // a.root-servers.net
+	if err != nil {
+		log.Fatal("Error looking up domain: ", err)
+	}
+	log.Warnf("Result: %v", result)
+	log.Warnf("Status: %v", status)
+
+	log.Info("You can query multiple recursive resolvers as well")
+
+	externalResult, _, status, err := resolver.LookupAllNameserversExternal(dnsQuestion, []zdns.NameServer{{IP: net.ParseIP("1.1.1.1"), Port: 53}, {IP: net.ParseIP("8.8.8.8"), Port: 53}}) // Cloudflare and Google recursive resolvers, respectively
+	if err != nil {
+		log.Fatal("Error looking up domain: ", err)
+	}
+	log.Warnf("Result: %v", externalResult)
 	log.Warnf("Status: %v", status)
 	resolver.Close()
 }
@@ -54,6 +69,8 @@ func initializeResolver() *zdns.Resolver {
 	resolverConfig.ExternalNameServersV4 = []zdns.NameServer{{IP: net.ParseIP("1.1.1.1"), Port: 53}}
 	resolverConfig.RootNameServersV4 = zdns.RootServersV4
 	resolverConfig.IPVersionMode = zdns.IPv4Only
+	resolverConfig.Timeout = time.Minute
+	resolverConfig.IterativeTimeout = time.Minute
 	// Create a new Resolver object with the ResolverConfig object, it will retain all settings set on the ResolverConfig object
 	resolver, err := zdns.InitResolver(resolverConfig)
 	if err != nil {

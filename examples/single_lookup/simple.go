@@ -30,7 +30,7 @@ func main() {
 	dnsQuestion := &zdns.Question{Name: domain, Type: dns.TypeA, Class: dns.ClassINET}
 	resolver := initializeResolver()
 
-	result, _, status, err := resolver.ExternalLookup(dnsQuestion, &zdns.NameServer{IP: net.ParseIP("1.1.1.1"), Port: 53})
+	result, _, status, err := resolver.ExternalLookup(dnsQuestion, []zdns.NameServer{{IP: net.ParseIP("1.1.1.1"), Port: 53}})
 	if err != nil {
 		log.Fatal("Error looking up domain: ", err)
 	}

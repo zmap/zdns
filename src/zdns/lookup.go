@@ -337,14 +337,17 @@ func (r *Resolver) LookupAllNameserversIterative(q *Question, rootNameServers []
 		} else {
 			retv.LayeredResponses[currentLayer] = layerResults
 		}
-		if isAuthoritative {
-			return &retv, trace, StatusNoError, nil
-		}
 		// Set the next layer to query
-		currentLayer, err = nextAuthority(q.Name, currentLayer)
+		var newLayer string
+		newLayer, err = nextAuthority(q.Name, currentLayer)
 		if err != nil {
 			return &retv, trace, StatusError, errors.Wrapf(err, "error determining next authority for layer %s", currentLayer)
 		}
+		if newLayer == currentLayer {
+			// we've reached the end of the authority chain, return
+			return &retv, trace, StatusNoError, nil
+		}
+		currentLayer = newLayer
 		currentLayerNameServers, err = r.extractNameServersFromLayerResults(layerResults)
 		if err != nil {
 			return &retv, trace, StatusError, errors.Wrapf(err, "error extracting nameservers from layer %s", currentLayer)
