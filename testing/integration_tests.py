@@ -1422,7 +1422,8 @@ class Tests(unittest.TestCase):
     def test_lookup_all_nameservers_single_zone_iterative(self):
         """
         Test that --all-nameservers --iterative lookups work with domains whose nameservers are all in the same zone
-        :return:
+        google.com has nameservers ns1/2/3/4.google.com, which are all in the .com zone and so will have their IPs
+        provided as additionals in the .com response
         """
         # google.com's nameservers are all in the .com zone, so we should only have to query the .com nameservers
         c = "A google.com --all-nameservers --iterative"
@@ -1459,7 +1460,8 @@ class Tests(unittest.TestCase):
         """
         Test that --all-nameservers lookups work with domains whose nameservers have their nameservers in different zones
         In this case, example.com has a/b.iana-servers.net as nameservers, which are in the .com zone, but whose nameservers
-        are dig -t NS iana-servers.com -> ns.icann.org, a/b/c.iana-servers.net.
+        are dig -t NS iana-servers.com -> ns.icann.org, a/b/c.iana-servers.net. This means the .com nameservers will not
+        provide the IPs in additionals.
         """
         # example.com has nameservers in .com, .org, and .net, we'll have to iteratively figure out their IP addresses too
         c = "A example.com --all-nameservers --iterative"
@@ -1480,7 +1482,7 @@ class Tests(unittest.TestCase):
 
     def test_lookup_all_nameservers_external_lookup(self):
         """
-        Test that --all-nameservers lookups work with external resolvers
+        Test that --all-nameservers lookups work with external resolvers: cloudflare.com
         """
         c = "A google.com --all-nameservers --name-servers='1.1.1.1,8.8.8.8'"
         cmd,res = self.run_zdns(c, "")
