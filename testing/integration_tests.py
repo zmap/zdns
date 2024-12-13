@@ -1482,7 +1482,7 @@ class Tests(unittest.TestCase):
 
     def test_lookup_all_nameservers_external_lookup(self):
         """
-        Test that --all-nameservers lookups work with external resolvers: cloudflare.com
+        Test that --all-nameservers lookups work with external resolvers: cloudflare.com and google.com
         """
         c = "A google.com --all-nameservers --name-servers='1.1.1.1,8.8.8.8'"
         cmd,res = self.run_zdns(c, "")
