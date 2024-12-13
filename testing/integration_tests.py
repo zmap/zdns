@@ -1419,6 +1419,78 @@ class Tests(unittest.TestCase):
         # the second query has a much smaller response time than the first to show it's being cached
         self.assertTrue(first_duration / 50 > second_duration, f"Second query {second_duration} should be faster than the first {first_duration}")
 
+    def test_lookup_all_nameservers_single_zone_iterative(self):
+        """
+        Test that --all-nameservers --iterative lookups work with domains whose nameservers are all in the same zone
+        :return:
+        """
+        # google.com's nameservers are all in the .com zone, so we should only have to query the .com nameservers
+        c = "A google.com --all-nameservers --iterative"
+        cmd,res = self.run_zdns(c, "")
+        self.assertSuccess(res, cmd, "A")
+        # Check for layers
+        self.assertIn(".", res["results"]["A"]["data"]["per_layer_responses"], "Should have the root (.) layer")
+        self.assertIn("com", res["results"]["A"]["data"]["per_layer_responses"], "Should have the .com layer")
+        self.assertIn("google.com", res["results"]["A"]["data"]["per_layer_responses"], "Should have the google.com layer")
+        # check for a.root-servers.net, b.root-servers.net, ... m.root-servers.net
+        self.check_for_existance_of_root_and_com_nses(res)
+        # check for the google.com nameservers
+        actual_google_nses = []
+        for entry in res["results"]["A"]["data"]["per_layer_responses"]["google.com"]:
+            actual_google_nses.append(entry["nameserver"])
+        expected_google_nses = ["ns1.google.com", "ns2.google.com", "ns3.google.com", "ns4.google.com"]
+        for ns in expected_google_nses:
+            self.assertIn(ns, actual_google_nses, "Should have the google.com nameservers")
+
+    def check_for_existance_of_root_and_com_nses(self, res):
+        actual_root_ns = []
+        for entry in res["results"]["A"]["data"]["per_layer_responses"]["."]:
+            actual_root_ns.append(entry["nameserver"])
+        for letter in "abcdefghijklm":
+            self.assertIn(f"{letter}.root-servers.net", actual_root_ns, "Should have the root nameservers")
+        # check for the .com nameservers
+        actual_com_nses = []
+        for entry in res["results"]["A"]["data"]["per_layer_responses"]["com"]:
+            actual_com_nses.append(entry["nameserver"])
+        for letter in "abcdefghijklm":
+            self.assertIn(f"{letter}.gtld-servers.net", actual_com_nses, "Should have the .com nameservers")
+
+    def test_lookup_all_nameservers_multi_zone_iterative(self):
+        """
+        Test that --all-nameservers lookups work with domains whose nameservers have their nameservers in different zones
+        In this case, example.com has a/b.iana-servers.net as nameservers, which are in the .com zone, but whose nameservers
+        are dig -t NS iana-servers.com -> ns.icann.org, a/b/c.iana-servers.net.
+        """
+        # example.com has nameservers in .com, .org, and .net, we'll have to iteratively figure out their IP addresses too
+        c = "A example.com --all-nameservers --iterative"
+        cmd,res = self.run_zdns(c, "")
+        self.assertSuccess(res, cmd, "A")
+        # Check for layers
+        self.assertIn(".", res["results"]["A"]["data"]["per_layer_responses"], "Should have the root (.) layer")
+        self.assertIn("com", res["results"]["A"]["data"]["per_layer_responses"], "Should have the .com layer")
+        self.assertIn("example.com", res["results"]["A"]["data"]["per_layer_responses"], "Should have the example.com layer")
+        self.check_for_existance_of_root_and_com_nses(res)
+        # check for the example.com nameservers
+        actual_example_nses = []
+        for entry in res["results"]["A"]["data"]["per_layer_responses"]["example.com"]:
+            actual_example_nses.append(entry["nameserver"])
+        expected_example_nses = ["a.iana-servers.net", "b.iana-servers.net"]
+        for ns in expected_example_nses:
+            self.assertIn(ns, actual_example_nses, "Should have the example.com nameservers")
+
+    def test_lookup_all_nameservers_external_lookup(self):
+        """
+        Test that --all-nameservers lookups work with external resolvers
+        """
+        c = "A google.com --all-nameservers --name-servers='1.1.1.1,8.8.8.8'"
+        cmd,res = self.run_zdns(c, "")
+        self.assertSuccess(res, cmd, "A")
+        actual_resolvers = []
+        for entry in res["results"]["A"]["data"]:
+            actual_resolvers.append(entry["resolver"])
+        expected_resolvers = ["1.1.1.1:53", "8.8.8.8:53"]
+        for resolver in expected_resolvers:
+            self.assertIn(resolver, actual_resolvers, "Should have the expected resolvers")
 
 
 
