@@ -423,11 +423,11 @@ func (v *dNSSECValidator) fetchDSRecords(signerDomain string, trace Trace, depth
 			nsec3 := zTypedNSEC3.ToVanillaType()
 			if nsec3.Flags&NSEC3OptOutFlag == 1 && nsec3.Cover(signerDomain) {
 				// Opt-out NSEC3 record covering the signer domain
-				v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Found covering NSEC3 proving DS non-existence for %s", signerDomain))
+				v.r.verboseLog(depth, "DNSSEC: Found covering NSEC3 proving DS non-existence for", signerDomain)
 				return nil, true, trace, nil
 			} else if nsec3.Match(signerDomain) && !slices.Contains(nsec3.TypeBitMap, dns.TypeDS) {
 				// NSEC3 record directly matching the signer domain and proving DS non-existence
-				v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Found matching NSEC3 proving DS non-existence for %s", signerDomain))
+				v.r.verboseLog(depth, "DNSSEC: Found matching NSEC3 proving DS non-existence for", signerDomain)
 				return nil, true, trace, nil
 			}
 		}

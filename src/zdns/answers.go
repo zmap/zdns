@@ -420,8 +420,9 @@ func makeBitString(bm []uint16) string {
 }
 
 func makeBitArray(s string) []uint16 {
-	var retv []uint16
-	for _, t := range strings.Fields(s) {
+	fields := strings.Fields(s)
+	retv := make([]uint16, 0, len(fields))
+	for _, t := range fields {
 		retv = append(retv, dns.StringToType[t])
 	}
 	return retv
