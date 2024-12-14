@@ -174,14 +174,48 @@ type NSECAnswer struct {
 	TypeBitMap string `json:"type_bit_map" groups:"short,normal,long,trace"`
 }
 
+func (r *NSECAnswer) ToVanillaType() *dns.NSEC {
+	return &dns.NSEC{
+		Hdr: dns.RR_Header{
+			Name:   dns.CanonicalName(r.Name),
+			Rrtype: r.RrType,
+			Class:  dns.StringToClass[r.Class],
+			Ttl:    r.TTL,
+		},
+		NextDomain: r.NextDomain,
+		TypeBitMap: makeBitArray(r.TypeBitMap),
+	}
+}
+
 type NSEC3Answer struct {
 	Answer
 	HashAlgorithm uint8  `json:"hash_algorithm" groups:"short,normal,long,trace"`
 	Flags         uint8  `json:"flags" groups:"short,normal,long,trace"`
 	Iterations    uint16 `json:"iterations" groups:"short,normal,long,trace"`
+	SaltLength    uint8  `json:"salt_length" groups:"short,normal,long,trace"`
 	Salt          string `json:"salt" groups:"short,normal,long,trace"`
+	HashLength    uint8  `json:"hash_length" groups:"short,normal,long,trace"`
 	NextDomain    string `json:"next_domain" groups:"short,normal,long,trace"`
 	TypeBitMap    string `json:"type_bit_map" groups:"short,normal,long,trace"`
+}
+
+func (r *NSEC3Answer) ToVanillaType() *dns.NSEC3 {
+	return &dns.NSEC3{
+		Hdr: dns.RR_Header{
+			Name:   dns.CanonicalName(r.Name),
+			Rrtype: r.RrType,
+			Class:  dns.StringToClass[r.Class],
+			Ttl:    r.TTL,
+		},
+		Hash:       r.HashAlgorithm,
+		Flags:      r.Flags,
+		Iterations: r.Iterations,
+		SaltLength: uint8(len(r.Salt)),
+		Salt:       r.Salt,
+		HashLength: r.HashLength,
+		NextDomain: r.NextDomain,
+		TypeBitMap: makeBitArray(r.TypeBitMap),
+	}
 }
 
 type NSEC3ParamAnswer struct {
@@ -381,6 +415,14 @@ func makeBitString(bm []uint16) string {
 		} else {
 			retv += " " + dns.Type(v).String()
 		}
+	}
+	return retv
+}
+
+func makeBitArray(s string) []uint16 {
+	var retv []uint16
+	for _, t := range strings.Fields(s) {
+		retv = append(retv, dns.StringToType[t])
 	}
 	return retv
 }
@@ -722,7 +764,9 @@ func ParseAnswer(ans dns.RR) interface{} {
 			HashAlgorithm: cAns.Hash,
 			Flags:         cAns.Flags,
 			Iterations:    cAns.Iterations,
+			SaltLength:    cAns.SaltLength,
 			Salt:          cAns.Salt,
+			HashLength:    cAns.HashLength,
 			NextDomain:    cAns.NextDomain,
 			TypeBitMap:    makeBitString(cAns.TypeBitMap),
 		}
