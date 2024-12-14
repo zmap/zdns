@@ -915,9 +915,9 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 	})
 
 	for _, elem := range authorities {
-		// Skip DS and RRSIG records
+		// Skip DNSSEC records
 		switch elem.(type) {
-		case DSAnswer, RRSIGAnswer:
+		case DSAnswer, RRSIGAnswer, NSECAnswer, NSEC3Answer:
 			continue
 		}
 

@@ -182,7 +182,7 @@ func isCacheableType(ans WithBaseAnswer) bool {
 	//// TODO: this is overly broad right now and will unnecessarily cache some leaf A/AAAA records. However,
 
 	rrType := ans.BaseAns().RrType
-	return rrType == dns.TypeA || rrType == dns.TypeAAAA || rrType == dns.TypeNS || rrType == dns.TypeDNAME || rrType == dns.TypeCNAME || rrType == dns.TypeDS || rrType == dns.TypeDNSKEY
+	return rrType == dns.TypeA || rrType == dns.TypeAAAA || rrType == dns.TypeNS || rrType == dns.TypeDNAME || rrType == dns.TypeCNAME || rrType == dns.TypeDS || rrType == dns.TypeDNSKEY || rrType == dns.TypeNSEC || rrType == dns.TypeNSEC3
 }
 
 func (s *Cache) buildCachedResult(res *SingleQueryResult, depth int, layer string) *CachedResult {
@@ -289,9 +289,11 @@ func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, d
 	}
 	authName := ""
 	for _, auth := range res.Authorities {
-		castAuth, ok := auth.(WithBaseAnswer)
+		castAuth, ok := auth.(Answer)
 		if !ok {
-			// if we can't cast, it won't be added to the cache. We'll log in buildCachedResult
+			// if we can't cast, it won't be added to the cache
+			// unless it's DS, NSEC, or NSEC3 (which may be under different names so checking for poison doesn't make sense)
+			// We'll log in buildCachedResult
 			continue
 		}
 		baseAns := castAuth.BaseAns()
@@ -316,10 +318,10 @@ func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, d
 	delegateToDSRRs := make(map[string][]interface{})
 	var otherRRs []interface{}
 	for _, rr := range res.Authorities {
-		if dsRR, ok := rr.(DSAnswer); ok {
-			delegateName := removeTrailingDotIfNotRoot(dsRR.BaseAns().Name)
-			delegateToDSRRs[delegateName] = append(delegateToDSRRs[delegateName], dsRR)
-		} else {
+		switch rr := rr.(type) {
+		case DSAnswer, NSECAnswer, NSEC3Answer:
+			delegateToDSRRs[authName] = append(delegateToDSRRs[authName], rr)
+		default:
 			otherRRs = append(otherRRs, rr)
 		}
 	}

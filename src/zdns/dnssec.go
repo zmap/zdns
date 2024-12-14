@@ -31,6 +31,7 @@ package zdns
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -44,6 +45,8 @@ const (
 	zoneSigningKeyFlag = 256
 	keySigningKeyFlag  = 257
 )
+
+const NSEC3OptOutFlag = 0x01
 
 // validate performs DNSSEC validation for all sections of a DNS message.
 // It validates the Answer, Additional, and Authority sections independently,
@@ -71,13 +74,28 @@ func (v *dNSSECValidator) validate(layer string, msg *dns.Msg, nameServer *NameS
 		return result, trace
 	}
 
-	v.resetDNSSECValidator(msg, nameServer)
-
-	if !hasRRSIG(v.msg) {
-		v.r.verboseLog(depth, "DNSSEC: No RRSIG records found in message")
-		result.Status = DNSSECInsecure // This can't be secure, but it could be bogus instead
-		result.Reason = "No RRSIG records found in message"
+	dsRecords, hasNSECProof, newTrace, err := v.fetchDSRecords(dns.CanonicalName(layer), trace, depth)
+	trace = newTrace
+	if err != nil {
+		v.r.verboseLog(depth, "DNSSEC: Failed to fetch DS records for zone", layer, "err:", err)
+		result.Status = DNSSECIndeterminate
+		result.Reason = err.Error()
+	} else if hasNSECProof {
+		v.r.verboseLog(depth, "DNSSEC: NSEC proof found for DS non-existence in zone", layer)
+		result.Status = DNSSECInsecure
+		result.Reason = ""
+	} else if len(dsRecords) == 0 {
+		v.r.verboseLog(depth, "DNSSEC: No DS records found for zone", layer)
+		result.Status = DNSSECIndeterminate
+		result.Reason = "No delegation and no NSEC attesting to the non-existence"
+	} else if !hasRRSIG(msg) {
+		v.r.verboseLog(depth, "DNSSEC: DS records found for zone", layer, ", but no RRSIG records found in message")
+		result.Status = DNSSECBogus
+		result.Reason = "DS exists but no RRSIG records found in message"
 	} else {
+		// Has DS and RRSIG, continue with validation
+		v.resetDNSSECValidator(msg, nameServer)
+
 		// Validate the answer section
 		var sectionRes []DNSSECPerSetResult
 		sectionRes, trace = v.validateSection(v.msg.Answer, depth, trace)
@@ -110,7 +128,7 @@ func (v *dNSSECValidator) validate(layer string, msg *dns.Msg, nameServer *NameS
 
 	// DNSKEY/DS queries may have failed, so we need to check the status again here
 	if v.status != DNSSECSecure {
-		result := makeDNSSECResult()
+		result = makeDNSSECResult()
 		result.Status = v.status
 		result.Reason = v.reason
 		return result, trace
@@ -362,8 +380,13 @@ func (v *dNSSECValidator) getDNSKEYs(signerDomain string, trace Trace, depth int
 }
 
 // fetchDSRecords retrieves DS records for a given signer domain
-func (v *dNSSECValidator) fetchDSRecords(signerDomain string, trace Trace, depth int) (map[uint16]dns.DS, Trace, error) {
+func (v *dNSSECValidator) fetchDSRecords(signerDomain string, trace Trace, depth int) (map[uint16]dns.DS, bool, Trace, error) {
 	nameWithoutTrailingDot := removeTrailingDotIfNotRoot(signerDomain)
+
+	if signerDomain == rootZone {
+		// Root zone, use the root anchors
+		return rootanchors.GetValidDSRecords(), false, trace, nil
+	}
 
 	dsQuestion := QuestionWithMetadata{
 		Q: Question{
@@ -374,44 +397,55 @@ func (v *dNSSECValidator) fetchDSRecords(signerDomain string, trace Trace, depth
 		RetriesRemaining: &v.r.retriesRemaining,
 	}
 
-	dsRecords := make(map[uint16]dns.DS)
-	if signerDomain == rootZone {
-		// Root zone, use the root anchors
-		dsRecords = rootanchors.GetValidDSRecords()
-	} else {
-		// DNSSECResult may be nil if the response is from the cache.
-		res, newTrace, status, err := v.r.lookup(v.ctx, &dsQuestion, v.r.rootNameServers, v.isIterative, trace)
-		trace = newTrace
-		if status != StatusNoError {
-			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DS records for signer domain %s, query status: %s", signerDomain, status))
-			return nil, trace, fmt.Errorf("DS fetch failed, query status: %s", status)
-		} else if err != nil {
-			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DS records for signer domain %s, err: %v", signerDomain, err))
-			return nil, trace, fmt.Errorf("DS fetch failed, err: %v", err)
-		} else if res.DNSSECResult != nil && res.DNSSECResult.Status != DNSSECSecure {
-			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DS records for signer domain %s, DNSSEC status: %s", signerDomain, res.DNSSECResult.Status))
+	res, newTrace, status, err := v.r.lookup(v.ctx, &dsQuestion, v.r.rootNameServers, v.isIterative, trace)
+	trace = newTrace
+	if status != StatusNoError {
+		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DS records for signer domain %s, query status: %s", signerDomain, status))
+		return nil, false, trace, fmt.Errorf("DS fetch failed, query status: %s", status)
+	} else if err != nil {
+		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DS records for signer domain %s, err: %v", signerDomain, err))
+		return nil, false, trace, fmt.Errorf("DS fetch failed, err: %v", err)
+	} else if res.DNSSECResult != nil && res.DNSSECResult.Status != DNSSECSecure {
+		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DS records for signer domain %s, DNSSEC status: %s", signerDomain, res.DNSSECResult.Status))
 
-			if prevResult := getResultForRRset(RRsetKey(dsQuestion.Q), res.DNSSECResult.Answer); prevResult != nil && prevResult.Error != "" {
-				return nil, trace, fmt.Errorf("DS fetch failed: %s", prevResult.Error)
-			} else {
-				return nil, trace, errors.New(res.DNSSECResult.Reason)
-			}
-		}
-
-		// RRSIGs of res should have been verified before returning to here.
-
-		for _, rr := range res.Answers {
-			zTypedDS, ok := rr.(DSAnswer)
-			if !ok {
-				v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Non-DS RR type in DS answer: %v", rr))
-				continue
-			}
-			ds := zTypedDS.ToVanillaType()
-			dsRecords[ds.KeyTag] = *ds
+		if prevResult := getResultForRRset(RRsetKey(dsQuestion.Q), res.DNSSECResult.Answer); prevResult != nil && prevResult.Error != "" {
+			return nil, false, trace, fmt.Errorf("DS fetch failed: %s", prevResult.Error)
+		} else {
+			return nil, false, trace, errors.New(res.DNSSECResult.Reason)
 		}
 	}
 
-	return dsRecords, trace, nil
+	v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: DS record response for signer domain %s: %v", signerDomain, res.Answers))
+
+	// Check for NSEC3 records in authority section that prove DS non-existence
+	for _, rr := range res.Answers {
+		if zTypedNSEC3, ok := rr.(NSEC3Answer); ok {
+			nsec3 := zTypedNSEC3.ToVanillaType()
+			if nsec3.Flags&NSEC3OptOutFlag == 1 && nsec3.Cover(signerDomain) {
+				// Opt-out NSEC3 record covering the signer domain
+				v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Found covering NSEC3 proving DS non-existence for %s", signerDomain))
+				return nil, true, trace, nil
+			} else if nsec3.Match(signerDomain) && !slices.Contains(nsec3.TypeBitMap, dns.TypeDS) {
+				// NSEC3 record directly matching the signer domain and proving DS non-existence
+				v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Found matching NSEC3 proving DS non-existence for %s", signerDomain))
+				return nil, true, trace, nil
+			}
+		}
+	}
+
+	// Process DS records from answer section
+	dsRecords := make(map[uint16]dns.DS)
+	for _, rr := range res.Answers {
+		zTypedDS, ok := rr.(DSAnswer)
+		if !ok {
+			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Non-DS RR type in DS answer: %v", rr))
+			continue
+		}
+		ds := zTypedDS.ToVanillaType()
+		dsRecords[ds.KeyTag] = *ds
+	}
+
+	return dsRecords, false, trace, nil
 }
 
 // findSEPs validates DS records against DNSKEY records,
@@ -428,9 +462,13 @@ func (v *dNSSECValidator) fetchDSRecords(signerDomain string, trace Trace, depth
 // - Trace: Updated trace context
 // - error: If validation fails for any DS record
 func (v *dNSSECValidator) findSEPs(signerDomain string, dnskeyMap map[uint16]*dns.DNSKEY, trace Trace, depth int) (map[uint16]*dns.DNSKEY, Trace, error) {
-	dsRecords, trace, err := v.fetchDSRecords(signerDomain, trace, depth)
+	dsRecords, hasNSECProof, trace, err := v.fetchDSRecords(signerDomain, trace, depth)
 	if err != nil {
 		return nil, trace, err
+	}
+
+	if hasNSECProof {
+		return nil, trace, errors.New("NSEC indicates no DS records should exist")
 	}
 
 	sepKeys := make(map[uint16]*dns.DNSKEY)
