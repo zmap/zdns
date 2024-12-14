@@ -1328,7 +1328,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(dnssec["status"], "Insecure")
 
     def test_dnssec_validation_secure_cname(self):
-        # checks if dnssec validation reports insecure if a CNAME is not signed
+        # checks if dnssec validation reports secure if a CNAME is signed and the target is signed
         c = "A dining.umich.edu --iterative --validate-dnssec --result-verbosity=long"
         name = "."
         cmd, res = self.run_zdns(c, name)
