@@ -14,6 +14,7 @@
 package zdns
 
 import (
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -251,7 +252,7 @@ func (s *Cache) SafeAddCachedAnswer(q Question, res *SingleQueryResult, ns *Name
 			continue
 		}
 		baseAns := castAns.BaseAns()
-		if ok, _ = nameIsBeneath(baseAns.Name, layer); !ok {
+		if ok, _ = nameIsBeneath(baseAns.Name, layer); !ok && baseAns.Type != dns.TypeToString[dns.TypeNSEC3] {
 			if len(nsString) > 0 {
 				s.VerboseLog(depth+1, "SafeAddCachedAnswer: detected poison: ", baseAns.Name, "(", baseAns.Type, "): @", nsString, ", ", layer, " , aborting")
 			} else {
@@ -296,11 +297,11 @@ func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, d
 			// We'll log in buildCachedResult
 			continue
 		}
-		baseAns := castAuth.BaseAns()
+		currName := strings.ToLower(castAuth.BaseAns().Name)
 		if len(authName) == 0 {
-			authName = baseAns.Name
-		} else if authName != baseAns.Name {
-			s.VerboseLog(depth+1, "SafeAddCachedAuthority: multiple authority names: ", layer, ": ", authName, " ", baseAns.Name, " , aborting")
+			authName = currName
+		} else if authName != currName {
+			s.VerboseLog(depth+1, "SafeAddCachedAuthority: multiple authority names: ", layer, ": ", authName, " ", currName, " , aborting")
 			return
 		}
 	}
