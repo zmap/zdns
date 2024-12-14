@@ -422,6 +422,14 @@ func (v *dNSSECValidator) fetchDSRecords(signerDomain string, trace Trace, depth
 				v.r.verboseLog(depth, "DNSSEC: Found matching NSEC3 proving DS non-existence for", signerDomain)
 				return nil, true, trace, nil
 			}
+		} else if zTypedNSEC, ok := rr.(NSECAnswer); ok {
+			nsec := zTypedNSEC.ToVanillaType()
+			if dns.CanonicalName(nsec.Header().Name) == signerDomain && !slices.Contains(nsec.TypeBitMap, dns.TypeDS) {
+				// NSEC record directly matching the signer domain and proving DS non-existence
+				v.r.verboseLog(depth, "DNSSEC: Found matching NSEC proving DS non-existence for", signerDomain)
+				return nil, true, trace, nil
+			}
+			// NSEC doesn't have the opt-out flag
 		}
 	}
 
