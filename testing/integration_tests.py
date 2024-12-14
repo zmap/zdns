@@ -1318,6 +1318,24 @@ class Tests(unittest.TestCase):
         self.assertTrue(len(dnssec["ds"]) == 0)
         self.assertTrue(len(dnssec["dnskey"]) == 0)
 
+    def test_dnssec_validation_insecure_cname(self):
+        # checks if dnssec validation reports insecure if a CNAME is not signed
+        c = "A linkedin.com --iterative --validate-dnssec --result-verbosity=long"
+        name = "."
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "A")
+        dnssec = res["results"]["A"]["data"]["dnssec"]
+        self.assertEqual(dnssec["status"], "Insecure")
+
+    def test_dnssec_validation_secure_cname(self):
+        # checks if dnssec validation reports secure if a CNAME is signed and the target is signed
+        c = "A dining.umich.edu --iterative --validate-dnssec --result-verbosity=long"
+        name = "."
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "A")
+        dnssec = res["results"]["A"]["data"]["dnssec"]
+        self.assertEqual(dnssec["status"], "Secure")
+
     def test_dnssec_validation_bogus(self):
         # checks if dnssec validation reports bogus zones correctly
         DOMAINS = ["dnssec-failed.org", "rhybar.cz"]

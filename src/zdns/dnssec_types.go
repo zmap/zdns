@@ -142,8 +142,10 @@ func (r *DNSSECResult) populateStatus() {
 
 	for _, result := range r.Answer {
 		if result.Status == DNSSECInsecure {
-			r.Status = DNSSECInsecure
-			r.Reason = result.Error
+			// This is considered bogus. If we are at this point, we know a DS exists for
+			// the zone, so the answer section (authoritative data) should be signed.
+			r.Status = DNSSECBogus
+			r.Reason = "answer section is not signed when expected to be"
 			return
 		}
 
@@ -158,8 +160,8 @@ func (r *DNSSECResult) populateStatus() {
 		for _, result := range section {
 			if isDNSSECType(result.RRset.Type) {
 				if result.Status == DNSSECInsecure {
-					r.Status = DNSSECInsecure
-					r.Reason = result.Error
+					r.Status = DNSSECBogus
+					r.Reason = "DNSSEC-related RRset is not signed when expected to be"
 					return
 				}
 
