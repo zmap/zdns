@@ -240,6 +240,10 @@ func (s *Cache) buildCachedResult(res *SingleQueryResult, depth int, layer strin
 }
 
 func (s *Cache) SafeAddCachedAnswer(q Question, res *SingleQueryResult, ns *NameServer, layer string, depth int, cacheNonAuthoritative bool) {
+	if res.DNSSECResult != nil && res.DNSSECResult.Status == DNSSECBogus {
+		panic("attempting to cache a bogus result")
+	}
+
 	nsString := ""
 	if ns != nil {
 		nsString = ns.String()
@@ -284,6 +288,10 @@ func (s *Cache) SafeAddCachedAnswer(q Question, res *SingleQueryResult, ns *Name
 // This Authority.Name must be below the current layer.
 // Will be cached under an NS record for the authority.
 func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, depth int, layer string) {
+	if res.DNSSECResult != nil && res.DNSSECResult.Status == DNSSECBogus {
+		panic("attempting to cache a bogus result")
+	}
+
 	if len(res.Answers) > 0 {
 		// authorities should not have answers
 		res.Answers = make([]interface{}, 0)
@@ -330,6 +338,11 @@ func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, d
 	if len(delegateToDSRRs) > 0 {
 		s.VerboseLog(depth+1, "SafeAddCachedAuthority: found DS records in authority section, caching under child names")
 
+		// So, it's guaranteed that DNSSEC-related records are secure even the entire response is not.
+		// Otherwise the result would be bogus and it won't make it's way here.
+		secureDNSSECResult := makeDNSSECResult()
+		secureDNSSECResult.Status = DNSSECSecure
+
 		for delegateName, dsRRs := range delegateToDSRRs {
 			dsRes := &SingleQueryResult{
 				Answers:            dsRRs,
@@ -337,7 +350,7 @@ func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, d
 				Resolver:           res.Resolver,
 				Flags:              res.Flags,
 				TLSServerHandshake: res.TLSServerHandshake,
-				DNSSECResult:       res.DNSSECResult,
+				DNSSECResult:       secureDNSSECResult,
 			}
 			dsRes.Flags.Authoritative = true
 			dsCachedRes := s.buildCachedResult(dsRes, depth, layer)
