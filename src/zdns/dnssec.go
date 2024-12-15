@@ -391,6 +391,9 @@ func (v *dNSSECValidator) fetchDSRecords(signerDomain string, trace Trace, depth
 
 	res, newTrace, status, err := v.r.lookup(v.ctx, &dsQuestion, v.r.rootNameServers, v.isIterative, trace)
 	trace = newTrace
+	// Empirically, DS records may present in the answer section in some cases
+	res.Authorities = append(res.Authorities, res.Answers...)
+
 	if status != StatusNoError {
 		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DS records for signer domain %s, query status: %s", signerDomain, status))
 		return nil, false, trace, fmt.Errorf("DS fetch failed, query status: %s", status)
@@ -400,17 +403,17 @@ func (v *dNSSECValidator) fetchDSRecords(signerDomain string, trace Trace, depth
 	} else if res.DNSSECResult != nil && res.DNSSECResult.Status != DNSSECSecure {
 		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DS records for signer domain %s, DNSSEC status: %s", signerDomain, res.DNSSECResult.Status))
 
-		if prevResult := getResultForRRset(RRsetKey(dsQuestion.Q), res.DNSSECResult.Answer); prevResult != nil && prevResult.Error != "" {
+		if prevResult := getResultForRRset(RRsetKey(dsQuestion.Q), res.DNSSECResult.Authoritative); prevResult != nil && prevResult.Error != "" {
 			return nil, false, trace, fmt.Errorf("DS fetch failed: %s", prevResult.Error)
 		} else {
 			return nil, false, trace, errors.New(res.DNSSECResult.Reason)
 		}
 	}
 
-	v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: DS record response for signer domain %s: %v", signerDomain, res.Answers))
+	v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: DS record response for signer domain %s: %v", signerDomain, res.Authorities))
 
 	// Check for NSEC3 records in authority section that prove DS non-existence
-	for _, rr := range res.Answers {
+	for _, rr := range res.Authorities {
 		if zTypedNSEC3, ok := rr.(NSEC3Answer); ok {
 			nsec3 := zTypedNSEC3.ToVanillaType()
 			if nsec3.Flags&NSEC3OptOutFlag == 1 && nsec3.Cover(signerDomain) {
@@ -435,7 +438,7 @@ func (v *dNSSECValidator) fetchDSRecords(signerDomain string, trace Trace, depth
 
 	// Process DS records from answer section
 	dsRecords := make(map[uint16]dns.DS)
-	for _, rr := range res.Answers {
+	for _, rr := range res.Authorities {
 		zTypedDS, ok := rr.(DSAnswer)
 		if !ok {
 			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Non-DS RR type in DS answer: %v", rr))
