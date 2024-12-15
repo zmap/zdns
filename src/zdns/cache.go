@@ -37,6 +37,7 @@ type CachedResult struct {
 	Answers      []TimedAnswer
 	Authorities  []TimedAnswer
 	Additionals  []TimedAnswer
+	Flags        DNSFlags
 	DNSSECResult *DNSSECResult
 }
 
@@ -75,7 +76,7 @@ func (s *Cache) addCachedAnswer(q Question, nameServer string, isAuthority bool,
 	} else if didEject {
 		s.VerboseLog(depth+1, "inserting cache entry caused eviction, entry: ", q, " ", nameServer, " is authority: ", isAuthority)
 	} else {
-		s.VerboseLog(depth+1, "inserted new cache entry for ", q, " ", nameServer, " is authority: ", isAuthority)
+		s.VerboseLog(depth+1, "inserted new cache entry for ", q, " ", nameServer, " is authority: ", isAuthority, " ", result.Answers)
 	}
 	if didEject {
 		s.Stats.IncrementEjects()
@@ -136,6 +137,7 @@ func (s *Cache) getCachedResult(q Question, ns *NameServer, isAuthority bool, de
 	retv.Answers = make([]interface{}, 0, len(cachedRes.Answers))
 	retv.Authorities = make([]interface{}, 0, len(cachedRes.Authorities))
 	retv.Additional = make([]interface{}, 0, len(cachedRes.Additionals))
+	retv.Flags = cachedRes.Flags
 	retv.DNSSECResult = cachedRes.DNSSECResult
 	// great we have a result. let's go through the entries and build a result. In the process, throw away anything
 	// that's expired
@@ -189,6 +191,7 @@ func isCacheableType(ans WithBaseAnswer) bool {
 func (s *Cache) buildCachedResult(res *SingleQueryResult, depth int, layer string) *CachedResult {
 	now := time.Now()
 	cachedRes := CachedResult{}
+	cachedRes.Flags = res.Flags
 	cachedRes.DNSSECResult = res.DNSSECResult
 
 	cachedRes.Answers = make([]TimedAnswer, 0, len(res.Answers))
@@ -345,7 +348,7 @@ func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, d
 
 		for delegateName, dsRRs := range delegateToDSRRs {
 			dsRes := &SingleQueryResult{
-				Answers:            dsRRs,
+				Authorities:        dsRRs,
 				Protocol:           res.Protocol,
 				Resolver:           res.Resolver,
 				Flags:              res.Flags,

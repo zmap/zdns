@@ -363,7 +363,8 @@ func (r *Resolver) iterativeLookup(ctx context.Context, qWithMeta *QuestionWithM
 		r.verboseLog((depth + 1), "-> error occurred during lookup")
 		return result, trace, status, err
 	} else if len(result.Answers) != 0 || result.Flags.Authoritative {
-		if len(result.Answers) != 0 {
+		// DS records is authoritative from parent NS and will be in Authority section. Avoid dropping them.
+		if len(result.Answers) != 0 && qWithMeta.Q.Type != dns.TypeDS {
 			r.verboseLog((depth + 1), "-> answers found")
 			if len(result.Authorities) > 0 {
 				r.verboseLog((depth + 2), "Dropping ", len(result.Authorities), " authority answers from output")
