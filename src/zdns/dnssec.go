@@ -416,6 +416,12 @@ func (v *dNSSECValidator) fetchDSRecords(signerDomain string, trace Trace, depth
 	for _, rr := range res.Authorities {
 		if zTypedNSEC3, ok := rr.(NSEC3Answer); ok {
 			nsec3 := zTypedNSEC3.ToVanillaType()
+
+			if nsec3.Iterations != 0 {
+				// An iterations count of 0 must be used in NSEC3 records to alleviate computational burdens. See RFC 9276, Sec. 3.1.
+				v.r.verboseLog(depth, "DNSSEC: Found non-compliant NSEC3 record with iterations count > 0", nsec3)
+			}
+
 			if nsec3.Flags&NSEC3OptOutFlag == 1 && nsec3.Cover(signerDomain) {
 				// Opt-out NSEC3 record covering the signer domain
 				v.r.verboseLog(depth, "DNSSEC: Found covering NSEC3 proving DS non-existence for", signerDomain)
