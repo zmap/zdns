@@ -514,12 +514,11 @@ func (r *Resolver) queryAllNameServersInLayer(ctx context.Context, perNameServer
 			}
 			result, currTrace, status, err := r.ExternalLookup(ctx, q, &nameServer)
 			trace = append(trace, currTrace...)
-			if err == nil && status == StatusNoError {
-				extResult = &ExtendedResult{
-					Res:        *result,
-					Status:     status,
-					Nameserver: nameServer.DomainName,
-				}
+			extResult = &ExtendedResult{Status: status, Nameserver: nameServer.DomainName}
+			if result != nil {
+				extResult.Res = *result
+			}
+			if err == nil && status == StatusNoError && result != nil {
 				if result.Flags.Authoritative {
 					isAuthoritative = true
 				}

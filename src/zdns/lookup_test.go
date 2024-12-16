@@ -17,12 +17,12 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"math/rand"
 	"net"
 	"reflect"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -1677,345 +1677,213 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 	results, _, _, err := resolver.LookupAllNameserversIterative(&q, []NameServer{{DomainName: rootServer, IP: net.ParseIP(rootServerIP)}})
 	require.NoError(t, err)
 	verifyCombinedResult(t, results.LayeredResponses, expectedRes)
-	log.Warn(results, expectedRes)
 }
 
-// // Test One NS with two IPs with only ipv4-lookup
-//
-//	func TestAllNsLookupOneNsMultipleIps(t *testing.T) {
-//		config := InitTest(t)
-//		config.IPVersionMode = IPv4Only
-//		resolver, err := InitResolver(config)
-//		require.NoError(t, err)
-//
-//		ns1 := &config.ExternalNameServersV4[0]
-//		domain1 := "example.com"
-//		nsDomain1 := "ns1.example.com"
-//		ipv4_1 := "127.0.0.2"
-//		ipv4_2 := "127.0.0.3"
-//
-//		domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
-//		mockResults[domainNS1] = SingleQueryResult{
-//			Answers: []interface{}{
-//				Answer{
-//					TTL:    3600,
-//					Type:   "NS",
-//					Class:  "IN",
-//					Name:   "example.com.",
-//					Answer: nsDomain1 + ".",
-//				},
-//			},
-//			Additional: []interface{}{
-//				Answer{
-//					TTL:    3600,
-//					Type:   "A",
-//					Class:  "IN",
-//					Name:   nsDomain1 + ".",
-//					Answer: ipv4_1,
-//				},
-//				Answer{
-//					TTL:    3600,
-//					Type:   "A",
-//					Class:  "IN",
-//					Name:   nsDomain1 + ".",
-//					Answer: ipv4_2,
-//				},
-//			},
-//			Authorities: nil,
-//			Protocol:    "",
-//			Flags:       DNSFlags{},
-//		}
-//
-//		domainNS2 := nameAndIP{name: domain1, IP: ipv4_1 + ":53"}
-//		ipv4_3 := "127.0.0.4"
-//		ipv6_1 := "::1"
-//		mockResults[domainNS2] = SingleQueryResult{
-//			Answers: []interface{}{
-//				Answer{
-//					TTL:    3600,
-//					Type:   "A",
-//					Class:  "IN",
-//					Name:   "example.com.",
-//					Answer: ipv4_3,
-//				},
-//				Answer{
-//					TTL:    3600,
-//					Type:   "AAAA",
-//					Class:  "IN",
-//					Name:   "example.com.",
-//					Answer: ipv6_1,
-//				},
-//			},
-//			Additional:  nil,
-//			Authorities: nil,
-//			Protocol:    "",
-//			Flags:       DNSFlags{},
-//		}
-//
-//		domainNS3 := nameAndIP{name: domain1, IP: ipv4_2 + ":53"}
-//		ipv4_4 := "127.0.0.5"
-//		ipv6_2 := "::2"
-//		mockResults[domainNS3] = SingleQueryResult{
-//			Answers: []interface{}{
-//				Answer{
-//					TTL:    3600,
-//					Type:   "A",
-//					Class:  "IN",
-//					Name:   "example.com.",
-//					Answer: ipv4_4,
-//				},
-//				Answer{
-//					TTL:    3600,
-//					Type:   "AAAA",
-//					Class:  "IN",
-//					Name:   "example.com.",
-//					Answer: ipv6_2,
-//				},
-//			},
-//			Additional:  nil,
-//			Authorities: nil,
-//			Protocol:    "",
-//			Flags:       DNSFlags{},
-//		}
-//
-//		expectedRes := []ExtendedResult{
-//			{
-//				Nameserver: nsDomain1,
-//				Status:     StatusNoError,
-//				Res:        mockResults[domainNS2],
-//			},
-//			{
-//				Nameserver: nsDomain1,
-//				Status:     StatusNoError,
-//				Res:        mockResults[domainNS3],
-//			},
-//		}
-//
-//		q := Question{
-//			Type:  dns.TypeNS,
-//			Class: dns.ClassINET,
-//			Name:  "example.com",
-//		}
-//
-//		results, _, _, err := resolver.LookupAllNameserversIterative(&q, ns1)
-//		require.NoError(t, err)
-//		verifyCombinedResult(t, results.Results, expectedRes)
-//	}
-//
-// // Test One NS with two IPs with only ipv4-lookup
-//
-//	func TestAllNsLookupTwoNs(t *testing.T) {
-//		config := InitTest(t)
-//		config.IPVersionMode = IPv4Only
-//		resolver, err := InitResolver(config)
-//		require.NoError(t, err)
-//
-//		ns1 := &config.ExternalNameServersV4[0]
-//		domain1 := "example.com"
-//		nsDomain1 := "ns1.example.com"
-//		nsDomain2 := "ns2.example.com"
-//		ipv4_1 := "127.0.0.2"
-//		ipv4_2 := "127.0.0.3"
-//
-//		domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
-//		mockResults[domainNS1] = SingleQueryResult{
-//			Answers: []interface{}{
-//				Answer{
-//					TTL:    3600,
-//					Type:   "NS",
-//					Class:  "IN",
-//					Name:   "example.com.",
-//					Answer: nsDomain1 + ".",
-//				},
-//				Answer{
-//					TTL:    3600,
-//					Type:   "NS",
-//					Class:  "IN",
-//					Name:   "example.com.",
-//					Answer: nsDomain2 + ".",
-//				},
-//			},
-//			Additional: []interface{}{
-//				Answer{
-//					TTL:    3600,
-//					Type:   "A",
-//					Class:  "IN",
-//					Name:   nsDomain1 + ".",
-//					Answer: ipv4_1,
-//				},
-//				Answer{
-//					TTL:    3600,
-//					Type:   "A",
-//					Class:  "IN",
-//					Name:   nsDomain2 + ".",
-//					Answer: ipv4_2,
-//				},
-//			},
-//			Authorities: nil,
-//			Protocol:    "",
-//			Flags:       DNSFlags{},
-//		}
-//
-//		domainNS2 := nameAndIP{name: domain1, IP: ipv4_1 + ":53"}
-//		ipv4_3 := "127.0.0.4"
-//		mockResults[domainNS2] = SingleQueryResult{
-//			Answers: []interface{}{
-//				Answer{
-//					TTL:    3600,
-//					Type:   "A",
-//					Class:  "IN",
-//					Name:   "example.com.",
-//					Answer: ipv4_3,
-//				},
-//			},
-//			Additional:  nil,
-//			Authorities: nil,
-//			Protocol:    "",
-//			Flags:       DNSFlags{},
-//		}
-//
-//		domainNS3 := nameAndIP{name: domain1, IP: ipv4_2 + ":53"}
-//		ipv4_4 := "127.0.0.5"
-//		mockResults[domainNS3] = SingleQueryResult{
-//			Answers: []interface{}{
-//				Answer{
-//					TTL:    3600,
-//					Type:   "A",
-//					Class:  "IN",
-//					Name:   "example.com.",
-//					Answer: ipv4_4,
-//				},
-//			},
-//			Additional:  nil,
-//			Authorities: nil,
-//			Protocol:    "",
-//			Flags:       DNSFlags{},
-//		}
-//
-//		expectedRes := []ExtendedResult{
-//			{
-//				Nameserver: nsDomain1,
-//				Status:     StatusNoError,
-//				Res:        mockResults[domainNS2],
-//			},
-//			{
-//				Nameserver: nsDomain2,
-//				Status:     StatusNoError,
-//				Res:        mockResults[domainNS3],
-//			},
-//		}
-//
-//		q := Question{
-//			Type:  dns.TypeNS,
-//			Class: dns.ClassINET,
-//			Name:  "example.com",
-//		}
-//
-//		results, _, _, err := resolver.LookupAllNameserversIterative(&q, ns1)
-//		require.NoError(t, err)
-//		verifyCombinedResult(t, results.Results, expectedRes)
-//	}
-//
-// // Test error in A lookup via targeted lookup records
-//
-//	func TestAllNsLookupErrorInOne(t *testing.T) {
-//		config := InitTest(t)
-//		config.IPVersionMode = IPv4Only
-//		resolver, err := InitResolver(config)
-//		require.NoError(t, err)
-//
-//		ns1 := &config.ExternalNameServersV4[0]
-//		domain1 := "example.com"
-//		nsDomain1 := "ns1.example.com"
-//		ipv4_1 := "127.0.0.2"
-//		ipv4_2 := "127.0.0.3"
-//
-//		domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
-//		mockResults[domainNS1] = SingleQueryResult{
-//			Answers: []interface{}{
-//				Answer{
-//					TTL:    3600,
-//					Type:   "NS",
-//					Class:  "IN",
-//					Name:   "example.com",
-//					Answer: nsDomain1 + ".",
-//				},
-//			},
-//			Additional: []interface{}{
-//				Answer{
-//					TTL:    3600,
-//					Type:   "A",
-//					Class:  "IN",
-//					Name:   nsDomain1 + ".",
-//					Answer: ipv4_1,
-//				},
-//				Answer{
-//					TTL:    3600,
-//					Type:   "A",
-//					Class:  "IN",
-//					Name:   nsDomain1 + ".",
-//					Answer: ipv4_2,
-//				},
-//			},
-//			Authorities: nil,
-//			Protocol:    "",
-//			Flags:       DNSFlags{},
-//		}
-//
-//		domainNS2 := nameAndIP{name: domain1, IP: ipv4_1 + ":53"}
-//		ipv4_3 := "127.0.0.4"
-//		ipv6_1 := "::1"
-//		mockResults[domainNS2] = SingleQueryResult{
-//			Answers: []interface{}{
-//				Answer{
-//					TTL:    3600,
-//					Type:   "A",
-//					Class:  "IN",
-//					Name:   "example.com.",
-//					Answer: ipv4_3,
-//				},
-//				Answer{
-//					TTL:    3600,
-//					Type:   "AAAA",
-//					Class:  "IN",
-//					Name:   "example.com.",
-//					Answer: ipv6_1,
-//				},
-//			},
-//			Additional:  nil,
-//			Authorities: nil,
-//			Protocol:    "",
-//			Flags:       DNSFlags{},
-//		}
-//
-//		domainNS3 := nameAndIP{name: domain1, IP: ipv4_2 + ":53"}
-//		protocolStatus[domainNS3] = StatusServFail
-//		mockResults[domainNS3] = SingleQueryResult{}
-//
-//		expectedRes := []ExtendedResult{
-//			{
-//				Nameserver: nsDomain1,
-//				Status:     StatusNoError,
-//				Res:        mockResults[domainNS2],
-//			},
-//			{
-//				Nameserver: nsDomain1,
-//				Status:     StatusServFail,
-//				Res:        mockResults[domainNS3],
-//			},
-//		}
-//
-//		q := Question{
-//			Type:  dns.TypeNS,
-//			Class: dns.ClassINET,
-//			Name:  "example.com",
-//		}
-//
-//		results, _, _, err := resolver.LookupAllNameserversIterative(&q, ns1)
-//		require.NoError(t, err)
-//		verifyCombinedResult(t, results.Results, expectedRes)
-//	}
-//
+// Test AllNameservers with a ".", ".com", and "example.com". We'll have two .com servers and one will error. Should still be able to resolve the query.
+func TestAllNsLookupErrorInOne(t *testing.T) {
+	config := InitTest(t)
+	config.LocalAddrsV4 = []net.IP{net.ParseIP("127.0.0.1")}
+	config.Timeout = time.Hour
+	config.IterativeTimeout = time.Hour
+	resolver, err := InitResolver(config)
+	require.NoError(t, err)
+	exampleName := "example.com"
+
+	rootServer := "a.root-servers.net"
+	rootServerIP := "1.1.1.1"
+	comServerA := "a.gtld-servers.net"
+	comServerB := "b.gtld-servers.net"
+	comServerAIP := "2.2.2.2"
+	comServerBIP := "3.3.3.3"
+	exampleNSServer := "ns1.example.com"
+	exampleNSServerIP := "4.4.4.4"
+	exampleNameAAnswer := "5.5.5.5"
+
+	mockResults[nameAndIP{name: exampleName, IP: rootServerIP + ":53"}] = SingleQueryResult{
+		Authorities: []interface{}{
+			Answer{
+				TTL:    3600,
+				Type:   "NS",
+				RrType: dns.TypeNS,
+				Class:  "IN",
+				Name:   "com.",
+				Answer: comServerA + ".",
+			},
+			Answer{
+				TTL:    3600,
+				Type:   "NS",
+				RrType: dns.TypeNS,
+				Class:  "IN",
+				Name:   "com.",
+				Answer: comServerB + ".",
+			},
+		},
+		Additional: []interface{}{
+			Answer{
+				TTL:    3600,
+				Type:   "A",
+				RrType: dns.TypeA,
+				Class:  "IN",
+				Name:   comServerA + ".",
+				Answer: comServerAIP,
+			},
+			Answer{
+				TTL:    3600,
+				Type:   "A",
+				RrType: dns.TypeA,
+				Class:  "IN",
+				Name:   comServerB + ".",
+				Answer: comServerBIP,
+			},
+		},
+	}
+	// Error in comServerB
+	mockResults[nameAndIP{name: exampleName, IP: comServerAIP + ":53"}] = SingleQueryResult{}
+	protocolStatus[nameAndIP{name: exampleName, IP: comServerAIP + ":53"}] = StatusServFail
+	// Success in comServerA
+	mockResults[nameAndIP{name: exampleName, IP: comServerBIP + ":53"}] = SingleQueryResult{
+		Authorities: []interface{}{
+			Answer{
+				TTL:    3600,
+				Type:   "NS",
+				RrType: dns.TypeNS,
+				Class:  "IN",
+				Name:   "example.com.",
+				Answer: exampleNSServer + ".",
+			},
+		},
+		Additional: []interface{}{
+			Answer{
+				TTL:    3600,
+				Type:   "A",
+				RrType: dns.TypeA,
+				Class:  "IN",
+				Name:   exampleNSServer + ".",
+				Answer: exampleNSServerIP,
+			},
+		},
+	}
+	mockResults[nameAndIP{name: exampleName, IP: exampleNSServerIP + ":53"}] = SingleQueryResult{
+		Answers: []interface{}{
+			Answer{
+				TTL:    3600,
+				Type:   "A",
+				RrType: dns.TypeA,
+				Class:  "IN",
+				Name:   "example.com.",
+				Answer: exampleNameAAnswer,
+			},
+		},
+	}
+
+	expectedRes := map[string][]ExtendedResult{
+		".": {
+			{
+				Status:     StatusNoError,
+				Nameserver: rootServer,
+				Res: SingleQueryResult{
+					Authorities: []interface{}{
+						Answer{
+							TTL:    3600,
+							Type:   "NS",
+							RrType: dns.TypeNS,
+							Class:  "IN",
+							Name:   "com.",
+							Answer: "a.gtld-servers.net.",
+						},
+						Answer{
+							TTL:    3600,
+							Type:   "NS",
+							RrType: dns.TypeNS,
+							Class:  "IN",
+							Name:   "com.",
+							Answer: "b.gtld-servers.net.",
+						},
+					},
+					Additional: []interface{}{
+						Answer{
+							TTL:    3600,
+							Type:   "A",
+							RrType: dns.TypeA,
+							Class:  "IN",
+							Name:   "a.gtld-servers.net.",
+							Answer: comServerAIP,
+						},
+						Answer{
+							TTL:    3600,
+							Type:   "A",
+							RrType: dns.TypeA,
+							Class:  "IN",
+							Name:   "b.gtld-servers.net.",
+							Answer: comServerBIP,
+						},
+					},
+				},
+			},
+		},
+		"com": {
+			{
+				Status:     StatusServFail,
+				Nameserver: comServerA,
+				Res:        SingleQueryResult{},
+			},
+			{
+				Status:     StatusNoError,
+				Nameserver: comServerB,
+				Res: SingleQueryResult{
+					Authorities: []interface{}{
+						Answer{
+							TTL:    3600,
+							Type:   "NS",
+							RrType: dns.TypeNS,
+							Class:  "IN",
+							Name:   "example.com.",
+							Answer: exampleNSServer + ".",
+						},
+					},
+					Additional: []interface{}{
+						Answer{
+							TTL:    3600,
+							Type:   "A",
+							RrType: dns.TypeA,
+							Class:  "IN",
+							Name:   "ns1.example.com.",
+							Answer: exampleNSServerIP,
+						},
+					},
+				},
+			},
+		},
+		"example.com": {
+			{
+				Status:     StatusNoError,
+				Nameserver: exampleNSServer,
+				Res: SingleQueryResult{
+					Answers: []interface{}{
+						Answer{
+							TTL:    3600,
+							Type:   "A",
+							RrType: dns.TypeA,
+							Class:  "IN",
+							Name:   "example.com.",
+							Answer: exampleNameAAnswer,
+						},
+					},
+				},
+			},
+		},
+	}
+	q := Question{
+		Type:  dns.TypeA,
+		Class: dns.ClassINET,
+		Name:  "example.com",
+	}
+
+	results, _, _, err := resolver.LookupAllNameserversIterative(&q, []NameServer{{DomainName: rootServer, IP: net.ParseIP(rootServerIP)}})
+	require.NoError(t, err)
+	verifyCombinedResult(t, results.LayeredResponses, expectedRes)
+}
+
 //	func TestAllNsLookupNXDomain(t *testing.T) {
 //		config := InitTest(t)
 //		config.IPVersionMode = IPv4Only
