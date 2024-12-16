@@ -16,6 +16,7 @@ package bindversion
 
 import (
 	"context"
+
 	"github.com/miekg/dns"
 	"github.com/pkg/errors"
 

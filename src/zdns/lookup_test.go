@@ -1958,7 +1958,7 @@ func verifyNsResult(t *testing.T, servers []NSRecord, expectedServersMap map[str
 }
 
 func verifyCombinedResult(t *testing.T, records map[string][]ExtendedResult, expectedRecords map[string][]ExtendedResult) {
-	for layer, _ := range expectedRecords {
+	for layer := range expectedRecords {
 		assert.Contains(t, records, layer, fmt.Sprintf("Layer %s not found in combined result", layer))
 	}
 	for layer, expectedLayerResults := range expectedRecords {

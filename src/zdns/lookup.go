@@ -19,7 +19,6 @@ import (
 	"io"
 	"math/rand"
 	"net"
-	"reflect"
 	"regexp"
 	"strings"
 
@@ -98,8 +97,6 @@ func (r *Resolver) doDstServersLookup(ctx context.Context, q Question, nameServe
 			q.Name = qname[:len(qname)-1]
 		}
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
-	defer cancel()
 	retries := r.retries
 	questionWithMeta := QuestionWithMetadata{
 		Q:                q,
@@ -320,7 +317,6 @@ func (r *Resolver) LookupAllNameserversIterative(q *Question, rootNameServers []
 	}
 	var trace Trace
 	currentLayer := "."
-	queryingForFinalResult := false
 	var err error
 	currentLayerNameServers := rootNameServers
 	if len(currentLayerNameServers) == 0 {
@@ -328,12 +324,11 @@ func (r *Resolver) LookupAllNameserversIterative(q *Question, rootNameServers []
 		currentLayerNameServers = r.rootNameServers
 	}
 	originalQuestionType := q.Type
-
 	q.Type = dns.TypeNS
+	var layerResults []ExtendedResult
+	var currTrace Trace
 	for {
 		// Getting the NameServers
-		var layerResults []ExtendedResult
-		currTrace := make(Trace, 0)
 		layerResults, currTrace, _, err = r.queryAllNameServersInLayer(ctx, perNameServerRetriesLimit, q, currentLayerNameServers)
 		trace = append(trace, currTrace...)
 		if err != nil {
@@ -343,9 +338,10 @@ func (r *Resolver) LookupAllNameserversIterative(q *Question, rootNameServers []
 		} else {
 			retv.LayeredResponses[currentLayer] = append(retv.LayeredResponses[currentLayer], layerResults...)
 		}
-		if queryingForFinalResult {
-			// we've found an authoritative answer, we can return
-			break
+		var newNameServers []NameServer
+		newNameServers, err = r.extractNameServersFromLayerResults(layerResults)
+		if err != nil {
+			return &retv, trace, StatusError, errors.Wrapf(err, "error extracting nameservers from layer %s", currentLayer)
 		}
 		// Set the next layer to query
 		var newLayer string
@@ -353,25 +349,35 @@ func (r *Resolver) LookupAllNameserversIterative(q *Question, rootNameServers []
 		if err != nil {
 			return &retv, trace, StatusError, errors.Wrapf(err, "error determining next authority for layer %s", currentLayer)
 		}
+		if newLayer == currentLayer {
+			// we've reached the final layer
+			currentLayerNameServers = append(currentLayerNameServers, newNameServers...)
+			break
+		}
+		currentLayerNameServers = newNameServers
 		currentLayer = newLayer
-		var newNameServers []NameServer
-		newNameServers, err = r.extractNameServersFromLayerResults(layerResults)
-		if err != nil {
-			return &retv, trace, StatusError, errors.Wrapf(err, "error extracting nameservers from layer %s", currentLayer)
-		}
-		if len(currentLayerNameServers) == 0 {
-			return &retv, trace, StatusError, errors.New("no nameservers found in layer " + currentLayer)
-		}
-		sameNameServers := reflect.DeepEqual(currentLayerNameServers, newNameServers)
-		if sameNameServers {
-			// we've found all authoritative nameservers, now we can query them
-			q.Type = originalQuestionType
-			queryingForFinalResult = true
-		} else {
-			// we've found either new nameservers or the next layer. Continuing
-			currentLayerNameServers = newNameServers
-		}
 	}
+	// de-dupe nameservers
+	uniqNameServersSet := make(map[string]NameServer)
+	for _, ns := range currentLayerNameServers {
+		uniqNameServersSet[ns.DomainName] = ns
+	}
+	uniqNameServers := make([]NameServer, 0, len(uniqNameServersSet))
+	for _, ns := range uniqNameServersSet {
+		uniqNameServers = append(uniqNameServers, ns)
+	}
+	// Now that we have an exhaustive list of leaf NSes, we'll query the original NSes
+	q.Type = originalQuestionType
+	layerResults, currTrace, _, err = r.queryAllNameServersInLayer(ctx, perNameServerRetriesLimit, q, uniqNameServers)
+	trace = append(trace, currTrace...)
+	if err != nil {
+		return &retv, trace, StatusError, errors.Wrapf(err, "error encountered on layer %s", currentLayer)
+	} else if len(retv.LayeredResponses[currentLayer]) == 0 {
+		retv.LayeredResponses[currentLayer] = layerResults
+	} else {
+		retv.LayeredResponses[currentLayer] = append(retv.LayeredResponses[currentLayer], layerResults...)
+	}
+
 	return &retv, trace, StatusNoError, nil
 }
 
@@ -548,7 +554,7 @@ func (r *Resolver) queryAllNameServersInLayer(ctx context.Context, perNameServer
 			}
 			result, currTrace, status, err := r.ExternalLookup(ctx, q, &nameServer)
 			trace = append(trace, currTrace...)
-			extResult = &ExtendedResult{Status: status, Nameserver: nameServer.DomainName}
+			extResult = &ExtendedResult{Status: status, Nameserver: nameServer.DomainName, Type: dns.TypeToString[q.Type]}
 			if result != nil {
 				extResult.Res = *result
 			}
