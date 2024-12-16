@@ -33,6 +33,8 @@ import (
 	"github.com/zmap/zdns/src/internal/util"
 )
 
+var ErrorContextExpired = errors.New("context expired")
+
 // GetDNSServers returns a list of IPv4, IPv6 DNS servers from a file, or an error if one occurs
 func GetDNSServers(path string) (ipv4, ipv6 []string, err error) {
 	c, err := dns.ClientConfigFromFile(path)
@@ -287,7 +289,7 @@ func (r *Resolver) LookupAllNameserversExternal(q *Question, nameServers []NameS
 
 	for _, ns := range nameServers {
 		if util.HasCtxExpired(ctx) {
-			return retv, trace, StatusTimeout, errors.New("context expired")
+			return retv, trace, StatusTimeout, ErrorContextExpired
 		}
 		result, currTrace, status, err := r.ExternalLookup(ctx, q, &ns)
 		trace = append(trace, currTrace...)
@@ -331,7 +333,9 @@ func (r *Resolver) LookupAllNameserversIterative(q *Question, rootNameServers []
 		// Getting the NameServers
 		layerResults, currTrace, _, err = r.queryAllNameServersInLayer(ctx, perNameServerRetriesLimit, q, currentLayerNameServers)
 		trace = append(trace, currTrace...)
-		if err != nil {
+		if err != nil && errors.Is(err, ErrorContextExpired) {
+			return &retv, trace, StatusTimeout, err
+		} else if err != nil {
 			return &retv, trace, StatusError, errors.Wrapf(err, "error encountered on layer %s", currentLayer)
 		} else if len(retv.LayeredResponses[currentLayer]) == 0 {
 			retv.LayeredResponses[currentLayer] = layerResults
@@ -545,7 +549,7 @@ func (r *Resolver) queryAllNameServersInLayer(ctx context.Context, perNameServer
 		var extResult *ExtendedResult
 		for retry := 0; retry < perNameServerRetriesLimit; retry++ {
 			if util.HasCtxExpired(ctx) {
-				return currentLayerResults, trace, false, errors.New("context expired")
+				return currentLayerResults, trace, false, ErrorContextExpired
 			}
 			if nameServer.IP == nil {
 				nsTrace, err := r.populateNameServerIP(ctx, &nameServer)
