@@ -19,6 +19,7 @@ import (
 	"io"
 	"math/rand"
 	"net"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -319,23 +320,32 @@ func (r *Resolver) LookupAllNameserversIterative(q *Question, rootNameServers []
 	}
 	var trace Trace
 	currentLayer := "."
-	isAuthoritative := false
+	queryingForFinalResult := false
 	var err error
 	currentLayerNameServers := rootNameServers
 	if len(currentLayerNameServers) == 0 {
 		// no root nameservers provided, use the resolver's root nameservers
 		currentLayerNameServers = r.rootNameServers
 	}
+	originalQuestionType := q.Type
 
-	for isAuthoritative == false {
+	q.Type = dns.TypeNS
+	for {
+		// Getting the NameServers
 		var layerResults []ExtendedResult
 		currTrace := make(Trace, 0)
-		layerResults, currTrace, isAuthoritative, err = r.queryAllNameServersInLayer(ctx, perNameServerRetriesLimit, q, currentLayerNameServers)
+		layerResults, currTrace, _, err = r.queryAllNameServersInLayer(ctx, perNameServerRetriesLimit, q, currentLayerNameServers)
 		trace = append(trace, currTrace...)
 		if err != nil {
 			return &retv, trace, StatusError, errors.Wrapf(err, "error encountered on layer %s", currentLayer)
-		} else {
+		} else if len(retv.LayeredResponses[currentLayer]) == 0 {
 			retv.LayeredResponses[currentLayer] = layerResults
+		} else {
+			retv.LayeredResponses[currentLayer] = append(retv.LayeredResponses[currentLayer], layerResults...)
+		}
+		if queryingForFinalResult {
+			// we've found an authoritative answer, we can return
+			break
 		}
 		// Set the next layer to query
 		var newLayer string
@@ -343,17 +353,28 @@ func (r *Resolver) LookupAllNameserversIterative(q *Question, rootNameServers []
 		if err != nil {
 			return &retv, trace, StatusError, errors.Wrapf(err, "error determining next authority for layer %s", currentLayer)
 		}
-		if newLayer == currentLayer {
-			// we've reached the end of the authority chain, return
-			return &retv, trace, StatusNoError, nil
-		}
+		//if newLayer == currentLayer {
+		//	// TODO need a better way to know when to break out
+		//	// we've reached the end of the authority chain, return
+		//	//return &retv, trace, StatusNoError, nil
+		//}
 		currentLayer = newLayer
-		currentLayerNameServers, err = r.extractNameServersFromLayerResults(layerResults)
+		var newNameServers []NameServer
+		newNameServers, err = r.extractNameServersFromLayerResults(layerResults)
 		if err != nil {
 			return &retv, trace, StatusError, errors.Wrapf(err, "error extracting nameservers from layer %s", currentLayer)
 		}
 		if len(currentLayerNameServers) == 0 {
 			return &retv, trace, StatusError, errors.New("no nameservers found in layer " + currentLayer)
+		}
+		sameNameServers := reflect.DeepEqual(currentLayerNameServers, newNameServers)
+		if sameNameServers {
+			// we've found all authoritative nameservers, now we can query them
+			q.Type = originalQuestionType
+			queryingForFinalResult = true
+		} else {
+			// we've found either new nameservers or the next layer. Continuing
+			currentLayerNameServers = newNameServers
 		}
 	}
 	return &retv, trace, StatusNoError, nil
@@ -369,6 +390,7 @@ func (r *Resolver) extractNameServersFromLayerResults(layerResults []ExtendedRes
 	}
 	uniqueAdditionals := make(map[mapKey]Answer)
 	uniqueAuthorities := make(map[mapKey]Answer)
+	uniqueAnswers := make(map[mapKey]Answer)
 	for _, res := range layerResults {
 		if res.Status != StatusNoError {
 			continue
@@ -381,6 +403,13 @@ func (r *Resolver) extractNameServersFromLayerResults(layerResults []ExtendedRes
 		for _, ans := range res.Res.Authorities {
 			if a, ok := ans.(Answer); ok {
 				uniqueAuthorities[mapKey{Type: a.RrType, Name: a.Name, Answer: a.Answer}] = a
+			}
+		}
+		for _, ans := range res.Res.Answers {
+			if a, ok := ans.(Answer); ok {
+				if a.RrType == dns.TypeNS {
+					uniqueAnswers[mapKey{Type: a.RrType, Name: a.Name, Answer: a.Answer}] = a
+				}
 			}
 		}
 	}
@@ -424,6 +453,16 @@ func (r *Resolver) extractNameServersFromLayerResults(layerResults []ExtendedRes
 			if _, ok := uniqNameServersSet[key]; !ok {
 				uniqNameServersSet[key] = ns
 			}
+		}
+	}
+	// append any NS answers too
+	for _, answer := range uniqueAnswers {
+		ns := NameServer{
+			DomainName: strings.TrimSuffix(answer.Answer, "."),
+		}
+		key := ns.DomainName
+		if _, ok := uniqNameServersSet[key]; !ok {
+			uniqNameServersSet[key] = ns
 		}
 	}
 	uniqNameServers := make([]NameServer, 0, len(uniqNameServersSet))
@@ -607,8 +646,8 @@ func (r *Resolver) iterativeLookup(ctx context.Context, qWithMeta *QuestionWithM
 func (r *Resolver) cyclingLookup(ctx context.Context, qWithMeta *QuestionWithMetadata, nameServers []NameServer, layer string, depth int, recursionDesired bool) (*SingleQueryResult, IsCached, Status, error) {
 	var cacheBasedOnNameServer bool
 	var cacheNonAuthoritative bool
-	if recursionDesired {
-		// we're doing an external lookup and need to set the recursionDesired bit
+	if recursionDesired || r.lookupAllNameServers {
+		// we're doing an external or all-nameservers lookup and need to set the recursionDesired bit
 		// Additionally, in external mode we may perform the same lookup against multiple nameservers, so the cache should be based on the nameserver as well
 		cacheBasedOnNameServer = true
 		cacheNonAuthoritative = true
