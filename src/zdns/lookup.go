@@ -353,11 +353,6 @@ func (r *Resolver) LookupAllNameserversIterative(q *Question, rootNameServers []
 		if err != nil {
 			return &retv, trace, StatusError, errors.Wrapf(err, "error determining next authority for layer %s", currentLayer)
 		}
-		//if newLayer == currentLayer {
-		//	// TODO need a better way to know when to break out
-		//	// we've reached the end of the authority chain, return
-		//	//return &retv, trace, StatusNoError, nil
-		//}
 		currentLayer = newLayer
 		var newNameServers []NameServer
 		newNameServers, err = r.extractNameServersFromLayerResults(layerResults)
