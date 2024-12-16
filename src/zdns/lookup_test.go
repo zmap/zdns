@@ -1884,50 +1884,31 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 	verifyCombinedResult(t, results.LayeredResponses, expectedRes)
 }
 
-//	func TestAllNsLookupNXDomain(t *testing.T) {
-//		config := InitTest(t)
-//		config.IPVersionMode = IPv4Only
-//		resolver, err := InitResolver(config)
-//		require.NoError(t, err)
-//
-//		ns1 := &config.ExternalNameServersV4[0]
-//		q := Question{
-//			Type:  dns.TypeNS,
-//			Class: dns.ClassINET,
-//			Name:  "example.com",
-//		}
-//
-//		res, _, status, err := resolver.LookupAllNameserversIterative(&q, ns1)
-//
-//		assert.Equal(t, StatusNXDomain, status)
-//		assert.Nil(t, res)
-//		require.NoError(t, err)
-//	}
-//
-//	func TestAllNsLookupServFail(t *testing.T) {
-//		config := InitTest(t)
-//		config.IPVersionMode = IPv4Only
-//		resolver, err := InitResolver(config)
-//		require.NoError(t, err)
-//
-//		ns1 := &config.ExternalNameServersV4[0]
-//		domain1 := "example.com"
-//		domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
-//
-//		protocolStatus[domainNS1] = StatusServFail
-//		mockResults[domainNS1] = SingleQueryResult{}
-//
-//		q := Question{
-//			Type:  dns.TypeNS,
-//			Class: dns.ClassINET,
-//			Name:  "example.com",
-//		}
-//		res, _, status, err := resolver.LookupAllNameserversIterative(&q, ns1)
-//
-//		assert.Equal(t, StatusServFail, status)
-//		assert.Nil(t, res)
-//		require.NoError(t, err)
-//	}
+func TestAllNsLookupNXDomain(t *testing.T) {
+	config := InitTest(t)
+	config.IPVersionMode = IPv4Only
+	resolver, err := InitResolver(config)
+	require.NoError(t, err)
+
+	ns1 := &config.ExternalNameServersV4[0]
+	q := Question{
+		Type:  dns.TypeNS,
+		Class: dns.ClassINET,
+		Name:  "example.com",
+	}
+
+	res, _, status, err := resolver.LookupAllNameserversIterative(&q, []NameServer{*ns1})
+
+	expectedResponse := map[string][]ExtendedResult{
+		".": {{Status: StatusNXDomain}},
+	}
+	if !reflect.DeepEqual(res.LayeredResponses, expectedResponse) {
+		t.Errorf("Expected %v, Received %v", expectedResponse, res.LayeredResponses)
+	}
+	assert.Equal(t, StatusError, status)
+	require.Error(t, err) // could not successfully complete lookup, so this should error
+}
+
 func TestInvalidInputsLookup(t *testing.T) {
 	config := InitTest(t)
 	config.LocalAddrsV4 = []net.IP{net.ParseIP("127.0.0.1")}
