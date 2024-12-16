@@ -91,7 +91,7 @@ func (r *Resolver) doDstServersLookup(ctx context.Context, q Question, nameServe
 		// if that looks likely, use it as is
 		if err != nil && !util.IsStringValidDomainName(q.Name) {
 			return nil, nil, StatusIllegalInput, err
-			// q.Name is a valid name name, we can continue
+			// q.Name is a valid name, we can continue
 		} else {
 			// remove trailing "." added by dns.ReverseAddr
 			q.Name = qname[:len(qname)-1]
@@ -707,7 +707,7 @@ func getRandomNonQueriedNameServer(nameServers []NameServer, queriedNameServers 
 
 // cachedLookup performs a DNS lookup with caching
 // returns the result, whether it was cached, the status, and an error if one occurred
-// layer is the name name layer we're currently querying ex: ".", "com.", "example.com."
+// layer is the name layer we're currently querying ex: ".", "com.", "example.com."
 // depth is the current depth of the lookup, used for iterative lookups
 // requestIteration is whether to set the "recursion desired" bit in the DNS query
 // cacheBasedOnNameServer is whether to consider a cache hit based on DNS question and nameserver, or just question
@@ -1277,7 +1277,7 @@ func FindTxtRecord(res *SingleQueryResult, regex *regexp.Regexp) (string, error)
 }
 
 // populateResults is a helper function to populate the candidateSet, cnameSet, and garbage maps to follow CNAMES
-// These maps are keyed by the name name and contain the relevant answers for that name
+// These maps are keyed by the name and contain the relevant answers for that name
 // candidateSet is a map of Answers that have a type matching the requested type.
 // cnameSet is a map of Answers that are CNAME records
 // dnameSet is a map of Answers that are DNAME records

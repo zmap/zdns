@@ -88,7 +88,7 @@ type ExtendedResult struct {
 	Type       string            `json:"type" groups:"short,normal,long,trace"`
 	Res        SingleQueryResult `json:"result,omitempty" groups:"short,normal,long,trace"`
 	Status     Status            `json:"status" groups:"short,normal,long,trace"`
-	Nameserver string            `json:"nameserver" groups:"short,normal,long,trace"` // NS name name
+	Nameserver string            `json:"nameserver" groups:"short,normal,long,trace"` // NS domain name
 }
 
 type AllNameServersResult struct {

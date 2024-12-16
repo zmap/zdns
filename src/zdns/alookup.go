@@ -24,7 +24,7 @@ import (
 	"github.com/zmap/zdns/src/internal/util"
 )
 
-// DoTargetedLookup performs a lookup of the given name name against the given nameserver, looking up both IPv4 and IPv6 addresses
+// DoTargetedLookup performs a lookup of the given name against the given nameserver, looking up both IPv4 and IPv6 addresses
 // Will follow CNAME records as well as A/AAAA records to get IP addresses
 func (r *Resolver) DoTargetedLookup(name string, nameServer *NameServer, isIterative, lookupA, lookupAAAA bool) (*IPResult, Trace, Status, error) {
 	name = strings.ToLower(name)
