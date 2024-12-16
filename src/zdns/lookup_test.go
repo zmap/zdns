@@ -21,6 +21,7 @@ import (
 	"net"
 	"reflect"
 	"regexp"
+	"sort"
 	"testing"
 	"time"
 
@@ -2000,6 +2001,12 @@ func verifyCombinedResult(t *testing.T, records map[string][]ExtendedResult, exp
 		assert.Contains(t, records, layer, fmt.Sprintf("Layer %s not found in combined result", layer))
 	}
 	for layer, expectedLayerResults := range expectedRecords {
+		sort.Slice(records[layer], func(i, j int) bool {
+			return records[layer][i].Nameserver < records[layer][j].Nameserver
+		})
+		sort.Slice(records[layer], func(i, j int) bool {
+			return expectedLayerResults[i].Nameserver < expectedLayerResults[j].Nameserver
+		})
 		if !reflect.DeepEqual(records[layer], expectedLayerResults) {
 			t.Errorf("Combined result not matching for layer %s, expected %v, found %v", layer, expectedLayerResults, records[layer])
 		}
