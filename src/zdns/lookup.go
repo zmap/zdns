@@ -354,6 +354,10 @@ func (r *Resolver) LookupAllNameserversIterative(q *Question, rootNameServers []
 			currentLayerNameServers = append(currentLayerNameServers, newNameServers...)
 			break
 		}
+		if len(newNameServers) == 0 {
+			// we have no more nameservers to query, error
+			return &retv, trace, StatusError, errors.Errorf("no nameservers found for layer %s", currentLayer)
+		}
 		currentLayerNameServers = newNameServers
 		currentLayer = newLayer
 	}

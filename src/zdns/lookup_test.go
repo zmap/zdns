@@ -1532,9 +1532,6 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 	exampleNSServerIP := "3.3.3.3"
 	exampleNameAAnswer := "4.4.4.4"
 
-	//ns1 := &config.ExternalNameServersV4[0]
-	//ipv4_1 := "127.0.0.2"
-
 	mockResults[nameAndIP{name: exampleName, IP: rootServerIP + ":53"}] = SingleQueryResult{
 		Authorities: []interface{}{
 			Answer{
@@ -1597,6 +1594,7 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 			{
 				Status:     StatusNoError,
 				Nameserver: rootServer,
+				Type:       "NS",
 				Res: SingleQueryResult{
 					Authorities: []interface{}{
 						Answer{
@@ -1624,6 +1622,7 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 		"com": {
 			{
 				Status:     StatusNoError,
+				Type:       "NS",
 				Nameserver: comServer,
 				Res: SingleQueryResult{
 					Authorities: []interface{}{
@@ -1652,6 +1651,24 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 		"example.com": {
 			{
 				Status:     StatusNoError,
+				Type:       "NS",
+				Nameserver: exampleNSServer,
+				Res: SingleQueryResult{
+					Answers: []interface{}{
+						Answer{
+							TTL:    3600,
+							Type:   "A",
+							RrType: dns.TypeA,
+							Class:  "IN",
+							Name:   "example.com.",
+							Answer: "4.4.4.4",
+						},
+					},
+				},
+			},
+			{
+				Status:     StatusNoError,
+				Type:       "A",
 				Nameserver: exampleNSServer,
 				Res: SingleQueryResult{
 					Answers: []interface{}{
@@ -1780,6 +1797,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 		".": {
 			{
 				Status:     StatusNoError,
+				Type:       "NS",
 				Nameserver: rootServer,
 				Res: SingleQueryResult{
 					Authorities: []interface{}{
@@ -1824,11 +1842,13 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 		"com": {
 			{
 				Status:     StatusServFail,
+				Type:       "NS",
 				Nameserver: comServerA,
 				Res:        SingleQueryResult{},
 			},
 			{
 				Status:     StatusNoError,
+				Type:       "NS",
 				Nameserver: comServerB,
 				Res: SingleQueryResult{
 					Authorities: []interface{}{
@@ -1857,6 +1877,24 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 		"example.com": {
 			{
 				Status:     StatusNoError,
+				Type:       "NS",
+				Nameserver: exampleNSServer,
+				Res: SingleQueryResult{
+					Answers: []interface{}{
+						Answer{
+							TTL:    3600,
+							Type:   "A",
+							RrType: dns.TypeA,
+							Class:  "IN",
+							Name:   "example.com.",
+							Answer: exampleNameAAnswer,
+						},
+					},
+				},
+			},
+			{
+				Status:     StatusNoError,
+				Type:       "A",
 				Nameserver: exampleNSServer,
 				Res: SingleQueryResult{
 					Answers: []interface{}{
@@ -1900,7 +1938,7 @@ func TestAllNsLookupNXDomain(t *testing.T) {
 	res, _, status, err := resolver.LookupAllNameserversIterative(&q, []NameServer{*ns1})
 
 	expectedResponse := map[string][]ExtendedResult{
-		".": {{Status: StatusNXDomain}},
+		".": {{Status: StatusNXDomain, Type: "NS"}},
 	}
 	if !reflect.DeepEqual(res.LayeredResponses, expectedResponse) {
 		t.Errorf("Expected %v, Received %v", expectedResponse, res.LayeredResponses)
