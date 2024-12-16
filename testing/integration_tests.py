@@ -1422,26 +1422,44 @@ class Tests(unittest.TestCase):
     def test_lookup_all_nameservers_single_zone_iterative(self):
         """
         Test that --all-nameservers --iterative lookups work with domains whose nameservers are all in the same zone
-        google.com has nameservers ns1/2/3/4.google.com, which are all in the .com zone and so will have their IPs
+        zdns-testing.com has nameservers ns-cloud-c1/2/3/4.googledomains.com, which are all in the .com zone and so will have their IPs
         provided as additionals in the .com response
         """
-        # google.com's nameservers are all in the .com zone, so we should only have to query the .com nameservers
-        c = "A google.com --all-nameservers --iterative"
+        # zdns-testing.com's nameservers are all in the .com zone, so we should only have to query the .com nameservers
+        c = "A zdns-testing.com --all-nameservers --iterative"
         cmd,res = self.run_zdns(c, "")
         self.assertSuccess(res, cmd, "A")
         # Check for layers
         self.assertIn(".", res["results"]["A"]["data"]["per_layer_responses"], "Should have the root (.) layer")
         self.assertIn("com", res["results"]["A"]["data"]["per_layer_responses"], "Should have the .com layer")
-        self.assertIn("google.com", res["results"]["A"]["data"]["per_layer_responses"], "Should have the google.com layer")
+        self.assertIn("zdns-testing.com", res["results"]["A"]["data"]["per_layer_responses"], "Should have the google.com layer")
         # check for a.root-servers.net, b.root-servers.net, ... m.root-servers.net
         self.check_for_existance_of_root_and_com_nses(res)
         # check for the google.com nameservers
-        actual_google_nses = []
-        for entry in res["results"]["A"]["data"]["per_layer_responses"]["google.com"]:
-            actual_google_nses.append(entry["nameserver"])
-        expected_google_nses = ["ns1.google.com", "ns2.google.com", "ns3.google.com", "ns4.google.com"]
-        for ns in expected_google_nses:
-            self.assertIn(ns, actual_google_nses, "Should have the google.com nameservers")
+        actual_zdns_testing_leaf_NS_answers = []
+        actual_zdns_testing_leaf_A_answers = []
+        for entry in res["results"]["A"]["data"]["per_layer_responses"]["zdns-testing.com"]:
+            if entry["type"] == "NS":
+                actual_zdns_testing_leaf_NS_answers.append(entry)
+            elif entry["type"] == "A":
+                actual_zdns_testing_leaf_A_answers.append(entry)
+            else:
+                self.fail(f"Unexpected record type {entry['type']}")
+
+
+
+        # Check that we have "1.2.3.4", "2.3.4.5", and "3.4.5.6" as the A records and valid NS records for all expected Leaf NSes
+        if len(actual_zdns_testing_leaf_A_answers) != 4 or len(actual_zdns_testing_leaf_NS_answers) != 4:
+            self.fail("Should have 4 A  and 4 NS record sets")
+        expectedAnswers = ["1.2.3.4", "2.3.4.5", "3.4.5.6"]
+        for entry in actual_zdns_testing_leaf_A_answers:
+            actualAnswers = []
+            for answer in entry["result"]["answers"]:
+                actualAnswers.append(answer["answer"])
+            # sort
+            actualAnswers.sort()
+            expectedAnswers.sort()
+            self.assertEqual(actualAnswers, expectedAnswers, "Should have the expected A records")
 
     def check_for_existance_of_root_and_com_nses(self, res):
         actual_root_ns = []
