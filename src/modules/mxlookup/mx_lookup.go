@@ -14,6 +14,7 @@
 package mxlookup
 
 import (
+	"context"
 	"strings"
 
 	"github.com/miekg/dns"
@@ -95,9 +96,9 @@ func (mxMod *MXLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameSer
 	var status zdns.Status
 	var err error
 	if mxMod.BasicLookupModule.IsIterative {
-		res, trace, status, err = r.IterativeLookup(&zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET})
+		res, trace, status, err = r.IterativeLookup(context.Background(), &zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET})
 	} else {
-		res, trace, status, err = r.ExternalLookup(&zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET}, nameServer)
+		res, trace, status, err = r.ExternalLookup(context.Background(), &zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET}, nameServer)
 	}
 	if status != zdns.StatusNoError || err != nil {
 		return nil, trace, status, err

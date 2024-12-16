@@ -23,7 +23,7 @@ const (
 )
 
 type TargetedDomain struct {
-	Domain      string   `json:"domain"`
+	Domain      string   `json:"name"`
 	Nameservers []string `json:"nameservers"`
 }
 

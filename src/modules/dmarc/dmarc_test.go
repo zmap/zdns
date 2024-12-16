@@ -15,6 +15,7 @@
 package dmarc
 
 import (
+	"context"
 	"net"
 	"testing"
 
@@ -35,7 +36,7 @@ var queries []QueryRecord
 
 type MockLookup struct{}
 
-func (ml MockLookup) DoDstServersLookup(r *zdns.Resolver, question zdns.Question, nameServers []zdns.NameServer, isIterative bool) (*zdns.SingleQueryResult, zdns.Trace, zdns.Status, error) {
+func (ml MockLookup) DoDstServersLookup(ctx context.Context, r *zdns.Resolver, question zdns.Question, nameServers []zdns.NameServer, isIterative bool) (*zdns.SingleQueryResult, zdns.Trace, zdns.Status, error) {
 	queries = append(queries, QueryRecord{question, &nameServers[0]})
 	if res, ok := mockResults[question.Name]; ok {
 		return res, nil, zdns.StatusNoError, nil

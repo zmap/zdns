@@ -52,7 +52,7 @@ type TraceStep struct {
 	Try        int               `json:"try" groups:"trace"`
 }
 
-// Result contains all the metadata from a complete lookup(s) for a domain. Results is keyed with the ModuleName.
+// Result contains all the metadata from a complete lookup(s) for a name. Results is keyed with the ModuleName.
 type Result struct {
 	AlteredName string                        `json:"altered_name,omitempty" groups:"short,normal,long,trace"`
 	Name        string                        `json:"name,omitempty" groups:"short,normal,long,trace"`
@@ -63,7 +63,7 @@ type Result struct {
 	Results     map[string]SingleModuleResult `json:"results,omitempty" groups:"short,normal,long,trace"`
 }
 
-// SingleModuleResult contains all the metadata from a complete lookup for a domain, potentially after following many CNAMEs/etc.
+// SingleModuleResult contains all the metadata from a complete lookup for a name, potentially after following many CNAMEs/etc.
 type SingleModuleResult struct {
 	Status    string      `json:"status,omitempty" groups:"short,normal,long,trace"`
 	Error     string      `json:"error,omitempty" groups:"short,normal,long,trace"`
@@ -87,7 +87,7 @@ type SingleQueryResult struct {
 type ExtendedResult struct {
 	Res        SingleQueryResult `json:"result,omitempty" groups:"short,normal,long,trace"`
 	Status     Status            `json:"status" groups:"short,normal,long,trace"`
-	Nameserver string            `json:"nameserver" groups:"short,normal,long,trace"` // NS domain name
+	Nameserver string            `json:"nameserver" groups:"short,normal,long,trace"` // NS name name
 }
 
 type AllNameServersResult struct {

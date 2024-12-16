@@ -15,6 +15,7 @@
 package bindversion
 
 import (
+	"context"
 	"github.com/miekg/dns"
 	"github.com/pkg/errors"
 
@@ -55,9 +56,9 @@ func (bindVersionMod *BindVersionLookupModule) Lookup(r *zdns.Resolver, lookupNa
 	var status zdns.Status
 	var err error
 	if bindVersionMod.IsIterative {
-		innerRes, trace, status, err = r.IterativeLookup(&zdns.Question{Name: BindVersionQueryName, Type: dns.TypeTXT, Class: dns.ClassCHAOS})
+		innerRes, trace, status, err = r.IterativeLookup(context.Background(), &zdns.Question{Name: BindVersionQueryName, Type: dns.TypeTXT, Class: dns.ClassCHAOS})
 	} else {
-		innerRes, trace, status, err = r.ExternalLookup(&zdns.Question{Name: BindVersionQueryName, Type: dns.TypeTXT, Class: dns.ClassCHAOS}, nameServer)
+		innerRes, trace, status, err = r.ExternalLookup(context.Background(), &zdns.Question{Name: BindVersionQueryName, Type: dns.TypeTXT, Class: dns.ClassCHAOS}, nameServer)
 	}
 	resString, resStatus, err := zdns.CheckTxtRecords(innerRes, status, nil, err)
 	res := Result{BindVersion: resString}

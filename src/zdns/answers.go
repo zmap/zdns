@@ -202,7 +202,7 @@ type SMIMEAAnswer struct {
 
 type SOAAnswer struct {
 	Answer
-	Ns      string `json:"ns" groups:"short,normal,long,trace"`
+	Ns      string `json:"IP" groups:"short,normal,long,trace"`
 	Mbox    string `json:"mbox" groups:"short,normal,long,trace"`
 	Serial  uint32 `json:"serial" groups:"short,normal,long,trace"`
 	Refresh uint32 `json:"refresh" groups:"short,normal,long,trace"`

@@ -67,17 +67,17 @@ func GetDNSServers(path string) (ipv4, ipv6 []string, err error) {
 
 // Lookup client interface for help in mocking
 type Lookuper interface {
-	DoDstServersLookup(r *Resolver, q Question, nameServer []NameServer, isIterative bool) (*SingleQueryResult, Trace, Status, error)
+	DoDstServersLookup(ctx context.Context, r *Resolver, q Question, nameServer []NameServer, isIterative bool) (*SingleQueryResult, Trace, Status, error)
 }
 
 type LookupClient struct{}
 
 // DoDstServersLookup performs a DNS lookup for a given question against a list of interchangeable nameservers
-func (lc LookupClient) DoDstServersLookup(r *Resolver, q Question, nameServers []NameServer, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
-	return r.doDstServersLookup(q, nameServers, isIterative)
+func (lc LookupClient) DoDstServersLookup(ctx context.Context, r *Resolver, q Question, nameServers []NameServer, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
+	return r.doDstServersLookup(ctx, q, nameServers, isIterative)
 }
 
-func (r *Resolver) doDstServersLookup(q Question, nameServers []NameServer, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
+func (r *Resolver) doDstServersLookup(ctx context.Context, q Question, nameServers []NameServer, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
 	var err error
 	// nameserver is required
 	if len(nameServers) == 0 {
@@ -91,7 +91,7 @@ func (r *Resolver) doDstServersLookup(q Question, nameServers []NameServer, isIt
 		// if that looks likely, use it as is
 		if err != nil && !util.IsStringValidDomainName(q.Name) {
 			return nil, nil, StatusIllegalInput, err
-			// q.Name is a valid domain name, we can continue
+			// q.Name is a valid name name, we can continue
 		} else {
 			// remove trailing "." added by dns.ReverseAddr
 			q.Name = qname[:len(qname)-1]
@@ -291,7 +291,7 @@ func (r *Resolver) LookupAllNameserversExternal(q *Question, nameServers []NameS
 		if util.HasCtxExpired(ctx) {
 			return retv, trace, StatusTimeout, errors.New("context expired")
 		}
-		result, currTrace, status, err := r.ExternalLookup(q, &ns)
+		result, currTrace, status, err := r.ExternalLookup(ctx, q, &ns)
 		trace = append(trace, currTrace...)
 		if err != nil {
 			log.Errorf("LookupAllNameserversExternal of name %s errored for %s/%s: %v", q.Name, ns.DomainName, ns.IP.String(), err)
@@ -352,6 +352,9 @@ func (r *Resolver) LookupAllNameserversIterative(q *Question, rootNameServers []
 		if err != nil {
 			return &retv, trace, StatusError, errors.Wrapf(err, "error extracting nameservers from layer %s", currentLayer)
 		}
+		if len(currentLayerNameServers) == 0 {
+			return &retv, trace, StatusError, errors.New("no nameservers found in layer " + currentLayer)
+		}
 	}
 	return &retv, trace, StatusNoError, nil
 }
@@ -391,10 +394,7 @@ func (r *Resolver) extractNameServersFromLayerResults(layerResults []ExtendedRes
 		}
 	}
 	for _, additionals := range uniqueAdditionals {
-		if strings.HasSuffix(additionals.Name, ".") {
-			// TODO checking here to see if this is an issue
-			log.Fatalf("Name %s has a trailing dot", additionals.Name)
-		}
+		additionals.Name = strings.TrimSuffix(additionals.Name, ".")
 		if additionals.RrType == dns.TypeA {
 			if ns, ok := v4NameServers[additionals.Name]; ok {
 				ns.IP = net.ParseIP(additionals.Answer)
@@ -512,7 +512,7 @@ func (r *Resolver) queryAllNameServersInLayer(ctx context.Context, perNameServer
 				trace = append(trace, nsTrace...)
 				// we've populated NS IP, we can proceed
 			}
-			result, currTrace, status, err := r.ExternalLookup(q, &nameServer)
+			result, currTrace, status, err := r.ExternalLookup(ctx, q, &nameServer)
 			trace = append(trace, currTrace...)
 			if err == nil && status == StatusNoError {
 				extResult = &ExtendedResult{
@@ -664,7 +664,7 @@ func getRandomNonQueriedNameServer(nameServers []NameServer, queriedNameServers 
 
 // cachedLookup performs a DNS lookup with caching
 // returns the result, whether it was cached, the status, and an error if one occurred
-// layer is the domain name layer we're currently querying ex: ".", "com.", "example.com."
+// layer is the name name layer we're currently querying ex: ".", "com.", "example.com."
 // depth is the current depth of the lookup, used for iterative lookups
 // requestIteration is whether to set the "recursion desired" bit in the DNS query
 // cacheBasedOnNameServer is whether to consider a cache hit based on DNS question and nameserver, or just question
@@ -1234,12 +1234,12 @@ func FindTxtRecord(res *SingleQueryResult, regex *regexp.Regexp) (string, error)
 }
 
 // populateResults is a helper function to populate the candidateSet, cnameSet, and garbage maps to follow CNAMES
-// These maps are keyed by the domain name and contain the relevant answers for that domain
+// These maps are keyed by the name name and contain the relevant answers for that name
 // candidateSet is a map of Answers that have a type matching the requested type.
 // cnameSet is a map of Answers that are CNAME records
 // dnameSet is a map of Answers that are DNAME records
 // garbage is a map of Answers that are not of the requested type or CNAME records
-// follows CNAME/DNAME and A/AAAA records to get all IPs for a given domain
+// follows CNAME/DNAME and A/AAAA records to get all IPs for a given name
 func populateResults(records []interface{}, dnsType uint16, candidateSet map[string][]Answer, cnameSet map[string][]Answer, dnameSet map[string][]Answer, garbage map[string][]Answer) {
 	var ans Answer
 	var ok bool

@@ -14,6 +14,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net"
 
@@ -30,7 +31,7 @@ func main() {
 	dnsQuestion := &zdns.Question{Name: domain, Type: dns.TypeA, Class: dns.ClassINET}
 	resolver := initializeResolver()
 
-	result, _, status, err := resolver.ExternalLookup(dnsQuestion, []zdns.NameServer{{IP: net.ParseIP("1.1.1.1"), Port: 53}})
+	result, _, status, err := resolver.ExternalLookup(context.Background(), dnsQuestion, &zdns.NameServer{IP: net.ParseIP("1.1.1.1"), Port: 53})
 	if err != nil {
 		log.Fatal("Error looking up domain: ", err)
 	}
@@ -44,7 +45,7 @@ func main() {
 
 	log.Warn("\n\n This lookup just used the Cloudflare recursive resolver, let's run our own recursion.")
 	// Iterative Lookups start at the root nameservers and follow the chain of referrals to the authoritative nameservers.
-	result, trace, status, err := resolver.IterativeLookup(&zdns.Question{Name: domain, Type: dns.TypeA, Class: dns.ClassINET})
+	result, trace, status, err := resolver.IterativeLookup(context.Background(), &zdns.Question{Name: domain, Type: dns.TypeA, Class: dns.ClassINET})
 	if err != nil {
 		log.Fatal("Error looking up domain: ", err)
 	}
