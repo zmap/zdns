@@ -2,6 +2,8 @@ module github.com/zmap/zdns
 
 go 1.21.1
 
+toolchain go1.23.3
+
 require (
 	github.com/hashicorp/go-version v1.7.0
 	github.com/liip/sheriff v0.12.0
@@ -9,8 +11,8 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/schollz/progressbar/v3 v3.15.0
 	github.com/sirupsen/logrus v1.9.3
-	github.com/zmap/go-dns-root-anchors v0.0.0-20241116225636-aa592d6ee59f
 	github.com/stretchr/testify v1.10.0
+	github.com/zmap/go-dns-root-anchors v0.0.0-20241116225636-aa592d6ee59f
 	github.com/zmap/go-iptree v0.0.0-20210731043055-d4e632617837
 	github.com/zmap/zcrypto v0.0.0-20240803002437-3a861682ac77
 	github.com/zmap/zflags v1.4.0-beta.1.0.20200204220219-9d95409821b6
