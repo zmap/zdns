@@ -36,7 +36,7 @@ type CachedKey struct {
 type CachedResult struct {
 	Answers      []TimedAnswer
 	Authorities  []TimedAnswer
-	Additional   []TimedAnswer
+	Additionals  []TimedAnswer
 	Flags        DNSFlags
 	DNSSECResult *DNSSECResult
 }
@@ -136,7 +136,7 @@ func (s *Cache) getCachedResult(q Question, ns *NameServer, isAuthority bool, de
 	retv = new(SingleQueryResult)
 	retv.Answers = make([]interface{}, 0, len(cachedRes.Answers))
 	retv.Authorities = make([]interface{}, 0, len(cachedRes.Authorities))
-	retv.Additional = make([]interface{}, 0, len(cachedRes.Additional))
+	retv.Additional = make([]interface{}, 0, len(cachedRes.Additionals))
 	retv.Flags = cachedRes.Flags
 	retv.DNSSECResult = cachedRes.DNSSECResult
 	// great we have a result. let's go through the entries and build a result. In the process, throw away anything
@@ -158,7 +158,7 @@ func (s *Cache) getCachedResult(q Question, ns *NameServer, isAuthority bool, de
 			retv.Authorities = append(retv.Authorities, cachedAuthority.Answer)
 		}
 	}
-	for _, cachedAdditional := range cachedRes.Additional {
+	for _, cachedAdditional := range cachedRes.Additionals {
 		if cachedAdditional.ExpiresAt.Before(now) {
 			partiallyExpired = true
 			s.VerboseLog(depth+2, "expiring cache additional ", cachedAdditional.Answer.BaseAns().Name)
@@ -229,11 +229,11 @@ func (s *Cache) buildCachedResult(res *SingleQueryResult, depth int, layer strin
 			})
 		}
 	}
-	cachedRes.Additional = make([]TimedAnswer, 0, len(res.Additional))
+	cachedRes.Additionals = make([]TimedAnswer, 0, len(res.Additional))
 	for _, a := range res.Additional {
 		castAns, expiresAt := getExpirationForSafeAnswer(a)
 		if castAns != nil {
-			cachedRes.Additional = append(cachedRes.Additional, TimedAnswer{
+			cachedRes.Additionals = append(cachedRes.Additionals, TimedAnswer{
 				Answer:    castAns,
 				ExpiresAt: expiresAt,
 			})
@@ -279,7 +279,7 @@ func (s *Cache) SafeAddCachedAnswer(q Question, res *SingleQueryResult, ns *Name
 		return
 	}
 	cachedRes := s.buildCachedResult(res, depth, layer)
-	if len(cachedRes.Answers) == 0 && len(cachedRes.Authorities) == 0 && len(cachedRes.Additional) == 0 {
+	if len(cachedRes.Answers) == 0 && len(cachedRes.Authorities) == 0 && len(cachedRes.Additionals) == 0 {
 		s.VerboseLog(depth+1, "SafeAddCachedAnswer: no cacheable records found, aborting")
 		return
 	}
@@ -287,7 +287,7 @@ func (s *Cache) SafeAddCachedAnswer(q Question, res *SingleQueryResult, ns *Name
 }
 
 // SafeAddCachedAuthority Writes an authority to the cache. This is a special case where the result should only have
-// authorities and additional records. What layer this authority is for is gathered from the Authority.Name field.
+// authorities and additionals records. What layer this authority is for is gathered from the Authority.Name field.
 // This Authority.Name must be below the current layer.
 // Will be cached under an NS record for the authority.
 func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, depth int, layer string) {
@@ -364,7 +364,7 @@ func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, d
 	copiedRes := *res
 	copiedRes.Authorities = otherRRs
 	cachedRes := s.buildCachedResult(&copiedRes, depth, layer)
-	if len(cachedRes.Answers) == 0 && len(cachedRes.Authorities) == 0 && len(cachedRes.Additional) == 0 {
+	if len(cachedRes.Answers) == 0 && len(cachedRes.Authorities) == 0 && len(cachedRes.Additionals) == 0 {
 		s.VerboseLog(depth+1, "SafeAddCachedAnswer: no cacheable records found, aborting")
 		return
 	}
