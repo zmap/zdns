@@ -88,11 +88,11 @@ type ExtendedResult struct {
 	Type       string            `json:"type" groups:"short,normal,long,trace"`
 	Res        SingleQueryResult `json:"result,omitempty" groups:"short,normal,long,trace"`
 	Status     Status            `json:"status" groups:"short,normal,long,trace"`
-	Nameserver string            `json:"nameserver" groups:"short,normal,long,trace"` // NS domain name
+	Nameserver string            `json:"nameserver" groups:"short,normal,long,trace"` // NS name queried for this result
 }
 
 type AllNameServersResult struct {
-	LayeredResponses map[string][]ExtendedResult `json:"per_layer_responses" groups:"short,normal,long,trace"` //
+	LayeredResponses map[string][]ExtendedResult `json:"per_layer_responses" groups:"short,normal,long,trace"`
 }
 
 type IPResult struct {
