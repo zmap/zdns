@@ -418,6 +418,23 @@ func (r *Resolver) LookupAllNameserversIterative(q *Question, rootNameServers []
 			break
 		}
 		if len(newNameServers) == 0 {
+			// check if we have no referral nameservers because we've hit a CNAME or DNAME
+			foundReferral := false
+			for _, res := range layerResults {
+				for _, ans := range res.Res.Answers {
+					if a, ok := ans.(Answer); ok {
+						if a.RrType == dns.TypeCNAME || a.RrType == dns.TypeDNAME {
+							foundReferral = true
+							break
+						}
+					}
+				}
+			}
+			if foundReferral {
+				// we don't handle iterative all-nameservers lookups with C/DNAMEs, returning the results we've collected
+				// thus far
+				return &retv, trace, StatusNoError, nil
+			}
 			// we have no more nameservers to query, error
 			return &retv, trace, StatusError, errors.Errorf("no nameservers found for layer %s", currentLayer)
 		}
