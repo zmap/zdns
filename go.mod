@@ -1,6 +1,6 @@
 module github.com/zmap/zdns
 
-go 1.20
+go 1.21
 
 require (
 	github.com/hashicorp/go-version v1.7.0
