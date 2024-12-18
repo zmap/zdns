@@ -57,9 +57,9 @@ func IsStringValidDomainName(domain string) bool {
 }
 
 // HasCtxExpired checks if the context has expired. Common function used in various places.
-func HasCtxExpired(ctx *context.Context) bool {
+func HasCtxExpired(ctx context.Context) bool {
 	select {
-	case <-(*ctx).Done():
+	case <-(ctx).Done():
 		return true
 	default:
 		return false

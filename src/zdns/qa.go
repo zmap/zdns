@@ -52,7 +52,7 @@ type TraceStep struct {
 	Try        int               `json:"try" groups:"trace"`
 }
 
-// Result contains all the metadata from a complete lookup(s) for a domain. Results is keyed with the ModuleName.
+// Result contains all the metadata from a complete lookup(s) for a name. Results is keyed with the ModuleName.
 type Result struct {
 	AlteredName string                        `json:"altered_name,omitempty" groups:"short,normal,long,trace"`
 	Name        string                        `json:"name,omitempty" groups:"short,normal,long,trace"`
@@ -63,7 +63,7 @@ type Result struct {
 	Results     map[string]SingleModuleResult `json:"results,omitempty" groups:"short,normal,long,trace"`
 }
 
-// SingleModuleResult contains all the metadata from a complete lookup for a domain, potentially after following many CNAMEs/etc.
+// SingleModuleResult contains all the metadata from a complete lookup for a name, potentially after following many CNAMEs/etc.
 type SingleModuleResult struct {
 	Status    string      `json:"status,omitempty" groups:"short,normal,long,trace"`
 	Error     string      `json:"error,omitempty" groups:"short,normal,long,trace"`
@@ -79,20 +79,20 @@ type SingleQueryResult struct {
 	Additional         []interface{} `json:"additionals,omitempty" groups:"short,normal,long,trace"`
 	Authorities        []interface{} `json:"authorities,omitempty" groups:"short,normal,long,trace"`
 	Protocol           string        `json:"protocol" groups:"protocol,normal,long,trace"`
-	Resolver           string        `json:"resolver" groups:"resolver,normal,long,trace"`
+	Resolver           string        `json:"resolver" groups:"resolver,normal,long,trace"` // IP address
 	Flags              DNSFlags      `json:"flags" groups:"flags,long,trace"`
 	TLSServerHandshake interface{}   `json:"tls_handshake,omitempty" groups:"normal,long,trace"` // used for --tls and --https, JSON string of the TLS handshake
 }
 
 type ExtendedResult struct {
+	Type       string            `json:"type" groups:"short,normal,long,trace"`
 	Res        SingleQueryResult `json:"result,omitempty" groups:"short,normal,long,trace"`
 	Status     Status            `json:"status" groups:"short,normal,long,trace"`
-	Nameserver string            `json:"nameserver" groups:"short,normal,long,trace"`
-	Trace      Trace             `json:"trace,omitempty" groups:"trace"`
+	Nameserver string            `json:"nameserver" groups:"short,normal,long,trace"` // NS name queried for this result
 }
 
-type CombinedResults struct {
-	Results []ExtendedResult `json:"results" groups:"short,normal,long,trace"`
+type AllNameServersResult struct {
+	LayeredResponses map[string][]ExtendedResult `json:"per_layer_responses" groups:"short,normal,long,trace"`
 }
 
 type IPResult struct {

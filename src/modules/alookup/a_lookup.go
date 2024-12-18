@@ -34,6 +34,9 @@ func init() {
 
 // CLIInit initializes the ALookupModule with the given parameters, used to call ALOOKUP from the command line
 func (aMod *ALookupModule) CLIInit(gc *cli.CLIConf, resolverConfig *zdns.ResolverConfig) error {
+	if gc.LookupAllNameServers {
+		return errors.New("ALOOKUP module does not support --all-nameservers")
+	}
 	aMod.Init(aMod.IPv4Lookup, aMod.IPv6Lookup)
 	err := aMod.baseModule.CLIInit(gc, resolverConfig)
 	if err != nil {
