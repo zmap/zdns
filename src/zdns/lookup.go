@@ -362,7 +362,11 @@ func (r *Resolver) filterNameServersForUniqueNames(nameServers []NameServer) []N
 // It starts at either the provided rootNameServers or r.rootNameServers if none are provided as arguments and queries all.
 // If the responses contain an authoritative answer, the function will return the result and a trace for each queried nameserver.
 // If the responses do not contain an authoritative answer, the function will continue to the next layer of nameservers.
-// At each layer, we'll de-duplicate the referral nameservers from the previous layer and query them.
+// At each layer, we'll de-duplicate the referral nameservers from the previous layer and query them. For example, if all
+// root nameservers return a-m.gtld-servers.net, we'll only query each gtld-server once.
+//
+// Additionally, we'll query each layer for NS records, and once we have the set of authoritative nameservers, we'll query with
+// the original question type. This helps find sibling nameservers that aren't listed with the TLD.
 func (r *Resolver) LookupAllNameserversIterative(q *Question, rootNameServers []NameServer) (*AllNameServersResult, Trace, Status, error) {
 	perNameServerRetriesLimit := 2
 	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)

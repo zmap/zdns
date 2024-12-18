@@ -29,7 +29,7 @@ func main() {
 	domain := "google.com"
 	dnsQuestion := &zdns.Question{Name: domain, Type: dns.TypeA, Class: dns.ClassINET}
 	resolver := initializeResolver()
-	// Iterative Lookups start at the root nameservers and follow the chain of referrals to the authoritative nameservers.
+	// LookupAllNameserversIterative will query all root nameservers, and then all TLD nameservers, and then all authoritative nameservers for the domain.
 	result, _, status, err := resolver.LookupAllNameserversIterative(dnsQuestion, nil)
 	if err != nil {
 		log.Fatal("Error looking up domain: ", err)
