@@ -2,8 +2,6 @@ module github.com/zmap/zdns
 
 go 1.20
 
-toolchain go1.23.3
-
 require (
 	github.com/hashicorp/go-version v1.7.0
 	github.com/liip/sheriff v0.12.0
