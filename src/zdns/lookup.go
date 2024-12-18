@@ -327,7 +327,7 @@ func (r *Resolver) filterNameServersForUniqueNames(nameServers []NameServer) []N
 			}
 		}
 		if ipv4NS == nil && ipv6NS == nil {
-			// can be the case that nameservers don't have IPs (like if we have an authority but no additionals)
+			// can be the case that nameservers don't have IPs (like if we have an authority but no additional)
 			// use the first NS if so
 			if len(nsSlice) > 0 {
 				filteredNameServersSet = append(filteredNameServersSet, nsSlice[0])
@@ -458,14 +458,14 @@ func (r *Resolver) LookupAllNameserversIterative(q *Question, rootNameServers []
 }
 
 // extractNameServersFromLayerResults
-// extracts unique nameservers from Additionals/Authorities. Uniques by nameserver name, not by IP
+// extracts unique nameservers from Additional/Authorities. Uniques by nameserver name, not by IP
 func (r *Resolver) extractNameServersFromLayerResults(layerResults []ExtendedResult) ([]NameServer, error) {
 	type mapKey struct {
 		Type   uint16
 		Name   string
 		Answer string
 	}
-	uniqueAdditionals := make(map[mapKey]Answer)
+	uniqueAdditional := make(map[mapKey]Answer)
 	uniqueAuthorities := make(map[mapKey]Answer)
 	uniqueAnswers := make(map[mapKey]Answer)
 	for _, res := range layerResults {
@@ -474,7 +474,7 @@ func (r *Resolver) extractNameServersFromLayerResults(layerResults []ExtendedRes
 		}
 		for _, ans := range res.Res.Additional {
 			if a, ok := ans.(Answer); ok {
-				uniqueAdditionals[mapKey{Type: a.RrType, Name: a.Name, Answer: a.Answer}] = a
+				uniqueAdditional[mapKey{Type: a.RrType, Name: a.Name, Answer: a.Answer}] = a
 			}
 		}
 		for _, ans := range res.Res.Authorities {
@@ -499,18 +499,18 @@ func (r *Resolver) extractNameServersFromLayerResults(layerResults []ExtendedRes
 			v6NameServers[strings.TrimSuffix(authorities.Answer, ".")] = NameServer{DomainName: strings.TrimSuffix(authorities.Answer, ".")}
 		}
 	}
-	for _, additionals := range uniqueAdditionals {
-		additionals.Name = strings.TrimSuffix(additionals.Name, ".")
-		if additionals.RrType == dns.TypeA {
-			if ns, ok := v4NameServers[additionals.Name]; ok {
-				ns.IP = net.ParseIP(additionals.Answer)
-				v4NameServers[additionals.Name] = ns
+	for _, additional := range uniqueAdditional {
+		additional.Name = strings.TrimSuffix(additional.Name, ".")
+		if additional.RrType == dns.TypeA {
+			if ns, ok := v4NameServers[additional.Name]; ok {
+				ns.IP = net.ParseIP(additional.Answer)
+				v4NameServers[additional.Name] = ns
 			}
 		}
-		if additionals.RrType == dns.TypeAAAA {
-			if ns, ok := v6NameServers[additionals.Name]; ok {
-				ns.IP = net.ParseIP(additionals.Answer)
-				v6NameServers[additionals.Name] = ns
+		if additional.RrType == dns.TypeAAAA {
+			if ns, ok := v6NameServers[additional.Name]; ok {
+				ns.IP = net.ParseIP(additional.Answer)
+				v6NameServers[additional.Name] = ns
 			}
 		}
 	}
@@ -867,7 +867,7 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 			cachedResult, ok = r.cache.GetCachedAuthority(authName, nil, depth+2)
 			if ok {
 				r.verboseLog(depth+2, "Cache auth hit for ", authName)
-				// only want to return if we actually have additionals and authorities from the cache for the caller
+				// only want to return if we actually have additional and authorities from the cache for the caller
 				if len(cachedResult.Additional) > 0 && len(cachedResult.Authorities) > 0 {
 					return cachedResult, true, StatusNoError, trace, nil
 				}
