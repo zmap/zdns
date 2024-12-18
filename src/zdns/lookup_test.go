@@ -920,9 +920,9 @@ func TestUnexpectedMxOnly(t *testing.T) {
 	}
 }
 
-// Test A and AAAA records in additionals
+// Test A and AAAA records in additional section
 
-func TestMxAndAdditionals(t *testing.T) {
+func TestMxAndAdditional(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
 	require.NoError(t, err)

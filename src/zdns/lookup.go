@@ -327,7 +327,7 @@ func (r *Resolver) filterNameServersForUniqueNames(nameServers []NameServer) []N
 			}
 		}
 		if ipv4NS == nil && ipv6NS == nil {
-			// can be the case that nameservers don't have IPs (like if we have an authority but no additionals)
+			// can be the case that nameservers don't have IPs (like if we have an authority but no additional)
 			// use the first NS if so
 			if len(nsSlice) > 0 {
 				filteredNameServersSet = append(filteredNameServersSet, nsSlice[0])
