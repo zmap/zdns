@@ -317,7 +317,7 @@ class Tests(unittest.TestCase):
         "timestamp": "2019-12-18T14:41:23-05:00",
         "data": {
             "answers": [],
-            "additionals": [],
+            "additional": [],
             "authorities": [],
             "protocol": "udp",
             "flags": {
@@ -1215,10 +1215,10 @@ class Tests(unittest.TestCase):
             family = 1 if ip_address(address).version == 4 else 2
             original_res = res
             res = res["results"]["A"]
-            self.assertEqual(address, res["data"]['additionals'][0]['csubnet']['address'])
-            self.assertEqual(int(netmask), res["data"]['additionals'][0]['csubnet']["source_netmask"])
-            self.assertEqual(family, res["data"]['additionals'][0]['csubnet']['family'])
-            self.assertTrue("source_scope" in res["data"]['additionals'][0]['csubnet'])
+            self.assertEqual(address, res["data"]['additional'][0]['csubnet']['address'])
+            self.assertEqual(int(netmask), res["data"]['additional'][0]['csubnet']["source_netmask"])
+            self.assertEqual(family, res["data"]['additional'][0]['csubnet']['family'])
+            self.assertTrue("source_scope" in res["data"]['additional'][0]['csubnet'])
             correct = [{"type": "A", "class": "IN", "answer": ip_addr, "name": "ecs-geo.zdns-testing.com"}]
             self.assertEqualAnswers(original_res, correct, cmd, "A")
 
@@ -1229,8 +1229,8 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd, "A")
         res = res["results"]["A"]
-        self.assertTrue("nsid" in res["data"]['additionals'][0])
-        self.assertTrue(res["data"]['additionals'][0]['nsid']['nsid'].startswith("gpdns-"))
+        self.assertTrue("nsid" in res["data"]['additional'][0])
+        self.assertTrue(res["data"]['additional'][0]['nsid']['nsid'].startswith("gpdns-"))
 
     def test_edns0_ede_1(self):
         name = "dnssec.fail"
@@ -1239,8 +1239,8 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertServFail(res, cmd, 'A')
         res = res["results"]["A"]
-        self.assertTrue("ede" in res["data"]['additionals'][0])
-        ede_obj = res["data"]['additionals'][0]["ede"][0]
+        self.assertTrue("ede" in res["data"]['additional'][0])
+        ede_obj = res["data"]['additional'][0]["ede"][0]
         self.assertEqual("DNSKEY Missing", ede_obj["error_text"])
         self.assertEqual("no SEP matching the DS found for dnssec.fail.", ede_obj["extra_text"])
         self.assertEqual(9, ede_obj["info_code"])
@@ -1252,8 +1252,8 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd, "A")
         res = res["results"]["A"]
-        self.assertTrue("ede" in res["data"]['additionals'][0])
-        ede_obj = res["data"]['additionals'][0]["ede"][0]
+        self.assertTrue("ede" in res["data"]['additional'][0])
+        ede_obj = res["data"]['additional'][0]["ede"][0]
         self.assertEqual("DNSKEY Missing", ede_obj["error_text"])
         self.assertEqual("no SEP matching the DS found for dnssec.fail.", ede_obj["extra_text"])
         self.assertEqual(9, ede_obj["info_code"])
@@ -1265,7 +1265,7 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd, "SOA")
         res = res["results"]["SOA"]
-        self.assertEqual('do', res["data"]['additionals'][0]['flags'])
+        self.assertEqual('do', res["data"]['additional'][0]['flags'])
         self.assertEqualTypes(res, ["SOA", "RRSIG"])
 
     def test_cd_bit_not_set(self):
@@ -1490,7 +1490,7 @@ class Tests(unittest.TestCase):
         """
         Test that --all-nameservers --iterative lookups work with domains whose nameservers are all in the same zone
         zdns-testing.com has nameservers ns-cloud-c1/2/3/4.googledomains.com, which are all in the .com zone and so will have their IPs
-        provided as additionals in the .com response
+        provided as additional in the .com response
         """
         # zdns-testing.com's nameservers are all in the .com zone, so we should only have to query the .com nameservers
         c = "A zdns-testing.com --all-nameservers --iterative --timeout=60"
@@ -1546,7 +1546,7 @@ class Tests(unittest.TestCase):
         Test that --all-nameservers lookups work with domains whose nameservers have their nameservers in different zones
         In this case, example.com has a/b.iana-servers.net as nameservers, which are in the .com zone, but whose nameservers
         are dig -t NS iana-servers.com -> ns.icann.org, a/b/c.iana-servers.net. This means the .com nameservers will not
-        provide the IPs in additionals.
+        provide the IPs in additional.
         """
         # example.com has nameservers in .com, .org, and .net, we'll have to iteratively figure out their IP addresses too
         c = "A example.com --all-nameservers --iterative --timeout=60"
