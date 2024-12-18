@@ -44,14 +44,14 @@ type StatusHandler interface {
 // GeneralOptions core options for all ZDNS modules
 // Order here is the order they'll be printed to the user, so preserve alphabetical order
 type GeneralOptions struct {
-	LookupAllNameServers bool   `long:"all-nameservers" description:"Perform the lookup via all the nameservers for the domain."`
+	LookupAllNameServers bool   `long:"all-nameservers" description:"Behavior is dependent on --iterative. In --iterative, --all-name-servers will query all root servers, then all gtld servers, etc. recording the responses at each layer. In non-iterative mode, the query will be sent to all external resolvers specified in --name-servers."`
 	CacheSize            int    `long:"cache-size" default:"10000" description:"how many items can be stored in internal recursive cache"`
 	GoMaxProcs           int    `long:"go-processes" default:"0" description:"number of OS processes (GOMAXPROCS by default)"`
 	IterationTimeout     int    `long:"iteration-timeout" default:"8" description:"timeout for a single iterative step in an iterative query, in seconds. Only applicable with --iterative"`
 	IterativeResolution  bool   `long:"iterative" description:"Perform own iteration instead of relying on recursive resolver"`
 	MaxDepth             int    `long:"max-depth" default:"10" description:"how deep should we recurse when performing iterative lookups"`
 	NameServerMode       bool   `long:"name-server-mode" description:"Treats input as nameservers to query with a static query rather than queries to send to a static name server"`
-	NameServersString    string `long:"name-servers" description:"List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53."`
+	NameServersString    string `long:"name-servers" description:"List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53. If not provided, defaults to either the default root servers in --iterative or the recursive resolvers specified in /etc/resolv.conf or OS equivalent."`
 	UseNanoseconds       bool   `long:"nanoseconds" description:"Use nanosecond resolution timestamps in output"`
 	NetworkTimeout       int    `long:"network-timeout" default:"2" description:"timeout for round trip network operations, in seconds"`
 	DisableFollowCNAMEs  bool   `long:"no-follow-cnames" description:"do not follow CNAMEs/DNAMEs in the lookup process"`

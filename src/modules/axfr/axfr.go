@@ -151,6 +151,9 @@ func (axfrMod *AxfrLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfi
 	if gc.IterativeResolution {
 		log.Fatal("AXFR module does not support iterative resolution")
 	}
+	if gc.LookupAllNameServers {
+		return errors.New("AXFR module does not support --all-nameservers")
+	}
 	var err error
 	if axfrMod.BlacklistPath != "" {
 		axfrMod.Blacklist = safeblacklist.New()

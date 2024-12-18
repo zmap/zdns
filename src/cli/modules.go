@@ -14,6 +14,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/miekg/dns"
@@ -165,14 +166,23 @@ func (lm *BasicLookupModule) NewFlags() interface{} {
 	return lm
 }
 
+// Lookup performs a DNS lookup using the given resolver and lookupName.
+// The behavior with respect to the nameServers is determined by the LookupAllNameServers and IsIterative fields.
+// non-Iterative + all-Nameservers query -> we'll send a query to each of the resolver's external nameservers
+// non-Iterative query -> we'll send a query to the nameserver provided. If none provided, a random nameserver from the resolver's external nameservers will be used
+// iterative + all-Nameservers query -> we'll send a query to each root NS and query all nameservers down the chain.
+// iterative query -> we'll send a query to a random root NS and query all nameservers down the chain.
 func (lm *BasicLookupModule) Lookup(resolver *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
+	if lm.LookupAllNameServers && lm.IsIterative {
+		return resolver.LookupAllNameserversIterative(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass}, nil)
+	}
 	if lm.LookupAllNameServers {
-		return resolver.LookupAllNameservers(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass}, nameServer)
+		return resolver.LookupAllNameserversExternal(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass}, nil)
 	}
 	if lm.IsIterative {
-		return resolver.IterativeLookup(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass})
+		return resolver.IterativeLookup(context.Background(), &zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass})
 	}
-	return resolver.ExternalLookup(&zdns.Question{Type: lm.DNSType, Class: lm.DNSClass, Name: lookupName}, nameServer)
+	return resolver.ExternalLookup(context.Background(), &zdns.Question{Type: lm.DNSType, Class: lm.DNSClass, Name: lookupName}, nameServer)
 }
 
 func GetLookupModule(name string) (LookupModule, error) {

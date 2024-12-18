@@ -15,6 +15,7 @@
 package zdns
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"net"
@@ -85,7 +86,7 @@ type ResolverConfig struct {
 	ExternalNameServersV6 []NameServer // v6 name servers used for external lookups
 	RootNameServersV4     []NameServer // v4 root servers used for iterative lookups
 	RootNameServersV6     []NameServer // v6 root servers used for iterative lookups
-	LookupAllNameServers  bool         // perform the lookup via all the nameservers for the domain
+	LookupAllNameServers  bool         // perform the lookup via all the nameservers for the name
 	FollowCNAMEs          bool         // whether iterative lookups should follow CNAMEs/DNAMEs
 	DNSConfigFilePath     string       // path to the DNS config file, ex: /etc/resolv.conf
 
@@ -284,7 +285,7 @@ type Resolver struct {
 
 	networkTimeout             time.Duration // timeout for a single on-the-wire network call
 	iterativeTimeout           time.Duration // timeout for a layer of the iterative lookup
-	timeout                    time.Duration // timeout for the entire domain lookup
+	timeout                    time.Duration // timeout for the entire name lookup
 	maxDepth                   int
 	externalNameServers        []NameServer // name servers used by external lookups (either OS or user specified)
 	rootNameServers            []NameServer // root servers used for iterative lookups
@@ -552,7 +553,7 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 							ServerName:         nameServer.DomainName,
 						})
 					} else {
-						// If no domain name is provided, we can't verify the server's certificate
+						// If no name is provided, we can't verify the server's certificate
 						tlsConn = tls.Client(conn, &tls.Config{
 							InsecureSkipVerify: true,
 						})
@@ -606,7 +607,7 @@ func getNewTCPConn(nameServer *NameServer, connInfo *ConnectionInfo) error {
 // multiple lookups concurrently, create a new Resolver object for each concurrent lookup.
 // Returns the result of the lookup, the trace of the lookup (what each nameserver along the lookup returned), the
 // status of the lookup, and any error that occurred.
-func (r *Resolver) ExternalLookup(q *Question, dstServer *NameServer) (*SingleQueryResult, Trace, Status, error) {
+func (r *Resolver) ExternalLookup(ctx context.Context, q *Question, dstServer *NameServer) (*SingleQueryResult, Trace, Status, error) {
 	if r.isClosed {
 		log.Fatal("resolver has been closed, cannot perform lookup")
 	}
@@ -624,7 +625,7 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer *NameServer) (*SingleQu
 	}
 	// dstServer has been validated and has a port, continue with lookup
 	r.lastUsedExternalNameServer = dstServer
-	lookup, trace, status, err := r.lookupClient.DoDstServersLookup(r, *q, []NameServer{*dstServer}, false)
+	lookup, trace, status, err := r.lookupClient.DoDstServersLookup(ctx, r, *q, []NameServer{*dstServer}, false)
 	return lookup, trace, status, err
 }
 
@@ -634,11 +635,11 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer *NameServer) (*SingleQu
 // multiple lookups concurrently, create a new Resolver object for each concurrent lookup.
 // Returns the result of the lookup, the trace of the lookup (what each nameserver along the lookup returned), the
 // status of the lookup, and any error that occurred.
-func (r *Resolver) IterativeLookup(q *Question) (*SingleQueryResult, Trace, Status, error) {
+func (r *Resolver) IterativeLookup(ctx context.Context, q *Question) (*SingleQueryResult, Trace, Status, error) {
 	if r.isClosed {
 		log.Fatal("resolver has been closed, cannot perform lookup")
 	}
-	return r.lookupClient.DoDstServersLookup(r, *q, r.rootNameServers, true)
+	return r.lookupClient.DoDstServersLookup(ctx, r, *q, r.rootNameServers, true)
 }
 
 // Close cleans up any resources used by the resolver. This should be called when the resolver is no longer needed.
