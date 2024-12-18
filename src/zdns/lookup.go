@@ -99,9 +99,6 @@ func (r *Resolver) doDstServersLookup(ctx context.Context, q Question, nameServe
 			q.Name = qname[:len(qname)-1]
 		}
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
-	defer cancel()
-
 	if r.shouldValidateDNSSEC {
 		r.validator = makeDNSSECValidator(r, ctx, isIterative)
 	}
