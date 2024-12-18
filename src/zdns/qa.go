@@ -81,6 +81,7 @@ type SingleQueryResult struct {
 	Protocol           string        `json:"protocol" groups:"protocol,normal,long,trace"`
 	Resolver           string        `json:"resolver" groups:"resolver,normal,long,trace"` // IP address
 	Flags              DNSFlags      `json:"flags" groups:"flags,long,trace"`
+	DNSSECResult       *DNSSECResult `json:"dnssec,omitempty" groups:"dnssec,normal,long,trace"`
 	TLSServerHandshake interface{}   `json:"tls_handshake,omitempty" groups:"normal,long,trace"` // used for --tls and --https, JSON string of the TLS handshake
 }
 

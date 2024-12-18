@@ -14,6 +14,7 @@
 package zdns
 
 import (
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -33,9 +34,11 @@ type CachedKey struct {
 }
 
 type CachedResult struct {
-	Answers     []TimedAnswer
-	Authorities []TimedAnswer
-	Additionals []TimedAnswer
+	Answers      []TimedAnswer
+	Authorities  []TimedAnswer
+	Additionals  []TimedAnswer
+	Flags        DNSFlags
+	DNSSECResult *DNSSECResult
 }
 
 type TimedAnswer struct {
@@ -73,7 +76,7 @@ func (s *Cache) addCachedAnswer(q Question, nameServer string, isAuthority bool,
 	} else if didEject {
 		s.VerboseLog(depth+1, "inserting cache entry caused eviction, entry: ", q, " ", nameServer, " is authority: ", isAuthority)
 	} else {
-		s.VerboseLog(depth+1, "inserted new cache entry for ", q, " ", nameServer, " is authority: ", isAuthority)
+		s.VerboseLog(depth+1, "inserted new cache entry for ", q, " ", nameServer, " is authority: ", isAuthority, " ", result.Answers)
 	}
 	if didEject {
 		s.Stats.IncrementEjects()
@@ -134,6 +137,8 @@ func (s *Cache) getCachedResult(q Question, ns *NameServer, isAuthority bool, de
 	retv.Answers = make([]interface{}, 0, len(cachedRes.Answers))
 	retv.Authorities = make([]interface{}, 0, len(cachedRes.Authorities))
 	retv.Additional = make([]interface{}, 0, len(cachedRes.Additionals))
+	retv.Flags = cachedRes.Flags
+	retv.DNSSECResult = cachedRes.DNSSECResult
 	// great we have a result. let's go through the entries and build a result. In the process, throw away anything
 	// that's expired
 	now := time.Now()
@@ -180,14 +185,16 @@ func isCacheableType(ans WithBaseAnswer) bool {
 	//// TODO: this is overly broad right now and will unnecessarily cache some leaf A/AAAA records. However,
 
 	rrType := ans.BaseAns().RrType
-	return rrType == dns.TypeA || rrType == dns.TypeAAAA || rrType == dns.TypeNS || rrType == dns.TypeDNAME || rrType == dns.TypeCNAME || rrType == dns.TypeDS || rrType == dns.TypeDNSKEY
+	return rrType == dns.TypeA || rrType == dns.TypeAAAA || rrType == dns.TypeNS || rrType == dns.TypeDNAME || rrType == dns.TypeCNAME || rrType == dns.TypeDS || rrType == dns.TypeDNSKEY || rrType == dns.TypeNSEC || rrType == dns.TypeNSEC3
 }
 
 func (s *Cache) buildCachedResult(res *SingleQueryResult, depth int, layer string) *CachedResult {
 	now := time.Now()
 	cachedRes := CachedResult{}
-	cachedRes.Answers = make([]TimedAnswer, 0, len(res.Answers))
+	cachedRes.Flags = res.Flags
+	cachedRes.DNSSECResult = res.DNSSECResult
 
+	cachedRes.Answers = make([]TimedAnswer, 0, len(res.Answers))
 	var getExpirationForSafeAnswer = func(a any) (WithBaseAnswer, time.Time) {
 		castAns, ok := a.(WithBaseAnswer)
 		if !ok {
@@ -236,6 +243,10 @@ func (s *Cache) buildCachedResult(res *SingleQueryResult, depth int, layer strin
 }
 
 func (s *Cache) SafeAddCachedAnswer(q Question, res *SingleQueryResult, ns *NameServer, layer string, depth int, cacheNonAuthoritative bool) {
+	if res.DNSSECResult != nil && res.DNSSECResult.Status == DNSSECBogus {
+		panic("attempting to cache a bogus result")
+	}
+
 	nsString := ""
 	if ns != nil {
 		nsString = ns.String()
@@ -248,7 +259,7 @@ func (s *Cache) SafeAddCachedAnswer(q Question, res *SingleQueryResult, ns *Name
 			continue
 		}
 		baseAns := castAns.BaseAns()
-		if ok, _ = nameIsBeneath(baseAns.Name, layer); !ok {
+		if ok, _ = nameIsBeneath(baseAns.Name, layer); !ok && baseAns.Type != dns.TypeToString[dns.TypeNSEC3] {
 			if len(nsString) > 0 {
 				s.VerboseLog(depth+1, "SafeAddCachedAnswer: detected poison: ", baseAns.Name, "(", baseAns.Type, "): @", nsString, ", ", layer, " , aborting")
 			} else {
@@ -280,22 +291,28 @@ func (s *Cache) SafeAddCachedAnswer(q Question, res *SingleQueryResult, ns *Name
 // This Authority.Name must be below the current layer.
 // Will be cached under an NS record for the authority.
 func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, depth int, layer string) {
+	if res.DNSSECResult != nil && res.DNSSECResult.Status == DNSSECBogus {
+		panic("attempting to cache a bogus result")
+	}
+
 	if len(res.Answers) > 0 {
 		// authorities should not have answers
 		res.Answers = make([]interface{}, 0)
 	}
 	authName := ""
 	for _, auth := range res.Authorities {
-		castAuth, ok := auth.(WithBaseAnswer)
+		castAuth, ok := auth.(Answer)
 		if !ok {
-			// if we can't cast, it won't be added to the cache. We'll log in buildCachedResult
+			// if we can't cast, it won't be added to the cache
+			// unless it's DS, NSEC, or NSEC3 (which may be under different names so checking for poison doesn't make sense)
+			// We'll log in buildCachedResult
 			continue
 		}
-		baseAns := castAuth.BaseAns()
+		currName := strings.ToLower(castAuth.BaseAns().Name)
 		if len(authName) == 0 {
-			authName = baseAns.Name
-		} else if authName != baseAns.Name {
-			s.VerboseLog(depth+1, "SafeAddCachedAuthority: multiple authority names: ", layer, ": ", authName, " ", baseAns.Name, " , aborting")
+			authName = currName
+		} else if authName != currName {
+			s.VerboseLog(depth+1, "SafeAddCachedAuthority: multiple authority names: ", layer, ": ", authName, " ", currName, " , aborting")
 			return
 		}
 	}
@@ -309,7 +326,44 @@ func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, d
 		nsString = ns.String()
 	}
 
-	cachedRes := s.buildCachedResult(res, depth, layer)
+	// Referrals may contain DS records in the authority section. These need to be cached under the child name.
+	delegateToDSRRs := make(map[string][]interface{})
+	var otherRRs []interface{}
+	for _, rr := range res.Authorities {
+		switch rr := rr.(type) {
+		case DSAnswer, NSECAnswer, NSEC3Answer:
+			delegateToDSRRs[authName] = append(delegateToDSRRs[authName], rr)
+		default:
+			otherRRs = append(otherRRs, rr)
+		}
+	}
+
+	if len(delegateToDSRRs) > 0 {
+		s.VerboseLog(depth+1, "SafeAddCachedAuthority: found DS records in authority section, caching under child names")
+
+		// So, it's guaranteed that DNSSEC-related records are secure even the entire response is not.
+		// Otherwise the result would be bogus and it won't make it's way here.
+		secureDNSSECResult := makeDNSSECResult()
+		secureDNSSECResult.Status = DNSSECSecure
+
+		for delegateName, dsRRs := range delegateToDSRRs {
+			dsRes := &SingleQueryResult{
+				Authorities:        dsRRs,
+				Protocol:           res.Protocol,
+				Resolver:           res.Resolver,
+				Flags:              res.Flags,
+				TLSServerHandshake: res.TLSServerHandshake,
+				DNSSECResult:       secureDNSSECResult,
+			}
+			dsRes.Flags.Authoritative = true
+			dsCachedRes := s.buildCachedResult(dsRes, depth, layer)
+			s.addCachedAnswer(Question{Name: delegateName, Type: dns.TypeDS, Class: dns.ClassINET}, nsString, false, dsCachedRes, depth)
+		}
+	}
+
+	copiedRes := *res
+	copiedRes.Authorities = otherRRs
+	cachedRes := s.buildCachedResult(&copiedRes, depth, layer)
 	if len(cachedRes.Answers) == 0 && len(cachedRes.Authorities) == 0 && len(cachedRes.Additionals) == 0 {
 		s.VerboseLog(depth+1, "SafeAddCachedAnswer: no cacheable records found, aborting")
 		return
