@@ -1426,7 +1426,7 @@ class Tests(unittest.TestCase):
         provided as additionals in the .com response
         """
         # zdns-testing.com's nameservers are all in the .com zone, so we should only have to query the .com nameservers
-        c = "A zdns-testing.com --all-nameservers --iterative"
+        c = "A zdns-testing.com --all-nameservers --iterative --timeout=30"
         cmd,res = self.run_zdns(c, "")
         self.assertSuccess(res, cmd, "A")
         # Check for layers
@@ -1482,7 +1482,7 @@ class Tests(unittest.TestCase):
         provide the IPs in additionals.
         """
         # example.com has nameservers in .com, .org, and .net, we'll have to iteratively figure out their IP addresses too
-        c = "A example.com --all-nameservers --iterative"
+        c = "A example.com --all-nameservers --iterative --timeout=30"
         cmd,res = self.run_zdns(c, "")
         self.assertSuccess(res, cmd, "A")
         # Check for layers

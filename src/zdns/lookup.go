@@ -305,6 +305,59 @@ func (r *Resolver) LookupAllNameserversExternal(q *Question, nameServers []NameS
 	return retv, trace, StatusNoError, nil
 }
 
+// filterNameServersForUniqueNames will filter out duplicate nameservers based on the name.
+// Usually we'll have duplicates if a nameserver has both an IPv4 and IPv6 address. We'll use r.ipVersionMode and r.iterationIPPreference to determine which to keep.
+func (r *Resolver) filterNameServersForUniqueNames(nameServers []NameServer) []NameServer {
+	uniqNameServersSet := make(map[string][]NameServer)
+	for _, ns := range nameServers {
+		if _, ok := uniqNameServersSet[ns.DomainName]; !ok {
+			// no slice, add one
+			uniqNameServersSet[ns.DomainName] = make([]NameServer, 0, 1)
+		}
+		uniqNameServersSet[ns.DomainName] = append(uniqNameServersSet[ns.DomainName], ns)
+	}
+	// nameservers not grouped by name
+	filteredNameServersSet := make([]NameServer, 0, len(uniqNameServersSet))
+	for _, nsSlice := range uniqNameServersSet {
+		var ipv4NS, ipv6NS *NameServer
+		for _, ns := range nsSlice {
+			if ns.IP.To4() != nil {
+				ipv4NS = &ns
+			} else if util.IsIPv6(&ns.IP) {
+				ipv6NS = &ns
+			}
+		}
+		if ipv4NS == nil && ipv6NS == nil {
+			// can be the case that nameservers don't have IPs (like if we have an authority but no additionals)
+			// use the first NS if so
+			if len(nsSlice) > 0 {
+				filteredNameServersSet = append(filteredNameServersSet, nsSlice[0])
+				continue
+			}
+		}
+		// If we only have one IP version, we'll keep that
+		if ipv4NS == nil {
+			filteredNameServersSet = append(filteredNameServersSet, *ipv6NS)
+			continue
+		}
+		if ipv6NS == nil {
+			filteredNameServersSet = append(filteredNameServersSet, *ipv4NS)
+			continue
+		}
+		// If we have both, we'll use the resolver's settings to determine which to keep
+		if r.ipVersionMode == IPv4Only {
+			filteredNameServersSet = append(filteredNameServersSet, *ipv4NS)
+		} else if r.ipVersionMode == IPv6Only {
+			filteredNameServersSet = append(filteredNameServersSet, *ipv6NS)
+		} else if r.iterationIPPreference == PreferIPv4 {
+			filteredNameServersSet = append(filteredNameServersSet, *ipv4NS)
+		} else if r.iterationIPPreference == PreferIPv6 {
+			filteredNameServersSet = append(filteredNameServersSet, *ipv6NS)
+		}
+	}
+	return filteredNameServersSet
+}
+
 // LookupAllNameserversIterative will send a query to all name servers at each level of DNS resolution.
 // It starts at either the provided rootNameServers or r.rootNameServers if none are provided as arguments and queries all.
 // If the responses contain an authoritative answer, the function will return the result and a trace for each queried nameserver.
@@ -330,6 +383,8 @@ func (r *Resolver) LookupAllNameserversIterative(q *Question, rootNameServers []
 	var layerResults []ExtendedResult
 	var currTrace Trace
 	for {
+		// Filter out duplicate nameservers by name, we'll treat IPv4 and IPv6 addresses as the same nameserver
+		currentLayerNameServers = r.filterNameServersForUniqueNames(currentLayerNameServers)
 		// Getting the NameServers
 		layerResults, currTrace, _, err = r.queryAllNameServersInLayer(ctx, perNameServerRetriesLimit, q, currentLayerNameServers)
 		trace = append(trace, currTrace...)
@@ -366,14 +421,7 @@ func (r *Resolver) LookupAllNameserversIterative(q *Question, rootNameServers []
 		currentLayer = newLayer
 	}
 	// de-dupe nameservers
-	uniqNameServersSet := make(map[string]NameServer)
-	for _, ns := range currentLayerNameServers {
-		uniqNameServersSet[ns.DomainName] = ns
-	}
-	uniqNameServers := make([]NameServer, 0, len(uniqNameServersSet))
-	for _, ns := range uniqNameServersSet {
-		uniqNameServers = append(uniqNameServers, ns)
-	}
+	uniqNameServers := r.filterNameServersForUniqueNames(currentLayerNameServers)
 	// Now that we have an exhaustive list of leaf NSes, we'll query the original NSes
 	q.Type = originalQuestionType
 	layerResults, currTrace, _, err = r.queryAllNameServersInLayer(ctx, perNameServerRetriesLimit, q, uniqNameServers)
