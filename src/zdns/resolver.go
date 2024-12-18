@@ -476,7 +476,7 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 			}
 		}
 		if localAddr != nil {
-			log.Infof("none of the user-supplied local addresses could connect to name server %s, using local address %s", nameServer.String(), localAddr.String())
+			log.Warnf("none of the user-supplied local addresses could connect to name server %s, using local address %s", nameServer.String(), localAddr.String())
 		}
 	}
 	if localAddr == nil {
