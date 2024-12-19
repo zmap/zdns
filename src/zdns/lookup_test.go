@@ -530,7 +530,7 @@ func TestLookup_DoTxtLookup_1(t *testing.T) {
 			Name:   "example.com",
 			Answer: "asdfasdfasdf",
 		}},
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -558,7 +558,7 @@ func TestLookup_DoTxtLookup_2(t *testing.T) {
 				Name:   "example.com",
 				Answer: "google-site-verification=A2WZWCNQHrGV_TWwKh7KHY90UY0SHZo_rnyMJoDaG0",
 			}},
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -586,7 +586,7 @@ func TestLookup_DoTxtLookup_3(t *testing.T) {
 				Name:   "example.com",
 				Answer: "google-site-verification=A2WZWCNQHrGV_TWwKh7KHY90UY0SHZo_rnyMJoDaG0s",
 			}},
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -644,7 +644,7 @@ func TestOneA(t *testing.T) {
 			Name:   domain1 + ".",
 			Answer: "192.0.2.1",
 		}},
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -679,7 +679,7 @@ func TestTwoA(t *testing.T) {
 				Name:   "example.com",
 				Answer: "192.0.2.2",
 			}},
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -714,7 +714,7 @@ func TestQuadAWithoutFlag(t *testing.T) {
 				Name:   "example.com",
 				Answer: "2001:db8::1",
 			}},
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -743,7 +743,7 @@ func TestOnlyQuadA(t *testing.T) {
 			Name:   "example.com",
 			Answer: "2001:db8::1",
 		}},
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -780,7 +780,7 @@ func TestAandQuadA(t *testing.T) {
 				Name:   "example.com",
 				Answer: "2001:db8::1",
 			}},
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -816,7 +816,7 @@ func TestTwoQuadA(t *testing.T) {
 				Name:   "example.com",
 				Answer: "2001:db8::2",
 			}},
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -840,7 +840,7 @@ func TestNoResults(t *testing.T) {
 
 	mockResults[domainNS1] = SingleQueryResult{
 		Answers:     nil,
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -875,7 +875,7 @@ func TestQuadAWithCname(t *testing.T) {
 				Name:   "cname.example.com",
 				Answer: "example.com.",
 			}},
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -903,7 +903,7 @@ func TestUnexpectedMxOnly(t *testing.T) {
 			Name:   "example.com",
 			Answer: "mail.example.com.",
 		}},
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -922,7 +922,7 @@ func TestUnexpectedMxOnly(t *testing.T) {
 
 // Test A and AAAA records in additional section
 
-func TestMxAndAdditional(t *testing.T) {
+func TestMxAndAdditionalSection(t *testing.T) {
 	config := InitTest(t)
 	resolver, err := InitResolver(config)
 	require.NoError(t, err)
@@ -939,7 +939,7 @@ func TestMxAndAdditional(t *testing.T) {
 			Name:   "example.com",
 			Answer: "mail.example.com.",
 		}},
-		Additional: []interface{}{Answer{
+		Additionals: []interface{}{Answer{
 			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
@@ -980,7 +980,7 @@ func TestMismatchIpType(t *testing.T) {
 			Name:   "example.com",
 			Answer: "2001:db8::4",
 		}},
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -1016,7 +1016,7 @@ func TestEmptyNonTerminal(t *testing.T) {
 			Name:   "leaf.intermediate.example.com.",
 			Answer: "192.0.2.3",
 		}},
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -1028,7 +1028,7 @@ func TestEmptyNonTerminal(t *testing.T) {
 
 	mockResults[domainNS2] = SingleQueryResult{
 		Answers:     nil,
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -1097,7 +1097,7 @@ func TestAandQuadADedup(t *testing.T) {
 			Name:   domain3,
 			Answer: "2001:db8::3",
 		}},
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -1123,7 +1123,7 @@ func TestAandQuadADedup(t *testing.T) {
 			Name:   domain3,
 			Answer: "2001:db8::3",
 		}},
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -1143,7 +1143,7 @@ func TestAandQuadADedup(t *testing.T) {
 			Name:   domain3,
 			Answer: "2001:db8::3",
 		}},
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -1212,7 +1212,7 @@ func TestNsAInAdditional(t *testing.T) {
 				Answer: "ns1.example.com.",
 			},
 		},
-		Additional: []interface{}{
+		Additionals: []interface{}{
 			Answer{
 				TTL:    3600,
 				Type:   "A",
@@ -1262,7 +1262,7 @@ func TestTwoNSInAdditional(t *testing.T) {
 				Answer: "ns2.example.com.",
 			},
 		},
-		Additional: []interface{}{
+		Additionals: []interface{}{
 			Answer{
 				TTL:    3600,
 				Type:   "A",
@@ -1315,7 +1315,7 @@ func TestAandQuadAInAdditional(t *testing.T) {
 				Answer: "ns1.example.com.",
 			},
 		},
-		Additional: []interface{}{
+		Additionals: []interface{}{
 			Answer{
 				TTL:    3600,
 				Type:   "A",
@@ -1364,7 +1364,7 @@ func TestNsMismatchIpType(t *testing.T) {
 				Answer: "ns1.example.com.",
 			},
 		},
-		Additional: []interface{}{
+		Additionals: []interface{}{
 			Answer{
 				TTL:    3600,
 				Type:   "AAAA",
@@ -1413,7 +1413,7 @@ func TestAandQuadALookup(t *testing.T) {
 				Answer: "ns1.example.com.",
 			},
 		},
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -1440,7 +1440,7 @@ func TestAandQuadALookup(t *testing.T) {
 				Answer: "2001:db8::4",
 			},
 		},
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -1504,7 +1504,7 @@ func TestErrorInTargetedLookup(t *testing.T) {
 				Answer: "ns1.example.com.",
 			},
 		},
-		Additional:  nil,
+		Additionals: nil,
 		Authorities: nil,
 		Protocol:    "",
 		Flags:       DNSFlags{},
@@ -1544,7 +1544,7 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 				Answer: comServer + ".",
 			},
 		},
-		Additional: []interface{}{
+		Additionals: []interface{}{
 			Answer{
 				TTL:    3600,
 				Type:   "A",
@@ -1566,7 +1566,7 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 				Answer: exampleNSServer + ".",
 			},
 		},
-		Additional: []interface{}{
+		Additionals: []interface{}{
 			Answer{
 				TTL:    3600,
 				Type:   "A",
@@ -1607,7 +1607,7 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 							Answer: "a.gtld-servers.net.",
 						},
 					},
-					Additional: []interface{}{
+					Additionals: []interface{}{
 						Answer{
 							TTL:    3600,
 							Type:   "A",
@@ -1636,7 +1636,7 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 							Answer: "ns1.example.com.",
 						},
 					},
-					Additional: []interface{}{
+					Additionals: []interface{}{
 						Answer{
 							TTL:    3600,
 							Type:   "A",
@@ -1736,7 +1736,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 				Answer: comServerB + ".",
 			},
 		},
-		Additional: []interface{}{
+		Additionals: []interface{}{
 			Answer{
 				TTL:    3600,
 				Type:   "A",
@@ -1770,7 +1770,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 				Answer: exampleNSServer + ".",
 			},
 		},
-		Additional: []interface{}{
+		Additionals: []interface{}{
 			Answer{
 				TTL:    3600,
 				Type:   "A",
@@ -1819,7 +1819,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 							Answer: "b.gtld-servers.net.",
 						},
 					},
-					Additional: []interface{}{
+					Additionals: []interface{}{
 						Answer{
 							TTL:    3600,
 							Type:   "A",
@@ -1862,7 +1862,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 							Answer: exampleNSServer + ".",
 						},
 					},
-					Additional: []interface{}{
+					Additionals: []interface{}{
 						Answer{
 							TTL:    3600,
 							Type:   "A",
