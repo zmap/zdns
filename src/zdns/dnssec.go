@@ -63,7 +63,7 @@ const NSEC3OptOutFlag = 0x01
 //   - Status: Overall DNSSEC validation status (Secure/Insecure/Bogus/Indeterminate)
 //   - DS: Collection of DS records actually used during validation
 //   - DNSKEYs: Collection of DNSKEYs records actually used during validation
-//   - Answer/Additional/Authorities: Per-RRset validation results
+//   - Answers/Additionals/Authorities: Per-RRset validation results
 //
 // - Trace: Updated trace context containing validation path
 func (v *dNSSECValidator) validate(layer string, msg *dns.Msg, nameServer *NameServer, depth int, trace Trace) (*DNSSECResult, Trace) {
@@ -126,7 +126,7 @@ func (v *dNSSECValidator) validate(layer string, msg *dns.Msg, nameServer *NameS
 		result.populateStatus()
 	}
 
-	// DNSKEYs/DS queries may have failed, so we need to check the status again here
+	// DNSKEY/DS queries may have failed, so we need to check the status again here
 	if v.status != DNSSECSecure {
 		result = makeDNSSECResult()
 		result.Status = v.status
@@ -265,14 +265,14 @@ func (v *dNSSECValidator) findSEPsFromAnswer(rrSet []dns.RR, signerDomain string
 	for _, rr := range rrSet {
 		dnskey, ok := rr.(*dns.DNSKEY)
 		if !ok {
-			return nil, trace, fmt.Errorf("invalid RR type in DNSKEYs RRset: %v", rr)
+			return nil, trace, fmt.Errorf("invalid RR type in DNSKEY RRset: %v", rr)
 		}
 
 		switch dnskey.Flags {
 		case keySigningKeyFlag, zoneSigningKeyFlag:
 			dnskeys[dnskey.KeyTag()] = dnskey
 		default:
-			return nil, trace, fmt.Errorf("unexpected DNSKEYs flag: %d", dnskey.Flags)
+			return nil, trace, fmt.Errorf("unexpected DNSKEY flag: %d", dnskey.Flags)
 		}
 	}
 
@@ -321,15 +321,15 @@ func (v *dNSSECValidator) getDNSKEYs(signerDomain string, trace Trace, depth int
 	res, trace, status, err := v.r.lookup(v.ctx, &dnskeyQuestion, v.r.rootNameServers, v.isIterative, trace)
 	if status != StatusNoError {
 		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DNSKEYs for signer domain %s, query status: %s", signerDomain, status))
-		return nil, nil, trace, fmt.Errorf("DNSKEYs fetch failed, query status: %s", status)
+		return nil, nil, trace, fmt.Errorf("DNSKEY fetch failed, query status: %s", status)
 	} else if err != nil {
 		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DNSKEYs for signer domain %s, err: %v", signerDomain, err))
-		return nil, nil, trace, fmt.Errorf("DNSKEYs fetch failed, err: %v", err)
+		return nil, nil, trace, fmt.Errorf("DNSKEY fetch failed, err: %v", err)
 	} else if res.DNSSECResult != nil && res.DNSSECResult.Status != DNSSECSecure { // 	// DNSSECResult may be nil if the response is from the cache.
-		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DNSKEYs for signer domain %s, DNSSEC status: %s", signerDomain, res.DNSSECResult.Status))
+		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DNSKEY for signer domain %s, DNSSEC status: %s", signerDomain, res.DNSSECResult.Status))
 
 		if prevResult := getResultForRRset(RRsetKey(dnskeyQuestion.Q), res.DNSSECResult.Answers); prevResult != nil && prevResult.Error != "" {
-			return nil, nil, trace, fmt.Errorf("DNSKEYs fetch failed: %s", prevResult.Error)
+			return nil, nil, trace, fmt.Errorf("DNSKEY fetch failed: %s", prevResult.Error)
 		} else {
 			return nil, nil, trace, errors.New(res.DNSSECResult.Reason)
 		}
@@ -337,11 +337,11 @@ func (v *dNSSECValidator) getDNSKEYs(signerDomain string, trace Trace, depth int
 
 	// RRSIGs of res should have been verified before returning to here.
 
-	// Construct key tag to DNSKEYs map
+	// Construct key tag to DNSKEY map
 	for _, rr := range res.Answers {
 		zTypedKey, ok := rr.(DNSKEYAnswer)
 		if !ok {
-			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Non-DNSKEYs RR type in DNSKEYs answer: %v", rr))
+			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Non-DNSKEY RR type in DNSKEYs answer: %v", rr))
 			continue
 		}
 		dnskey := zTypedKey.ToVanillaType()
@@ -350,17 +350,17 @@ func (v *dNSSECValidator) getDNSKEYs(signerDomain string, trace Trace, depth int
 		case keySigningKeyFlag, zoneSigningKeyFlag:
 			dnskeys[dnskey.KeyTag()] = dnskey
 		default:
-			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Unexpected DNSKEYs flag %d in DNSKEYs answer", dnskey.Flags))
+			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Unexpected DNSKEY flag %d in DNSKEYs answer", dnskey.Flags))
 		}
 	}
 
-	// Error if no DNSKEYs is found
+	// Error if no DNSKEY is found
 	if len(dnskeys) == 0 {
-		return nil, nil, trace, errors.New("missing at least one DNSKEYs answer")
+		return nil, nil, trace, errors.New("missing at least one DNSKEY answer")
 	}
 
 	// Find SEP keys
-	// Don't actually need to because this have must been checked during the lookup for DNSKEYs records.
+	// Don't actually need to because this have must been checked during the lookup for DNSKEY records.
 	// Keeping this here only so we can include matched DS records in the output.
 	var sepKeys map[uint16]*dns.DNSKEY
 	sepKeys, trace, err = v.findSEPs(signerDomain, dnskeys, trace, depth)
@@ -484,22 +484,22 @@ func (v *dNSSECValidator) findSEPs(signerDomain string, dnskeyMap map[uint16]*dn
 	for _, key := range dnskeyMap {
 		authenticDS, ok := dsRecords[key.KeyTag()]
 		if !ok {
-			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: No DS record found for DNSKEYs with KeyTag %d", key.KeyTag()))
+			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: No DS record found for DNSKEY with KeyTag %d", key.KeyTag()))
 			continue
 		}
 
 		actualDS := key.ToDS(authenticDS.DigestType)
 		if actualDS == nil {
-			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to convert DNSKEYs with KeyTag %d to DS record", key.KeyTag()))
+			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to convert DNSKEY with KeyTag %d to DS record", key.KeyTag()))
 			continue
 		}
 
 		actualDigest := strings.ToUpper(actualDS.Digest)
 		authenticDigest := strings.ToUpper(authenticDS.Digest)
 		if actualDigest != authenticDigest {
-			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: DS record mismatch for DNSKEYs with KeyTag %d: expected %s, got %s", key.KeyTag(), authenticDigest, actualDigest))
+			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: DS record mismatch for DNSKEY with KeyTag %d: expected %s, got %s", key.KeyTag(), authenticDigest, actualDigest))
 		} else {
-			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Delegation verified for DNSKEYs with KeyTag %d, SEP established", key.KeyTag()))
+			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Delegation verified for DNSKEY with KeyTag %d, SEP established", key.KeyTag()))
 
 			v.ds[*actualDS] = struct{}{}
 			sepKeys[key.KeyTag()] = key
@@ -533,10 +533,10 @@ func (v *dNSSECValidator) validateRRSIG(rrSetType uint16, rrSet []dns.RR, rrsigs
 	var dnskeyMap map[uint16]*dns.DNSKEY
 	var err error
 
-	// Attempt to verify each RRSIG using only the DNSKEYs matching its KeyTag
+	// Attempt to verify each RRSIG using only the DNSKEY matching its KeyTag
 	lastErr := errors.New("no RRSIG to verify")
 	for _, rrsig := range rrsigs {
-		// If RRset type is DNSKEYs, use SEPs found from the answer directly
+		// If RRset type is DNSKEY, use SEPs found from the answer directly
 		if rrSetType == dns.TypeDNSKEY {
 			dnskeyMap, trace, err = v.findSEPsFromAnswer(rrSet, rrsig.SignerName, depth, trace)
 			if err != nil {
@@ -566,12 +566,12 @@ func (v *dNSSECValidator) validateRRSIG(rrSetType uint16, rrSet []dns.RR, rrsigs
 
 		matchingKey, found := dnskeyMap[keyTag]
 		if !found {
-			lastErr = fmt.Errorf("no matching DNSKEYs found for RRSIG with key tag %d", keyTag)
-			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: No matching DNSKEYs found for RRSIG with key tag %d", keyTag))
+			lastErr = fmt.Errorf("no matching DNSKEY found for RRSIG with key tag %d", keyTag)
+			v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: No matching DNSKEY found for RRSIG with key tag %d", keyTag))
 			continue
 		}
 
-		// Verify the RRSIG with the matching DNSKEYs
+		// Verify the RRSIG with the matching DNSKEY
 		if err := rrsig.Verify(matchingKey, rrSet); err == nil {
 			v.dNSKEY[*matchingKey] = struct{}{}
 			return rrsig, trace, nil
