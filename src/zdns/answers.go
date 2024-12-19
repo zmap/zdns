@@ -21,8 +21,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/zmap/dns"
+	"github.com/miekg/dns"
 )
+
+//go:generate go run answers_generate.go
+
+type WithBaseAnswer interface {
+	BaseAns() *Answer
+}
 
 type Answer struct {
 	TTL     uint32 `json:"ttl" groups:"ttl,normal,long,trace"`
@@ -72,12 +78,43 @@ type DNSKEYAnswer struct {
 	PublicKey string `json:"public_key" groups:"short,normal,long,trace"`
 }
 
+func (r *DNSKEYAnswer) ToVanillaType() *dns.DNSKEY {
+	return &dns.DNSKEY{
+		Hdr: dns.RR_Header{
+			Name:   dns.CanonicalName(r.Name),
+			Rrtype: r.RrType,
+			Class:  dns.StringToClass[r.Class],
+			Ttl:    r.TTL,
+		},
+		Flags:     r.Flags,
+		Protocol:  r.Protocol,
+		Algorithm: r.Algorithm,
+		PublicKey: r.PublicKey,
+	}
+}
+
 type DSAnswer struct {
 	Answer
 	KeyTag     uint16 `json:"key_tag" groups:"short,normal,long,trace"`
 	Algorithm  uint8  `json:"algorithm" groups:"short,normal,long,trace"`
 	DigestType uint8  `json:"digest_type" groups:"short,normal,long,trace"`
 	Digest     string `json:"digest" groups:"short,normal,long,trace"`
+}
+
+func (r *DSAnswer) ToVanillaType() *dns.DS {
+	return &dns.DS{
+		Hdr: dns.RR_Header{
+
+			Name:   dns.CanonicalName(r.Name),
+			Rrtype: r.RrType,
+			Class:  dns.StringToClass[r.Class],
+			Ttl:    r.TTL,
+		},
+		KeyTag:     r.KeyTag,
+		Algorithm:  r.Algorithm,
+		DigestType: r.DigestType,
+		Digest:     r.Digest,
+	}
 }
 
 type GPOSAnswer struct {
@@ -137,14 +174,48 @@ type NSECAnswer struct {
 	TypeBitMap string `json:"type_bit_map" groups:"short,normal,long,trace"`
 }
 
+func (r *NSECAnswer) ToVanillaType() *dns.NSEC {
+	return &dns.NSEC{
+		Hdr: dns.RR_Header{
+			Name:   dns.CanonicalName(r.Name),
+			Rrtype: r.RrType,
+			Class:  dns.StringToClass[r.Class],
+			Ttl:    r.TTL,
+		},
+		NextDomain: r.NextDomain,
+		TypeBitMap: makeBitArray(r.TypeBitMap),
+	}
+}
+
 type NSEC3Answer struct {
 	Answer
 	HashAlgorithm uint8  `json:"hash_algorithm" groups:"short,normal,long,trace"`
 	Flags         uint8  `json:"flags" groups:"short,normal,long,trace"`
 	Iterations    uint16 `json:"iterations" groups:"short,normal,long,trace"`
+	SaltLength    uint8  `json:"salt_length" groups:"short,normal,long,trace"`
 	Salt          string `json:"salt" groups:"short,normal,long,trace"`
+	HashLength    uint8  `json:"hash_length" groups:"short,normal,long,trace"`
 	NextDomain    string `json:"next_domain" groups:"short,normal,long,trace"`
 	TypeBitMap    string `json:"type_bit_map" groups:"short,normal,long,trace"`
+}
+
+func (r *NSEC3Answer) ToVanillaType() *dns.NSEC3 {
+	return &dns.NSEC3{
+		Hdr: dns.RR_Header{
+			Name:   dns.CanonicalName(r.Name),
+			Rrtype: r.RrType,
+			Class:  dns.StringToClass[r.Class],
+			Ttl:    r.TTL,
+		},
+		Hash:       r.HashAlgorithm,
+		Flags:      r.Flags,
+		Iterations: r.Iterations,
+		SaltLength: uint8(len(r.Salt)),
+		Salt:       r.Salt,
+		HashLength: r.HashLength,
+		NextDomain: r.NextDomain,
+		TypeBitMap: makeBitArray(r.TypeBitMap),
+	}
 }
 
 type NSEC3ParamAnswer struct {
@@ -178,6 +249,36 @@ type RRSIGAnswer struct {
 	KeyTag      uint16 `json:"keytag" groups:"short,normal,long,trace"`
 	SignerName  string `json:"signer_name" groups:"short,normal,long,trace"`
 	Signature   string `json:"signature" groups:"short,normal,long,trace"`
+}
+
+func (r *RRSIGAnswer) ToVanillaType() *dns.RRSIG {
+	expiration, err := dns.StringToTime(r.Expiration)
+	if err != nil {
+		panic("failed to parse expiration time: " + r.Expiration)
+	}
+
+	inception, err := dns.StringToTime(r.Inception)
+	if err != nil {
+		panic("failed to parse inception time: " + r.Inception)
+	}
+
+	return &dns.RRSIG{
+		Hdr: dns.RR_Header{
+			Name:   dns.CanonicalName(r.Name),
+			Rrtype: r.RrType,
+			Class:  dns.StringToClass[r.Class],
+			Ttl:    r.TTL,
+		},
+		TypeCovered: r.TypeCovered,
+		Algorithm:   r.Algorithm,
+		Labels:      r.Labels,
+		OrigTtl:     r.OriginalTTL,
+		Expiration:  expiration,
+		Inception:   inception,
+		KeyTag:      r.KeyTag,
+		SignerName:  r.SignerName,
+		Signature:   r.Signature,
+	}
 }
 
 type RPAnswer struct {
@@ -318,6 +419,15 @@ func makeBitString(bm []uint16) string {
 	return retv
 }
 
+func makeBitArray(s string) []uint16 {
+	fields := strings.Fields(s)
+	retv := make([]uint16, 0, len(fields))
+	for _, t := range fields {
+		retv = append(retv, dns.StringToType[t])
+	}
+	return retv
+}
+
 func makeBaseAnswer(hdr *dns.RR_Header, answer string) Answer {
 	return Answer{
 		TTL:     hdr.Ttl,
@@ -404,7 +514,7 @@ func makeEDNSAnswer(cAns *dns.OPT) EDNSAnswer {
 				KeyLease: opt.KeyLease,
 			}
 		case *dns.EDNS0_NSID: //OPT 3
-			hexDecoded, err := hex.DecodeString(o.(*dns.EDNS0_NSID).Nsid)
+			hexDecoded, err := hex.DecodeString(opt.Nsid)
 			if err != nil {
 				continue
 			}
@@ -437,7 +547,7 @@ func makeEDNSAnswer(cAns *dns.OPT) EDNSAnswer {
 				Expire: opt.Expire,
 			}
 		case *dns.EDNS0_COOKIE: //OPT 11
-			optRes.Cookie = &Edns0Cookie{Cookie: o.(*dns.EDNS0_COOKIE).Cookie}
+			optRes.Cookie = &Edns0Cookie{Cookie: opt.Cookie}
 		case *dns.EDNS0_TCP_KEEPALIVE: //OPT 11
 			optRes.TCPKeepalive = &Edns0TCPKeepalive{
 				Code:    opt.Code,
@@ -445,7 +555,7 @@ func makeEDNSAnswer(cAns *dns.OPT) EDNSAnswer {
 				Length:  opt.Length, // deprecated, always equal to 0, keeping it here for a better readability
 			}
 		case *dns.EDNS0_PADDING: //OPT 12
-			optRes.Padding = &Edns0Padding{Padding: o.(*dns.EDNS0_PADDING).String()}
+			optRes.Padding = &Edns0Padding{Padding: opt.String()}
 		case *dns.EDNS0_EDE: //OPT 15
 			optRes.EDE = append(optRes.EDE, &Edns0Ede{
 				InfoCode:      opt.InfoCode,
@@ -655,7 +765,9 @@ func ParseAnswer(ans dns.RR) interface{} {
 			HashAlgorithm: cAns.Hash,
 			Flags:         cAns.Flags,
 			Iterations:    cAns.Iterations,
+			SaltLength:    cAns.SaltLength,
 			Salt:          cAns.Salt,
+			HashLength:    cAns.HashLength,
 			NextDomain:    cAns.NextDomain,
 			TypeBitMap:    makeBitString(cAns.TypeBitMap),
 		}

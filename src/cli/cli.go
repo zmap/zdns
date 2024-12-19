@@ -22,8 +22,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
-	"github.com/zmap/dns"
 	flags "github.com/zmap/zflags"
 
 	"github.com/zmap/zdns/src/zdns"
@@ -37,18 +37,21 @@ type InputHandler interface {
 type OutputHandler interface {
 	WriteResults(results <-chan string, wg *sync.WaitGroup) error
 }
+type StatusHandler interface {
+	LogPeriodicUpdates(statusChan <-chan zdns.Status, wg *sync.WaitGroup) error
+}
 
 // GeneralOptions core options for all ZDNS modules
 // Order here is the order they'll be printed to the user, so preserve alphabetical order
 type GeneralOptions struct {
-	LookupAllNameServers bool   `long:"all-nameservers" description:"Perform the lookup via all the nameservers for the domain."`
+	LookupAllNameServers bool   `long:"all-nameservers" description:"Behavior is dependent on --iterative. In --iterative, --all-name-servers will query all root servers, then all gtld servers, etc. recording the responses at each layer. In non-iterative mode, the query will be sent to all external resolvers specified in --name-servers."`
 	CacheSize            int    `long:"cache-size" default:"10000" description:"how many items can be stored in internal recursive cache"`
 	GoMaxProcs           int    `long:"go-processes" default:"0" description:"number of OS processes (GOMAXPROCS by default)"`
 	IterationTimeout     int    `long:"iteration-timeout" default:"8" description:"timeout for a single iterative step in an iterative query, in seconds. Only applicable with --iterative"`
 	IterativeResolution  bool   `long:"iterative" description:"Perform own iteration instead of relying on recursive resolver"`
 	MaxDepth             int    `long:"max-depth" default:"10" description:"how deep should we recurse when performing iterative lookups"`
 	NameServerMode       bool   `long:"name-server-mode" description:"Treats input as nameservers to query with a static query rather than queries to send to a static name server"`
-	NameServersString    string `long:"name-servers" description:"List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53."`
+	NameServersString    string `long:"name-servers" description:"List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53. If not provided, defaults to either the default root servers in --iterative or the recursive resolvers specified in /etc/resolv.conf or OS equivalent."`
 	UseNanoseconds       bool   `long:"nanoseconds" description:"Use nanosecond resolution timestamps in output"`
 	NetworkTimeout       int    `long:"network-timeout" default:"2" description:"timeout for round trip network operations, in seconds"`
 	DisableFollowCNAMEs  bool   `long:"no-follow-cnames" description:"do not follow CNAMEs/DNAMEs in the lookup process"`
@@ -64,6 +67,7 @@ type QueryOptions struct {
 	ClassString        string `long:"class" default:"INET" description:"DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY."`
 	ClientSubnetString string `long:"client-subnet" description:"Client subnet in CIDR format for EDNS0."`
 	Dnssec             bool   `long:"dnssec" description:"Requests DNSSEC records by setting the DNSSEC OK (DO) bit"`
+	ValidateDNSSEC     bool   `long:"validate-dnssec" description:"Validate DNSSEC records, only applicable with --iterative"`
 	UseNSID            bool   `long:"nsid" description:"Request NSID."`
 }
 
@@ -90,15 +94,17 @@ type InputOutputOptions struct {
 	BlacklistFilePath            string `long:"blacklist-file" description:"blacklist file for servers to exclude from lookups"`
 	DNSConfigFilePath            string `long:"conf-file" default:"/etc/resolv.conf" description:"config file for DNS servers"`
 	MultipleModuleConfigFilePath string `short:"c" long:"multi-config-file" description:"config file path for multiple module"`
-	IncludeInOutput              string `long:"include-fields" description:"Comma separated list of fields to additionally output beyond result verbosity. Options: class, protocol, ttl, resolver, flags"`
+	IncludeInOutput              string `long:"include-fields" description:"Comma separated list of fields to additionally output beyond result verbosity. Options: class, protocol, ttl, resolver, flags, dnssec"`
 	InputFilePath                string `short:"f" long:"input-file" default:"-" description:"names to read, defaults to stdin"`
 	LogFilePath                  string `long:"log-file" default:"-" description:"where should JSON logs be saved, defaults to stderr"`
 	MetadataFilePath             string `long:"metadata-file" description:"where should JSON metadata be saved, defaults to no metadata output. Use '-' for stderr."`
 	MetadataFormat               bool   `long:"metadata-passthrough" description:"if input records have the form 'name,METADATA', METADATA will be propagated to the output"`
 	OutputFilePath               string `short:"o" long:"output-file" default:"-" description:"where should JSON output be saved, defaults to stdout"`
+	QuietStatusUpdates           bool   `short:"q" long:"quiet" description:"do not print status updates"`
 	NameOverride                 string `long:"override-name" description:"name overrides all passed in names. Commonly used with --name-server-mode."`
 	NamePrefix                   string `long:"prefix" description:"name to be prepended to what's passed in (e.g., www.)"`
 	ResultVerbosity              string `long:"result-verbosity" default:"normal" description:"Sets verbosity of each output record. Options: short, normal, long, trace"`
+	StatusUpdatesFilePath        string `short:"u" long:"status-updates-file" default:"-" description:"file to write scan progress to, defaults to stderr"`
 	Verbosity                    int    `long:"verbosity" default:"3" description:"log verbosity: 1 (lowest)--5 (highest)"`
 }
 
@@ -116,6 +122,7 @@ type CLIConf struct {
 	ClientSubnet       *dns.EDNS0_SUBNET
 	InputHandler       InputHandler
 	OutputHandler      OutputHandler
+	StatusHandler      StatusHandler
 	CLIModule          string                  // the module name as passed in by the user
 	ActiveModuleNames  []string                // names of modules that are active in this invocation of zdns. Mostly used with MULTIPLE
 	ActiveModules      map[string]LookupModule // map of module names to modules

@@ -20,9 +20,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/miekg/dns"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/zmap/dns"
 )
 
 func populateNetworkingConfig(gc *CLIConf) error {
@@ -128,10 +128,6 @@ func validateClientSubnetString(gc *CLIConf) error {
 }
 
 func parseNameServers(gc *CLIConf) error {
-	if gc.LookupAllNameServers && gc.NameServersString != "" {
-		log.Fatal("name servers cannot be specified in --all-nameservers mode.")
-	}
-
 	if gc.NameServersString != "" {
 		if gc.NameServerMode {
 			log.Fatal("name servers cannot be specified on command line in --name-server-mode")

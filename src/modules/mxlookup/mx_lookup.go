@@ -14,11 +14,12 @@
 package mxlookup
 
 import (
+	"context"
 	"strings"
 
+	"github.com/miekg/dns"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/zdns"
@@ -56,6 +57,9 @@ type MXLookupModule struct {
 
 // CLIInit initializes the MXLookupModule with the given parameters, used to call MXLookup from the command line
 func (mxMod *MXLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig) error {
+	if gc.LookupAllNameServers {
+		return errors.New("MXLOOKUP module does not support --all-nameservers")
+	}
 	if !mxMod.IPv4Lookup && !mxMod.IPv6Lookup {
 		// need to use one of the two
 		mxMod.IPv4Lookup = true
@@ -92,9 +96,9 @@ func (mxMod *MXLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameSer
 	var status zdns.Status
 	var err error
 	if mxMod.BasicLookupModule.IsIterative {
-		res, trace, status, err = r.IterativeLookup(&zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET})
+		res, trace, status, err = r.IterativeLookup(context.Background(), &zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET})
 	} else {
-		res, trace, status, err = r.ExternalLookup(&zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET}, nameServer)
+		res, trace, status, err = r.ExternalLookup(context.Background(), &zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET}, nameServer)
 	}
 	if status != zdns.StatusNoError || err != nil {
 		return nil, trace, status, err

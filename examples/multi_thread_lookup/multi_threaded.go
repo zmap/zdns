@@ -14,11 +14,12 @@
 package main
 
 import (
+	"context"
 	"net"
 	"sync"
 
+	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
-	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/examples/utils"
 	"github.com/zmap/zdns/src/zdns"
@@ -44,7 +45,7 @@ func main() {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		result1, _, _, err1 := resolver1.IterativeLookup(dnsQuestion1)
+		result1, _, _, err1 := resolver1.IterativeLookup(context.Background(), dnsQuestion1)
 		if err1 != nil {
 			log.Fatal("Error looking up domain: ", err1)
 		}
@@ -52,7 +53,7 @@ func main() {
 	}()
 	go func() {
 		defer wg.Done()
-		result2, _, _, err2 := resolver2.IterativeLookup(dnsQuestion2)
+		result2, _, _, err2 := resolver2.IterativeLookup(context.Background(), dnsQuestion2)
 		if err2 != nil {
 			log.Fatal("Error looking up domain: ", err2)
 		}

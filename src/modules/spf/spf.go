@@ -17,7 +17,7 @@ import (
 	"errors"
 	"regexp"
 
-	"github.com/zmap/dns"
+	"github.com/miekg/dns"
 
 	"github.com/zmap/zdns/src/cli"
 	"github.com/zmap/zdns/src/zdns"
@@ -42,6 +42,9 @@ type SpfLookupModule struct {
 
 // CLIInit initializes the SPF lookup module
 func (spfMod *SpfLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig) error {
+	if gc.LookupAllNameServers {
+		return errors.New("SPF module does not support --all-nameservers")
+	}
 	spfMod.re = regexp.MustCompile(spfPrefixRegexp)
 	spfMod.BasicLookupModule.DNSType = dns.TypeTXT
 	spfMod.BasicLookupModule.DNSClass = dns.ClassINET
