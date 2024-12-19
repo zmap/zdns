@@ -362,6 +362,54 @@ type URIAnswer struct {
 	Target   string `json:"target" groups:"short,normal,long,trace"`
 }
 
+type AMTRELAYAnswer struct {
+	Answer      `json:"answer"`
+	Precedence  uint8  `json:"precedence,omitempty" groups:"short,normal,long,trace"`
+	GatewayType uint8  `json:"gateway_type,omitempty" groups:"short,normal,long,trace"`
+	GatewayAddr net.IP `json:"gateway_addr,omitempty" groups:"short,normal,long,trace"`
+	GatewayHost string `json:"gateway_host,omitempty" groups:"short,normal,long,trace"`
+}
+
+type APLAnswer struct {
+	Answer
+	Prefixes []APLPrefix `json:"prefixes" groups:"short,normal,long,trace"`
+}
+
+type APLPrefix struct {
+	Negation bool      `json:"negation" groups:"short,normal,long,trace"`
+	Network  net.IPNet `json:"network" groups:"short,normal,long,trace"`
+}
+
+type IPSECKEYAnswer struct {
+	Answer
+	Precedence  uint8  `json:"precedence" groups:"short,normal,long,trace"`
+	GatewayType uint8  `json:"gateway_type" groups:"short,normal,long,trace"`
+	Algorithm   uint8  `json:"algorithm" groups:"short,normal,long,trace"`
+	GatewayAddr net.IP `json:"gateway_addr" groups:"short,normal,long,trace"`
+	GatewayHost string `json:"gateway_host" groups:"short,normal,long,trace"`
+	PublicKey   string `json:"public_key" groups:"short,normal,long,trace"`
+}
+
+type NXTAnswer struct {
+	NSECAnswer
+}
+
+type RKEYAnswer struct {
+	Answer
+	Flags     uint16 `json:"flags" groups:"short,normal,long,trace"`
+	Protocol  uint8  `json:"protocol" groups:"short,normal,long,trace"`
+	Algorithm uint8  `json:"algorithm" groups:"short,normal,long,trace"`
+	PublicKey string `json:"public_key" groups:"short,normal,long,trace"`
+}
+
+type ZONEMDAnswer struct {
+	Answer
+	Serial uint32 `json:"serial" groups:"short,normal,long,trace"`
+	Scheme uint8  `json:"status" groups:"short,normal,long,trace"`
+	Hash   uint8  `json:"hash" groups:"short,normal,long,trace"`
+	Digest string `json:"digest" groups:"short,normal,long,trace"`
+}
+
 // copy-paste from zmap/dns/types.go >>>>>
 //
 // Copyright (c) 2009 The Go Authors.
@@ -922,6 +970,65 @@ func ParseAnswer(ans dns.RR) interface{} {
 		return makeSVCBAnswer(cAns)
 	case *dns.OPT:
 		return makeEDNSAnswer(cAns)
+	case *dns.AMTRELAY:
+		return AMTRELAYAnswer{
+			Answer:      makeBaseAnswer(&cAns.Hdr, ""),
+			Precedence:  cAns.Precedence,
+			GatewayType: cAns.GatewayType,
+			GatewayAddr: cAns.GatewayAddr,
+			GatewayHost: cAns.GatewayHost,
+		}
+	case *dns.ANY:
+		return makeBaseAnswer(&cAns.Hdr, "")
+	case *dns.APL:
+		ret := APLAnswer{
+			Answer:   makeBaseAnswer(&cAns.Hdr, ""),
+			Prefixes: make([]APLPrefix, 0, len(cAns.Prefixes)),
+		}
+		// convert to our types since we'll get json marshall hints
+		for _, p := range cAns.Prefixes {
+			ret.Prefixes = append(ret.Prefixes, APLPrefix{
+				Negation: p.Negation,
+				Network:  p.Network,
+			})
+		}
+		return ret
+	case *dns.IPSECKEY:
+		return IPSECKEYAnswer{
+			Answer:      makeBaseAnswer(&cAns.Hdr, ""),
+			Precedence:  cAns.Precedence,
+			GatewayType: cAns.GatewayType,
+			Algorithm:   cAns.Algorithm,
+			GatewayAddr: cAns.GatewayAddr,
+			GatewayHost: cAns.GatewayHost,
+			PublicKey:   cAns.PublicKey,
+		}
+	case *dns.NXNAME:
+		return makeBaseAnswer(&cAns.Hdr, "")
+	case *dns.NXT:
+		return NXTAnswer{
+			NSECAnswer{
+				Answer:     makeBaseAnswer(&cAns.Hdr, ""),
+				NextDomain: strings.TrimSuffix(cAns.NextDomain, "."),
+				TypeBitMap: makeBitString(cAns.TypeBitMap)},
+		}
+	case *dns.RKEY:
+		return RKEYAnswer{
+			Answer:    makeBaseAnswer(&cAns.Hdr, ""),
+			Flags:     cAns.Flags,
+			Protocol:  cAns.Protocol,
+			Algorithm: cAns.Algorithm,
+			PublicKey: cAns.PublicKey,
+		}
+	case *dns.ZONEMD:
+		return ZONEMDAnswer{
+			Answer: makeBaseAnswer(&cAns.Hdr, ""),
+			Serial: cAns.Serial,
+			Scheme: cAns.Scheme,
+			Hash:   cAns.Hash,
+			Digest: cAns.Digest,
+		}
+
 	default:
 		return struct {
 			Type     string `json:"type"`
