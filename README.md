@@ -113,7 +113,7 @@ Lookup Modules
 --------------
 
 Raw DNS responses frequently do not provide the data you _want_. For example,
-an MX response may not include the associated A records in the additionals
+an MX response may not include the associated A records in the additional
 section requiring an additional lookup. To address this gap and provide a
 friendlier interface, we also provide several _lookup_ modules: `alookup`,
 `mxlookup`, and `nslookup`.
