@@ -476,7 +476,15 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 			}
 		}
 		if localAddr != nil {
-			log.Warnf("none of the user-supplied local addresses could connect to name server %s, using local address %s", nameServer.String(), localAddr.String())
+			// we overrode the supplied local address, notify the user
+			msg := fmt.Sprintf("none of the user-supplied local addresses could connect to name server %s, using local address %s", nameServer.String(), localAddr.String())
+			if (len(r.userPreferredIPv4LocalAddrs) > 0 && localAddr.To4() != nil) || (len(r.userPreferredIPv6LocalAddrs) > 0 && util.IsIPv6(localAddr)) {
+				// the user provided a local addr. explicitly, warn so they'll see the override
+				log.Warnf(msg)
+			} else {
+				// user didn't explicityly provide a local addr, this is just a default. Info level so as not to alarm the user
+				log.Infof(msg)
+			}
 		}
 	}
 	if localAddr == nil {
