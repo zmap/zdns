@@ -320,13 +320,13 @@ func (v *dNSSECValidator) getDNSKEYs(signerDomain string, trace Trace, depth int
 
 	res, trace, status, err := v.r.lookup(v.ctx, &dnskeyQuestion, v.r.rootNameServers, v.isIterative, trace)
 	if status != StatusNoError {
-		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DNSKEY for signer domain %s, query status: %s", signerDomain, status))
+		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DNSKEYs for signer domain %s, query status: %s", signerDomain, status))
 		return nil, nil, trace, fmt.Errorf("DNSKEY fetch failed, query status: %s", status)
 	} else if err != nil {
-		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DNSKEY for signer domain %s, err: %v", signerDomain, err))
+		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DNSKEYs for signer domain %s, err: %v", signerDomain, err))
 		return nil, nil, trace, fmt.Errorf("DNSKEY fetch failed, err: %v", err)
 	} else if res.DNSSECResult != nil && res.DNSSECResult.Status != DNSSECSecure { // 	// DNSSECResult may be nil if the response is from the cache.
-		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DNSKEY for signer domain %s, DNSSEC status: %s", signerDomain, res.DNSSECResult.Status))
+		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DNSKEYs for signer domain %s, DNSSEC status: %s", signerDomain, res.DNSSECResult.Status))
 
 		if prevResult := getResultForRRset(RRsetKey(dnskeyQuestion.Q), res.DNSSECResult.Answers); prevResult != nil && prevResult.Error != "" {
 			return nil, nil, trace, fmt.Errorf("DNSKEY fetch failed: %s", prevResult.Error)
@@ -462,7 +462,7 @@ func (v *dNSSECValidator) fetchDSRecords(signerDomain string, trace Trace, depth
 //
 // Parameters:
 // - signerDomain: The signer domain to query for DS records
-// - dnskeyMap: A map of KeyTag to DNSKEY to search for SEP keys
+// - dnskeyMap: A map of KeyTag to DNSKEYs to search for SEP keys
 // - trace: The trace context for tracking request path
 // - depth: The recursion depth for logging purposes
 //
