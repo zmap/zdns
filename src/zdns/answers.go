@@ -405,7 +405,7 @@ type RKEYAnswer struct {
 type ZONEMDAnswer struct {
 	Answer
 	Serial uint32 `json:"serial" groups:"short,normal,long,trace"`
-	Scheme uint8  `json:"status" groups:"short,normal,long,trace"`
+	Scheme uint8  `json:"scheme" groups:"short,normal,long,trace"`
 	Hash   uint8  `json:"hash" groups:"short,normal,long,trace"`
 	Digest string `json:"digest" groups:"short,normal,long,trace"`
 }
