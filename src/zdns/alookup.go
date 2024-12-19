@@ -82,7 +82,7 @@ func getIPAddressesFromQueryResult(res *SingleQueryResult, queryType, name strin
 	if res == nil {
 		return nil, errors.New("nil SingleQueryResult")
 	}
-	ips := make([]string, 0, len(res.Answers)+len(res.Additionals))
+	ips := make([]string, 0, len(res.Answers)+len(res.Additional))
 	for _, ans := range res.Answers {
 		if a, ok := ans.(Answer); ok {
 			if a.Type == queryType {
@@ -90,7 +90,7 @@ func getIPAddressesFromQueryResult(res *SingleQueryResult, queryType, name strin
 			}
 		}
 	}
-	for _, ans := range res.Additionals {
+	for _, ans := range res.Additional {
 		if a, ok := ans.(Answer); ok {
 			if a.Type == queryType {
 				ips = append(ips, a.Answer)

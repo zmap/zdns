@@ -136,7 +136,7 @@ func (s *Cache) getCachedResult(q Question, ns *NameServer, isAuthority bool, de
 	retv = new(SingleQueryResult)
 	retv.Answers = make([]interface{}, 0, len(cachedRes.Answers))
 	retv.Authorities = make([]interface{}, 0, len(cachedRes.Authorities))
-	retv.Additionals = make([]interface{}, 0, len(cachedRes.Additionals))
+	retv.Additional = make([]interface{}, 0, len(cachedRes.Additionals))
 	retv.Flags = cachedRes.Flags
 	retv.DNSSECResult = cachedRes.DNSSECResult
 	// great we have a result. let's go through the entries and build a result. In the process, throw away anything
@@ -163,11 +163,11 @@ func (s *Cache) getCachedResult(q Question, ns *NameServer, isAuthority bool, de
 			partiallyExpired = true
 			s.VerboseLog(depth+2, "expiring cache additional ", cachedAdditional.Answer.BaseAns().Name)
 		} else {
-			retv.Additionals = append(retv.Additionals, cachedAdditional.Answer)
+			retv.Additional = append(retv.Additional, cachedAdditional.Answer)
 		}
 	}
 	// Don't return an empty response.
-	if len(retv.Answers) == 0 && len(retv.Authorities) == 0 && len(retv.Additionals) == 0 {
+	if len(retv.Answers) == 0 && len(retv.Authorities) == 0 && len(retv.Additional) == 0 {
 		// remove from cache since it's completely expired
 		s.IterativeCache.Delete(cacheKey)
 		s.VerboseLog(depth+2, "-> no entry found in cache, after expiration for ", cacheKey, ", removing from cache")
@@ -229,8 +229,8 @@ func (s *Cache) buildCachedResult(res *SingleQueryResult, depth int, layer strin
 			})
 		}
 	}
-	cachedRes.Additionals = make([]TimedAnswer, 0, len(res.Additionals))
-	for _, a := range res.Additionals {
+	cachedRes.Additionals = make([]TimedAnswer, 0, len(res.Additional))
+	for _, a := range res.Additional {
 		castAns, expiresAt := getExpirationForSafeAnswer(a)
 		if castAns != nil {
 			cachedRes.Additionals = append(cachedRes.Additionals, TimedAnswer{
@@ -252,7 +252,7 @@ func (s *Cache) SafeAddCachedAnswer(q Question, res *SingleQueryResult, ns *Name
 		nsString = ns.String()
 	}
 	// check for poison
-	for _, a := range util.Concat(res.Answers, res.Authorities, res.Additionals) {
+	for _, a := range util.Concat(res.Answers, res.Authorities, res.Additional) {
 		castAns, ok := a.(WithBaseAnswer)
 		if !ok {
 			// if we can't cast, it won't be added to the cache. We'll log in buildCachedResult

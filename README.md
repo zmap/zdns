@@ -74,7 +74,7 @@ returns:
    "results": {
       "A": {
          "data": {
-            "additional_section": [
+            "additional": [
                {
                   "flags": "",
                   "type": "EDNS0",
@@ -82,7 +82,7 @@ returns:
                   "version": 0
                }
             ],
-            "answer_section": [
+            "answers": [
                {
                   "answer": "104.18.10.85",
                   "class": "IN",
@@ -208,11 +208,11 @@ For example:
 echo "google.com,1.1.1.1\nfacebook.com,8.8.8.8" | ./zdns A
 ```
 
-You can see the `resolver` is as specified for each domain in the output (additional_section/answer_section redacted for brevity):
+You can see the `resolver` is as specified for each domain in the output (additional/answers redacted for brevity):
 ```shell
 $ echo "google.com,1.1.1.1\nfacebook.com,8.8.8.8" | ./zdns A
-{"name":"google.com","results":{"A":{"data":{"additional_section":...,"answer_section":[...],"protocol":"udp","resolver":"1.1.1.1:53"},"duration":0.030490042,"status":"NOERROR","timestamp":"2024-09-13T09:51:34-04:00"}}}
-{"name":"facebook.com","results":{"A":{"data":{"additional_section":[...],"answer_section":[...],"protocol":"udp","resolver":"8.8.8.8:53"},"duration":0.061365459,"status":"NOERROR","timestamp":"2024-09-13T09:51:34-04:00"}}}
+{"name":"google.com","results":{"A":{"data":{"additional":...,"answers":[...],"protocol":"udp","resolver":"1.1.1.1:53"},"duration":0.030490042,"status":"NOERROR","timestamp":"2024-09-13T09:51:34-04:00"}}}
+{"name":"facebook.com","results":{"A":{"data":{"additional":[...],"answers":[...],"protocol":"udp","resolver":"8.8.8.8:53"},"duration":0.061365459,"status":"NOERROR","timestamp":"2024-09-13T09:51:34-04:00"}}}
 ````
 
 Local Recursion

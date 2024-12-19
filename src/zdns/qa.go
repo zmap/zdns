@@ -75,9 +75,9 @@ type SingleModuleResult struct {
 
 // SingleQueryResult contains the results of a single DNS query
 type SingleQueryResult struct {
-	Answers            []interface{} `json:"answer_section,omitempty" groups:"short,normal,long,trace"`
-	Additionals        []interface{} `json:"additional_section,omitempty" groups:"short,normal,long,trace"`
-	Authorities        []interface{} `json:"authority_section,omitempty" groups:"short,normal,long,trace"`
+	Answers            []interface{} `json:"answers,omitempty" groups:"short,normal,long,trace"`
+	Additional         []interface{} `json:"additional,omitempty" groups:"short,normal,long,trace"`
+	Authorities        []interface{} `json:"authorities,omitempty" groups:"short,normal,long,trace"`
 	Protocol           string        `json:"protocol" groups:"protocol,normal,long,trace"`
 	Resolver           string        `json:"resolver" groups:"resolver,normal,long,trace"` // IP address
 	Flags              DNSFlags      `json:"flags" groups:"flags,long,trace"`
