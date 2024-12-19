@@ -1295,8 +1295,8 @@ class Tests(unittest.TestCase):
             self.assertSuccess(res, cmd, "A")
             dnssec = res["results"]["A"]["data"]["dnssec"]
             self.assertEqual(dnssec["status"], "Secure")
-            self.assertTrue(len(dnssec["ds"]) > 0)
-            self.assertTrue(len(dnssec["dnskey"]) > 0)
+            self.assertTrue(len(dnssec["dses"]) > 0)
+            self.assertTrue(len(dnssec["dnskeys"]) > 0)
 
     def test_dnssec_validation_secure_circular(self):
         # checks if dnssec validation can handle circular NS dependencies
@@ -1315,8 +1315,8 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd, "A")
         dnssec = res["results"]["A"]["data"]["dnssec"]
         self.assertEqual(dnssec["status"], "Insecure")
-        self.assertTrue(len(dnssec["ds"]) == 0)
-        self.assertTrue(len(dnssec["dnskey"]) == 0)
+        self.assertTrue(len(dnssec["dses"]) == 0)
+        self.assertTrue(len(dnssec["dnskeys"]) == 0)
 
     def test_dnssec_validation_insecure_cname(self):
         # checks if dnssec validation reports insecure if a CNAME is not signed
