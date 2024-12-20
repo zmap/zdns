@@ -4,3 +4,4 @@
 *.code-workspace
 /zdns
 *.log
+dist/
