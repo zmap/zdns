@@ -21,6 +21,7 @@ import (
 	"net"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/miekg/dns"
 	"github.com/pkg/errors"
@@ -809,15 +810,35 @@ func wireLookupUDP(ctx context.Context, connInfo *ConnectionInfo, q Question, na
 	if ednsOpt := m.IsEdns0(); ednsOpt != nil {
 		ednsOpt.Option = append(ednsOpt.Option, ednsOptions...)
 	}
+	connInfo.udpClient.DialTimeout = time.Minute
+	connInfo.udpClient.ReadTimeout = time.Minute
+	connInfo.udpClient.WriteTimeout = time.Minute
+	if connInfo.udpConn != nil {
+		//connInfo.udpConn = nil
+		//if connInfo.udpConn.Conn.Close()
+	}
 
 	var r *dns.Msg
 	var err error
+
 	if connInfo.udpConn != nil {
-		dst, _ := net.ResolveUDPAddr("udp", nameServer.String())
+		var dst *net.UDPAddr
+		dst, err = net.ResolveUDPAddr("udp", nameServer.String())
+		if err != nil {
+			log.Errorf("could not resolve UDP address %s: %v", nameServer.String(), err)
+		}
 		r, _, err = connInfo.udpClient.ExchangeWithConnToContext(ctx, m, connInfo.udpConn, dst)
 	} else {
 		r, _, err = connInfo.udpClient.ExchangeContext(ctx, m, nameServer.String())
 	}
+	if err != nil {
+		log.Errorf("error in UDP exchange: %v", err)
+	}
+	//if strings.HasSuffix(nameServer.DomainName, "iana-servers.net.") || strings.Contains(q.Name, "iana-servers.net") {
+	//	// really weird, but if I set the udpConn to nil on IPv6, it works. Wondering if IPv6 UDP sockets work differently?
+	//	// Tomorrow, try to compare the connInfo objects between IPv4/v6
+	//	log.Warnf("iana-servers.net NS")
+	//}
 	if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
 		return &res, StatusTruncated, err
 	}
@@ -952,11 +973,6 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 	// that would normally be cache poison. Because it's "ok" and quite common
 	res, status := checkGlue(server, result, r.ipVersionMode, r.iterationIPPreference)
 	if status != StatusNoError {
-		//if ok, _ = nameIsBeneath(server, layer); ok {
-		//	// Glue is optional, so if we don't have it try to lookup the server directly
-		//	// Terminating
-		//	return nil, StatusNoNeededGlue, "", trace
-		//}
 		// Fall through to normal query
 		var q QuestionWithMetadata
 		q.Q.Name = server
@@ -988,6 +1004,7 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 				parsedIPString := strings.TrimSuffix(innerAns.Answer, ".")
 				ns.IP = net.ParseIP(parsedIPString)
 				ns.PopulateDefaultPort(r.dnsOverTLSEnabled, r.dnsOverHTTPSEnabled)
+				ns.DomainName = server
 				return ns, StatusNoError, layer, trace
 			}
 		}
