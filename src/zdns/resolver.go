@@ -476,7 +476,13 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 			}
 		}
 		if localAddr != nil {
-			log.Warnf("none of the user-supplied local addresses could connect to name server %s, using local address %s", nameServer.String(), localAddr.String())
+			if (len(r.userPreferredIPv4LocalAddrs) > 0 && localAddr.To4() != nil) || (len(r.userPreferredIPv6LocalAddrs) > 0 && util.IsIPv6(localAddr)) {
+				// the user provided a local addr. explicitly that won't work, error
+				log.Fatalf("none of the user-supplied local addresses (%v) could connect to name server %s", userIPs, nameServer.String())
+			} else {
+				// user didn't explicitly provide a local addr, this is just a default. Info level so as not to alarm the user
+				log.Infof("none of the default local addresses could connect to name server %s, using local address %s", nameServer.String(), localAddr.String())
+			}
 		}
 	}
 	if localAddr == nil {
