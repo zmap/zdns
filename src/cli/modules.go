@@ -55,7 +55,7 @@ func init() {
 	RegisterLookupModule("CSYNC", &BasicLookupModule{DNSType: dns.TypeCSYNC, DNSClass: dns.ClassINET})
 	RegisterLookupModule("DHCID", &BasicLookupModule{DNSType: dns.TypeDHCID, DNSClass: dns.ClassINET})
 	RegisterLookupModule("DNAME", &BasicLookupModule{DNSType: dns.TypeDNAME, DNSClass: dns.ClassINET})
-	RegisterLookupModule("DNSKEYs", &BasicLookupModule{DNSType: dns.TypeDNSKEY, DNSClass: dns.ClassINET})
+	RegisterLookupModule("DNSKEY", &BasicLookupModule{DNSType: dns.TypeDNSKEY, DNSClass: dns.ClassINET})
 	RegisterLookupModule("DS", &BasicLookupModule{DNSType: dns.TypeDS, DNSClass: dns.ClassINET})
 	RegisterLookupModule("EID", &BasicLookupModule{DNSType: dns.TypeEID, DNSClass: dns.ClassINET})
 	RegisterLookupModule("EUI48", &BasicLookupModule{DNSType: dns.TypeEUI48, DNSClass: dns.ClassINET})
