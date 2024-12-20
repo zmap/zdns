@@ -16,6 +16,12 @@ package zdns
 import (
 	"context"
 	"fmt"
+	"io"
+	"math/rand"
+	"net"
+	"regexp"
+	"strings"
+
 	"github.com/miekg/dns"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -23,11 +29,6 @@ import (
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zgrab2/lib/http"
 	"github.com/zmap/zgrab2/lib/output"
-	"io"
-	"math/rand"
-	"net"
-	"regexp"
-	"strings"
 
 	"github.com/zmap/zdns/src/internal/util"
 )
