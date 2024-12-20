@@ -913,7 +913,9 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 	if err != nil {
 		return &SingleQueryResult{}, isCached, status, trace, errors.Wrap(err, "could not perform lookup")
 	}
-	r.verboseLog(depth+2, "Results from wire for name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer, " status: ", status, " , err: ", err, " result: ", *result)
+	if result != nil {
+		r.verboseLog(depth+2, "Results from wire for name: ", q, ", Layer: ", layer, ", Nameserver: ", nameServer, " status: ", status, " , err: ", err, " result: ", *result)
+	}
 
 	if status == StatusNoError && result != nil {
 		if r.shouldValidateDNSSEC {
@@ -1169,12 +1171,18 @@ func wireLookupUDP(ctx context.Context, connInfo *ConnectionInfo, q Question, na
 
 	var r *dns.Msg
 	var err error
+
 	if connInfo.udpConn != nil {
-		dst, _ := net.ResolveUDPAddr("udp", nameServer.String())
+		var dst *net.UDPAddr
+		dst, err = net.ResolveUDPAddr("udp", nameServer.String())
+		if err != nil {
+			return nil, nil, StatusError, errors.Wrapf(err, "could not resolve UDP address %s", nameServer.String())
+		}
 		r, _, err = connInfo.udpClient.ExchangeWithConnToContext(ctx, m, connInfo.udpConn, dst)
 	} else {
 		r, _, err = connInfo.udpClient.ExchangeContext(ctx, m, nameServer.String())
 	}
+
 	if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
 		return &res, r, StatusTruncated, err
 	}
@@ -1323,16 +1331,13 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 	// that would normally be cache poison. Because it's "ok" and quite common
 	res, status := checkGlue(server, result, r.ipVersionMode, r.iterationIPPreference)
 	if status != StatusNoError {
-		//if ok, _ = nameIsBeneath(server, layer); ok {
-		//	// Glue is optional, so if we don't have it try to lookup the server directly
-		//	// Terminating
-		//	return nil, StatusNoNeededGlue, "", trace
-		//}
 		// Fall through to normal query
 		var q QuestionWithMetadata
 		q.Q.Name = server
 		q.Q.Class = dns.ClassINET
-		if r.ipVersionMode != IPv4Only && r.iterationIPPreference == PreferIPv6 {
+		if r.ipVersionMode == IPv6Only {
+			q.Q.Type = dns.TypeAAAA
+		} else if r.ipVersionMode == IPv4OrIPv6 && r.iterationIPPreference == PreferIPv6 {
 			q.Q.Type = dns.TypeAAAA
 		} else {
 			q.Q.Type = dns.TypeA
@@ -1363,6 +1368,7 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 				parsedIPString := strings.TrimSuffix(innerAns.Answer, ".")
 				ns.IP = net.ParseIP(parsedIPString)
 				ns.PopulateDefaultPort(r.dnsOverTLSEnabled, r.dnsOverHTTPSEnabled)
+				ns.DomainName = server
 				return ns, StatusNoError, layer, trace
 			}
 		}
