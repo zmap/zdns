@@ -1280,6 +1280,73 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd, "A")
 
+    def test_dnssec_validation_secure(self):
+        # checks if dnssec validation is performed
+        DOMAINS = [
+            "cloudflare.com",
+            "internetsociety.org",
+            "dnssec-tools.org",
+            "dnssec-deployment.org",
+        ]
+        for domain in DOMAINS:
+            c = f"A {domain} --iterative --validate-dnssec --result-verbosity=long"
+            name = "."
+            cmd, res = self.run_zdns(c, name)
+            self.assertSuccess(res, cmd, "A")
+            dnssec = res["results"]["A"]["data"]["dnssec"]
+            self.assertEqual(dnssec["status"], "Secure")
+            self.assertTrue(len(dnssec["ds"]) > 0)
+            self.assertTrue(len(dnssec["dnskey"]) > 0)
+
+    def test_dnssec_validation_secure_circular(self):
+        # checks if dnssec validation can handle circular NS dependencies
+        c = "A example.com --iterative --validate-dnssec --result-verbosity=long"
+        name = "."
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "A")
+        dnssec = res["results"]["A"]["data"]["dnssec"]
+        self.assertEqual(dnssec["status"], "Secure")
+
+    def test_dnssec_validation_insecure(self):
+        # checks if dnssec validation reports insecure (not signed) zones correctly
+        c = "A outlook.com --iterative --validate-dnssec --result-verbosity=long"
+        name = "."
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "A")
+        dnssec = res["results"]["A"]["data"]["dnssec"]
+        self.assertEqual(dnssec["status"], "Insecure")
+        self.assertTrue(len(dnssec["ds"]) == 0)
+        self.assertTrue(len(dnssec["dnskey"]) == 0)
+
+    def test_dnssec_validation_insecure_cname(self):
+        # checks if dnssec validation reports insecure if a CNAME is not signed
+        c = "A linkedin.com --iterative --validate-dnssec --result-verbosity=long"
+        name = "."
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "A")
+        dnssec = res["results"]["A"]["data"]["dnssec"]
+        self.assertEqual(dnssec["status"], "Insecure")
+
+    def test_dnssec_validation_secure_cname(self):
+        # checks if dnssec validation reports secure if a CNAME is signed and the target is signed
+        c = "A dining.umich.edu --iterative --validate-dnssec --result-verbosity=long"
+        name = "."
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "A")
+        dnssec = res["results"]["A"]["data"]["dnssec"]
+        self.assertEqual(dnssec["status"], "Secure")
+
+    def test_dnssec_validation_bogus(self):
+        # checks if dnssec validation reports bogus zones correctly
+        DOMAINS = ["dnssec-failed.org", "rhybar.cz"]
+        for domain in DOMAINS:
+            c = f"A {domain} --iterative --validate-dnssec --result-verbosity=long"
+            name = "."
+            cmd, res = self.run_zdns(c, name)
+            self.assertSuccess(res, cmd, "A")
+            dnssec = res["results"]["A"]["data"]["dnssec"]
+            self.assertEqual(dnssec["status"], "Bogus")
+
     def test_timetamps(self):
         c = "A"
         name = "zdns-testing.com"
@@ -1419,6 +1486,98 @@ class Tests(unittest.TestCase):
         # the second query has a much smaller response time than the first to show it's being cached
         self.assertTrue(first_duration / 50 > second_duration, f"Second query {second_duration} should be faster than the first {first_duration}")
 
+    def test_lookup_all_nameservers_single_zone_iterative(self):
+        """
+        Test that --all-nameservers --iterative lookups work with domains whose nameservers are all in the same zone
+        zdns-testing.com has nameservers ns-cloud-c1/2/3/4.googledomains.com, which are all in the .com zone and so will have their IPs
+        provided as additionals in the .com response
+        """
+        # zdns-testing.com's nameservers are all in the .com zone, so we should only have to query the .com nameservers
+        c = "A zdns-testing.com --all-nameservers --iterative --timeout=60"
+        cmd,res = self.run_zdns(c, "")
+        self.assertSuccess(res, cmd, "A")
+        # Check for layers
+        self.assertIn(".", res["results"]["A"]["data"]["per_layer_responses"], "Should have the root (.) layer")
+        self.assertIn("com", res["results"]["A"]["data"]["per_layer_responses"], "Should have the .com layer")
+        self.assertIn("zdns-testing.com", res["results"]["A"]["data"]["per_layer_responses"], "Should have the google.com layer")
+        # check for a.root-servers.net, b.root-servers.net, ... m.root-servers.net
+        self.check_for_existance_of_root_and_com_nses(res)
+        # check for the google.com nameservers
+        actual_zdns_testing_leaf_NS_answers = []
+        actual_zdns_testing_leaf_A_answers = []
+        for entry in res["results"]["A"]["data"]["per_layer_responses"]["zdns-testing.com"]:
+            if entry["type"] == "NS":
+                actual_zdns_testing_leaf_NS_answers.append(entry)
+            elif entry["type"] == "A":
+                actual_zdns_testing_leaf_A_answers.append(entry)
+            else:
+                self.fail(f"Unexpected record type {entry['type']}")
+
+
+
+        # Check that we have "1.2.3.4", "2.3.4.5", and "3.4.5.6" as the A records and valid NS records for all expected Leaf NSes
+        if len(actual_zdns_testing_leaf_A_answers) != 4 or len(actual_zdns_testing_leaf_NS_answers) != 4:
+            self.fail("Should have 4 A  and 4 NS record sets")
+        expectedAnswers = ["1.2.3.4", "2.3.4.5", "3.4.5.6"]
+        for entry in actual_zdns_testing_leaf_A_answers:
+            actualAnswers = []
+            for answer in entry["result"]["answers"]:
+                actualAnswers.append(answer["answer"])
+            # sort
+            actualAnswers.sort()
+            expectedAnswers.sort()
+            self.assertEqual(actualAnswers, expectedAnswers, "Should have the expected A records")
+
+    def check_for_existance_of_root_and_com_nses(self, res):
+        actual_root_ns = []
+        for entry in res["results"]["A"]["data"]["per_layer_responses"]["."]:
+            actual_root_ns.append(entry["nameserver"])
+        for letter in "abcdefghijklm":
+            self.assertIn(f"{letter}.root-servers.net", actual_root_ns, "Should have the root nameservers")
+        # check for the .com nameservers
+        actual_com_nses = []
+        for entry in res["results"]["A"]["data"]["per_layer_responses"]["com"]:
+            actual_com_nses.append(entry["nameserver"])
+        for letter in "abcdefghijklm":
+            self.assertIn(f"{letter}.gtld-servers.net", actual_com_nses, "Should have the .com nameservers")
+
+    def test_lookup_all_nameservers_multi_zone_iterative(self):
+        """
+        Test that --all-nameservers lookups work with domains whose nameservers have their nameservers in different zones
+        In this case, example.com has a/b.iana-servers.net as nameservers, which are in the .com zone, but whose nameservers
+        are dig -t NS iana-servers.com -> ns.icann.org, a/b/c.iana-servers.net. This means the .com nameservers will not
+        provide the IPs in additionals.
+        """
+        # example.com has nameservers in .com, .org, and .net, we'll have to iteratively figure out their IP addresses too
+        c = "A example.com --all-nameservers --iterative --timeout=60"
+        cmd,res = self.run_zdns(c, "")
+        self.assertSuccess(res, cmd, "A")
+        # Check for layers
+        self.assertIn(".", res["results"]["A"]["data"]["per_layer_responses"], "Should have the root (.) layer")
+        self.assertIn("com", res["results"]["A"]["data"]["per_layer_responses"], "Should have the .com layer")
+        self.assertIn("example.com", res["results"]["A"]["data"]["per_layer_responses"], "Should have the example.com layer")
+        self.check_for_existance_of_root_and_com_nses(res)
+        # check for the example.com nameservers
+        actual_example_nses = []
+        for entry in res["results"]["A"]["data"]["per_layer_responses"]["example.com"]:
+            actual_example_nses.append(entry["nameserver"])
+        expected_example_nses = ["a.iana-servers.net", "b.iana-servers.net"]
+        for ns in expected_example_nses:
+            self.assertIn(ns, actual_example_nses, "Should have the example.com nameservers")
+
+    def test_lookup_all_nameservers_external_lookup(self):
+        """
+        Test that --all-nameservers lookups work with external resolvers: cloudflare.com and google.com
+        """
+        c = "A google.com --all-nameservers --name-servers='1.1.1.1,8.8.8.8'"
+        cmd,res = self.run_zdns(c, "")
+        self.assertSuccess(res, cmd, "A")
+        actual_resolvers = []
+        for entry in res["results"]["A"]["data"]:
+            actual_resolvers.append(entry["resolver"])
+        expected_resolvers = ["1.1.1.1:53", "8.8.8.8:53"]
+        for resolver in expected_resolvers:
+            self.assertIn(resolver, actual_resolvers, "Should have the expected resolvers")
 
 
 

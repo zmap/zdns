@@ -15,6 +15,7 @@
 package zdns
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"net"
@@ -49,6 +50,7 @@ const (
 	defaultCacheSize             = 10000
 	defaultShouldTrace           = false
 	defaultDNSSECEnabled         = false
+	defaultShouldValidateDNSSEC  = false
 	defaultIPVersionMode         = IPv4Only
 	defaultIterationIPPreference = PreferIPv4
 	DefaultNameServerConfigFile  = "/etc/resolv.conf"
@@ -84,19 +86,20 @@ type ResolverConfig struct {
 	ExternalNameServersV6 []NameServer // v6 name servers used for external lookups
 	RootNameServersV4     []NameServer // v4 root servers used for iterative lookups
 	RootNameServersV6     []NameServer // v6 root servers used for iterative lookups
-	LookupAllNameServers  bool         // perform the lookup via all the nameservers for the domain
+	LookupAllNameServers  bool         // perform the lookup via all the nameservers for the name
 	FollowCNAMEs          bool         // whether iterative lookups should follow CNAMEs/DNAMEs
 	DNSConfigFilePath     string       // path to the DNS config file, ex: /etc/resolv.conf
 
-	DNSSecEnabled       bool
-	DNSOverHTTPS        bool           // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
-	DNSOverTLS          bool           // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
-	RootCAs             *x509.CertPool // Root CAs for DoT/DoH Server Verification
-	VerifyServerCert    bool           // Verify server certificates for DoT/DoH
-	HTTPSClientIPv4     *http.Client   // for DoH, per docs should be shared amongst requests
-	HTTPSClientIPv6     *http.Client   // for DoH, per docs should be shared amongst requests
-	EdnsOptions         []dns.EDNS0
-	CheckingDisabledBit bool
+	DNSSecEnabled        bool
+	ShouldValidateDNSSEC bool           // whether to validate DNSSEC
+	DNSOverHTTPS         bool           // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
+	DNSOverTLS           bool           // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
+	RootCAs              *x509.CertPool // Root CAs for DoT/DoH Server Verification
+	VerifyServerCert     bool           // Verify server certificates for DoT/DoH
+	HTTPSClientIPv4      *http.Client   // for DoH, per docs should be shared amongst requests
+	HTTPSClientIPv6      *http.Client   // for DoH, per docs should be shared amongst requests
+	EdnsOptions          []dns.EDNS0
+	CheckingDisabledBit  bool
 }
 
 // Validate checks if the ResolverConfig is valid, returns an error describing the issue if it is not.
@@ -240,8 +243,9 @@ func NewResolverConfig() *ResolverConfig {
 		NetworkTimeout:   defaultNetworkTimeout,
 		MaxDepth:         defaultMaxDepth,
 
-		DNSSecEnabled:       defaultDNSSECEnabled,
-		CheckingDisabledBit: defaultCheckingDisabledBit,
+		DNSSecEnabled:        defaultDNSSECEnabled,
+		ShouldValidateDNSSEC: defaultShouldValidateDNSSEC,
+		CheckingDisabledBit:  defaultCheckingDisabledBit,
 	}
 }
 
@@ -269,8 +273,10 @@ type Resolver struct {
 	connInfoIPv4Loopback        *ConnectionInfo // used for IPv4 lookups to loopback nameservers
 	connInfoIPv6Loopback        *ConnectionInfo // used for IPv6 lookups to loopback nameservers
 
-	retries  int
-	logLevel log.Level
+	retries          int               // constant, configured max number of retries
+	retriesRemaining int               // number of retries left in the current lookup
+	pendingQueries   map[Question]bool // map of pending queries, to prevent cyclic queries
+	logLevel         log.Level
 
 	transportMode         transportMode
 	ipVersionMode         IPVersionMode
@@ -279,7 +285,7 @@ type Resolver struct {
 
 	networkTimeout             time.Duration // timeout for a single on-the-wire network call
 	iterativeTimeout           time.Duration // timeout for a layer of the iterative lookup
-	timeout                    time.Duration // timeout for the entire domain lookup
+	timeout                    time.Duration // timeout for the entire name lookup
 	maxDepth                   int
 	externalNameServers        []NameServer // name servers used by external lookups (either OS or user specified)
 	rootNameServers            []NameServer // root servers used for iterative lookups
@@ -287,7 +293,10 @@ type Resolver struct {
 	lookupAllNameServers       bool
 	followCNAMEs               bool // whether iterative lookups should follow CNAMEs/DNAMEs
 
-	dnsSecEnabled       bool
+	dnsSecEnabled        bool
+	shouldValidateDNSSEC bool             // whether to validate DNSSEC
+	validator            *dNSSECValidator // DNSSEC validator for the current lookup
+
 	dnsOverHTTPSEnabled bool           // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
 	dnsOverTLSEnabled   bool           // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
 	rootCAs             *x509.CertPool // Root CAs for DoT/DoH Server Verification
@@ -323,6 +332,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 
 		retries:              config.Retries,
 		logLevel:             config.LogLevel,
+		pendingQueries:       make(map[Question]bool),
 		lookupAllNameServers: config.LookupAllNameServers,
 
 		transportMode:         config.TransportMode,
@@ -333,13 +343,14 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 
 		timeout: config.Timeout,
 
-		dnsOverHTTPSEnabled: config.DNSOverHTTPS,
-		dnsOverTLSEnabled:   config.DNSOverTLS,
-		rootCAs:             config.RootCAs,
-		verifyServerCert:    config.VerifyServerCert,
-		dnsSecEnabled:       config.DNSSecEnabled,
-		ednsOptions:         config.EdnsOptions,
-		checkingDisabledBit: config.CheckingDisabledBit,
+		dnsOverHTTPSEnabled:  config.DNSOverHTTPS,
+		dnsOverTLSEnabled:    config.DNSOverTLS,
+		rootCAs:              config.RootCAs,
+		verifyServerCert:     config.VerifyServerCert,
+		dnsSecEnabled:        config.DNSSecEnabled,
+		shouldValidateDNSSEC: config.ShouldValidateDNSSEC,
+		ednsOptions:          config.EdnsOptions,
+		checkingDisabledBit:  config.CheckingDisabledBit,
 	}
 	log.SetLevel(r.logLevel)
 	// Deep copy local address so Resolver is independent of the config
@@ -465,7 +476,7 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 			}
 		}
 		if localAddr != nil {
-			log.Infof("none of the user-supplied local addresses could connect to name server %s, using local address %s", nameServer.String(), localAddr.String())
+			log.Warnf("none of the user-supplied local addresses could connect to name server %s, using local address %s", nameServer.String(), localAddr.String())
 		}
 	}
 	if localAddr == nil {
@@ -542,7 +553,7 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 							ServerName:         nameServer.DomainName,
 						})
 					} else {
-						// If no domain name is provided, we can't verify the server's certificate
+						// If no name is provided, we can't verify the server's certificate
 						tlsConn = tls.Client(conn, &tls.Config{
 							InsecureSkipVerify: true,
 						})
@@ -596,7 +607,7 @@ func getNewTCPConn(nameServer *NameServer, connInfo *ConnectionInfo) error {
 // multiple lookups concurrently, create a new Resolver object for each concurrent lookup.
 // Returns the result of the lookup, the trace of the lookup (what each nameserver along the lookup returned), the
 // status of the lookup, and any error that occurred.
-func (r *Resolver) ExternalLookup(q *Question, dstServer *NameServer) (*SingleQueryResult, Trace, Status, error) {
+func (r *Resolver) ExternalLookup(ctx context.Context, q *Question, dstServer *NameServer) (*SingleQueryResult, Trace, Status, error) {
 	if r.isClosed {
 		log.Fatal("resolver has been closed, cannot perform lookup")
 	}
@@ -614,7 +625,7 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer *NameServer) (*SingleQu
 	}
 	// dstServer has been validated and has a port, continue with lookup
 	r.lastUsedExternalNameServer = dstServer
-	lookup, trace, status, err := r.lookupClient.DoDstServersLookup(r, *q, []NameServer{*dstServer}, false)
+	lookup, trace, status, err := r.lookupClient.DoDstServersLookup(ctx, r, *q, []NameServer{*dstServer}, false)
 	return lookup, trace, status, err
 }
 
@@ -624,11 +635,11 @@ func (r *Resolver) ExternalLookup(q *Question, dstServer *NameServer) (*SingleQu
 // multiple lookups concurrently, create a new Resolver object for each concurrent lookup.
 // Returns the result of the lookup, the trace of the lookup (what each nameserver along the lookup returned), the
 // status of the lookup, and any error that occurred.
-func (r *Resolver) IterativeLookup(q *Question) (*SingleQueryResult, Trace, Status, error) {
+func (r *Resolver) IterativeLookup(ctx context.Context, q *Question) (*SingleQueryResult, Trace, Status, error) {
 	if r.isClosed {
 		log.Fatal("resolver has been closed, cannot perform lookup")
 	}
-	return r.lookupClient.DoDstServersLookup(r, *q, r.rootNameServers, true)
+	return r.lookupClient.DoDstServersLookup(ctx, r, *q, r.rootNameServers, true)
 }
 
 // Close cleans up any resources used by the resolver. This should be called when the resolver is no longer needed.

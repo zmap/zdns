@@ -14,6 +14,7 @@
 package zdns
 
 import (
+	"context"
 	"strings"
 
 	"github.com/miekg/dns"
@@ -52,9 +53,9 @@ func (r *Resolver) DoNSLookup(lookupName string, nameServer *NameServer, isItera
 	var status Status
 	var err error
 	if isIterative {
-		ns, trace, status, err = r.IterativeLookup(&Question{Name: lookupName, Type: dns.TypeNS, Class: dns.ClassINET})
+		ns, trace, status, err = r.IterativeLookup(context.Background(), &Question{Name: lookupName, Type: dns.TypeNS, Class: dns.ClassINET})
 	} else {
-		ns, trace, status, err = r.ExternalLookup(&Question{Name: lookupName, Type: dns.TypeNS, Class: dns.ClassINET}, nameServer)
+		ns, trace, status, err = r.ExternalLookup(context.Background(), &Question{Name: lookupName, Type: dns.TypeNS, Class: dns.ClassINET}, nameServer)
 
 	}
 
