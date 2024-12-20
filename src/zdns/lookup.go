@@ -16,13 +16,6 @@ package zdns
 import (
 	"context"
 	"fmt"
-	"io"
-	"math/rand"
-	"net"
-	"regexp"
-	"strings"
-	"time"
-
 	"github.com/miekg/dns"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -30,6 +23,11 @@ import (
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zgrab2/lib/http"
 	"github.com/zmap/zgrab2/lib/output"
+	"io"
+	"math/rand"
+	"net"
+	"regexp"
+	"strings"
 
 	"github.com/zmap/zdns/src/internal/util"
 )
@@ -1169,13 +1167,6 @@ func wireLookupUDP(ctx context.Context, connInfo *ConnectionInfo, q Question, na
 	if ednsOpt := m.IsEdns0(); ednsOpt != nil {
 		ednsOpt.Option = append(ednsOpt.Option, ednsOptions...)
 	}
-	connInfo.udpClient.DialTimeout = time.Minute
-	connInfo.udpClient.ReadTimeout = time.Minute
-	connInfo.udpClient.WriteTimeout = time.Minute
-	if connInfo.udpConn != nil {
-		//connInfo.udpConn = nil
-		//if connInfo.udpConn.Conn.Close()
-	}
 
 	var r *dns.Msg
 	var err error
@@ -1184,20 +1175,13 @@ func wireLookupUDP(ctx context.Context, connInfo *ConnectionInfo, q Question, na
 		var dst *net.UDPAddr
 		dst, err = net.ResolveUDPAddr("udp", nameServer.String())
 		if err != nil {
-			log.Errorf("could not resolve UDP address %s: %v", nameServer.String(), err)
+			return nil, nil, StatusError, errors.Wrapf(err, "could not resolve UDP address %s", nameServer.String())
 		}
 		r, _, err = connInfo.udpClient.ExchangeWithConnToContext(ctx, m, connInfo.udpConn, dst)
 	} else {
 		r, _, err = connInfo.udpClient.ExchangeContext(ctx, m, nameServer.String())
 	}
-	if err != nil {
-		log.Errorf("error in UDP exchange: %v", err)
-	}
-	//if strings.HasSuffix(nameServer.DomainName, "iana-servers.net.") || strings.Contains(q.Name, "iana-servers.net") {
-	//	// really weird, but if I set the udpConn to nil on IPv6, it works. Wondering if IPv6 UDP sockets work differently?
-	//	// Tomorrow, try to compare the connInfo objects between IPv4/v6
-	//	log.Warnf("iana-servers.net NS")
-	//}
+
 	if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
 		return &res, r, StatusTruncated, err
 	}
