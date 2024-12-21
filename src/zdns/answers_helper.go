@@ -49,6 +49,8 @@ package zdns
 
 func (ans Answer) BaseAns() *Answer           { return &ans }
 func (ans AFSDBAnswer) BaseAns() *Answer      { return &ans.Answer }
+func (ans AMTRELAYAnswer) BaseAns() *Answer   { return &ans.Answer }
+func (ans APLAnswer) BaseAns() *Answer        { return &ans.Answer }
 func (ans CAAAnswer) BaseAns() *Answer        { return &ans.Answer }
 func (ans CERTAnswer) BaseAns() *Answer       { return &ans.Answer }
 func (ans CSYNCAnswer) BaseAns() *Answer      { return &ans.Answer }
@@ -57,6 +59,7 @@ func (ans DSAnswer) BaseAns() *Answer         { return &ans.Answer }
 func (ans GPOSAnswer) BaseAns() *Answer       { return &ans.Answer }
 func (ans HINFOAnswer) BaseAns() *Answer      { return &ans.Answer }
 func (ans HIPAnswer) BaseAns() *Answer        { return &ans.Answer }
+func (ans IPSECKEYAnswer) BaseAns() *Answer   { return &ans.Answer }
 func (ans LOCAnswer) BaseAns() *Answer        { return &ans.Answer }
 func (ans MINFOAnswer) BaseAns() *Answer      { return &ans.Answer }
 func (ans NAPTRAnswer) BaseAns() *Answer      { return &ans.Answer }
@@ -65,6 +68,7 @@ func (ans NSEC3ParamAnswer) BaseAns() *Answer { return &ans.Answer }
 func (ans NSECAnswer) BaseAns() *Answer       { return &ans.Answer }
 func (ans PXAnswer) BaseAns() *Answer         { return &ans.Answer }
 func (ans PrefAnswer) BaseAns() *Answer       { return &ans.Answer }
+func (ans RKEYAnswer) BaseAns() *Answer       { return &ans.Answer }
 func (ans RPAnswer) BaseAns() *Answer         { return &ans.Answer }
 func (ans RRSIGAnswer) BaseAns() *Answer      { return &ans.Answer }
 func (ans SMIMEAAnswer) BaseAns() *Answer     { return &ans.Answer }
@@ -76,3 +80,4 @@ func (ans TALINKAnswer) BaseAns() *Answer     { return &ans.Answer }
 func (ans TKEYAnswer) BaseAns() *Answer       { return &ans.Answer }
 func (ans TLSAAnswer) BaseAns() *Answer       { return &ans.Answer }
 func (ans URIAnswer) BaseAns() *Answer        { return &ans.Answer }
+func (ans ZONEMDAnswer) BaseAns() *Answer     { return &ans.Answer }
