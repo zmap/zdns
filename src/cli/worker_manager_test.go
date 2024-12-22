@@ -76,7 +76,7 @@ func TestConvertNameServerStringToNameServer(t *testing.T) {
 		containsExpectedNameServerStrings(t, nses, expectedNSes)
 	})
 	t.Run("Bad domain name", func(t *testing.T) {
-		_, err := convertNameServerStringToNameServer("bad.domain.name", zdns.IPv4OrIPv6, false, false)
+		_, err := convertNameServerStringToNameServer("bad.domain.name.random.j83bs", zdns.IPv4OrIPv6, false, false)
 		require.Error(t, err)
 	})
 	t.Run("Bad IP address", func(t *testing.T) {

@@ -65,7 +65,7 @@ func (r *Resolver) DoNSLookup(lookupName string, nameServer *NameServer, isItera
 	}
 	ipv4s := make(map[string][]string)
 	ipv6s := make(map[string][]string)
-	for _, ans := range ns.Additional {
+	for _, ans := range ns.Additionals {
 		a, ok := ans.(Answer)
 		if !ok {
 			continue

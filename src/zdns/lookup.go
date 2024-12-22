@@ -327,7 +327,7 @@ func (r *Resolver) filterNameServersForUniqueNames(nameServers []NameServer) []N
 			}
 		}
 		if ipv4NS == nil && ipv6NS == nil {
-			// can be the case that nameservers don't have IPs (like if we have an authority but no additionals)
+			// can be the case that nameservers don't have IPs (like if we have an authority but no additional)
 			// use the first NS if so
 			if len(nsSlice) > 0 {
 				filteredNameServersSet = append(filteredNameServersSet, nsSlice[0])
@@ -472,7 +472,7 @@ func (r *Resolver) extractNameServersFromLayerResults(layerResults []ExtendedRes
 		if res.Status != StatusNoError {
 			continue
 		}
-		for _, ans := range res.Res.Additional {
+		for _, ans := range res.Res.Additionals {
 			if a, ok := ans.(Answer); ok {
 				uniqueAdditionals[mapKey{Type: a.RrType, Name: a.Name, Answer: a.Answer}] = a
 			}
@@ -695,16 +695,16 @@ func (r *Resolver) iterativeLookup(ctx context.Context, qWithMeta *QuestionWithM
 		r.verboseLog((depth + 1), "-> error occurred during lookup")
 		return result, trace, status, err
 	} else if len(result.Answers) != 0 || result.Flags.Authoritative {
-		// DS records is authoritative from parent NS and will be in Authority section. Avoid dropping them.
+		// DS records are authoritative from parent NS and will be in Authority section. Avoid dropping them.
 		if len(result.Answers) != 0 && qWithMeta.Q.Type != dns.TypeDS {
 			r.verboseLog((depth + 1), "-> answers found")
 			if len(result.Authorities) > 0 {
 				r.verboseLog((depth + 2), "Dropping ", len(result.Authorities), " authority answers from output")
 				result.Authorities = make([]interface{}, 0)
 			}
-			if len(result.Additional) > 0 {
-				r.verboseLog((depth + 2), "Dropping ", len(result.Additional), " additional answers from output")
-				result.Additional = make([]interface{}, 0)
+			if len(result.Additionals) > 0 {
+				r.verboseLog((depth + 2), "Dropping ", len(result.Additionals), " additional answers from output")
+				result.Additionals = make([]interface{}, 0)
 			}
 		} else {
 			r.verboseLog((depth + 1), "-> authoritative response found")
@@ -868,7 +868,7 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 			if ok {
 				r.verboseLog(depth+2, "Cache auth hit for ", authName)
 				// only want to return if we actually have additionals and authorities from the cache for the caller
-				if len(cachedResult.Additional) > 0 && len(cachedResult.Authorities) > 0 {
+				if len(cachedResult.Additionals) > 0 && len(cachedResult.Authorities) > 0 {
 					return cachedResult, true, StatusNoError, trace, nil
 				}
 				// unsuccessful in retrieving from the cache, we'll continue to the wire
@@ -1010,7 +1010,7 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 		Protocol:    DoTProtocol,
 		Answers:     []interface{}{},
 		Authorities: []interface{}{},
-		Additional:  []interface{}{},
+		Additionals: []interface{}{},
 	}
 	// if we have it, add the TLS handshake info
 	if connInfo.tlsHandshake != nil {
@@ -1082,7 +1082,7 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 		Protocol:    DoHProtocol,
 		Answers:     []interface{}{},
 		Authorities: []interface{}{},
-		Additional:  []interface{}{},
+		Additionals: []interface{}{},
 	}
 	if resp.Request != nil && resp.Request.TLSLog != nil {
 		processor := output.Processor{Verbose: false}
@@ -1098,7 +1098,7 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 
 // wireLookupTCP performs a DNS lookup on-the-wire over TCP with the given parameters
 func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, ednsOptions []dns.EDNS0, recursive, dnssec, checkingDisabled bool) (*SingleQueryResult, *dns.Msg, Status, error) {
-	res := SingleQueryResult{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
+	res := SingleQueryResult{Answers: []interface{}{}, Authorities: []interface{}{}, Additionals: []interface{}{}}
 	res.Resolver = nameServer.String()
 
 	m := new(dns.Msg)
@@ -1152,7 +1152,7 @@ func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, na
 
 // wireLookupUDP performs a DNS lookup on-the-wire over UDP with the given parameters
 func wireLookupUDP(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, ednsOptions []dns.EDNS0, recursive, dnssec, checkingDisabled bool) (*SingleQueryResult, *dns.Msg, Status, error) {
-	res := SingleQueryResult{Answers: []interface{}{}, Authorities: []interface{}{}, Additional: []interface{}{}}
+	res := SingleQueryResult{Answers: []interface{}{}, Authorities: []interface{}{}, Additionals: []interface{}{}}
 	res.Resolver = nameServer.String()
 	res.Protocol = "udp"
 
@@ -1196,7 +1196,7 @@ func constructSingleQueryResultFromDNSMsg(res *SingleQueryResult, r *dns.Msg) (*
 		for _, ans := range r.Extra {
 			inner := ParseAnswer(ans)
 			if inner != nil {
-				res.Additional = append(res.Additional, inner)
+				res.Additionals = append(res.Additionals, inner)
 			}
 		}
 		return res, r, TranslateDNSErrorCode(r.Rcode), nil
@@ -1221,7 +1221,7 @@ func constructSingleQueryResultFromDNSMsg(res *SingleQueryResult, r *dns.Msg) (*
 	for _, ans := range r.Extra {
 		inner := ParseAnswer(ans)
 		if inner != nil {
-			res.Additional = append(res.Additional, inner)
+			res.Additionals = append(res.Additionals, inner)
 		}
 	}
 	for _, ans := range r.Ns {

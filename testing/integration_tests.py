@@ -1303,8 +1303,8 @@ class Tests(unittest.TestCase):
             self.assertSuccess(res, cmd, "A")
             dnssec = res["results"]["A"]["data"]["dnssec"]
             self.assertEqual(dnssec["status"], "Secure")
-            self.assertTrue(len(dnssec["ds"]) > 0)
-            self.assertTrue(len(dnssec["dnskey"]) > 0)
+            self.assertTrue(len(dnssec["dses"]) > 0)
+            self.assertTrue(len(dnssec["dnskeys"]) > 0)
 
     def test_dnssec_validation_secure_circular(self):
         # checks if dnssec validation can handle circular NS dependencies
@@ -1323,8 +1323,8 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd, "A")
         dnssec = res["results"]["A"]["data"]["dnssec"]
         self.assertEqual(dnssec["status"], "Insecure")
-        self.assertTrue(len(dnssec["ds"]) == 0)
-        self.assertTrue(len(dnssec["dnskey"]) == 0)
+        self.assertTrue(len(dnssec["dses"]) == 0)
+        self.assertTrue(len(dnssec["dnskeys"]) == 0)
 
     def test_dnssec_validation_insecure_cname(self):
         # checks if dnssec validation reports insecure if a CNAME is not signed
@@ -1498,7 +1498,7 @@ class Tests(unittest.TestCase):
         """
         Test that --all-nameservers --iterative lookups work with domains whose nameservers are all in the same zone
         zdns-testing.com has nameservers ns-cloud-c1/2/3/4.googledomains.com, which are all in the .com zone and so will have their IPs
-        provided as additionals in the .com response
+        provided as additional in the .com response
         """
         # zdns-testing.com's nameservers are all in the .com zone, so we should only have to query the .com nameservers
         c = "A zdns-testing.com --all-nameservers --iterative --timeout=60"
@@ -1554,7 +1554,7 @@ class Tests(unittest.TestCase):
         Test that --all-nameservers lookups work with domains whose nameservers have their nameservers in different zones
         In this case, example.com has a/b.iana-servers.net as nameservers, which are in the .com zone, but whose nameservers
         are dig -t NS iana-servers.com -> ns.icann.org, a/b/c.iana-servers.net. This means the .com nameservers will not
-        provide the IPs in additionals.
+        provide the IPs in the additional section.
         """
         # example.com has nameservers in .com, .org, and .net, we'll have to iteratively figure out their IP addresses too
         c = "A example.com --all-nameservers --iterative --timeout=60"
