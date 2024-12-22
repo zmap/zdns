@@ -571,6 +571,14 @@ class Tests(unittest.TestCase):
             "selector": 1,
             "matching_type": 1,
             "certificate": "b05d5a0b10095ab7d38710aa70b85c5227cfb9cae23c93ee2bf8fdbedfffdb39"
+        }, {
+            "type": "TLSA",
+            "class": "IN",
+            "name": "_25._tcp.mail.ietf.org",
+            "cert_usage": 3,
+            "selector": 1,
+            "matching_type": 1,
+            "certificate": "1f9afe824b213ab18bd59312c58c9282d2047875324cc7e0d4259d67cf42c5fa"
         }
     ]
 
