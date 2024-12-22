@@ -107,7 +107,7 @@ func checkGlue(server string, result *SingleQueryResult, ipMode IPVersionMode, i
 }
 
 func checkGlueHelper(server, ansType string, result *SingleQueryResult) (*SingleQueryResult, Status) {
-	for _, additional := range result.Additional {
+	for _, additional := range result.Additionals {
 		ans, ok := additional.(Answer)
 		if !ok {
 			continue
@@ -118,7 +118,7 @@ func checkGlueHelper(server, ansType string, result *SingleQueryResult) (*Single
 			var retv SingleQueryResult
 			retv.Authorities = make([]interface{}, 0)
 			retv.Answers = make([]interface{}, 0, 1)
-			retv.Additional = make([]interface{}, 0)
+			retv.Additionals = make([]interface{}, 0)
 			retv.Answers = append(retv.Answers, ans)
 			return &retv, StatusNoError
 		}

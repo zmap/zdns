@@ -62,8 +62,8 @@ const NSEC3OptOutFlag = 0x01
 // - *DNSSECResult: Contains validation results for all message sections:
 //   - Status: Overall DNSSEC validation status (Secure/Insecure/Bogus/Indeterminate)
 //   - DS: Collection of DS records actually used during validation
-//   - DNSKEY: Collection of DNSKEY records actually used during validation
-//   - Answer/Additional/Authoritative: Per-RRset validation results
+//   - DNSKEYs: Collection of DNSKEY records actually used during validation
+//   - Answers/Additionals/Authorities: Per-RRset validation results
 //
 // - Trace: Updated trace context containing validation path
 func (v *dNSSECValidator) validate(layer string, msg *dns.Msg, nameServer *NameServer, depth int, trace Trace) (*DNSSECResult, Trace) {
@@ -99,7 +99,7 @@ func (v *dNSSECValidator) validate(layer string, msg *dns.Msg, nameServer *NameS
 		// Validate the answer section
 		var sectionRes []DNSSECPerSetResult
 		sectionRes, trace = v.validateSection(v.msg.Answer, depth, trace)
-		result.Answer = sectionRes
+		result.Answers = sectionRes
 
 		// If the message is authoritative, we drop the additional and authoritative sections
 		// in Resolver.iterativeLookup, hence no need to validate them here. Validating them
@@ -107,20 +107,20 @@ func (v *dNSSECValidator) validate(layer string, msg *dns.Msg, nameServer *NameS
 		if !v.msg.Authoritative {
 			// Validate the additional section
 			sectionRes, trace = v.validateSection(v.msg.Extra, depth, trace)
-			result.Additional = sectionRes
+			result.Additionals = sectionRes
 
 			// Validate the authoritative section
 			sectionRes, trace = v.validateSection(v.msg.Ns, depth, trace)
-			result.Authoritative = sectionRes
+			result.Authorities = sectionRes
 		}
 
 		for ds := range v.ds {
 			parsed := ParseAnswer(&ds).(DSAnswer) //nolint:golint,errcheck
-			result.DS = append(result.DS, &parsed)
+			result.DSes = append(result.DSes, &parsed)
 		}
 		for dnskey := range v.dNSKEY {
 			parsed := ParseAnswer(&dnskey).(DNSKEYAnswer) //nolint:golint,errcheck
-			result.DNSKEY = append(result.DNSKEY, &parsed)
+			result.DNSKEYs = append(result.DNSKEYs, &parsed)
 		}
 
 		result.populateStatus()
@@ -277,7 +277,7 @@ func (v *dNSSECValidator) findSEPsFromAnswer(rrSet []dns.RR, signerDomain string
 	}
 
 	if len(dnskeys) == 0 {
-		return nil, trace, errors.New("could not find any DNSKEY")
+		return nil, trace, errors.New("could not find any DNSKEYs")
 	}
 
 	// Find SEP keys
@@ -328,7 +328,7 @@ func (v *dNSSECValidator) getDNSKEYs(signerDomain string, trace Trace, depth int
 	} else if res.DNSSECResult != nil && res.DNSSECResult.Status != DNSSECSecure { // 	// DNSSECResult may be nil if the response is from the cache.
 		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DNSKEYs for signer domain %s, DNSSEC status: %s", signerDomain, res.DNSSECResult.Status))
 
-		if prevResult := getResultForRRset(RRsetKey(dnskeyQuestion.Q), res.DNSSECResult.Answer); prevResult != nil && prevResult.Error != "" {
+		if prevResult := getResultForRRset(RRsetKey(dnskeyQuestion.Q), res.DNSSECResult.Answers); prevResult != nil && prevResult.Error != "" {
 			return nil, nil, trace, fmt.Errorf("DNSKEY fetch failed: %s", prevResult.Error)
 		} else {
 			return nil, nil, trace, errors.New(res.DNSSECResult.Reason)
@@ -403,7 +403,7 @@ func (v *dNSSECValidator) fetchDSRecords(signerDomain string, trace Trace, depth
 	} else if res.DNSSECResult != nil && res.DNSSECResult.Status != DNSSECSecure {
 		v.r.verboseLog(depth, fmt.Sprintf("DNSSEC: Failed to get DS records for signer domain %s, DNSSEC status: %s", signerDomain, res.DNSSECResult.Status))
 
-		if prevResult := getResultForRRset(RRsetKey(dsQuestion.Q), res.DNSSECResult.Authoritative); prevResult != nil && prevResult.Error != "" {
+		if prevResult := getResultForRRset(RRsetKey(dsQuestion.Q), res.DNSSECResult.Authorities); prevResult != nil && prevResult.Error != "" {
 			return nil, false, trace, fmt.Errorf("DS fetch failed: %s", prevResult.Error)
 		} else {
 			return nil, false, trace, errors.New(res.DNSSECResult.Reason)
