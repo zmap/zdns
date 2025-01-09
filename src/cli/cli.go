@@ -246,8 +246,9 @@ cat domains.txt | ./zdns A
 ./zdns A google.com yahoo.com
 
 Name Servers can either be specified as a global list or a per-domain name server.
-./zdns A google.com --name-servers=1.1.1.1,8.8.8.8
-echo "google.com,1.0.0.1" | ./zdns A
+For Example:
+zdns A google.com --name-servers=1.1.1.1,8.8.8.8
+echo "google.com,1.0.0.1" | zdns A
 
 For more information, see the README
 `
