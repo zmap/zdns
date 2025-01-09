@@ -12,7 +12,7 @@ from ipaddress import ip_address
 
 def recursiveSort(obj):
     def listSort(l):
-        assert (type(l) == type(list()))
+        assert type(l) == type(list())
         new_list = []
         for item in l:
             item = recursiveSort(item)
@@ -23,7 +23,7 @@ def recursiveSort(obj):
             return sorted(new_list)
 
     def dictSort(d):
-        assert (type(d) == type(dict()))
+        assert type(d) == type(dict())
         for key in d:
             d[key] = recursiveSort(d[key])
         return d
@@ -42,7 +42,9 @@ class Tests(unittest.TestCase):
     ZDNS_EXECUTABLE = "./zdns"
     ADDITIONAL_FLAGS = " --threads=10 --quiet"  # flags used with every test
 
-    def run_zdns_check_failure(self, flags, name, expected_err, executable=ZDNS_EXECUTABLE):
+    def run_zdns_check_failure(
+        self, flags, name, expected_err, executable=ZDNS_EXECUTABLE
+    ):
         flags = flags + self.ADDITIONAL_FLAGS
         c = f"echo '{name}' | {executable} {flags}; exit 0"
         o = subprocess.check_output(c, shell=True, stderr=subprocess.STDOUT)
@@ -56,12 +58,14 @@ class Tests(unittest.TestCase):
 
     # Runs zdns with a given name(s) input and flags, returns the command and JSON objects from the piped JSON-Lines output
     # Used when running a ZDNS command that should return multiple lines of output, and you want those in a list
-    def run_zdns_multiline_output(self, flags, name, executable=ZDNS_EXECUTABLE, append_flags=True):
+    def run_zdns_multiline_output(
+        self, flags, name, executable=ZDNS_EXECUTABLE, append_flags=True
+    ):
         if append_flags:
             flags = flags + self.ADDITIONAL_FLAGS
         c = f"echo '{name}' | {executable} {flags}"
         o = subprocess.check_output(c, shell=True)
-        output_lines = o.decode('utf-8').strip().splitlines()
+        output_lines = o.decode("utf-8").strip().splitlines()
         json_objects = [json.loads(line.rstrip()) for line in output_lines]
         return c, json_objects
 
@@ -69,47 +73,91 @@ class Tests(unittest.TestCase):
 
     ROOT_A_A_ZDNS_TESTING_COM = {"21.9.87.65"}  # a.zdns-testing.com
 
-    ROOT_A_ANSWERS = [{"type": "A", "class": "IN", "answer": x,
-                       "name": "zdns-testing.com"} for x in ROOT_A_ZDNS_TESTING_COM]
+    ROOT_A_ANSWERS = [
+        {"type": "A", "class": "IN", "answer": x, "name": "zdns-testing.com"}
+        for x in ROOT_A_ZDNS_TESTING_COM
+    ]
 
-    ROOT_A_A_ZDNS_TESTING_COM_ANSWERS = [{"type": "A", "class": "IN", "answer": x,
-                                          "name": "a.zdns-testing.com"} for x in ROOT_A_A_ZDNS_TESTING_COM]
+    ROOT_A_A_ZDNS_TESTING_COM_ANSWERS = [
+        {"type": "A", "class": "IN", "answer": x, "name": "a.zdns-testing.com"}
+        for x in ROOT_A_A_ZDNS_TESTING_COM
+    ]
 
     ROOT_AAAA = {"fd5a:3bce:8713::1", "fde6:9bb3:dbd6::2", "fdb3:ac76:a577::3"}
 
-    ROOT_AAAA_ANSWERS = [{"type": "AAAA", "class": "IN", "answer": x,
-                          "name": "zdns-testing.com"} for x in ROOT_AAAA]
+    ROOT_AAAA_ANSWERS = [
+        {"type": "AAAA", "class": "IN", "answer": x, "name": "zdns-testing.com"}
+        for x in ROOT_AAAA
+    ]
 
     MX_SERVERS = [
-        {"answer": "mx1.zdns-testing.com.", "preference": 1, "type": "MX", "class": "IN", 'name': 'zdns-testing.com'},
-        {"answer": "mx2.zdns-testing.com.", "preference": 5, "type": "MX", "class": "IN", 'name': 'zdns-testing.com'},
-        {"answer": "mx1.censys.io.", "preference": 10, "type": "MX", "class": "IN", 'name': 'zdns-testing.com'},
+        {
+            "answer": "mx1.zdns-testing.com.",
+            "preference": 1,
+            "type": "MX",
+            "class": "IN",
+            "name": "zdns-testing.com",
+        },
+        {
+            "answer": "mx2.zdns-testing.com.",
+            "preference": 5,
+            "type": "MX",
+            "class": "IN",
+            "name": "zdns-testing.com",
+        },
+        {
+            "answer": "mx1.censys.io.",
+            "preference": 10,
+            "type": "MX",
+            "class": "IN",
+            "name": "zdns-testing.com",
+        },
     ]
 
     A_MX1_ZDNS_TESTING_COM = {"1.2.3.4", "2.3.4.5"}
 
     AAAA_MX1_ZDNS_TESTING_COM = {"fdb3:ac76:a577::4", "fdb3:ac76:a577::5"}
 
-    A_MX1_ZDNS_TESTING_COM_ANSWERS = [{"type": "A", "class": "IN", "answer": x, "name": "mx1.zdns-testing.com"}
-                                      for x in A_MX1_ZDNS_TESTING_COM]
-    AAAA_MX1_ZDNS_TESTING_COM_ANSWERS = [{"type": "AAAA", "class": "IN", "answer": x, "name": "mx1.zdns-testing.com"}
-                                         for x in AAAA_MX1_ZDNS_TESTING_COM]
+    A_MX1_ZDNS_TESTING_COM_ANSWERS = [
+        {"type": "A", "class": "IN", "answer": x, "name": "mx1.zdns-testing.com"}
+        for x in A_MX1_ZDNS_TESTING_COM
+    ]
+    AAAA_MX1_ZDNS_TESTING_COM_ANSWERS = [
+        {"type": "AAAA", "class": "IN", "answer": x, "name": "mx1.zdns-testing.com"}
+        for x in AAAA_MX1_ZDNS_TESTING_COM
+    ]
 
     NS_SERVERS = [
-        {"type": "NS", "class": "IN", "name": "zdns-testing.com",
-         "answer": "ns-cloud-c2.googledomains.com."},
-        {"type": "NS", "class": "IN", "name": "zdns-testing.com",
-         "answer": "ns-cloud-c3.googledomains.com."},
-        {"type": "NS", "class": "IN", "name": "zdns-testing.com",
-         "answer": "ns-cloud-c1.googledomains.com."},
-        {"type": "NS", "class": "IN", "name": "zdns-testing.com",
-         "answer": "ns-cloud-c4.googledomains.com."},
+        {
+            "type": "NS",
+            "class": "IN",
+            "name": "zdns-testing.com",
+            "answer": "ns-cloud-c2.googledomains.com.",
+        },
+        {
+            "type": "NS",
+            "class": "IN",
+            "name": "zdns-testing.com",
+            "answer": "ns-cloud-c3.googledomains.com.",
+        },
+        {
+            "type": "NS",
+            "class": "IN",
+            "name": "zdns-testing.com",
+            "answer": "ns-cloud-c1.googledomains.com.",
+        },
+        {
+            "type": "NS",
+            "class": "IN",
+            "name": "zdns-testing.com",
+            "answer": "ns-cloud-c4.googledomains.com.",
+        },
     ]
 
     NXDOMAIN_ANSWER = {
         "name": "zdns-testing-nxdomain.com",
         "class": "IN",
-        "status": "NXDOMAIN"
+        "status": "NXDOMAIN",
     }
 
     MX_LOOKUP_ANSWER = {
@@ -125,42 +173,42 @@ class Tests(unittest.TestCase):
                             "type": "MX",
                             "class": "IN",
                             "preference": 1,
-                            "ipv4_addresses": [
-                                "1.2.3.4",
-                                "2.3.4.5"
-                            ],
+                            "ipv4_addresses": ["1.2.3.4", "2.3.4.5"],
                             "ipv6_addresses": [
                                 "fdb3:ac76:a577::4",
-                                "fdb3:ac76:a577::5"
+                                "fdb3:ac76:a577::5",
                             ],
-
                         },
                         {
                             "name": "mx2.zdns-testing.com",
                             "type": "MX",
                             "class": "IN",
                             "preference": 5,
-                            "ipv4_addresses": [
-                                "5.6.7.8"
-                            ],
+                            "ipv4_addresses": ["5.6.7.8"],
                         },
                         {
                             "name": "mx1.censys.io",
                             "type": "MX",
                             "class": "IN",
                             "preference": 10,
-                        }
+                        },
                     ]
-                }
+                },
             }
-        }
+        },
     }
 
     MX_LOOKUP_ANSWER_IPV4 = copy.deepcopy(MX_LOOKUP_ANSWER)
-    del MX_LOOKUP_ANSWER_IPV4["results"]["MXLOOKUP"]["data"]["exchanges"][0]["ipv6_addresses"]
+    del MX_LOOKUP_ANSWER_IPV4["results"]["MXLOOKUP"]["data"]["exchanges"][0][
+        "ipv6_addresses"
+    ]
     MX_LOOKUP_ANSWER_IPV6 = copy.deepcopy(MX_LOOKUP_ANSWER)
-    del MX_LOOKUP_ANSWER_IPV6["results"]["MXLOOKUP"]["data"]["exchanges"][0]["ipv4_addresses"]
-    del MX_LOOKUP_ANSWER_IPV6["results"]["MXLOOKUP"]["data"]["exchanges"][1]["ipv4_addresses"]
+    del MX_LOOKUP_ANSWER_IPV6["results"]["MXLOOKUP"]["data"]["exchanges"][0][
+        "ipv4_addresses"
+    ]
+    del MX_LOOKUP_ANSWER_IPV6["results"]["MXLOOKUP"]["data"]["exchanges"][1][
+        "ipv4_addresses"
+    ]
 
     A_LOOKUP_WWW_ZDNS_TESTING = {
         "name": "www.zdns-testing.com",
@@ -169,19 +217,15 @@ class Tests(unittest.TestCase):
                 "class": "IN",
                 "status": "NOERROR",
                 "data": {
-                    "ipv4_addresses": [
-                        "1.2.3.4",
-                        "2.3.4.5",
-                        "3.4.5.6"
-                    ],
+                    "ipv4_addresses": ["1.2.3.4", "2.3.4.5", "3.4.5.6"],
                     "ipv6_addresses": [
                         "fde6:9bb3:dbd6::2",
                         "fd5a:3bce:8713::1",
-                        "fdb3:ac76:a577::3"
-                    ]
-                }
+                        "fdb3:ac76:a577::3",
+                    ],
+                },
             }
-        }
+        },
     }
 
     A_LOOKUP_WWW_ZDNS_TESTING_IPv6 = {
@@ -194,11 +238,11 @@ class Tests(unittest.TestCase):
                     "ipv6_addresses": [
                         "fde6:9bb3:dbd6::2",
                         "fd5a:3bce:8713::1",
-                        "fdb3:ac76:a577::3"
+                        "fdb3:ac76:a577::3",
                     ]
-                }
+                },
             }
-        }
+        },
     }
 
     A_LOOKUP_CNAME_CHAIN_03 = {
@@ -211,9 +255,9 @@ class Tests(unittest.TestCase):
                     "ipv4_addresses": [
                         "1.2.3.4",
                     ]
-                }
+                },
             }
-        }
+        },
     }
 
     A_LOOKUP_IPV4_WWW_ZDNS_TESTING = copy.deepcopy(A_LOOKUP_WWW_ZDNS_TESTING)
@@ -229,56 +273,44 @@ class Tests(unittest.TestCase):
                 "data": {
                     "servers": [
                         {
-                            "ipv4_addresses": [
-                                "216.239.34.108"
-                            ],
-                            "ipv6_addresses": [
-                                "2001:4860:4802:34::6c"
-                            ],
+                            "ipv4_addresses": ["216.239.34.108"],
+                            "ipv6_addresses": ["2001:4860:4802:34::6c"],
                             "name": "ns-cloud-c2.googledomains.com",
-                            "type": "NS"
+                            "type": "NS",
                         },
                         {
-                            "ipv4_addresses": [
-                                "216.239.32.108"
-                            ],
-                            "ipv6_addresses": [
-                                "2001:4860:4802:32::6c"
-                            ],
+                            "ipv4_addresses": ["216.239.32.108"],
+                            "ipv6_addresses": ["2001:4860:4802:32::6c"],
                             "name": "ns-cloud-c1.googledomains.com",
-                            "type": "NS"
+                            "type": "NS",
                         },
                         {
-                            "ipv4_addresses": [
-                                "216.239.38.108"
-                            ],
-                            "ipv6_addresses": [
-                                "2001:4860:4802:38::6c"
-                            ],
+                            "ipv4_addresses": ["216.239.38.108"],
+                            "ipv6_addresses": ["2001:4860:4802:38::6c"],
                             "name": "ns-cloud-c4.googledomains.com",
-                            "type": "NS"
+                            "type": "NS",
                         },
                         {
-                            "ipv4_addresses": [
-                                "216.239.36.108"
-                            ],
-                            "ipv6_addresses": [
-                                "2001:4860:4802:36::6c"
-                            ],
+                            "ipv4_addresses": ["216.239.36.108"],
+                            "ipv6_addresses": ["2001:4860:4802:36::6c"],
                             "name": "ns-cloud-c3.googledomains.com",
-                            "type": "NS"
-                        }
+                            "type": "NS",
+                        },
                     ]
-                }
+                },
             }
-        }
+        },
     }
 
     NS_LOOKUP_IPV4_WWW_ZDNS_TESTING = copy.deepcopy(NS_LOOKUP_WWW_ZDNS_TESTING)
-    for server in NS_LOOKUP_IPV4_WWW_ZDNS_TESTING["results"]["NSLOOKUP"]["data"]["servers"]:
+    for server in NS_LOOKUP_IPV4_WWW_ZDNS_TESTING["results"]["NSLOOKUP"]["data"][
+        "servers"
+    ]:
         del server["ipv6_addresses"]
     NS_LOOKUP_IPV6_WWW_ZDNS_TESTING = copy.deepcopy(NS_LOOKUP_WWW_ZDNS_TESTING)
-    for server in NS_LOOKUP_IPV6_WWW_ZDNS_TESTING["results"]["NSLOOKUP"]["data"]["servers"]:
+    for server in NS_LOOKUP_IPV6_WWW_ZDNS_TESTING["results"]["NSLOOKUP"]["data"][
+        "servers"
+    ]:
         del server["ipv4_addresses"]
 
     PTR_LOOKUP_GOOGLE_PUB = [
@@ -286,7 +318,7 @@ class Tests(unittest.TestCase):
             "type": "PTR",
             "class": "IN",
             "name": "8.8.8.8.in-addr.arpa",
-            "answer": "dns.google."
+            "answer": "dns.google.",
         }
     ]
 
@@ -297,7 +329,7 @@ class Tests(unittest.TestCase):
             "name": "zdns-testing.com",
             "tag": "issue",
             "value": "letsencrypt.org",
-            "flag": 0
+            "flag": 0,
         }
     ]
 
@@ -306,7 +338,7 @@ class Tests(unittest.TestCase):
             "type": "TXT",
             "class": "IN",
             "name": "test_txt.zdns-testing.com",
-            "answer": "Hello World!"
+            "answer": "Hello World!",
         }
     ]
 
@@ -329,9 +361,9 @@ class Tests(unittest.TestCase):
                 "recursion_available": False,
                 "authenticated": False,
                 "checking_disabled": False,
-                "error_code": 0
-            }
-        }
+                "error_code": 0,
+            },
+        },
     }
 
     TCP_LARGE_TXT_ANSWERS = [
@@ -339,85 +371,85 @@ class Tests(unittest.TestCase):
             "type": "TXT",
             "class": "IN",
             "name": "large-text.zdns-testing.com",
-            "answer": "surveys, informed by our own experiences conducting a long-term research survey over the past year."
+            "answer": "surveys, informed by our own experiences conducting a long-term research survey over the past year.",
         },
         {
             "type": "TXT",
             "class": "IN",
             "name": "large-text.zdns-testing.com",
-            "answer": "and explore the security implications of high speed Internet-scale network surveys, both offensive and defensive. "
+            "answer": "and explore the security implications of high speed Internet-scale network surveys, both offensive and defensive. ",
         },
         {
             "type": "TXT",
             "class": "IN",
             "name": "large-text.zdns-testing.com",
-            "answer": "in under 45 minutes from user space on a single machine, approaching the theoretical maximum speed of gigabit Ethernet."
+            "answer": "in under 45 minutes from user space on a single machine, approaching the theoretical maximum speed of gigabit Ethernet.",
         },
         {
             "type": "TXT",
             "class": "IN",
             "name": "large-text.zdns-testing.com",
-            "answer": "We introduce ZMap, a modular, open-source network scanner specifically architected to perform Internet-wide scans and capable of surveying the entire IPv4 address space"
+            "answer": "We introduce ZMap, a modular, open-source network scanner specifically architected to perform Internet-wide scans and capable of surveying the entire IPv4 address space",
         },
         {
             "type": "TXT",
             "class": "IN",
             "name": "large-text.zdns-testing.com",
-            "answer": "Internet-wide network scanning has numerous security applications, including exposing new vulnerabilities and tracking the adoption of defensive mechanisms, but probing the entire public address space with existing tools is both difficult and slow."
+            "answer": "Internet-wide network scanning has numerous security applications, including exposing new vulnerabilities and tracking the adoption of defensive mechanisms, but probing the entire public address space with existing tools is both difficult and slow.",
         },
         {
             "type": "TXT",
             "class": "IN",
             "name": "large-text.zdns-testing.com",
-            "answer": "We also discuss best practices for good Internet citizenship when performing Internet-wide"
+            "answer": "We also discuss best practices for good Internet citizenship when performing Internet-wide",
         },
         {
             "type": "TXT",
             "class": "IN",
             "name": "large-text.zdns-testing.com",
-            "answer": "We present the scanner architecture, experimentally characterize its performance and accuracy, "
+            "answer": "We present the scanner architecture, experimentally characterize its performance and accuracy, ",
         },
         {
             "type": "TXT",
             "class": "IN",
             "name": "large-text.zdns-testing.com",
-            "answer": "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
+            "answer": "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
         },
         {
             "type": "TXT",
             "class": "IN",
             "name": "large-text.zdns-testing.com",
-            "answer": "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo."
+            "answer": "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.",
         },
         {
             "type": "TXT",
             "class": "IN",
             "name": "large-text.zdns-testing.com",
-            "answer": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+            "answer": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
         },
         {
             "type": "TXT",
             "class": "IN",
             "name": "large-text.zdns-testing.com",
-            "answer": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt."
+            "answer": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.",
         },
         {
             "type": "TXT",
             "class": "IN",
             "name": "large-text.zdns-testing.com",
-            "answer": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+            "answer": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
         },
         {
             "type": "TXT",
             "class": "IN",
             "name": "large-text.zdns-testing.com",
-            "answer": "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur."
+            "answer": "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
         },
         {
             "type": "TXT",
             "class": "IN",
             "name": "large-text.zdns-testing.com",
-            "answer": "Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem."
+            "answer": "Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem.",
         },
     ]
 
@@ -426,7 +458,7 @@ class Tests(unittest.TestCase):
             "type": "CNAME",
             "class": "IN",
             "name": "www.zdns-testing.com",
-            "answer": "zdns-testing.com."
+            "answer": "zdns-testing.com.",
         }
     ]
 
@@ -435,23 +467,11 @@ class Tests(unittest.TestCase):
             "type": "CNAME",
             "class": "IN",
             "name": "www.zdns-testing.com",
-            "answer": "zdns-testing.com."
-        }, {
-            "type": "A",
-            "class": "IN",
-            "name": "zdns-testing.com",
-            "answer": "1.2.3.4"
-        }, {
-            "type": "A",
-            "class": "IN",
-            "name": "zdns-testing.com",
-            "answer": "2.3.4.5"
-        }, {
-            "type": "A",
-            "class": "IN",
-            "name": "zdns-testing.com",
-            "answer": "3.4.5.6"
-        }
+            "answer": "zdns-testing.com.",
+        },
+        {"type": "A", "class": "IN", "name": "zdns-testing.com", "answer": "1.2.3.4"},
+        {"type": "A", "class": "IN", "name": "zdns-testing.com", "answer": "2.3.4.5"},
+        {"type": "A", "class": "IN", "name": "zdns-testing.com", "answer": "3.4.5.6"},
     ]
 
     WWW_CNAME_AND_AAAA_ANSWERS = [
@@ -459,23 +479,26 @@ class Tests(unittest.TestCase):
             "type": "CNAME",
             "class": "IN",
             "name": "www.zdns-testing.com",
-            "answer": "zdns-testing.com."
-        }, {
+            "answer": "zdns-testing.com.",
+        },
+        {
             "type": "AAAA",
             "class": "IN",
             "name": "zdns-testing.com",
-            "answer": "fd5a:3bce:8713::1"
-        }, {
+            "answer": "fd5a:3bce:8713::1",
+        },
+        {
             "type": "AAAA",
             "class": "IN",
             "name": "zdns-testing.com",
-            "answer": "fde6:9bb3:dbd6::2"
-        }, {
+            "answer": "fde6:9bb3:dbd6::2",
+        },
+        {
             "type": "AAAA",
             "class": "IN",
             "name": "zdns-testing.com",
-            "answer": "fdb3:ac76:a577::3"
-        }
+            "answer": "fdb3:ac76:a577::3",
+        },
     ]
 
     CNAME_LOOP_ANSWERS = [
@@ -484,12 +507,13 @@ class Tests(unittest.TestCase):
             "class": "IN",
             "name": "cname-loop.zdns-testing.com",
             "answer": "cname-loop.esrg.stanford.edu.",
-        }, {
+        },
+        {
             "type": "CNAME",
             "class": "IN",
             "name": "cname-loop.esrg.stanford.edu",
             "answer": "cname-loop.zdns-testing.com.",
-        }
+        },
     ]
 
     # an A record behind a DNAME record
@@ -505,25 +529,20 @@ class Tests(unittest.TestCase):
             "class": "IN",
             "name": "a.zdns-dname.esrg.stanford.edu",
             "answer": "a.zdns-testing.com.",
-        }, {
+        },
+        {
             "type": "A",
             "class": "IN",
             "name": "a.zdns-testing.com",
             "answer": "21.9.87.65",
-        }
+        },
     ]
 
     DMARC_ANSWER = {
-        "data": {
-            "dmarc": "v=DMARC1; p=none; rua=mailto:postmaster@censys.io"
-        }
+        "data": {"dmarc": "v=DMARC1; p=none; rua=mailto:postmaster@censys.io"}
     }
 
-    SPF_ANSWER = {
-        "data": {
-            "spf": "v=spf1 mx include:_spf.google.com -all"
-        }
-    }
+    SPF_ANSWER = {"data": {"spf": "v=spf1 mx include:_spf.google.com -all"}}
 
     SOA_ANSWERS = [
         {
@@ -536,8 +555,7 @@ class Tests(unittest.TestCase):
             "refresh": 21600,
             "retry": 3600,
             "expire": 259200,
-            "min_ttl": 300
-
+            "min_ttl": 300,
         }
     ]
 
@@ -549,7 +567,7 @@ class Tests(unittest.TestCase):
             "port": 5060,
             "priority": 10,
             "target": "sip-anycast-1.voice.google.com.",
-            "weight": 1
+            "weight": 1,
         },
         {
             "type": "SRV",
@@ -558,8 +576,8 @@ class Tests(unittest.TestCase):
             "port": 5060,
             "priority": 20,
             "target": "sip-anycast-2.voice.google.com.",
-            "weight": 1
-        }
+            "weight": 1,
+        },
     ]
 
     TLSA_ANSWERS = [
@@ -570,22 +588,23 @@ class Tests(unittest.TestCase):
             "cert_usage": 3,
             "selector": 1,
             "matching_type": 1,
-            "certificate": "b05d5a0b10095ab7d38710aa70b85c5227cfb9cae23c93ee2bf8fdbedfffdb39"
-        }, {
+            "certificate": "b05d5a0b10095ab7d38710aa70b85c5227cfb9cae23c93ee2bf8fdbedfffdb39",
+        },
+        {
             "type": "TLSA",
             "class": "IN",
             "name": "_25._tcp.mail.ietf.org",
             "cert_usage": 3,
             "selector": 1,
             "matching_type": 1,
-            "certificate": "1f9afe824b213ab18bd59312c58c9282d2047875324cc7e0d4259d67cf42c5fa"
-        }
+            "certificate": "1f9afe824b213ab18bd59312c58c9282d2047875324cc7e0d4259d67cf42c5fa",
+        },
     ]
 
     ECS_MAPPINGS = {
         "171.67.68.0/24": "2.3.4.5",
         "131.159.92.0/24": "3.4.5.6",
-        "129.127.149.0/24": "1.2.3.4"
+        "129.127.149.0/24": "1.2.3.4",
     }
 
     def assertSuccess(self, res, cmd, query_type):
@@ -600,11 +619,14 @@ class Tests(unittest.TestCase):
             del answer["ttl"]
         a = sorted(res["results"][query_type]["data"]["answers"], key=lambda x: x[key])
         b = sorted(correct, key=lambda x: x[key])
-        helptext = "%s\nExpected:\n%s\n\nActual:\n%s" % (cmd,
-                                                         json.dumps(b, indent=4), json.dumps(a, indent=4))
+        helptext = "%s\nExpected:\n%s\n\nActual:\n%s" % (
+            cmd,
+            json.dumps(b, indent=4),
+            json.dumps(a, indent=4),
+        )
 
         def _lowercase(obj):
-            """ Make dictionary lowercase """
+            """Make dictionary lowercase"""
             if isinstance(obj, dict):
                 for k, v in obj.items():
                     if k == "name":
@@ -622,11 +644,16 @@ class Tests(unittest.TestCase):
 
     def assertEqualMXLookup(self, res, correct):
         self.assertEqual(res["name"], correct["name"])
-        self.assertEqual(res["results"]["MXLOOKUP"]["status"], correct["results"]["MXLOOKUP"]["status"])
+        self.assertEqual(
+            res["results"]["MXLOOKUP"]["status"],
+            correct["results"]["MXLOOKUP"]["status"],
+        )
         for exchange in res["results"]["MXLOOKUP"]["data"]["exchanges"]:
             del exchange["ttl"]
-        self.assertEqual(recursiveSort(res["results"]["MXLOOKUP"]["data"]["exchanges"]),
-                         recursiveSort(correct["results"]["MXLOOKUP"]["data"]["exchanges"]))
+        self.assertEqual(
+            recursiveSort(res["results"]["MXLOOKUP"]["data"]["exchanges"]),
+            recursiveSort(correct["results"]["MXLOOKUP"]["data"]["exchanges"]),
+        )
 
     def assertEqualALookup(self, res, correct, query_type):
         self.assertEqual(res["name"], correct["name"])
@@ -635,22 +662,33 @@ class Tests(unittest.TestCase):
         self.assertEqual(res["status"], correct_A_lookup["status"])
         if "ipv4_addresses" in correct_A_lookup["data"]:
             self.assertIn("ipv4_addresses", res["data"])
-            self.assertEqual(sorted(res["data"]["ipv4_addresses"]), sorted(correct_A_lookup["data"]["ipv4_addresses"]))
+            self.assertEqual(
+                sorted(res["data"]["ipv4_addresses"]),
+                sorted(correct_A_lookup["data"]["ipv4_addresses"]),
+            )
         else:
             self.assertNotIn("ipv4_addresses", res["data"])
         if "ipv6_addresses" in correct_A_lookup["data"]:
             self.assertIn("ipv6_addresses", res["data"])
-            self.assertEqual(sorted(res["data"]["ipv6_addresses"]), sorted(correct_A_lookup["data"]["ipv6_addresses"]))
+            self.assertEqual(
+                sorted(res["data"]["ipv6_addresses"]),
+                sorted(correct_A_lookup["data"]["ipv6_addresses"]),
+            )
         else:
             self.assertNotIn("ipv6_addresses", res["data"])
 
     def assertEqualNSLookup(self, res, correct):
         self.assertEqual(res["name"], correct["name"])
-        self.assertEqual(res["results"]["NSLOOKUP"]["status"], correct["results"]["NSLOOKUP"]["status"])
+        self.assertEqual(
+            res["results"]["NSLOOKUP"]["status"],
+            correct["results"]["NSLOOKUP"]["status"],
+        )
         for server in res["results"]["NSLOOKUP"]["data"]["servers"]:
             del server["ttl"]
-        self.assertEqual(recursiveSort(res["results"]["NSLOOKUP"]["data"]["servers"]),
-                         recursiveSort(correct["results"]["NSLOOKUP"]["data"]["servers"]))
+        self.assertEqual(
+            recursiveSort(res["results"]["NSLOOKUP"]["data"]["servers"]),
+            recursiveSort(correct["results"]["NSLOOKUP"]["data"]["servers"]),
+        )
 
     def assertEqualTypes(self, res, list):
         res_types = set()
@@ -714,9 +752,13 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res[1], cmd, "A")
         if res[0]["name"] == "zdns-testing.com":
             self.assertEqualAnswers(res[0], self.ROOT_A_ANSWERS, cmd, "A")
-            self.assertEqualAnswers(res[1], self.ROOT_A_A_ZDNS_TESTING_COM_ANSWERS, cmd, "A")
+            self.assertEqualAnswers(
+                res[1], self.ROOT_A_A_ZDNS_TESTING_COM_ANSWERS, cmd, "A"
+            )
         else:
-            self.assertEqualAnswers(res[0], self.ROOT_A_A_ZDNS_TESTING_COM_ANSWERS, cmd, "A")
+            self.assertEqualAnswers(
+                res[0], self.ROOT_A_A_ZDNS_TESTING_COM_ANSWERS, cmd, "A"
+            )
             self.assertEqualAnswers(res[1], self.ROOT_A_ANSWERS, cmd, "A")
 
     def test_multiple_modules(self):
@@ -766,9 +808,13 @@ class Tests(unittest.TestCase):
                 elif r["name"] == "zdns-testing.com" and query_type == "AAAA":
                     self.assertEqualAnswers(r, self.ROOT_AAAA_ANSWERS, cmd, "AAAA")
                 elif r["name"] == "mx1.zdns-testing.com" and query_type == "A":
-                    self.assertEqualAnswers(r, self.A_MX1_ZDNS_TESTING_COM_ANSWERS, cmd, "A")
+                    self.assertEqualAnswers(
+                        r, self.A_MX1_ZDNS_TESTING_COM_ANSWERS, cmd, "A"
+                    )
                 elif r["name"] == "mx1.zdns-testing.com" and query_type == "AAAA":
-                    self.assertEqualAnswers(r, self.AAAA_MX1_ZDNS_TESTING_COM_ANSWERS, cmd, "AAAA")
+                    self.assertEqualAnswers(
+                        r, self.AAAA_MX1_ZDNS_TESTING_COM_ANSWERS, cmd, "AAAA"
+                    )
                 else:
                     self.fail("Unexpected response")
         # delete file
@@ -1021,7 +1067,6 @@ class Tests(unittest.TestCase):
         self.assertTrue(usedCloudflare)
         self.assertTrue(usedGoogle)
 
-
     def test_name_server_mode_with_doh(self):
         c = "A dns.google cloudflare-dns.com --override-name=www.zdns-testing.com --name-server-mode --https --threads=1"
         name = ""
@@ -1142,8 +1187,10 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd, "AXFR")
         f = open("testing/axfr.json")
         axfr_answer = json.load(f)
-        self.assertEqualAxfrLookup(res["results"]["AXFR"]["data"]["servers"][0]["records"],
-                                   axfr_answer["data"]["servers"][0]["records"])
+        self.assertEqualAxfrLookup(
+            res["results"]["AXFR"]["data"]["servers"][0]["records"],
+            axfr_answer["data"]["servers"][0]["records"],
+        )
         f.close()
 
     def test_soa(self):
@@ -1178,14 +1225,18 @@ class Tests(unittest.TestCase):
         c = "TXT --tcp-only --name-servers=8.8.8.8:53"  # Azure DNS does not provide results.
         name = "large-text.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
-        self.assertEqualAnswers(res, self.TCP_LARGE_TXT_ANSWERS, cmd, "TXT", key="answer")
+        self.assertEqualAnswers(
+            res, self.TCP_LARGE_TXT_ANSWERS, cmd, "TXT", key="answer"
+        )
 
     def test_too_big_txt_all(self):
         c = "TXT --name-servers=8.8.8.8:53"
         name = "large-text.zdns-testing.com"
         cmd, res = self.run_zdns(c, name)
         self.assertEqual(res["results"]["TXT"]["data"]["protocol"], "tcp")
-        self.assertEqualAnswers(res, self.TCP_LARGE_TXT_ANSWERS, cmd, "TXT", key="answer")
+        self.assertEqualAnswers(
+            res, self.TCP_LARGE_TXT_ANSWERS, cmd, "TXT", key="answer"
+        )
 
     def test_override_name(self):
         c = "A --override-name=zdns-testing.com"
@@ -1210,7 +1261,9 @@ class Tests(unittest.TestCase):
     def test_local_addr_interface_warning(self):
         c = "A --local-addr 192.168.1.5 --local-interface en0"
         name = "zdns-testing.com"
-        self.run_zdns_check_failure(c, name, "--local-addr and --local-interface cannot both be specified")
+        self.run_zdns_check_failure(
+            c, name, "--local-addr and --local-interface cannot both be specified"
+        )
 
     def test_edns0_client_subnet(self):
         name = "ecs-geo.zdns-testing.com"
@@ -1223,11 +1276,22 @@ class Tests(unittest.TestCase):
             family = 1 if ip_address(address).version == 4 else 2
             original_res = res
             res = res["results"]["A"]
-            self.assertEqual(address, res["data"]['additionals'][0]['csubnet']['address'])
-            self.assertEqual(int(netmask), res["data"]['additionals'][0]['csubnet']["source_netmask"])
-            self.assertEqual(family, res["data"]['additionals'][0]['csubnet']['family'])
-            self.assertTrue("source_scope" in res["data"]['additionals'][0]['csubnet'])
-            correct = [{"type": "A", "class": "IN", "answer": ip_addr, "name": "ecs-geo.zdns-testing.com"}]
+            self.assertEqual(
+                address, res["data"]["additionals"][0]["csubnet"]["address"]
+            )
+            self.assertEqual(
+                int(netmask), res["data"]["additionals"][0]["csubnet"]["source_netmask"]
+            )
+            self.assertEqual(family, res["data"]["additionals"][0]["csubnet"]["family"])
+            self.assertTrue("source_scope" in res["data"]["additionals"][0]["csubnet"])
+            correct = [
+                {
+                    "type": "A",
+                    "class": "IN",
+                    "answer": ip_addr,
+                    "name": "ecs-geo.zdns-testing.com",
+                }
+            ]
             self.assertEqualAnswers(original_res, correct, cmd, "A")
 
     def test_edns0_nsid(self):
@@ -1237,20 +1301,24 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd, "A")
         res = res["results"]["A"]
-        self.assertTrue("nsid" in res["data"]['additionals'][0])
-        self.assertTrue(res["data"]['additionals'][0]['nsid']['nsid'].startswith("gpdns-"))
+        self.assertTrue("nsid" in res["data"]["additionals"][0])
+        self.assertTrue(
+            res["data"]["additionals"][0]["nsid"]["nsid"].startswith("gpdns-")
+        )
 
     def test_edns0_ede_1(self):
         name = "dnssec.fail"
         # using Cloudflare Public DNS (1.1.1.1) that implements EDE
         c = f"A --name-servers=1.1.1.1:53"
         cmd, res = self.run_zdns(c, name)
-        self.assertServFail(res, cmd, 'A')
+        self.assertServFail(res, cmd, "A")
         res = res["results"]["A"]
-        self.assertTrue("ede" in res["data"]['additionals'][0])
-        ede_obj = res["data"]['additionals'][0]["ede"][0]
+        self.assertTrue("ede" in res["data"]["additionals"][0])
+        ede_obj = res["data"]["additionals"][0]["ede"][0]
         self.assertEqual("DNSKEY Missing", ede_obj["error_text"])
-        self.assertEqual("no SEP matching the DS found for dnssec.fail.", ede_obj["extra_text"])
+        self.assertEqual(
+            "no SEP matching the DS found for dnssec.fail.", ede_obj["extra_text"]
+        )
         self.assertEqual(9, ede_obj["info_code"])
 
     def test_edns0_ede_2_cd(self):
@@ -1260,10 +1328,12 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd, "A")
         res = res["results"]["A"]
-        self.assertTrue("ede" in res["data"]['additionals'][0])
-        ede_obj = res["data"]['additionals'][0]["ede"][0]
+        self.assertTrue("ede" in res["data"]["additionals"][0])
+        ede_obj = res["data"]["additionals"][0]["ede"][0]
         self.assertEqual("DNSKEY Missing", ede_obj["error_text"])
-        self.assertEqual("no SEP matching the DS found for dnssec.fail.", ede_obj["extra_text"])
+        self.assertEqual(
+            "no SEP matching the DS found for dnssec.fail.", ede_obj["extra_text"]
+        )
         self.assertEqual(9, ede_obj["info_code"])
 
     def test_dnssec_response(self):
@@ -1273,7 +1343,7 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd, "SOA")
         res = res["results"]["SOA"]
-        self.assertEqual('do', res["data"]['additionals'][0]['flags'])
+        self.assertEqual("do", res["data"]["additionals"][0]["flags"])
         self.assertEqualTypes(res, ["SOA", "RRSIG"])
 
     def test_cd_bit_not_set(self):
@@ -1363,7 +1433,9 @@ class Tests(unittest.TestCase):
         res = res["results"]["A"]
         assert "timestamp" in res
         date = datetime.datetime.strptime(res["timestamp"], "%Y-%m-%dT%H:%M:%S%z")
-        self.assertTrue(date.microsecond == 0)  # microseconds should be 0 since we didn't call with --nanoseconds
+        self.assertTrue(
+            date.microsecond == 0
+        )  # microseconds should be 0 since we didn't call with --nanoseconds
 
     def test_timetamps_nanoseconds(self):
         c = "A --nanoseconds"
@@ -1381,7 +1453,10 @@ class Tests(unittest.TestCase):
     # test_metadata_file test the `--metadata-file` flag which saves a summary of a scan's metadata output to a file
     def test_metadata_file(self):
         f_name = "temp-metadata.json"
-        c = "A google.com yahoo.com cloudflare.com zdns-testing.com --metadata-file=" + f_name
+        c = (
+            "A google.com yahoo.com cloudflare.com zdns-testing.com --metadata-file="
+            + f_name
+        )
         name = ""
         cmd, res = self.run_zdns_multiline_output(c, name)
         for r in res:
@@ -1412,8 +1487,12 @@ class Tests(unittest.TestCase):
         ini_file_name = "test_metadata_file_multiple_modules.ini"
         with open(ini_file_name, "w") as f:
             f.write(ini_file_contents)
-        c = ("MULTIPLE -c " + ini_file_name + " google.com yahoo.com cloudflare.com zdns-testing.com --metadata-file="
-             + metadata_file_name)
+        c = (
+            "MULTIPLE -c "
+            + ini_file_name
+            + " google.com yahoo.com cloudflare.com zdns-testing.com --metadata-file="
+            + metadata_file_name
+        )
         name = ""
         cmd, res = self.run_zdns_multiline_output(c, name)
         for r in res:
@@ -1443,7 +1522,6 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd, "A")
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
 
-
     def test_a_lookup_IP_name_server_with_input(self):
         c = "A"
         name = "zdns-testing.com,1.1.1.1"
@@ -1458,8 +1536,11 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd, "A")
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
-        self.assertEqual(res["results"]["A"]["data"]["resolver"], "8.8.8.8:53", "user-supplied name server with input "
-                                                                                "should take precedence")
+        self.assertEqual(
+            res["results"]["A"]["data"]["resolver"],
+            "8.8.8.8:53",
+            "user-supplied name server with input " "should take precedence",
+        )
 
     def test_a_lookup_IP_name_server_with_input_flag_loopback_mismatch(self):
         c = "A --name-servers=127.0.0.1"
@@ -1467,8 +1548,11 @@ class Tests(unittest.TestCase):
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd, "A")
         self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
-        self.assertEqual(res["results"]["A"]["data"]["resolver"], "8.8.8.8:53", "user-supplied name server with input "
-                                                                                "should take precedence")
+        self.assertEqual(
+            res["results"]["A"]["data"]["resolver"],
+            "8.8.8.8:53",
+            "user-supplied name server with input " "should take precedence",
+        )
 
     def test_dnssec_option(self):
         c = "A --dnssec --name-servers=1.0.0.1"
@@ -1492,7 +1576,10 @@ class Tests(unittest.TestCase):
         second_duration = res[1]["results"]["A"]["duration"]
         # a bit of a hacky test, but we're checking that if we query the same domain with the same nameserver,
         # the second query has a much smaller response time than the first to show it's being cached
-        self.assertTrue(first_duration / 50 > second_duration, f"Second query {second_duration} should be faster than the first {first_duration}")
+        self.assertTrue(
+            first_duration / 50 > second_duration,
+            f"Second query {second_duration} should be faster than the first {first_duration}",
+        )
 
     def test_lookup_all_nameservers_single_zone_iterative(self):
         """
@@ -1502,18 +1589,32 @@ class Tests(unittest.TestCase):
         """
         # zdns-testing.com's nameservers are all in the .com zone, so we should only have to query the .com nameservers
         c = "A zdns-testing.com --all-nameservers --iterative --timeout=60"
-        cmd,res = self.run_zdns(c, "")
+        cmd, res = self.run_zdns(c, "")
         self.assertSuccess(res, cmd, "A")
         # Check for layers
-        self.assertIn(".", res["results"]["A"]["data"]["per_layer_responses"], "Should have the root (.) layer")
-        self.assertIn("com", res["results"]["A"]["data"]["per_layer_responses"], "Should have the .com layer")
-        self.assertIn("zdns-testing.com", res["results"]["A"]["data"]["per_layer_responses"], "Should have the google.com layer")
+        self.assertIn(
+            ".",
+            res["results"]["A"]["data"]["per_layer_responses"],
+            "Should have the root (.) layer",
+        )
+        self.assertIn(
+            "com",
+            res["results"]["A"]["data"]["per_layer_responses"],
+            "Should have the .com layer",
+        )
+        self.assertIn(
+            "zdns-testing.com",
+            res["results"]["A"]["data"]["per_layer_responses"],
+            "Should have the google.com layer",
+        )
         # check for a.root-servers.net, b.root-servers.net, ... m.root-servers.net
         self.check_for_existance_of_root_and_com_nses(res)
         # check for the google.com nameservers
         actual_zdns_testing_leaf_NS_answers = []
         actual_zdns_testing_leaf_A_answers = []
-        for entry in res["results"]["A"]["data"]["per_layer_responses"]["zdns-testing.com"]:
+        for entry in res["results"]["A"]["data"]["per_layer_responses"][
+            "zdns-testing.com"
+        ]:
             if entry["type"] == "NS":
                 actual_zdns_testing_leaf_NS_answers.append(entry)
             elif entry["type"] == "A":
@@ -1521,10 +1622,11 @@ class Tests(unittest.TestCase):
             else:
                 self.fail(f"Unexpected record type {entry['type']}")
 
-
-
         # Check that we have "1.2.3.4", "2.3.4.5", and "3.4.5.6" as the A records and valid NS records for all expected Leaf NSes
-        if len(actual_zdns_testing_leaf_A_answers) != 4 or len(actual_zdns_testing_leaf_NS_answers) != 4:
+        if (
+            len(actual_zdns_testing_leaf_A_answers) != 4
+            or len(actual_zdns_testing_leaf_NS_answers) != 4
+        ):
             self.fail("Should have 4 A  and 4 NS record sets")
         expectedAnswers = ["1.2.3.4", "2.3.4.5", "3.4.5.6"]
         for entry in actual_zdns_testing_leaf_A_answers:
@@ -1534,20 +1636,30 @@ class Tests(unittest.TestCase):
             # sort
             actualAnswers.sort()
             expectedAnswers.sort()
-            self.assertEqual(actualAnswers, expectedAnswers, "Should have the expected A records")
+            self.assertEqual(
+                actualAnswers, expectedAnswers, "Should have the expected A records"
+            )
 
     def check_for_existance_of_root_and_com_nses(self, res):
         actual_root_ns = []
         for entry in res["results"]["A"]["data"]["per_layer_responses"]["."]:
             actual_root_ns.append(entry["nameserver"])
         for letter in "abcdefghijklm":
-            self.assertIn(f"{letter}.root-servers.net", actual_root_ns, "Should have the root nameservers")
+            self.assertIn(
+                f"{letter}.root-servers.net",
+                actual_root_ns,
+                "Should have the root nameservers",
+            )
         # check for the .com nameservers
         actual_com_nses = []
         for entry in res["results"]["A"]["data"]["per_layer_responses"]["com"]:
             actual_com_nses.append(entry["nameserver"])
         for letter in "abcdefghijklm":
-            self.assertIn(f"{letter}.gtld-servers.net", actual_com_nses, "Should have the .com nameservers")
+            self.assertIn(
+                f"{letter}.gtld-servers.net",
+                actual_com_nses,
+                "Should have the .com nameservers",
+            )
 
     def test_lookup_all_nameservers_multi_zone_iterative(self):
         """
@@ -1558,12 +1670,24 @@ class Tests(unittest.TestCase):
         """
         # example.com has nameservers in .com, .org, and .net, we'll have to iteratively figure out their IP addresses too
         c = "A example.com --all-nameservers --iterative --timeout=60"
-        cmd,res = self.run_zdns(c, "")
+        cmd, res = self.run_zdns(c, "")
         self.assertSuccess(res, cmd, "A")
         # Check for layers
-        self.assertIn(".", res["results"]["A"]["data"]["per_layer_responses"], "Should have the root (.) layer")
-        self.assertIn("com", res["results"]["A"]["data"]["per_layer_responses"], "Should have the .com layer")
-        self.assertIn("example.com", res["results"]["A"]["data"]["per_layer_responses"], "Should have the example.com layer")
+        self.assertIn(
+            ".",
+            res["results"]["A"]["data"]["per_layer_responses"],
+            "Should have the root (.) layer",
+        )
+        self.assertIn(
+            "com",
+            res["results"]["A"]["data"]["per_layer_responses"],
+            "Should have the .com layer",
+        )
+        self.assertIn(
+            "example.com",
+            res["results"]["A"]["data"]["per_layer_responses"],
+            "Should have the example.com layer",
+        )
         self.check_for_existance_of_root_and_com_nses(res)
         # check for the example.com nameservers
         actual_example_nses = []
@@ -1571,22 +1695,25 @@ class Tests(unittest.TestCase):
             actual_example_nses.append(entry["nameserver"])
         expected_example_nses = ["a.iana-servers.net", "b.iana-servers.net"]
         for ns in expected_example_nses:
-            self.assertIn(ns, actual_example_nses, "Should have the example.com nameservers")
+            self.assertIn(
+                ns, actual_example_nses, "Should have the example.com nameservers"
+            )
 
     def test_lookup_all_nameservers_external_lookup(self):
         """
         Test that --all-nameservers lookups work with external resolvers: cloudflare.com and google.com
         """
         c = "A google.com --all-nameservers --name-servers='1.1.1.1,8.8.8.8'"
-        cmd,res = self.run_zdns(c, "")
+        cmd, res = self.run_zdns(c, "")
         self.assertSuccess(res, cmd, "A")
         actual_resolvers = []
         for entry in res["results"]["A"]["data"]:
             actual_resolvers.append(entry["resolver"])
         expected_resolvers = ["1.1.1.1:53", "8.8.8.8:53"]
         for resolver in expected_resolvers:
-            self.assertIn(resolver, actual_resolvers, "Should have the expected resolvers")
-
+            self.assertIn(
+                resolver, actual_resolvers, "Should have the expected resolvers"
+            )
 
 
 if __name__ == "__main__":
