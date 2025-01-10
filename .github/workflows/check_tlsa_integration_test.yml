@@ -1,0 +1,124 @@
+name: Daily TLSA integration test update action
+# Our integration tests run against "_25._tcp.mail.ietf.org" which periodically changes its TLSA records.
+# This action uses 'dig' to make a PR whenever the TLSA record is updated.
+
+on:
+  schedule:
+    - cron: "0 12 * * *" # Runs daily at 12:00 UTC
+  workflow_dispatch: # Allows manual runs
+
+jobs:
+  update-tlsa:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install required tools
+        run: sudo apt-get update && sudo apt-get install -y dnsutils jq
+
+      - name: Query TLSA record
+        id: fetch_tlsa
+        run: |
+          URL="_25._tcp.mail.ietf.org"
+          
+          DIG_OUTPUT=$(dig -t TLSA "$URL" +short)
+          if [ -z "$DIG_OUTPUT" ]; then
+          echo "TLSA record not found."
+          exit 1
+          fi
+          
+          # Start JSON array
+          echo "[" > tlsa.json
+          FIRST=true
+          
+          # Parse dig output
+          echo "$DIG_OUTPUT" | while read -r line; do
+          CERT_USAGE=$(echo "$line" | awk '{print $1}')
+          SELECTOR=$(echo "$line" | awk '{print $2}')
+          MATCHING_TYPE=$(echo "$line" | awk '{print $3}')
+          CERT=$(echo "$line" | awk '{print $4 $5}' | tr '[:upper:]' '[:lower:]')
+
+          # Add a comma before each entry except the first
+          if [ "$FIRST" = true ]; then
+          FIRST=false
+          else
+          echo "," >> tlsa.json
+          fi
+
+          # Write JSON entry
+          echo "{" \
+          "\"type\": \"TLSA\"," \
+          "\"class\": \"IN\"," \
+          "\"name\": \"$URL\"," \
+          "\"cert_usage\": $CERT_USAGE," \
+          "\"selector\": $SELECTOR," \
+          "\"matching_type\": $MATCHING_TYPE," \
+          "\"certificate\": \"$CERT\"" \
+          "}" >> tlsa.json
+          done
+          echo "]" >> tlsa.json
+          
+          echo "Parsed TLSA records:"
+          cat tlsa.json | jq .
+
+      - name: Update test file
+        id: update_test
+        run: |
+          TEST_FILE="testing/integration_tests.py"
+          
+          # Pretty-format the JSON content
+          TLSA_ANSWERS=$(cat tlsa.json | jq .)
+          
+          # Use `gawk` to preserve indentation in the Python file
+          gawk -v new_content="$TLSA_ANSWERS" '
+          BEGIN { RS = ""; ORS = "\n\n" }
+          /TLSA_ANSWERS = \[/ {
+          # Extract leading whitespace for indentation preservation
+          match($0, /^[[:space:]]*/)
+          indent = substr($0, RSTART, RLENGTH)
+          
+          # Break JSON content into lines and add proper indentation
+          split(new_content, lines, "\n")
+          formatted_content = indent "TLSA_ANSWERS = ["
+          for (i = 2; i <= length(lines) - 1; i++) {
+            formatted_content = formatted_content "\n" indent "    " lines[i]
+          }
+          formatted_content = formatted_content "\n" indent "]"
+            
+          # Replace the matched block with the formatted JSON
+          $0 = formatted_content
+          }
+          1
+          ' "$TEST_FILE" > temp_file && mv temp_file "$TEST_FILE"
+
+          # Re-format with `black` to ensure consistent style
+          black "$TEST_FILE"
+
+          echo "Updated $TEST_FILE with properly indented TLSA records." 
+            # Check if the file was updated
+            if ! git diff --exit-code "$TEST_FILE"; then
+              echo "File updated."
+              echo "file_updated=true" >> $GITHUB_ENV
+            else
+              echo "No changes detected."
+            fi
+
+      - name: Commit and push changes
+        if: env.file_updated == 'true'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b update-tlsa-record
+          git add path/to/test_file.py
+          git commit -m "Update TLSA records"
+          git push -u origin update-tlsa-record
+
+      - name: Create Pull Request
+        if: env.file_updated == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          title: "Update TLSA records"
+          body: "This PR updates the TLSA records in the test file."
+          branch: update-tlsa-record

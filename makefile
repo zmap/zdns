@@ -31,6 +31,8 @@ lint:
 	goimports -w -local "github.com/zmap/zdns" ./
 	gofmt -s -w ./
 	golangci-lint run
+	@if ! command -v black >/dev/null 2>&1; then pip3 install black; fi
+	black --check ./
 
 license-check:
 	./.github/workflows/check_license.sh
