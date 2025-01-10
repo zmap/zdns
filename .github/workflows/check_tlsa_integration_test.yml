@@ -129,6 +129,5 @@ jobs:
           base: main
           branch: update-tlsa-record-${{ github.run_id }}
           delete-branch: false
-          branch-suffix: none
           committer: "github-actions[bot]"
           author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
