@@ -240,10 +240,10 @@ ZDNS also includes its own recursive resolution and a cache to further optimize 
 
 Usage
 Domains can be taken from a new-line delimited file, stdin, or passed as arguments.
-./zdns A --input-file domains.txt
-echo "google.com" | ./zdns A
-cat domains.txt | ./zdns A
-./zdns A google.com yahoo.com
+zdns A --input-file domains.txt
+echo "google.com" | zdns A
+cat domains.txt | zdns A
+zdns A google.com yahoo.com
 
 Name Servers can either be specified as a global list or a per-domain name server.
 For Example:

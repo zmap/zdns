@@ -62,7 +62,7 @@ response in JSON form, similar to dig.
 
 For example, the command:
 
-	echo "censys.io" | ./zdns A
+	echo "censys.io" | zdns A
 
 returns:
 ```json
@@ -121,7 +121,7 @@ friendlier interface, we also provide several _lookup_ modules: `alookup`,
 
 For example,
 
-	echo "censys.io" | ./zdns mxlookup --ipv4-lookup
+	echo "censys.io" | zdns mxlookup --ipv4-lookup
 
 returns:
 ```json
@@ -176,13 +176,13 @@ The most basic input is a list of names separated by newlines. For example:
 
 From stdin:
 ```
-echo "google.com\nyahoo.com" | ./zdns A
-cat list_of_domains.txt | ./zdns A
+echo "google.com\nyahoo.com" | zdns A
+cat list_of_domains.txt | zdns A
 ```
 
 From a file
 ```shell
-./zdns A --input-file=list_of_domains.txt
+zdns A --input-file=list_of_domains.txt
 ```
 
 
@@ -191,7 +191,7 @@ If you don't need to resolve many domains, providing the domain as CLI argument,
 
 For example:
 ```bash
-./zdns A google.com --name-servers=1.1.1.1
+zdns A google.com --name-servers=1.1.1.1
 ````
 Equivalent to `dig -t A google.com @1.1.1.1`
 
@@ -202,12 +202,12 @@ This will override any nameservers provided with `--name-servers`.
 
 For example:
 ```
-echo "google.com,1.1.1.1\nfacebook.com,8.8.8.8" | ./zdns A
+echo "google.com,1.1.1.1\nfacebook.com,8.8.8.8" | zdns A
 ```
 
 You can see the `resolver` is as specified for each domain in the output (additionals/answers redacted for brevity):
 ```shell
-$ echo "google.com,1.1.1.1\nfacebook.com,8.8.8.8" | ./zdns A
+$ echo "google.com,1.1.1.1\nfacebook.com,8.8.8.8" | zdns A
 {"name":"google.com","results":{"A":{"data":{"additionals":...,"answers":[...],"protocol":"udp","resolver":"1.1.1.1:53"},"duration":0.030490042,"status":"NOERROR","timestamp":"2024-09-13T09:51:34-04:00"}}}
 {"name":"facebook.com","results":{"A":{"data":{"additionals":[...],"answers":[...],"protocol":"udp","resolver":"8.8.8.8:53"},"duration":0.061365459,"status":"NOERROR","timestamp":"2024-09-13T09:51:34-04:00"}}}
 ````
@@ -316,19 +316,19 @@ Name Server Mode
 By default ZDNS expects to receive a list of names to lookup on a small number
 of name servers. For example:
 
-```echo "google.com" | ./zdns A --name-servers=8.8.8.8,8.8.4.4```
+```echo "google.com" | zdns A --name-servers=8.8.8.8,8.8.4.4```
 
 However, there are times where you instead want to lookup the same name across
 a large number of servers. This can be accomplished using _name server mode_.
 For example:
 
-```echo "8.8.8.8" | ./zdns A --name-server-mode --override-name="google.com"```
+```echo "8.8.8.8" | zdns A --name-server-mode --override-name="google.com"```
 
 Here, every line piped in ZDNS is sent an A query for `google.com`. ZDNS also
 supports mixing and matching both modes by piping in a comma-delimited list of
 `name,nameServer`. For example:
 
-```echo "google.com,8.8.8.8" | ./zdns A``` will send an `A` query for
+```echo "google.com,8.8.8.8" | zdns A``` will send an `A` query for
 `google.com` to `8.8.8.8` regardless of what name servers are specified by
 `--name-servers=` flag. Lines that do not explicitly specify a name server will
 use the servers specified by the OS or `--name-servers` flag as would normally
@@ -338,7 +338,7 @@ Querying all Nameservers
 ----------------
 There is a feature available to perform a certain DNS query against all nameservers. For example, you might want to get the A records from all nameservers of a certain domain. To do so, you can do:
 
-```echo "google.com" | ./zdns A --all-nameservers```
+```echo "google.com" | zdns A --all-nameservers```
 
 Multiple Lookup Modules
 -----------------------
@@ -346,12 +346,12 @@ ZDNS supports using multiple lookup modules in a single invocation. For example,
 AAAA, and MXLOOKUP for a set of domains and you want to perform them with iterative resolution. You will need to use the
 `MULTIPLE` module and provide a config file with the modules and module-specific flags you want to use.
 
-Please see `./zdns --help` and `./zdns <MODULE_NAME> --help` for Global and Module-specific options that can be used in the config file.
+Please see `zdns --help` and `zdns <MODULE_NAME> --help` for Global and Module-specific options that can be used in the config file.
 
 For example:
 
 ```
-cat 1000k_domains.txt | ./zdns MULTIPLE --multi-config-file="./multiple.ini"
+cat 1000k_domains.txt | zdns MULTIPLE --multi-config-file="./multiple.ini"
 ```
 Where `multiple.ini` is a file that looks like:
 ```
