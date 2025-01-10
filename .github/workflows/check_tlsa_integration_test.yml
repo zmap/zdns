@@ -1,4 +1,4 @@
-name: Daily TLSA integration test update action
+name: Update TLSA records in integration tests
 # Our integration tests run against "_25._tcp.mail.ietf.org" which periodically changes its TLSA records.
 # This action uses 'dig' to make a PR whenever the TLSA record is updated.
 
@@ -94,26 +94,20 @@ jobs:
           ' "$TEST_FILE" > temp_file && mv temp_file "$TEST_FILE"
 
           # Re-format with `black` to ensure consistent style
+          pip3 install black
           black "$TEST_FILE"
 
           echo "Updated $TEST_FILE with properly indented TLSA records." 
-            # Check if the file was updated
-            if ! git diff --exit-code "$TEST_FILE"; then
-              echo "File updated."
-              echo "file_updated=true" >> $GITHUB_ENV
-            else
-              echo "No changes detected."
-            fi
-
-      - name: Commit and push changes
-        if: env.file_updated == 'true'
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b update-tlsa-record
-          git add path/to/test_file.py
-          git commit -m "Update TLSA records"
-          git push -u origin update-tlsa-record
+          # Check if the file was updated
+          if ! git diff --exit-code "$TEST_FILE"; then
+            echo "File updated."
+            echo "file_updated=true" >> $GITHUB_ENV
+          else
+            echo "No changes detected."
+          fi
+          
+          # Cleanup temp file
+          rm tlsa.json
 
       - name: Create Pull Request
         if: env.file_updated == 'true'
@@ -121,4 +115,8 @@ jobs:
         with:
           title: "Update TLSA records"
           body: "This PR updates the TLSA records in the test file."
-          branch: update-tlsa-record
+          base: main
+          branch: update-tlsa-record-${{ github.run_id }}
+          delete-branch: false
+          author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          draft: true
