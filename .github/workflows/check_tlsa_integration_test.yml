@@ -109,17 +109,6 @@ jobs:
           # Cleanup temp file
           rm tlsa.json
 
-#      - name: Commit and push changes
-#        if: env.file_updated == 'true'
-#        run: |
-#          git diff
-#          git config --global user.name "github-actions[bot]"
-#          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-#          git checkout -b update-tlsa-record-${{ github.run_id }}
-#          git add testing/integration_tests.py
-#          git commit -m "Update TLSA records"
-#          git push -u origin update-tlsa-record-${{ github.run_id }}
-
       - name: Create Pull Request
         if: env.file_updated == 'true'
         uses: peter-evans/create-pull-request@v5
