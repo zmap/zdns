@@ -46,7 +46,7 @@ type StatusHandler interface {
 type GeneralOptions struct {
 	LookupAllNameServers bool   `long:"all-nameservers" description:"Behavior is dependent on --iterative. In --iterative, --all-name-servers will query all root servers, then all gtld servers, etc. recording the responses at each layer. In non-iterative mode, the query will be sent to all external resolvers specified in --name-servers."`
 	CacheSize            int    `long:"cache-size" default:"10000" description:"how many items can be stored in internal recursive cache"`
-	GoMaxProcs           int    `long:"go-processes" default:"0" description:"number of OS processes (GOMAXPROCS by default)"`
+	GoMaxProcs           int    `long:"go-processes" default:"0" description:"number of OS processes to use, GOMAXPROCS if 0"`
 	IterationTimeout     int    `long:"iteration-timeout" default:"8" description:"timeout for a single iterative step in an iterative query, in seconds. Only applicable with --iterative"`
 	IterativeResolution  bool   `long:"iterative" description:"Perform own iteration instead of relying on recursive resolver"`
 	MaxDepth             int    `long:"max-depth" default:"10" description:"how deep should we recurse when performing iterative lookups"`
