@@ -111,10 +111,10 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b update-tlsa-record
+          git checkout -b update-tlsa-record-${{ github.run_id }}
           git add testing/integration_tests.py
           git commit -m "Update TLSA records"
-          git push -u origin update-tlsa-record
+          git push -u origin update-tlsa-record-${{ github.run_id }}
 
       - name: Create Pull Request
         if: env.file_updated == 'true'
@@ -123,4 +123,4 @@ jobs:
           title: "Update TLSA records"
           body: "This PR updates the TLSA records in the test file."
           base: main
-          branch: update-tlsa-record
+          branch: update-tlsa-record-${{ github.run_id }}
