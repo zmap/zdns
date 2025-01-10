@@ -12,8 +12,10 @@ class Tests(unittest.TestCase):
 
     ROOT_A = {"1.2.3.4", "2.3.4.5", "3.4.5.6"}
 
-    ROOT_A_ANSWERS = [{"type": "A", "class": "IN", "answer": x,
-                       "name": "zdns-testing.com"} for x in ROOT_A]
+    ROOT_A_ANSWERS = [
+        {"type": "A", "class": "IN", "answer": x, "name": "zdns-testing.com"}
+        for x in ROOT_A
+    ]
 
     def run_zdns(self, flags, name, executable=ZDNS_EXECUTABLE):
         flags = flags + " --threads=10"
@@ -33,11 +35,14 @@ class Tests(unittest.TestCase):
             del answer["ttl"]
         a = sorted(res["results"][query_type]["data"]["answers"], key=lambda x: x[key])
         b = sorted(correct, key=lambda x: x[key])
-        helptext = "%s\nExpected:\n%s\n\nActual:\n%s" % (cmd,
-                                                         json.dumps(b, indent=4), json.dumps(a, indent=4))
+        helptext = "%s\nExpected:\n%s\n\nActual:\n%s" % (
+            cmd,
+            json.dumps(b, indent=4),
+            json.dumps(a, indent=4),
+        )
 
         def _lowercase(obj):
-            """ Make dictionary lowercase """
+            """Make dictionary lowercase"""
             if isinstance(obj, dict):
                 for k, v in obj.items():
                     if k == "name":
@@ -70,7 +75,9 @@ class Tests(unittest.TestCase):
             cmd, res = self.run_zdns(c, name)
         except Exception as e:
             return True
-        self.fail("Should have thrown an exception, shouldn't be able to reach any IPv4 servers while in IPv6 mode")
+        self.fail(
+            "Should have thrown an exception, shouldn't be able to reach any IPv4 servers while in IPv6 mode"
+        )
 
     def test_ipv4_external_lookup_unreachable_nameserver(self):
         c = "A --4 --name-servers=2606:4700:4700::1111"
@@ -79,7 +86,9 @@ class Tests(unittest.TestCase):
             cmd, res = self.run_zdns(c, name)
         except Exception as e:
             return True
-        self.fail("Should have thrown an exception, shouldn't be able to reach any IPv6 servers while in IPv4 mode")
+        self.fail(
+            "Should have thrown an exception, shouldn't be able to reach any IPv6 servers while in IPv4 mode"
+        )
 
     def test_ipv6_happy_path_external(self):
         c = "A --6"

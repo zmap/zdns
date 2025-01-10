@@ -4,9 +4,14 @@ on:
     branches:
       - main
   pull_request:
+    types: [opened, ready_for_review, synchronize]
   workflow_dispatch:
+
 jobs:
   check-license:
+    concurrency:
+      group: ci-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -68,3 +73,18 @@ jobs:
             fi
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6.1.1
+
+      # Set up Python for black
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'  # Adjust to your required Python version
+
+      # Install black
+      - name: Install black
+        run: pip3 install black
+
+      # Check Python files with black
+      - name: Check Python Code Formatting
+        run: |
+          black --check .
