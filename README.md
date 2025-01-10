@@ -9,21 +9,18 @@ optimized for performing lookups of a diverse set of names. We use
 https://github.com/zmap/dns to construct and parse raw DNS packets.
 For more information about ZDNS's architecture and performance, check out the following [paper](https://lizizhikevich.github.io/assets/papers/ZDNS.pdf) appearing at ACM's Internet Measurement Conference '22.
 
-As an example, the following will perform MX lookups and a secondary A lookup
-for the IPs of MX servers for the domains in the Alexa Top Million:
-
-	cat top-1m.csv | ./zdns MX --ipv4-lookup --alexa
-
+> [!TIP]
+> The [ZDNS Wiki](https://github.com/zmap/zdns/wiki) contains additional information on ZDNS and walks thru use-cases and examples.
 
 Install
 =======
 
-ZDNS can be installed by checking out the repository and running `make zdns`.
+ZDNS can be installed by checking out the repository and running `make install`.
 
 ```bash
 git clone https://github.com/zmap/zdns.git
 cd zdns
-make zdns
+make install
 ```
 
 Usage
