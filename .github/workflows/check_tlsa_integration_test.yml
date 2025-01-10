@@ -1,4 +1,4 @@
-name: Daily TLSA integration test update action
+name: Update TLSA records in integration tests
 # Our integration tests run against "_25._tcp.mail.ietf.org" which periodically changes its TLSA records.
 # This action uses 'dig' to make a PR whenever the TLSA record is updated.
 
@@ -94,6 +94,7 @@ jobs:
           ' "$TEST_FILE" > temp_file && mv temp_file "$TEST_FILE"
 
           # Re-format with `black` to ensure consistent style
+          pip3 install black
           black "$TEST_FILE"
 
           echo "Updated $TEST_FILE with properly indented TLSA records." 
