@@ -98,13 +98,16 @@ jobs:
           black "$TEST_FILE"
 
           echo "Updated $TEST_FILE with properly indented TLSA records." 
-            # Check if the file was updated
-            if ! git diff --exit-code "$TEST_FILE"; then
-              echo "File updated."
-              echo "file_updated=true" >> $GITHUB_ENV
-            else
-              echo "No changes detected."
-            fi
+          # Check if the file was updated
+          if ! git diff --exit-code "$TEST_FILE"; then
+            echo "File updated."
+            echo "file_updated=true" >> $GITHUB_ENV
+          else
+            echo "No changes detected."
+          fi
+          
+          # Cleanup temp file
+          rm tlsa.json
 
       - name: Commit and push changes
         if: env.file_updated == 'true'
