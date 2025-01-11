@@ -27,10 +27,10 @@ const (
 	TCPProtocol = "tcp"
 )
 
-type transportMode int
+type TransportMode int
 
 const (
-	UDPOrTCP transportMode = iota
+	UDPOrTCP TransportMode = iota
 	UDPOnly
 	TCPOnly
 )
@@ -41,7 +41,7 @@ const (
 	DefaultDoTPort = 853
 )
 
-func GetTransportMode(useUDP, useTCP bool) transportMode {
+func GetTransportMode(useUDP, useTCP bool) TransportMode {
 	if useUDP && useTCP {
 		return UDPOrTCP
 	} else if useUDP {
@@ -52,7 +52,7 @@ func GetTransportMode(useUDP, useTCP bool) transportMode {
 	return UDPOrTCP
 }
 
-func (tm transportMode) isValid() (bool, string) {
+func (tm TransportMode) isValid() (bool, string) {
 	isValid := tm >= 0 && tm <= 2
 	if !isValid {
 		return false, fmt.Sprintf("invalid transport mode: %d", tm)
