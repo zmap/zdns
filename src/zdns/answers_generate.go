@@ -1,5 +1,4 @@
 //go:build ignore
-// +build ignore
 
 /*
  * ZDNS Copyright 2024 Regents of the University of Michigan
