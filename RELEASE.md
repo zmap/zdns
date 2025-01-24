@@ -29,3 +29,4 @@ git push origin vA.B.C
 ```shell
 goreleaser release --clean
 ```
+6. Update the [Release Notes](https://github.com/zmap/zdns/releases) with a description of your changes
