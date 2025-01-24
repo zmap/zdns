@@ -13,7 +13,7 @@ git tag -a vA.B.C -m "Release A.B.C"
 
 2. Test the release:
 ```shell  
-goreleaser release --skip-publish --clean
+goreleaser release --skip=publish --clean
 ```
 
 3. Set GitHub Token (at least configured with `write:packages`)
