@@ -3,4 +3,5 @@
 *.iml
 *.code-workspace
 /zdns
-*.log
+*.log# Added by goreleaser init:
+dist/
