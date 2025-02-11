@@ -119,4 +119,4 @@ jobs:
           branch: update-tlsa-record-${{ github.run_id }}
           delete-branch: false
           author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
-          draft: true
+          draft: false
