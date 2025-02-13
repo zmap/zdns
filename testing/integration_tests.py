@@ -588,17 +588,8 @@ class Tests(unittest.TestCase):
             "cert_usage": 3,
             "selector": 1,
             "matching_type": 1,
-            "certificate": "1f9afe824b213ab18bd59312c58c9282d2047875324cc7e0d4259d67cf42c5fa",
-        },
-        {
-            "type": "TLSA",
-            "class": "IN",
-            "name": "_25._tcp.mail.ietf.org",
-            "cert_usage": 3,
-            "selector": 1,
-            "matching_type": 1,
             "certificate": "38a88126a15ae8e643ce9447c3ce9a874ea0e05255d07ee12227809edbe5c7f1",
-        },
+        }
     ]
 
     ECS_MAPPINGS = {
