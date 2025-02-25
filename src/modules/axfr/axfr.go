@@ -79,6 +79,10 @@ func (axfrMod *AxfrLookupModule) doAXFR(name string, server *zdns.NameServer) AX
 	}
 	m := new(dns.Msg)
 	m.SetAxfr(dotName(name))
+	defer func() {
+		// The below function will close the connection after use, so we should set it to nil to ensure it's never used again.
+		axfrMod.Conn = nil
+	}()
 	if a, err := axfrMod.In(m, net.JoinHostPort(server.IP.String(), "53")); err != nil {
 		retv.Status = zdns.StatusError
 		retv.Error = err.Error()
