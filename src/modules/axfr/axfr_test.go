@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/miekg/dns"
+	"github.com/stretchr/testify/mock"
 	"gotest.tools/v3/assert"
 
 	"github.com/zmap/zdns/src/cli"
@@ -45,7 +46,19 @@ func (err enError) Error() string {
 	return envelopeError
 }
 
-func (axfrMod *AxfrLookupModule) In(m *dns.Msg, server string) (chan *dns.Envelope, error) {
+type MockTransfer struct {
+	mock.Mock
+}
+
+type MockTransferFactory struct {
+	Mock *MockTransfer
+}
+
+func (f *MockTransferFactory) NewTransfer() TransferInterface {
+	return f.Mock
+}
+
+func (mock *MockTransfer) In(m *dns.Msg, server string) (chan *dns.Envelope, error) {
 	var eError error = nil
 	if envelopeError != "" {
 		eError = enError{}
@@ -102,6 +115,7 @@ func InitTest() (*AxfrLookupModule, *zdns.Resolver) {
 	if err != nil {
 		panic("failed to initialize axfr test lookup with error: " + err.Error())
 	}
+	axfrMod.TransferFact = &MockTransferFactory{Mock: new(MockTransfer)} // configure the mock transfer factory
 	resolver, err := zdns.InitResolver(rc)
 	if err != nil {
 		panic("failed to initialize resolver: " + err.Error())

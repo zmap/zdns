@@ -35,7 +35,23 @@ type AxfrLookupModule struct {
 	NSModule      nslookup.NSLookupModule
 	BlacklistPath string `long:"blacklist-file" description:"path to blacklist file" default:""`
 	Blacklist     *safeblacklist.SafeBlacklist
-	dns.Transfer
+	TransferFact  TransferFactory
+}
+
+// TransferInterface used to enable mocking for dns.In
+type TransferInterface interface {
+	In(m *dns.Msg, address string) (chan *dns.Envelope, error)
+}
+
+// TransferFactory each AXFR module isn't thread-safe, so we need to create a new Transfer object for each AXFR lookup
+type TransferFactory interface {
+	NewTransfer() TransferInterface
+}
+
+type RealTransferFactory struct{}
+
+func (f *RealTransferFactory) NewTransfer() TransferInterface {
+	return &dns.Transfer{}
 }
 
 type AXFRServerResult struct {
@@ -58,11 +74,7 @@ func dotName(name string) string {
 	return strings.Join([]string{name, "."}, "")
 }
 
-type TransferClient struct {
-	dns.Transfer
-}
-
-func (axfrMod *AxfrLookupModule) doAXFR(name string, server *zdns.NameServer) AXFRServerResult {
+func (axfrMod *AxfrLookupModule) doAXFR(transfer TransferInterface, name string, server *zdns.NameServer) AXFRServerResult {
 	var retv AXFRServerResult
 	retv.Server = server.IP.String()
 	// check if the server address is blacklisted and if so, exclude
@@ -79,7 +91,7 @@ func (axfrMod *AxfrLookupModule) doAXFR(name string, server *zdns.NameServer) AX
 	}
 	m := new(dns.Msg)
 	m.SetAxfr(dotName(name))
-	if a, err := axfrMod.In(m, net.JoinHostPort(server.IP.String(), "53")); err != nil {
+	if a, err := transfer.In(m, net.JoinHostPort(server.IP.String(), "53")); err != nil {
 		retv.Status = zdns.StatusError
 		retv.Error = err.Error()
 		return retv
@@ -103,6 +115,8 @@ func (axfrMod *AxfrLookupModule) doAXFR(name string, server *zdns.NameServer) AX
 
 func (axfrMod *AxfrLookupModule) Lookup(resolver *zdns.Resolver, name string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
 	var retv AXFRResult
+	// create a new AXFR transfer object
+	transfer := axfrMod.TransferFact.NewTransfer()
 	if nameServer == nil {
 		parsedNS, trace, status, err := axfrMod.NSModule.Lookup(resolver, name, nameServer)
 		if status != zdns.StatusNoError {
@@ -115,11 +129,11 @@ func (axfrMod *AxfrLookupModule) Lookup(resolver *zdns.Resolver, name string, na
 		for _, server := range castedNS.Servers {
 			if len(server.IPv4Addresses) > 0 {
 				ns := &zdns.NameServer{IP: net.ParseIP(server.IPv4Addresses[0])}
-				retv.Servers = append(retv.Servers, axfrMod.doAXFR(name, ns))
+				retv.Servers = append(retv.Servers, axfrMod.doAXFR(transfer, name, ns))
 			}
 		}
 	} else {
-		retv.Servers = append(retv.Servers, axfrMod.doAXFR(name, nameServer))
+		retv.Servers = append(retv.Servers, axfrMod.doAXFR(transfer, name, nameServer))
 	}
 	return retv, nil, zdns.StatusNoError, nil
 }
@@ -168,5 +182,6 @@ func (axfrMod *AxfrLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfi
 	if err = axfrMod.BasicLookupModule.CLIInit(gc, rc); err != nil {
 		return errors.Wrap(err, "failed to initialize basic lookup module")
 	}
+	axfrMod.TransferFact = &RealTransferFactory{} // Default factory
 	return nil
 }
