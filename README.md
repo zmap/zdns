@@ -366,7 +366,7 @@ ipv4-lookup = true
 [AAAA]
 ```
 
-A sample `multiple.ini` file is provided in [github.com/zmap/zdns/cli/multiple.ini](github.com/zmap/zdns/cli/multiple.ini)
+A sample `multiple.ini` file is provided in [src/cli/multiple.ini](src/cli/multiple.ini)
 
 Running ZDNS
 ------------
