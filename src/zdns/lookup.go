@@ -57,32 +57,40 @@ func getDNSServersFromReader(resolvReader io.Reader) (ipv4, ipv6 []string, err e
 		return []string{}, []string{}, fmt.Errorf("error parsing DNS config file: %v", err)
 	}
 	servers := make([]string, 0, len(c.Servers))
-	for _, s := range c.Servers {
-		// We need to check if there is a port specified, and add the default if not
-		_, _, err := util.SplitHostPort(s)
-		var errMsg string
-		if err != nil {
-			errMsg = err.Error()
-		}
-		if strings.Contains(errMsg, util.InvalidPortErrorMsg) || strings.Contains(errMsg, "missing port in address") {
-			// no port specified, add the default
-			s = strings.Join([]string{s, c.Port}, ":")
-		}
-		servers = append(servers, s)
-	}
 	ipv4 = make([]string, 0, len(servers))
 	ipv6 = make([]string, 0, len(servers))
-	for _, s := range servers {
-		ip, _, err := util.SplitHostPort(s)
-		if err != nil {
-			return []string{}, []string{}, fmt.Errorf("could not parse IP address (%s) from config: %w", s, err)
+	for _, s := range c.Servers {
+		// We don't support specifying link-local IPv6 addresses with %interface or domain names with #domain
+		// See https://man7.org/linux/man-pages/man1/resolvectl.1.html
+		if strings.Contains(s, "%") {
+			return []string{}, []string{}, fmt.Errorf("could not parse IP address (%s) from config. We do not support specifying link-local IPv6 addresses or per-interface nameservers", s)
 		}
-		if ip.To4() != nil {
-			ipv4 = append(ipv4, s)
-		} else if util.IsIPv6(&ip) {
-			ipv6 = append(ipv6, s)
-		} else {
+		if strings.Contains(s, "#") {
+			return []string{}, []string{}, fmt.Errorf("could not parse IP address (%s) from config. We do not support specifying domain names for nameservers", s)
+		}
+		// We need to check if there is a port specified, and add the default if not
+		ipStr, _, err := net.SplitHostPort(s)
+		if err == nil {
+			// port specified, determine IP type
+			ip := net.ParseIP(ipStr)
+			if ip != nil && ip.To4() != nil {
+				ipv4 = append(ipv4, s)
+			} else if ip != nil {
+				ipv6 = append(ipv6, s)
+			}
+			continue
+		}
+		// no port specified, check if s is an IP
+		ip := net.ParseIP(s)
+		if ip == nil {
 			return []string{}, []string{}, fmt.Errorf("could not parse IP address (%s) from config", s)
+		} else if ip.To4() != nil {
+			// IPv4, use default port
+			ipv4 = append(ipv4, strings.Join([]string{s, c.Port}, ":"))
+		} else {
+			// IPv6, use default port
+			s = "[" + s + "]"
+			ipv6 = append(ipv6, strings.Join([]string{s, c.Port}, ":"))
 		}
 	}
 	return ipv4, ipv6, nil
