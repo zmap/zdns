@@ -19,6 +19,7 @@ import (
 	"io"
 	"math/rand"
 	"net"
+	"os"
 	"regexp"
 	"strings"
 
@@ -35,33 +36,53 @@ import (
 
 var ErrorContextExpired = errors.New("context expired")
 
-// GetDNSServers returns a list of IPv4, IPv6 DNS servers from a file, or an error if one occurs
 func GetDNSServers(path string) (ipv4, ipv6 []string, err error) {
-	c, err := dns.ClientConfigFromFile(path)
+	file, err := os.Open(path)
 	if err != nil {
-		return []string{}, []string{}, fmt.Errorf("error reading DNS config file (%s): %w", path, err)
+		return nil, nil, fmt.Errorf("error opening DNS config file (%s): %w", path, err)
+	}
+	defer func(file *os.File) {
+		err = file.Close()
+		if err != nil {
+			log.Errorf("error closing DNS config file (%s): %s", path, err)
+		}
+	}(file)
+	return getDNSServersFromReader(file)
+}
+
+// getDNSServersFromReader returns a list of IPv4, IPv6 DNS servers from an io.Reader, or an error if one occurs
+func getDNSServersFromReader(resolvReader io.Reader) (ipv4, ipv6 []string, err error) {
+	c, err := dns.ClientConfigFromReader(resolvReader)
+	if err != nil {
+		return []string{}, []string{}, fmt.Errorf("error parsing DNS config file: %v", err)
 	}
 	servers := make([]string, 0, len(c.Servers))
 	for _, s := range c.Servers {
-		if s[0:1] != "[" && strings.Contains(s, ":") {
-			s = "[" + s + "]"
+		// We need to check if there is a port specified, and add the default if not
+		_, _, err := util.SplitHostPort(s)
+		var errMsg string
+		if err != nil {
+			errMsg = err.Error()
 		}
-		full := strings.Join([]string{s, c.Port}, ":")
-		servers = append(servers, full)
+		if strings.Contains(errMsg, util.InvalidPortErrorMsg) || strings.Contains(errMsg, "missing port in address") {
+			// no port specified, add the default
+			s = strings.Join([]string{s, c.Port}, ":")
+		}
+		servers = append(servers, s)
 	}
 	ipv4 = make([]string, 0, len(servers))
 	ipv6 = make([]string, 0, len(servers))
 	for _, s := range servers {
 		ip, _, err := util.SplitHostPort(s)
 		if err != nil {
-			return []string{}, []string{}, fmt.Errorf("could not parse IP address (%s) from file: %w", s, err)
+			return []string{}, []string{}, fmt.Errorf("could not parse IP address (%s) from config: %w", s, err)
 		}
 		if ip.To4() != nil {
 			ipv4 = append(ipv4, s)
 		} else if util.IsIPv6(&ip) {
 			ipv6 = append(ipv6, s)
 		} else {
-			return []string{}, []string{}, fmt.Errorf("could not parse IP address (%s) from file: %s", s, path)
+			return []string{}, []string{}, fmt.Errorf("could not parse IP address (%s) from config", s)
 		}
 	}
 	return ipv4, ipv6, nil

@@ -344,7 +344,9 @@ func populateIPTransportMode(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Re
 	// check OS' default resolver(s) to determine if we support IPv4 or IPv6
 	ipv4NSStrings, ipv6NSStrings, err = zdns.GetDNSServers(config.DNSConfigFilePath)
 	if err != nil {
-		log.Fatal("unable to parse resolvers file, please use '--name-servers': ", err)
+		log.Fatalf("ZDNS is unable to parse resolvers file. ZDNS only supports IPv4 and IPv6 addresses with an optional port, "+
+			" either 111.222.333.444:9953 or [1111:2222::3333]:9953. ZDNS does not support link-local IPv6 resolvers. "+
+			"Please either modify your %s file or use '--name-servers'. Error: %v", config.DNSConfigFilePath, err)
 	}
 	if len(ipv4NSStrings) == 0 && len(ipv6NSStrings) == 0 {
 		return nil, errors.New("no nameservers found with OS defaults. Please specify desired nameservers with --name-servers")
