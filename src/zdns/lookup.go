@@ -19,6 +19,7 @@ import (
 	"io"
 	"math/rand"
 	"net"
+	"os"
 	"regexp"
 	"strings"
 
@@ -35,33 +36,61 @@ import (
 
 var ErrorContextExpired = errors.New("context expired")
 
-// GetDNSServers returns a list of IPv4, IPv6 DNS servers from a file, or an error if one occurs
 func GetDNSServers(path string) (ipv4, ipv6 []string, err error) {
-	c, err := dns.ClientConfigFromFile(path)
+	file, err := os.Open(path)
 	if err != nil {
-		return []string{}, []string{}, fmt.Errorf("error reading DNS config file (%s): %w", path, err)
+		return nil, nil, fmt.Errorf("error opening DNS config file (%s): %w", path, err)
+	}
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			log.Errorf("error closing DNS config file (%s): %s", path, err)
+		}
+	}(file)
+	return getDNSServersFromReader(file)
+}
+
+// getDNSServersFromReader returns a list of IPv4, IPv6 DNS servers from an io.Reader, or an error if one occurs
+func getDNSServersFromReader(resolvReader io.Reader) (ipv4, ipv6 []string, err error) {
+	c, err := dns.ClientConfigFromReader(resolvReader)
+	if err != nil {
+		return []string{}, []string{}, fmt.Errorf("error parsing DNS config file: %v", err)
 	}
 	servers := make([]string, 0, len(c.Servers))
-	for _, s := range c.Servers {
-		if s[0:1] != "[" && strings.Contains(s, ":") {
-			s = "[" + s + "]"
-		}
-		full := strings.Join([]string{s, c.Port}, ":")
-		servers = append(servers, full)
-	}
 	ipv4 = make([]string, 0, len(servers))
 	ipv6 = make([]string, 0, len(servers))
-	for _, s := range servers {
-		ip, _, err := util.SplitHostPort(s)
-		if err != nil {
-			return []string{}, []string{}, fmt.Errorf("could not parse IP address (%s) from file: %w", s, err)
+	for _, s := range c.Servers {
+		// We don't support specifying link-local IPv6 addresses with %interface or domain names with #domain
+		// See https://man7.org/linux/man-pages/man1/resolvectl.1.html
+		if strings.Contains(s, "%") {
+			return []string{}, []string{}, fmt.Errorf("could not parse IP address (%s) from config. We do not support specifying link-local IPv6 addresses or per-interface nameservers", s)
 		}
-		if ip.To4() != nil {
-			ipv4 = append(ipv4, s)
-		} else if util.IsIPv6(&ip) {
-			ipv6 = append(ipv6, s)
+		if strings.Contains(s, "#") {
+			return []string{}, []string{}, fmt.Errorf("could not parse IP address (%s) from config. We do not support specifying domain names for nameservers", s)
+		}
+		// We need to check if there is a port specified, and add the default if not
+		ipStr, _, err := net.SplitHostPort(s)
+		if err == nil {
+			// port specified, determine IP type
+			ip := net.ParseIP(ipStr)
+			if ip != nil && ip.To4() != nil {
+				ipv4 = append(ipv4, s)
+			} else if ip != nil {
+				ipv6 = append(ipv6, s)
+			}
+			continue
+		}
+		// no port specified, check if s is an IP
+		ip := net.ParseIP(s)
+		if ip == nil {
+			return []string{}, []string{}, fmt.Errorf("could not parse IP address (%s) from config", s)
+		} else if ip.To4() != nil {
+			// IPv4, use default port
+			ipv4 = append(ipv4, strings.Join([]string{s, c.Port}, ":"))
 		} else {
-			return []string{}, []string{}, fmt.Errorf("could not parse IP address (%s) from file: %s", s, path)
+			// IPv6, use default port
+			s = "[" + s + "]"
+			ipv6 = append(ipv6, strings.Join([]string{s, c.Port}, ":"))
 		}
 	}
 	return ipv4, ipv6, nil

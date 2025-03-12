@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -1970,6 +1971,109 @@ func TestInvalidInputsLookup(t *testing.T) {
 		assert.Equal(t, StatusIllegalInput, status)
 		assert.NotNil(t, err)
 	})
+}
+
+func TestGetDNSServersFromReader(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		wantIPv4 []string
+		wantIPv6 []string
+		wantErr  bool
+	}{
+		{
+			name:     "Valid IPv4 address with default port",
+			input:    "nameserver 1.2.3.4",
+			wantIPv4: []string{"1.2.3.4:53"},
+			wantIPv6: nil,
+			wantErr:  false,
+		},
+		{
+			name:     "Valid IPv6 address with default port",
+			input:    "nameserver 2001:db8::1",
+			wantIPv4: nil,
+			wantIPv6: []string{"[2001:db8::1]:53"},
+			wantErr:  false,
+		},
+		{
+			name:     "Valid IPv6 compressed address with default port",
+			input:    "nameserver ::1",
+			wantIPv4: nil,
+			wantIPv6: []string{"[::1]:53"},
+			wantErr:  false,
+		},
+		{
+			name:     "Valid IPv6 partially-compressed address with default port",
+			input:    "nameserver 2001:db8:0:0:0::1",
+			wantIPv4: nil,
+			wantIPv6: []string{"[2001:db8:0:0:0::1]:53"},
+			wantErr:  false,
+		},
+		{
+			name:     "Valid IPv4 with custom port",
+			input:    "nameserver 1.2.3.4:35",
+			wantIPv4: []string{"1.2.3.4:35"},
+			wantIPv6: nil,
+			wantErr:  false,
+		},
+		{
+			name:     "Valid IPv6 with custom port",
+			input:    "nameserver [2001:db8::1]:35",
+			wantIPv4: nil,
+			wantIPv6: []string{"[2001:db8::1]:35"},
+			wantErr:  false,
+		},
+		{
+			name:     "Invalid IPv4 address",
+			input:    "nameserver 1.2.3",
+			wantIPv4: nil,
+			wantIPv6: nil,
+			wantErr:  true,
+		},
+		{
+			name:     "IPv6 link-local address (should error)",
+			input:    "nameserver fe80::1%eth0",
+			wantIPv4: nil,
+			wantIPv6: nil,
+			wantErr:  true,
+		},
+		{
+			name:     "Invalid format - interface specified on IPv4",
+			input:    "nameserver 111.222.333.444:9953%ifname",
+			wantIPv4: nil,
+			wantIPv6: nil,
+			wantErr:  true,
+		},
+		{
+			name:     "Invalid format - interface specified on IPv6",
+			input:    "nameserver [2001:db8::1]]:9953%ifname",
+			wantIPv4: nil,
+			wantIPv6: nil,
+			wantErr:  true,
+		},
+		{
+			name:     "Invalid format - domain specified",
+			input:    "nameserver 111.222.333.444:9953#example.com",
+			wantIPv4: nil,
+			wantIPv6: nil,
+			wantErr:  true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ipv4, ipv6, err := getDNSServersFromReader(strings.NewReader(test.input))
+			if (err != nil) != test.wantErr {
+				t.Errorf("getDNSServersFromReader() received error = %v, wantErr %v", err, test.wantErr)
+			}
+			if fmt.Sprintf("%v", ipv4) != fmt.Sprintf("%v", test.wantIPv4) {
+				t.Errorf("getDNSServersFromReader() received ipv4 = %v, want %v", ipv4, test.wantIPv4)
+			}
+			if fmt.Sprintf("%v", ipv6) != fmt.Sprintf("%v", test.wantIPv6) {
+				t.Errorf("getDNSServersFromReader() received ipv6 = %v, want %v", ipv6, test.wantIPv6)
+			}
+		})
+	}
 }
 
 func verifyNsResult(t *testing.T, servers []NSRecord, expectedServersMap map[string]IPResult) {

@@ -29,6 +29,7 @@ const (
 	DefaultDNSPort         = "53"
 	DefaultHTTPSPort       = "443"
 	DefaultTLSPort         = "853"
+	InvalidPortErrorMsg    = "invalid port"
 )
 
 func SplitHostPort(inaddr string) (net.IP, int, error) {
@@ -44,7 +45,7 @@ func SplitHostPort(inaddr string) (net.IP, int, error) {
 
 	portInt, err := strconv.Atoi(port)
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "invalid port")
+		return nil, 0, errors.Wrap(err, InvalidPortErrorMsg)
 	}
 
 	return ip, portInt, nil
