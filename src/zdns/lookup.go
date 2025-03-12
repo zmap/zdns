@@ -42,7 +42,7 @@ func GetDNSServers(path string) (ipv4, ipv6 []string, err error) {
 		return nil, nil, fmt.Errorf("error opening DNS config file (%s): %w", path, err)
 	}
 	defer func(file *os.File) {
-		err = file.Close()
+		err := file.Close()
 		if err != nil {
 			log.Errorf("error closing DNS config file (%s): %s", path, err)
 		}
