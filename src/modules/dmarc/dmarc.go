@@ -46,8 +46,8 @@ func (dmarcMod *DmarcLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverCon
 		return errors.New("DMARC module does not support --all-nameservers")
 	}
 	dmarcMod.re = regexp.MustCompile(dmarcPrefixRegexp)
-	dmarcMod.BasicLookupModule.DNSType = dns.TypeTXT
-	dmarcMod.BasicLookupModule.DNSClass = dns.ClassINET
+	dmarcMod.DNSType = dns.TypeTXT
+	dmarcMod.DNSClass = dns.ClassINET
 	return dmarcMod.BasicLookupModule.CLIInit(gc, rc)
 }
 

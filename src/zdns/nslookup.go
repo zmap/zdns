@@ -72,9 +72,10 @@ func (r *Resolver) DoNSLookup(lookupName string, nameServer *NameServer, isItera
 		}
 		recName := strings.TrimSuffix(a.Name, ".")
 		if VerifyAddress(a.Type, a.Answer) {
-			if a.Type == "A" {
+			switch a.Type {
+			case "A":
 				ipv4s[recName] = append(ipv4s[recName], a.Answer)
-			} else if a.Type == "AAAA" {
+			case "AAAA":
 				ipv6s[recName] = append(ipv6s[recName], a.Answer)
 			}
 		}

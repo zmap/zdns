@@ -13,16 +13,30 @@
 
 package utils
 
-import "net"
+import (
+	"net"
+
+	"github.com/pkg/errors"
+
+	log "github.com/sirupsen/logrus"
+)
 
 func GetLocalIPByConnecting() (net.IP, error) {
 	conn, err := net.Dial("udp", "1.1.1.1:53")
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer func(conn net.Conn) {
+		err := conn.Close()
+		if err != nil {
+			log.Errorf("failed to close connection: %v", err)
+		}
+	}(conn)
 
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	localAddr, ok := conn.LocalAddr().(*net.UDPAddr)
+	if !ok {
+		return nil, errors.New("failed to get the local address as a UDP address")
+	}
 
 	return localAddr.IP, nil
 }

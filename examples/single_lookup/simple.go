@@ -45,15 +45,11 @@ func main() {
 
 	log.Warn("\n\n This lookup just used the Cloudflare recursive resolver, let's run our own recursion.")
 	// Iterative Lookups start at the root nameservers and follow the chain of referrals to the authoritative nameservers.
-	result, trace, status, err := resolver.IterativeLookup(context.Background(), &zdns.Question{Name: domain, Type: dns.TypeA, Class: dns.ClassINET})
+	result, _, status, err = resolver.IterativeLookup(context.Background(), &zdns.Question{Name: domain, Type: dns.TypeA, Class: dns.ClassINET})
 	if err != nil {
 		log.Fatal("Error looking up domain: ", err)
 	}
 	log.Warnf("Result: %v", result)
-	bytes, err = json.MarshalIndent(trace, "", " ")
-	if err != nil {
-		log.Fatal("Error marshalling trace: ", err)
-	}
 	log.Warnf("Status: %v", status)
 	resolver.Close()
 }

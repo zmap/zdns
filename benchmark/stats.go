@@ -180,11 +180,12 @@ func updateStats(line string, s *Stats) {
 	}
 	s.numberOfResolutions++
 
-	if status == zdns.StatusNoError {
+	switch status {
+	case zdns.StatusNoError:
 		s.SuccessfulResolutions++
-	} else if status == zdns.StatusTimeout || status == zdns.StatusIterTimeout {
+	case zdns.StatusTimeout, zdns.StatusIterTimeout:
 		s.TimedOutDomains = append(s.TimedOutDomains, domainName)
-	} else {
+	default:
 		s.FailedDomains[domainName] = status
 	}
 }
