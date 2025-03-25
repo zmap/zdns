@@ -180,9 +180,10 @@ func VerifyAddress(ansType string, ip string) bool {
 		isIpv6 = strings.Contains(ip, ":")
 		isIpv4 = !isIpv6
 	}
-	if ansType == "A" {
+	switch ansType {
+	case "A":
 		return isIpv4
-	} else if ansType == "AAAA" {
+	case "AAAA":
 		return isIpv6
 	}
 	// TODO Phillip - this seems like strange behavior. Maybe assert that ansType is either 'A' or 'AAAA'?

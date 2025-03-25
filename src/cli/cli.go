@@ -227,7 +227,7 @@ func parseArgs() {
 
 func init() {
 	parser = flags.NewParser(nil, flags.None) // options set in Execute()
-	parser.Command.SubcommandsOptional = true // without this, the user must use a command, makes ./zdns --version impossible, we'll enforce specifying modules ourselves
+	parser.SubcommandsOptional = true         // without this, the user must use a command, makes ./zdns --version impossible, we'll enforce specifying modules ourselves
 	parser.Name = "zdns"
 	// ZFlags will pre-pend the parser.Name and append "<command>" to the Usage string. So this is a work-around to indicate
 	// to users that [DOMAINS] must come after the command. ex: "./zdns A google.com yahoo.com

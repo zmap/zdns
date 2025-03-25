@@ -95,7 +95,7 @@ func (mxMod *MXLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameSer
 	var trace zdns.Trace
 	var status zdns.Status
 	var err error
-	if mxMod.BasicLookupModule.IsIterative {
+	if mxMod.IsIterative {
 		res, trace, status, err = r.IterativeLookup(context.Background(), &zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET})
 	} else {
 		res, trace, status, err = r.ExternalLookup(context.Background(), &zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET}, nameServer)

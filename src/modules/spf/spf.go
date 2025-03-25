@@ -46,8 +46,8 @@ func (spfMod *SpfLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig)
 		return errors.New("SPF module does not support --all-nameservers")
 	}
 	spfMod.re = regexp.MustCompile(spfPrefixRegexp)
-	spfMod.BasicLookupModule.DNSType = dns.TypeTXT
-	spfMod.BasicLookupModule.DNSClass = dns.ClassINET
+	spfMod.DNSType = dns.TypeTXT
+	spfMod.DNSClass = dns.ClassINET
 	return spfMod.BasicLookupModule.CLIInit(gc, rc)
 }
 

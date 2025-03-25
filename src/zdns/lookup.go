@@ -1157,7 +1157,7 @@ func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, na
 		if err != nil && err.Error() == "EOF" {
 			// EOF error means the connection was closed, we'll remove the connection (it'll be recreated on the next iteration)
 			// and try again
-			err = connInfo.tcpConn.Conn.Close()
+			err = connInfo.tcpConn.Close()
 			if err != nil {
 				log.Errorf("error closing TCP connection: %v", err)
 			}
