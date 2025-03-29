@@ -120,7 +120,7 @@ func (r *Resolver) doDstServersLookup(ctx context.Context, q Question, nameServe
 		qname, err = dns.ReverseAddr(q.Name)
 		// might be an actual DNS name instead of an IP address
 		// if that looks likely, use it as is
-		if err != nil && !util.IsStringValidDomainName(q.Name) {
+		if err != nil && !util.IsStringValidDomainName(qname) {
 			return nil, nil, StatusIllegalInput, err
 			// q.Name is a valid name, we can continue
 		} else {
