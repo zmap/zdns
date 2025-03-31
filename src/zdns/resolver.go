@@ -617,6 +617,8 @@ func (r *Resolver) ExternalLookup(ctx context.Context, q *Question, dstServer *N
 	if r.isClosed {
 		log.Fatal("resolver has been closed, cannot perform lookup")
 	}
+	ctx, cancelFn := context.WithTimeout(ctx, r.timeout)
+	defer cancelFn()
 	// If dstServer is not provided, AND we're in HTTPS/TLS/TCP mode, AND we have a pre-existing external name server, use it
 	if dstServer == nil && r.lastUsedExternalNameServer == nil {
 		dstServer = r.randomExternalNameServer()
@@ -645,6 +647,8 @@ func (r *Resolver) IterativeLookup(ctx context.Context, q *Question) (*SingleQue
 	if r.isClosed {
 		log.Fatal("resolver has been closed, cannot perform lookup")
 	}
+	ctx, cancelFn := context.WithTimeout(ctx, r.timeout)
+	defer cancelFn()
 	return r.lookupClient.DoDstServersLookup(ctx, r, *q, r.rootNameServers, true)
 }
 

@@ -1,0 +1,30 @@
+# This runs an iterative A lookup on a set of top 10k domains. It is too expensive to run on every PR, but serves as a
+# good way to validate our performance hasn't significantly degraded.
+
+name: make benchmark
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: 42 0 * * 1 # every Monday at 00:42 UTC
+
+jobs:
+  make-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Go Version Check
+        run: |
+          go version
+      - name: Build ZDNS
+        run: |
+          make zdns
+      - name: Benchmark
+        run: |
+          cd ./benchmark && go build -o benchmark main.go stats.go
+          ./benchmark --timeout=4m --minimum-success-rate=0.90
