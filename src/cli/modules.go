@@ -14,6 +14,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/miekg/dns"
@@ -190,9 +191,9 @@ func (lm *BasicLookupModule) Lookup(resolver *zdns.Resolver, lookupName string, 
 		return resolver.LookupAllNameserversExternal(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass}, nil)
 	}
 	if lm.IsIterative {
-		return resolver.IterativeLookup(nil, &zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass})
+		return resolver.IterativeLookup(context.Background(), &zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass})
 	}
-	return resolver.ExternalLookup(nil, &zdns.Question{Type: lm.DNSType, Class: lm.DNSClass, Name: lookupName}, nameServer)
+	return resolver.ExternalLookup(context.Background(), &zdns.Question{Type: lm.DNSType, Class: lm.DNSClass, Name: lookupName}, nameServer)
 }
 
 func GetLookupModule(name string) (LookupModule, error) {
