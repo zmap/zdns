@@ -10,7 +10,7 @@ on:
 jobs:
   make-benchmark:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,4 +27,4 @@ jobs:
       - name: Benchmark
         run: |
           cd ./benchmark && go build -o benchmark main.go stats.go
-          ./benchmark --timeout=6m --minimum-success-rate=0.90
+          ./benchmark --timeout=4m --minimum-success-rate=0.90
