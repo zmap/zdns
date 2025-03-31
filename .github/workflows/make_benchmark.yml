@@ -10,7 +10,7 @@ on:
 jobs:
   make-benchmark:
     runs-on: ubuntu-latest
-    timeout-minutes: 10  # The job will timeout if it runs longer than 10 minutes
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,6 +21,10 @@ jobs:
       - name: Go Version Check
         run: |
           go version
+      - name: Build ZDNS
+        run: |
+          make zdns
       - name: Benchmark
         run: |
-          make benchmark
+          cd ./benchmark && go build -o benchmark main.go stats.go
+          ./benchmark --timeout=6m --minimum-success-rate=0.90
