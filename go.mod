@@ -14,7 +14,7 @@ require (
 	github.com/zmap/go-iptree v0.0.0-20210731043055-d4e632617837
 	github.com/zmap/zcrypto v0.0.0-20250324021606-4f0ea0eaccac
 	github.com/zmap/zflags v1.4.0-beta.1.0.20200204220219-9d95409821b6
-	github.com/zmap/zgrab2 v0.1.8
+	github.com/zmap/zgrab2 v0.1.9-0.20250324024219-c80b95ff127a
 	gotest.tools/v3 v3.5.2
 )
 
@@ -27,7 +27,6 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
