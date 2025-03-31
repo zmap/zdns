@@ -613,9 +613,16 @@ func getNewTCPConn(nameServer *NameServer, connInfo *ConnectionInfo) error {
 // multiple lookups concurrently, create a new Resolver object for each concurrent lookup.
 // Returns the result of the lookup, the trace of the lookup (what each nameserver along the lookup returned), the
 // status of the lookup, and any error that occurred.
+// If ctx is nil, a new context with the resolvers timeout will be created.
 func (r *Resolver) ExternalLookup(ctx context.Context, q *Question, dstServer *NameServer) (*SingleQueryResult, Trace, Status, error) {
 	if r.isClosed {
 		log.Fatal("resolver has been closed, cannot perform lookup")
+	}
+	if ctx == nil {
+		// if the context is nil, create a new one with the default timeout
+		var cancelFn context.CancelFunc
+		ctx, cancelFn = context.WithTimeout(context.Background(), r.timeout)
+		defer cancelFn()
 	}
 	// If dstServer is not provided, AND we're in HTTPS/TLS/TCP mode, AND we have a pre-existing external name server, use it
 	if dstServer == nil && r.lastUsedExternalNameServer == nil {
@@ -641,9 +648,16 @@ func (r *Resolver) ExternalLookup(ctx context.Context, q *Question, dstServer *N
 // multiple lookups concurrently, create a new Resolver object for each concurrent lookup.
 // Returns the result of the lookup, the trace of the lookup (what each nameserver along the lookup returned), the
 // status of the lookup, and any error that occurred.
+// If ctx is nil, a new context with the resolvers timeout will be created.
 func (r *Resolver) IterativeLookup(ctx context.Context, q *Question) (*SingleQueryResult, Trace, Status, error) {
 	if r.isClosed {
 		log.Fatal("resolver has been closed, cannot perform lookup")
+	}
+	if ctx == nil {
+		// if the context is nil, create a new one with the default timeout
+		var cancelFn context.CancelFunc
+		ctx, cancelFn = context.WithTimeout(context.Background(), r.timeout)
+		defer cancelFn()
 	}
 	return r.lookupClient.DoDstServersLookup(ctx, r, *q, r.rootNameServers, true)
 }
