@@ -15,6 +15,8 @@ package main
 
 import (
 	"bufio"
+	"context"
+	"flag"
 	"fmt"
 	"io"
 	_ "net/http/pprof"
@@ -33,7 +35,7 @@ const (
 	inputFileName = "./10k_crux_top_domains.input"
 )
 
-func feedZDNS(inputLines int, stdin io.WriteCloser) {
+func feedZDNS(ctx context.Context, inputLines int, stdin io.WriteCloser) {
 	// read in input to stdin
 	go func() {
 		f, err := os.Open(inputFileName)
@@ -65,6 +67,10 @@ func feedZDNS(inputLines int, stdin io.WriteCloser) {
 			line := scanner.Text() // Get the current line as a string
 			_, err = stdin.Write([]byte(line + "\n"))
 			if err != nil {
+				if deadline, ok := ctx.Deadline(); ok && time.Now().After(deadline) {
+					log.Warnf("timeout exceeded while attempting to write to zdns stdin")
+					return
+				}
 				log.Panicf("failed to write (%v) to stdin: %v", line, err)
 			}
 		}
@@ -88,12 +94,24 @@ func processOutput(stdout io.ReadCloser, s *Stats) {
 }
 
 func main() {
+	// Parse command-line flags
+	minSuccessRate := flag.Float64("minimum-success-rate", 0, "Minimum success rate (0-1) required for successful exit.")
+	timeout := flag.Duration("timeout", 0, "Timeout duration for the benchmark, ex: 5m")
+	flag.Parse()
+
 	// ZDNS can start a pprof server if the ZDNS_PPROF environment variable is set
 	if err := os.Setenv("ZDNS_PPROF", "true"); err != nil {
 		log.Panicf("failed to set ZDNS_PPROF environment variable: %v", err)
 	}
 
-	cmd := exec.Command("../zdns", "A", "--iterative", "--verbosity=3", "--threads=100", "--status-updates-file", "/dev/null")
+	ctx := context.Background()
+	var cancel context.CancelFunc
+	if timeout != nil && *timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, *timeout)
+		defer cancel()
+	}
+
+	cmd := exec.CommandContext(ctx, "../zdns", "A", "--iterative", "--verbosity=3", "--threads=100", "--status-updates-file", "/dev/null")
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -108,8 +126,9 @@ func main() {
 		log.Panicf("failed to create stdout pipe: %v", err)
 	}
 
-	feedZDNS(linesOfInput, stdin)
-	// stats to collect on ZDNS performance
+	feedZDNS(ctx, linesOfInput, stdin)
+
+	// Collect stats
 	s := Stats{
 		StartTime:             time.Now(),
 		TenLongestResolutions: make(map[string]time.Duration, 10),
@@ -131,10 +150,28 @@ func main() {
 
 	// Wait for the command to finish
 	if err = cmd.Wait(); err != nil {
+		if deadline, ok := ctx.Deadline(); timeout != nil && ok && time.Now().After(deadline) {
+			log.Errorf("timeout %v exceeded while waiting for zdns to finish", *timeout)
+			os.Exit(1)
+		}
 		fmt.Fprintln(os.Stderr, "Command finished with error:", err)
-		return
+		os.Exit(1)
 	}
 
 	printStats(&s)
 
+	// Check success rate
+	successRate := calculateSuccessRate(&s)
+	if minSuccessRate != nil && successRate < *minSuccessRate {
+		fmt.Fprintf(os.Stderr, "Success rate %.2f%% is below threshold %.2f%%n", successRate*100, *minSuccessRate*100)
+		os.Exit(1)
+	}
+}
+
+func calculateSuccessRate(s *Stats) float64 {
+	total := s.numberOfResolutions
+	if total == 0 {
+		return 0.0
+	}
+	return float64(s.SuccessfulResolutions) / float64(total)
 }
