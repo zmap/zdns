@@ -22,7 +22,7 @@ import (
 	"github.com/miekg/dns"
 	"gotest.tools/v3/assert"
 
-	"github.com/zmap/zdns/src/zdns"
+	"github.com/zmap/zdns/v2/src/zdns"
 )
 
 type QueryRecord struct {

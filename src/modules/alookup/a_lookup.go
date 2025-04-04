@@ -17,8 +17,8 @@ package alookup
 import (
 	"github.com/pkg/errors"
 
-	"github.com/zmap/zdns/src/cli"
-	"github.com/zmap/zdns/src/zdns"
+	"github.com/zmap/zdns/v2/src/cli"
+	"github.com/zmap/zdns/v2/src/zdns"
 )
 
 type ALookupModule struct {

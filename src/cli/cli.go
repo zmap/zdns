@@ -26,7 +26,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	flags "github.com/zmap/zflags"
 
-	"github.com/zmap/zdns/src/zdns"
+	"github.com/zmap/zdns/v2/src/zdns"
 )
 
 var parser *flags.Parser

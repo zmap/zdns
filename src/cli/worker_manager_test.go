@@ -20,7 +20,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/zmap/zdns/src/zdns"
+	"github.com/zmap/zdns/v2/src/zdns"
 )
 
 func TestConvertNameServerStringToNameServer(t *testing.T) {

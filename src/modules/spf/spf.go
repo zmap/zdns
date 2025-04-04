@@ -19,8 +19,8 @@ import (
 
 	"github.com/miekg/dns"
 
-	"github.com/zmap/zdns/src/cli"
-	"github.com/zmap/zdns/src/zdns"
+	"github.com/zmap/zdns/v2/src/cli"
+	"github.com/zmap/zdns/v2/src/zdns"
 )
 
 const spfPrefixRegexp = "(?i)^v=spf1"

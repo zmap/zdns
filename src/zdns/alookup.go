@@ -21,7 +21,7 @@ import (
 
 	"github.com/miekg/dns"
 
-	"github.com/zmap/zdns/src/internal/util"
+	"github.com/zmap/zdns/v2/src/internal/util"
 )
 
 // DoTargetedLookup performs a lookup of the given name against the given nameserver, looking up both IPv4 and IPv6 addresses
