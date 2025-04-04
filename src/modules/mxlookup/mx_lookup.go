@@ -21,8 +21,8 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/zmap/zdns/src/cli"
-	"github.com/zmap/zdns/src/zdns"
+	"github.com/zmap/zdns/v2/src/cli"
+	"github.com/zmap/zdns/v2/src/zdns"
 )
 
 type CachedAddresses struct {

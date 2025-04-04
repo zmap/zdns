@@ -21,8 +21,8 @@ import (
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/zmap/zdns/examples/utils"
-	"github.com/zmap/zdns/src/zdns"
+	"github.com/zmap/zdns/v2/examples/utils"
+	"github.com/zmap/zdns/v2/src/zdns"
 )
 
 func main() {

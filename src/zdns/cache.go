@@ -21,8 +21,8 @@ import (
 
 	"github.com/miekg/dns"
 
-	"github.com/zmap/zdns/src/internal/cachehash"
-	"github.com/zmap/zdns/src/internal/util"
+	"github.com/zmap/zdns/v2/src/internal/cachehash"
+	"github.com/zmap/zdns/v2/src/internal/util"
 )
 
 type IsCached bool

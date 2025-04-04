@@ -125,7 +125,7 @@ func (ans Answer) BaseAns() *Answer { return &ans }
 
 func main() {
 	// Import and type-check the package
-	pkg, err := loadModule("github.com/zmap/zdns/src/zdns")
+	pkg, err := loadModule("github.com/zmap/zdns/v2/src/zdns")
 	fatalIfErr(err)
 	scope := pkg.Scope()
 

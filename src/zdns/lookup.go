@@ -31,7 +31,7 @@ import (
 	"github.com/zmap/zgrab2/lib/http"
 	"github.com/zmap/zgrab2/lib/output"
 
-	"github.com/zmap/zdns/src/internal/util"
+	"github.com/zmap/zdns/v2/src/internal/util"
 )
 
 var ErrorContextExpired = errors.New("context expired")

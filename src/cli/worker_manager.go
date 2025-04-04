@@ -35,10 +35,10 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/zmap/zdns/src/cli/iohandlers"
-	blacklist "github.com/zmap/zdns/src/internal/safeblacklist"
-	"github.com/zmap/zdns/src/internal/util"
-	"github.com/zmap/zdns/src/zdns"
+	"github.com/zmap/zdns/v2/src/cli/iohandlers"
+	blacklist "github.com/zmap/zdns/v2/src/internal/safeblacklist"
+	"github.com/zmap/zdns/v2/src/internal/util"
+	"github.com/zmap/zdns/v2/src/zdns"
 )
 
 type routineMetadata struct {

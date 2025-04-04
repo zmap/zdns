@@ -20,16 +20,16 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/zmap/zdns/src/cli"
+	"github.com/zmap/zdns/v2/src/cli"
 	// the order of these imports is important, as the modules are registered in the init() functions.
 	// Import modules after the basic cmd pkg
-	_ "github.com/zmap/zdns/src/modules/alookup"
-	_ "github.com/zmap/zdns/src/modules/axfr"
-	_ "github.com/zmap/zdns/src/modules/bindversion"
-	_ "github.com/zmap/zdns/src/modules/dmarc"
-	_ "github.com/zmap/zdns/src/modules/mxlookup"
-	_ "github.com/zmap/zdns/src/modules/nslookup"
-	_ "github.com/zmap/zdns/src/modules/spf"
+	_ "github.com/zmap/zdns/v2/src/modules/alookup"
+	_ "github.com/zmap/zdns/v2/src/modules/axfr"
+	_ "github.com/zmap/zdns/v2/src/modules/bindversion"
+	_ "github.com/zmap/zdns/v2/src/modules/dmarc"
+	_ "github.com/zmap/zdns/v2/src/modules/mxlookup"
+	_ "github.com/zmap/zdns/v2/src/modules/nslookup"
+	_ "github.com/zmap/zdns/v2/src/modules/spf"
 )
 
 func main() {

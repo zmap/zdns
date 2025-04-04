@@ -20,14 +20,14 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/zmap/zdns/src/cli"
-	"github.com/zmap/zdns/src/internal/safeblacklist"
-	"github.com/zmap/zdns/src/modules/nslookup"
+	"github.com/zmap/zdns/v2/src/cli"
+	"github.com/zmap/zdns/v2/src/internal/safeblacklist"
+	"github.com/zmap/zdns/v2/src/modules/nslookup"
 
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/zmap/zdns/src/zdns"
+	"github.com/zmap/zdns/v2/src/zdns"
 )
 
 type AxfrLookupModule struct {

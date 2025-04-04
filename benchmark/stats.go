@@ -21,7 +21,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/zmap/zdns/src/zdns"
+	"github.com/zmap/zdns/v2/src/zdns"
 )
 
 // Stats holds the statistics for the benchmark
