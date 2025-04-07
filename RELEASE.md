@@ -15,6 +15,7 @@ Update import paths in all non-`src/zdns` packages to use the new module name:
 ```
 - [ ] All Releases
   - [ ] Ensure all dependencies are up to date `go get -u ./...`
+  - [ ] Ensure the version of `miekg/dns` matches the version of `zmap/dns` in the replace directive in `go.mod`
   - [ ] Ensure any of the above changes have been merged into `main`
 
 
