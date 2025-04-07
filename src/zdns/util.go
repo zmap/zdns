@@ -26,8 +26,6 @@ import (
 	"github.com/miekg/dns"
 )
 
-const ZDNSVersion = "2.0.1"
-
 func dotName(name string) string {
 	if name == "." {
 		return name
