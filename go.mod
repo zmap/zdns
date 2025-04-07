@@ -5,7 +5,7 @@ go 1.23.0
 require (
 	github.com/hashicorp/go-version v1.7.0
 	github.com/liip/sheriff v0.12.0
-	github.com/miekg/dns v1.1.64
+	github.com/miekg/dns v1.1.65
 	github.com/pkg/errors v0.9.1
 	github.com/schollz/progressbar/v3 v3.18.0
 	github.com/sirupsen/logrus v1.9.3
@@ -18,7 +18,7 @@ require (
 	gotest.tools/v3 v3.5.2
 )
 
-replace github.com/miekg/dns => github.com/zmap/dns v1.1.64
+replace github.com/miekg/dns => github.com/zmap/dns v1.1.65
 
 require (
 	github.com/asergeyev/nradix v0.0.0-20220715161825-e451993e425c // indirect
@@ -37,13 +37,13 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/weppos/publicsuffix-go v0.40.3-0.20250311103038-7794c8c0723b // indirect
-	golang.org/x/crypto v0.36.0 // indirect
+	golang.org/x/crypto v0.37.0 // indirect
 	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
-	golang.org/x/sync v0.12.0 // indirect
-	golang.org/x/sys v0.31.0 // indirect
-	golang.org/x/term v0.30.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
+	golang.org/x/sync v0.13.0 // indirect
+	golang.org/x/sys v0.32.0 // indirect
+	golang.org/x/term v0.31.0 // indirect
+	golang.org/x/text v0.24.0 // indirect
 	golang.org/x/tools v0.31.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
