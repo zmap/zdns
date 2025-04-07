@@ -1,5 +1,25 @@
 # Releasing a New Version of ZDNS
-We use [goreleaser](https://goreleaser.com) to release new versions of ZDNS. To release a new version, follow these steps:
+
+## Pre-Release Checklist
+- [ ] Major Version Release Example: `v2.X.Y` -> `v3.0.0`
+     - [ ] Bump the module name in `go.mod`
+     - [ ] Update the import paths in all non-`src/zdns` packages to use the new module name.
+
+Updating `go.mod` assuming releasing a new major version (v3):
+```
+    module github.com/zmap/zdns/v2 // Update v2 -> v3
+```
+Update import paths in all non-`src/zdns` packages to use the new module name:
+```go
+	"github.com/zmap/zdns/v2/src/zdns" // Update v2 -> v3
+```
+- [ ] All Releases
+  - [ ] Ensure all dependencies are up to date `go get -u ./...`
+  - [ ] Ensure any of the above changes have been merged into `main`
+
+
+## Release Process
+Once the above checklist is complete, you can proceed with the release process. We use `goreleaser` to automate the release process.
 
 0. Install `goreleaser`:
 ```shell  
