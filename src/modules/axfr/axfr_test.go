@@ -15,6 +15,7 @@
 package axfr
 
 import (
+	"context"
 	"net"
 	"reflect"
 	"testing"
@@ -231,7 +232,7 @@ func TestLookupSingleNS(t *testing.T) {
 		expectedServersMap[ip1][i] = zdns.ParseAnswer(rec)
 	}
 
-	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", nil)
+	res, _, status, _ := axfrMod.Lookup(context.Background(), resolver, "example.com", nil)
 	assert.Equal(t, status, zdns.StatusNoError)
 	verifyResult(t, res.(AXFRResult).Servers, expectedServersMap)
 }

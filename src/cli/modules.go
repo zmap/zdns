@@ -26,7 +26,7 @@ import (
 
 type LookupModule interface {
 	CLIInit(gc *CLIConf, rc *zdns.ResolverConfig) error
-	Lookup(resolver *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error)
+	Lookup(ctx context.Context, resolver *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error)
 	Help() string                 // needed to satisfy the ZCommander interface in ZFlags.
 	GetDescription() string       // needed to add a command to the parser, printed to the user. Printed to the user when they run the help command for a given module
 	Validate(args []string) error // needed to satisfy the ZCommander interface in ZFlags
@@ -183,17 +183,17 @@ func (lm *BasicLookupModule) NewFlags() interface{} {
 // non-Iterative query -> we'll send a query to the nameserver provided. If none provided, a random nameserver from the resolver's external nameservers will be used
 // iterative + all-Nameservers query -> we'll send a query to each root NS and query all nameservers down the chain.
 // iterative query -> we'll send a query to a random root NS and query all nameservers down the chain.
-func (lm *BasicLookupModule) Lookup(resolver *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
+func (lm *BasicLookupModule) Lookup(ctx context.Context, resolver *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
 	if lm.LookupAllNameServers && lm.IsIterative {
-		return resolver.LookupAllNameserversIterative(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass}, nil)
+		return resolver.LookupAllNameserversIterative(ctx, &zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass}, nil)
 	}
 	if lm.LookupAllNameServers {
-		return resolver.LookupAllNameserversExternal(&zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass}, nil)
+		return resolver.LookupAllNameserversExternal(ctx, &zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass}, nil)
 	}
 	if lm.IsIterative {
-		return resolver.IterativeLookup(context.Background(), &zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass})
+		return resolver.IterativeLookup(ctx, &zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass})
 	}
-	return resolver.ExternalLookup(context.Background(), &zdns.Question{Type: lm.DNSType, Class: lm.DNSClass, Name: lookupName}, nameServer)
+	return resolver.ExternalLookup(ctx, &zdns.Question{Type: lm.DNSType, Class: lm.DNSClass, Name: lookupName}, nameServer)
 }
 
 func GetLookupModule(name string) (LookupModule, error) {

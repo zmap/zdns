@@ -14,6 +14,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -21,10 +22,12 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"os/signal"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/zmap/zcrypto/x509"
@@ -482,6 +485,18 @@ func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Res
 }
 
 func Run(gc CLIConf) {
+	// Create a context that is cancelled on SIGINT or SIGTERM.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigs
+		fmt.Println("Signal received, shutting down...")
+		cancel()
+	}()
 	gc = *populateCLIConfig(&gc)
 	resolverConfig := populateResolverConfig(&gc)
 	// Log any information about the resolver configuration, according to log level
@@ -554,7 +569,7 @@ func Run(gc CLIConf) {
 	for i := 0; i < gc.Threads; i++ {
 		i := i
 		go func(threadID int) {
-			initWorkerErr := doLookupWorker(&gc, resolverConfig, inChan, outChan, metaChan, statusChan, &lookupWG)
+			initWorkerErr := doLookupWorker(ctx, &gc, resolverConfig, inChan, outChan, metaChan, statusChan, &lookupWG)
 			if initWorkerErr != nil {
 				log.Fatalf("could not start lookup worker #%d: %v", i, initWorkerErr)
 			}
@@ -610,7 +625,7 @@ func Run(gc CLIConf) {
 }
 
 // doLookupWorker is a single worker thread that processes lookups from the input channel. It calls wg.Done when it is finished.
-func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, inputChan <-chan string, outputChan chan<- string, metaChan chan<- routineMetadata, statusChan chan<- zdns.Status, wg *sync.WaitGroup) error {
+func doLookupWorker(ctx context.Context, gc *CLIConf, rc *zdns.ResolverConfig, inputChan <-chan string, outputChan chan<- string, metaChan chan<- routineMetadata, statusChan chan<- zdns.Status, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	resolver, err := zdns.InitResolver(rc)
 	if err != nil {
@@ -620,7 +635,7 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, inputChan <-chan strin
 	metadata.Status = make(map[zdns.Status]int)
 
 	for line := range inputChan {
-		handleWorkerInput(gc, rc, line, resolver, &metadata, outputChan, statusChan)
+		handleWorkerInput(ctx, gc, rc, line, resolver, &metadata, outputChan, statusChan)
 	}
 	// close the resolver, freeing up resources
 	resolver.Close()
@@ -628,7 +643,7 @@ func doLookupWorker(gc *CLIConf, rc *zdns.ResolverConfig, inputChan <-chan strin
 	return nil
 }
 
-func handleWorkerInput(gc *CLIConf, rc *zdns.ResolverConfig, line string, resolver *zdns.Resolver, metadata *routineMetadata, outputChan chan<- string, statusChan chan<- zdns.Status) {
+func handleWorkerInput(ctx context.Context, gc *CLIConf, rc *zdns.ResolverConfig, line string, resolver *zdns.Resolver, metadata *routineMetadata, outputChan chan<- string, statusChan chan<- zdns.Status) {
 	// we'll process each module sequentially, parallelism is per-domain
 	res := zdns.Result{Results: make(map[string]zdns.SingleModuleResult, len(gc.ActiveModules))}
 	// get the fields that won't change for each lookup module
@@ -685,7 +700,7 @@ func handleWorkerInput(gc *CLIConf, rc *zdns.ResolverConfig, line string, resolv
 		res.Class = dns.Class(gc.Class).String()
 
 		startTime := time.Now()
-		innerRes, trace, status, err = module.Lookup(resolver, lookupName, nameServer)
+		innerRes, trace, status, err = module.Lookup(ctx, resolver, lookupName, nameServer)
 
 		lookupRes := zdns.SingleModuleResult{
 			Timestamp: time.Now().Format(gc.TimeFormat),

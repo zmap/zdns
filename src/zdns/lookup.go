@@ -303,8 +303,8 @@ func isLookupComplete(originalName string, candidateSet map[string][]Answer, cNa
 
 // LookupAllNameserversExternal will query all nameServers with the given question and return the results
 // If nameServers is empty, it will use the externalNameServers from the resolver
-func (r *Resolver) LookupAllNameserversExternal(q *Question, nameServers []NameServer) ([]SingleQueryResult, Trace, Status, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
+func (r *Resolver) LookupAllNameserversExternal(ctx context.Context, q *Question, nameServers []NameServer) ([]SingleQueryResult, Trace, Status, error) {
+	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 	retv := make([]SingleQueryResult, 0)
 	var trace Trace
@@ -395,9 +395,9 @@ func (r *Resolver) filterNameServersForUniqueNames(nameServers []NameServer) []N
 //
 // Additionally, we'll query each layer for NS records, and once we have the set of authoritative nameservers, we'll query with
 // the original question type. This helps find sibling nameservers that aren't listed with the TLD.
-func (r *Resolver) LookupAllNameserversIterative(q *Question, rootNameServers []NameServer) (*AllNameServersResult, Trace, Status, error) {
+func (r *Resolver) LookupAllNameserversIterative(ctx context.Context, q *Question, rootNameServers []NameServer) (*AllNameServersResult, Trace, Status, error) {
 	perNameServerRetriesLimit := 2
-	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
+	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 	retv := AllNameServersResult{
 		LayeredResponses: make(map[string][]ExtendedResult),

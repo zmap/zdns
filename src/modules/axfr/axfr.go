@@ -15,6 +15,7 @@
 package axfr
 
 import (
+	"context"
 	"net"
 	"strings"
 
@@ -113,12 +114,12 @@ func (axfrMod *AxfrLookupModule) doAXFR(transfer TransferInterface, name string,
 	return retv
 }
 
-func (axfrMod *AxfrLookupModule) Lookup(resolver *zdns.Resolver, name string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
+func (axfrMod *AxfrLookupModule) Lookup(ctx context.Context, resolver *zdns.Resolver, name string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
 	var retv AXFRResult
 	// create a new AXFR transfer object
 	transfer := axfrMod.TransferFact.NewTransfer()
 	if nameServer == nil {
-		parsedNS, trace, status, err := axfrMod.NSModule.Lookup(resolver, name, nameServer)
+		parsedNS, trace, status, err := axfrMod.NSModule.Lookup(ctx, resolver, name, nameServer)
 		if status != zdns.StatusNoError {
 			return nil, trace, status, err
 		}

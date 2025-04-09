@@ -51,15 +51,15 @@ func (bindVersionMod *BindVersionLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns
 	return bindVersionMod.BasicLookupModule.CLIInit(gc, rc)
 }
 
-func (bindVersionMod *BindVersionLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
+func (bindVersionMod *BindVersionLookupModule) Lookup(ctx context.Context, r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
 	var innerRes *zdns.SingleQueryResult
 	var trace zdns.Trace
 	var status zdns.Status
 	var err error
 	if bindVersionMod.IsIterative {
-		innerRes, trace, status, err = r.IterativeLookup(context.Background(), &zdns.Question{Name: BindVersionQueryName, Type: dns.TypeTXT, Class: dns.ClassCHAOS})
+		innerRes, trace, status, err = r.IterativeLookup(ctx, &zdns.Question{Name: BindVersionQueryName, Type: dns.TypeTXT, Class: dns.ClassCHAOS})
 	} else {
-		innerRes, trace, status, err = r.ExternalLookup(context.Background(), &zdns.Question{Name: BindVersionQueryName, Type: dns.TypeTXT, Class: dns.ClassCHAOS}, nameServer)
+		innerRes, trace, status, err = r.ExternalLookup(ctx, &zdns.Question{Name: BindVersionQueryName, Type: dns.TypeTXT, Class: dns.ClassCHAOS}, nameServer)
 	}
 	resString, resStatus, err := zdns.CheckTxtRecords(innerRes, status, nil, err)
 	res := Result{BindVersion: resString}

@@ -15,6 +15,7 @@
 package alookup
 
 import (
+	"context"
 	"github.com/pkg/errors"
 
 	"github.com/zmap/zdns/v2/src/cli"
@@ -51,8 +52,8 @@ func (aMod *ALookupModule) Init(ipv4Lookup bool, ipv6Lookup bool) {
 	aMod.IPv6Lookup = ipv6Lookup
 }
 
-func (aMod *ALookupModule) Lookup(r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
-	ipResult, trace, status, err := r.DoTargetedLookup(lookupName, nameServer, aMod.baseModule.IsIterative, aMod.IPv4Lookup, aMod.IPv6Lookup)
+func (aMod *ALookupModule) Lookup(ctx context.Context, r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
+	ipResult, trace, status, err := r.DoTargetedLookup(ctx, lookupName, nameServer, aMod.baseModule.IsIterative, aMod.IPv4Lookup, aMod.IPv6Lookup)
 	return ipResult, trace, status, err
 }
 
