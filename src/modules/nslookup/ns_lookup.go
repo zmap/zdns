@@ -15,6 +15,8 @@
 package nslookup
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
@@ -58,7 +60,7 @@ func (nsMod *NSLookupModule) Init(ipv4Lookup, ipv6Lookup bool) {
 	nsMod.IPv6Lookup = ipv6Lookup
 }
 
-func (nsMod *NSLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
+func (nsMod *NSLookupModule) Lookup(ctx context.Context, r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
 	if nsMod.testingLookup != nil {
 		// used for mocking
 		return nsMod.testingLookup(r, lookupName, nameServer)
@@ -67,7 +69,7 @@ func (nsMod *NSLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameSer
 		log.Warn("iterative lookup requested with lookupName server, ignoring lookupName server")
 	}
 
-	res, trace, status, err := r.DoNSLookup(lookupName, nameServer, nsMod.IsIterative, nsMod.IPv4Lookup, nsMod.IPv6Lookup)
+	res, trace, status, err := r.DoNSLookup(ctx, lookupName, nameServer, nsMod.IsIterative, nsMod.IPv4Lookup, nsMod.IPv6Lookup)
 	if trace == nil {
 		trace = zdns.Trace{}
 	}

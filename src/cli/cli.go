@@ -15,6 +15,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -32,7 +33,7 @@ import (
 var parser *flags.Parser
 
 type InputHandler interface {
-	FeedChannel(in chan<- string, wg *sync.WaitGroup) error
+	FeedChannel(ctx context.Context, in chan<- string, wg *sync.WaitGroup) error
 }
 type OutputHandler interface {
 	WriteResults(results <-chan string, wg *sync.WaitGroup) error

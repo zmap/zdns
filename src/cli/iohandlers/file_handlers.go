@@ -16,6 +16,7 @@ package iohandlers
 
 import (
 	"bufio"
+	"context"
 	"os"
 	"sync"
 
@@ -36,7 +37,7 @@ func NewFileInputHandler(filepath string) *FileInputHandler {
 	}
 }
 
-func (h *FileInputHandler) FeedChannel(in chan<- string, wg *sync.WaitGroup) error {
+func (h *FileInputHandler) FeedChannel(ctx context.Context, in chan<- string, wg *sync.WaitGroup) error {
 	defer close(in)
 	defer (*wg).Done()
 
@@ -52,6 +53,9 @@ func (h *FileInputHandler) FeedChannel(in chan<- string, wg *sync.WaitGroup) err
 	}
 	s := bufio.NewScanner(f)
 	for s.Scan() {
+		if util.HasCtxExpired(ctx) {
+			return nil // context expired, exiting
+		}
 		in <- s.Text()
 	}
 	if err := s.Err(); err != nil {

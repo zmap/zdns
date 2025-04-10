@@ -26,7 +26,7 @@ import (
 
 // DoTargetedLookup performs a lookup of the given name against the given nameserver, looking up both IPv4 and IPv6 addresses
 // Will follow CNAME records as well as A/AAAA records to get IP addresses
-func (r *Resolver) DoTargetedLookup(name string, nameServer *NameServer, isIterative, lookupA, lookupAAAA bool) (*IPResult, Trace, Status, error) {
+func (r *Resolver) DoTargetedLookup(ctx context.Context, name string, nameServer *NameServer, isIterative, lookupA, lookupAAAA bool) (*IPResult, Trace, Status, error) {
 	name = strings.ToLower(name)
 	res := IPResult{}
 	singleQueryRes := &SingleQueryResult{}
@@ -39,9 +39,9 @@ func (r *Resolver) DoTargetedLookup(name string, nameServer *NameServer, isItera
 	var err error
 
 	if lookupA && isIterative {
-		singleQueryRes, ipv4Trace, ipv4status, err = r.IterativeLookup(context.Background(), &Question{Name: name, Type: dns.TypeA, Class: dns.ClassINET})
+		singleQueryRes, ipv4Trace, ipv4status, err = r.IterativeLookup(ctx, &Question{Name: name, Type: dns.TypeA, Class: dns.ClassINET})
 	} else if lookupA {
-		singleQueryRes, ipv4Trace, ipv4status, err = r.ExternalLookup(context.Background(), &Question{Name: name, Type: dns.TypeA, Class: dns.ClassINET}, nameServer)
+		singleQueryRes, ipv4Trace, ipv4status, err = r.ExternalLookup(ctx, &Question{Name: name, Type: dns.TypeA, Class: dns.ClassINET}, nameServer)
 	}
 	ipv4, _ = getIPAddressesFromQueryResult(singleQueryRes, "A", name)
 	if len(ipv4) > 0 {
@@ -51,9 +51,9 @@ func (r *Resolver) DoTargetedLookup(name string, nameServer *NameServer, isItera
 	}
 	singleQueryRes = &SingleQueryResult{} // reset result
 	if lookupAAAA && isIterative {
-		singleQueryRes, ipv6Trace, ipv6status, _ = r.IterativeLookup(context.Background(), &Question{Name: name, Type: dns.TypeAAAA, Class: dns.ClassINET})
+		singleQueryRes, ipv6Trace, ipv6status, _ = r.IterativeLookup(ctx, &Question{Name: name, Type: dns.TypeAAAA, Class: dns.ClassINET})
 	} else if lookupAAAA {
-		singleQueryRes, ipv6Trace, ipv6status, _ = r.ExternalLookup(context.Background(), &Question{Name: name, Type: dns.TypeAAAA, Class: dns.ClassINET}, nameServer)
+		singleQueryRes, ipv6Trace, ipv6status, _ = r.ExternalLookup(ctx, &Question{Name: name, Type: dns.TypeAAAA, Class: dns.ClassINET}, nameServer)
 	}
 	ipv6, _ = getIPAddressesFromQueryResult(singleQueryRes, "AAAA", name)
 	if len(ipv6) > 0 {
