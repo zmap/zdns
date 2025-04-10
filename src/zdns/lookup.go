@@ -109,6 +109,9 @@ func (lc LookupClient) DoDstServersLookup(ctx context.Context, r *Resolver, q Qu
 }
 
 func (r *Resolver) doDstServersLookup(ctx context.Context, q Question, nameServers []NameServer, isIterative bool) (*SingleQueryResult, Trace, Status, error) {
+	if util.HasCtxExpired(ctx) {
+		return nil, nil, StatusTimeout, ErrorContextExpired
+	}
 	var err error
 	// nameserver is required
 	if len(nameServers) == 0 {
@@ -784,6 +787,9 @@ func (r *Resolver) cyclingLookup(ctx context.Context, qWithMeta *QuestionWithMet
 		} else if *qWithMeta.RetriesRemaining == 0 {
 			r.verboseLog(depth+1, "Cycling lookup failed - out of retries. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 			return result, isCached, status, trace, errors.New("cycling lookup failed - out of retries")
+		} else if util.HasCtxExpired(ctx) {
+			r.verboseLog(depth+1, "Cycling lookup failed - context expired. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
+			return result, isCached, status, trace, errors.New("cycling lookup failed - context expired")
 		} else if !isStatusRetryable(status) {
 			r.verboseLog(depth+1, "Cycling lookup failed - unretryable status:", status, "Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 			return result, isCached, status, trace, err
@@ -819,6 +825,9 @@ func getRandomNonQueriedNameServer(nameServers []NameServer, queriedNameServers 
 // cacheBasedOnNameServer is whether to consider a cache hit based on DNS question and nameserver, or just question
 // cacheNonAuthoritative is whether to cache non-authoritative answers, usually used for lookups using an external resolver
 func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *NameServer, layer string, depth int, requestIteration, cacheBasedOnNameServer, cacheNonAuthoritative bool, trace Trace) (*SingleQueryResult, IsCached, Status, Trace, error) {
+	if util.HasCtxExpired(ctx) {
+		return &SingleQueryResult{}, false, StatusTimeout, trace, ErrorContextExpired
+	}
 	// check for circular queries. This may be problematic if NS has circular references and we're trying to perform a DNSSEC validation
 	if _, ok := r.pendingQueries[q]; ok {
 		return &SingleQueryResult{}, false, StatusCircular, trace, errors.New("circular query detected")
@@ -971,6 +980,9 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 }
 
 func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, rootCAs *x509.CertPool, shouldVerifyServerCert, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (*SingleQueryResult, *dns.Msg, Status, error) {
+	if util.HasCtxExpired(ctx) {
+		return nil, nil, StatusTimeout, errors.New("context expired")
+	}
 	m := new(dns.Msg)
 	m.SetQuestion(dotName(q.Name), q.Type)
 	m.Question[0].Qclass = q.Class

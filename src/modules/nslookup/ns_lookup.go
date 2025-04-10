@@ -16,6 +16,7 @@ package nslookup
 
 import (
 	"context"
+
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 

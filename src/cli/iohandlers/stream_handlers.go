@@ -16,12 +16,15 @@ package iohandlers
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"sync"
 
 	"github.com/pkg/errors"
 
 	log "github.com/sirupsen/logrus"
+
+	"github.com/zmap/zdns/v2/src/internal/util"
 )
 
 type StreamInputHandler struct {
@@ -34,12 +37,15 @@ func NewStreamInputHandler(r io.Reader) *StreamInputHandler {
 	}
 }
 
-func (h *StreamInputHandler) FeedChannel(in chan<- string, wg *sync.WaitGroup) error {
+func (h *StreamInputHandler) FeedChannel(ctx context.Context, in chan<- string, wg *sync.WaitGroup) error {
 	defer close(in)
 	defer (*wg).Done()
 
 	s := bufio.NewScanner(h.reader)
 	for s.Scan() {
+		if util.HasCtxExpired(ctx) {
+			return nil // context expired, exiting
+		}
 		in <- s.Text()
 	}
 	if err := s.Err(); err != nil {

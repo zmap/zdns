@@ -493,9 +493,8 @@ func Run(gc CLIConf) {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		<-sigs
-		fmt.Println("Signal received, shutting down...")
-		cancel()
+		<-sigs   // SIGINT or SIGTERM received
+		cancel() // signal to all goroutines to clean up
 	}()
 	gc = *populateCLIConfig(&gc)
 	resolverConfig := populateResolverConfig(&gc)
@@ -540,7 +539,7 @@ func Run(gc CLIConf) {
 
 	// Use handlers to populate the input and output/results channel
 	go func() {
-		if inErr := inHandler.FeedChannel(inChan, &routineWG); inErr != nil {
+		if inErr := inHandler.FeedChannel(ctx, inChan, &routineWG); inErr != nil {
 			log.Fatal(fmt.Sprintf("could not feed input channel: %v", inErr))
 		}
 	}()
@@ -631,14 +630,16 @@ func doLookupWorker(ctx context.Context, gc *CLIConf, rc *zdns.ResolverConfig, i
 	if err != nil {
 		return fmt.Errorf("could not init resolver: %w", err)
 	}
+	defer resolver.Close() // close the resolver, freeing up resources
 	var metadata routineMetadata
 	metadata.Status = make(map[zdns.Status]int)
 
 	for line := range inputChan {
+		if util.HasCtxExpired(ctx) {
+			break
+		}
 		handleWorkerInput(ctx, gc, rc, line, resolver, &metadata, outputChan, statusChan)
 	}
-	// close the resolver, freeing up resources
-	resolver.Close()
 	metaChan <- metadata
 	return nil
 }

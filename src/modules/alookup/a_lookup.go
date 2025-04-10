@@ -16,6 +16,7 @@ package alookup
 
 import (
 	"context"
+
 	"github.com/pkg/errors"
 
 	"github.com/zmap/zdns/v2/src/cli"
