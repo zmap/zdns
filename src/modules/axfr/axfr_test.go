@@ -308,7 +308,7 @@ func TestLookupTwoNS(t *testing.T) {
 		expectedServersMap[ip2][i] = zdns.ParseAnswer(rec)
 	}
 
-	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", nil)
+	res, _, status, _ := axfrMod.Lookup(context.Background(), resolver, "example.com", nil)
 	assert.Equal(t, status, zdns.StatusNoError)
 	verifyResult(t, res.(AXFRResult).Servers, expectedServersMap)
 }
@@ -337,7 +337,7 @@ func TestFailureInTransfer(t *testing.T) {
 	expectedServersMap := make(map[string][]interface{})
 	expectedServersMap[ip1] = make([]interface{}, 0)
 
-	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", nil)
+	res, _, status, _ := axfrMod.Lookup(context.Background(), resolver, "example.com", nil)
 	// The overall status should be no error
 	assert.Equal(t, status, zdns.StatusNoError)
 	// The status for the axfr records for ns1 should be error
@@ -370,7 +370,7 @@ func TestErrorInEnvelope(t *testing.T) {
 	expectedServersMap := make(map[string][]interface{})
 	expectedServersMap[ip1] = make([]interface{}, 0)
 
-	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", nil)
+	res, _, status, _ := axfrMod.Lookup(context.Background(), resolver, "example.com", nil)
 	// The overall status should be no error
 	assert.Equal(t, status, zdns.StatusNoError)
 	// The status for the axfr records for ns1 should be error
@@ -397,7 +397,7 @@ func TestNoIpv4InNsLookup(t *testing.T) {
 		},
 	}
 
-	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", nil)
+	res, _, status, _ := axfrMod.Lookup(context.Background(), resolver, "example.com", nil)
 	assert.Equal(t, status, zdns.StatusNoError)
 	assert.Equal(t, len(res.(AXFRResult).Servers), 0)
 }
@@ -405,7 +405,7 @@ func TestNoIpv4InNsLookup(t *testing.T) {
 // Querying non-existent domains should return NXDOMAIN status
 func TestNXDomain(t *testing.T) {
 	axfrMod, resolver := InitTest()
-	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", nil)
+	res, _, status, _ := axfrMod.Lookup(context.Background(), resolver, "example.com", nil)
 	assert.Equal(t, status, zdns.StatusNXDomain)
 	assert.Equal(t, res, nil)
 }
@@ -419,7 +419,7 @@ func TestErrorInNsLookup(t *testing.T) {
 		Servers: nil,
 	}
 
-	res, _, status, _ := axfrMod.Lookup(resolver, "example.com", nil)
+	res, _, status, _ := axfrMod.Lookup(context.Background(), resolver, "example.com", nil)
 	assert.Equal(t, status, nsStatus)
 	assert.Equal(t, res, nil)
 }
