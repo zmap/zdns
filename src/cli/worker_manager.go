@@ -489,13 +489,6 @@ func Run(gc CLIConf) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-sigs   // SIGINT or SIGTERM received
-		cancel() // signal to all goroutines to clean up
-	}()
 	gc = *populateCLIConfig(&gc)
 	resolverConfig := populateResolverConfig(&gc)
 	// Log any information about the resolver configuration, according to log level
@@ -516,10 +509,21 @@ func Run(gc CLIConf) {
 	//	- process until inChan closes, then wg.done()
 	// Once we processing threads have all finished, wait until the
 	// output and metadata threads have completed
-	inChan := make(chan string)
-	outChan := make(chan string)
-	metaChan := make(chan routineMetadata, gc.Threads)
-	statusChan := make(chan zdns.Status)
+	inChan := make(chan string)                        // input handler feeds inChan with input
+	outChan := make(chan string)                       // lookup workers write to outChan, output handler reads from outChan
+	metaChan := make(chan routineMetadata, gc.Threads) // lookup workers write to metaChan, metadata is collected at end of scan
+	statusChan := make(chan zdns.Status)               // lookup workers write to status chan after each lookup, status handler reads from statusChan
+	statusAbortChan := make(chan struct{})             // used by this thread to signal to the status handler that we've aborted
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigs                        // SIGINT or SIGTERM received
+		cancel()                      // signal to all goroutines to clean up
+		statusAbortChan <- struct{}{} // signal to status handler that we've aborted so it will print a suitable message
+		// to the user vs. the 'Scan Complete' it normally prints
+	}()
 	var routineWG sync.WaitGroup
 
 	inHandler := gc.InputHandler
@@ -553,7 +557,7 @@ func Run(gc CLIConf) {
 
 	if !gc.QuietStatusUpdates {
 		go func() {
-			if statusErr := statusHandler.LogPeriodicUpdates(statusChan, &routineWG); statusErr != nil {
+			if statusErr := statusHandler.LogPeriodicUpdates(statusChan, statusAbortChan, &routineWG); statusErr != nil {
 				log.Fatal(fmt.Sprintf("could not log periodic status updates: %v", statusErr))
 			}
 		}()
@@ -578,6 +582,7 @@ func Run(gc CLIConf) {
 	close(outChan)
 	close(metaChan)
 	close(statusChan)
+	close(statusAbortChan)
 	routineWG.Wait()
 	if gc.MetadataFilePath != "" {
 		// we're done processing data. aggregate all the data from individual routines

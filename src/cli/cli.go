@@ -39,7 +39,7 @@ type OutputHandler interface {
 	WriteResults(results <-chan string, wg *sync.WaitGroup) error
 }
 type StatusHandler interface {
-	LogPeriodicUpdates(statusChan <-chan zdns.Status, wg *sync.WaitGroup) error
+	LogPeriodicUpdates(statusChan <-chan zdns.Status, statusAbortChan <-chan struct{}, wg *sync.WaitGroup) error
 }
 
 // GeneralOptions core options for all ZDNS modules

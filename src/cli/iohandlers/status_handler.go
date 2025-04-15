@@ -47,7 +47,7 @@ func NewStatusHandler(filePath string) *StatusHandler {
 }
 
 // LogPeriodicUpdates prints a per-second update to the user scan progress and per-status statistics
-func (h *StatusHandler) LogPeriodicUpdates(statusChan <-chan zdns.Status, wg *sync.WaitGroup) error {
+func (h *StatusHandler) LogPeriodicUpdates(statusChan <-chan zdns.Status, statusAbortChan <-chan struct{}, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	// open file for writing
 	var f *os.File
@@ -66,20 +66,25 @@ func (h *StatusHandler) LogPeriodicUpdates(statusChan <-chan zdns.Status, wg *sy
 			}
 		}(f)
 	}
-	if err := h.statusLoop(statusChan, f); err != nil {
+	if err := h.statusLoop(statusChan, statusAbortChan, f); err != nil {
 		return errors.Wrap(err, "error encountered in status loop")
 	}
 	return nil
 }
 
 // statusLoop will print a per-second summary of the scan progress and per-status statistics
-func (h *StatusHandler) statusLoop(statusChan <-chan zdns.Status, statusFile *os.File) error {
+// statusChan is a channel that will receive the statuses from each lookup and updates it's internal state stats
+// statusAbortChan is used for the main thread to notify the status loop that it has aborted and we should notify the
+// user appropriately
+// statusFile is where to write the status updates to
+func (h *StatusHandler) statusLoop(statusChan <-chan zdns.Status, statusAbortChan <-chan struct{}, statusFile *os.File) error {
 	// initialize stats
 	stats := scanStats{
 		statusOccurance: make(map[zdns.Status]int),
 		scanStartTime:   time.Now(),
 	}
 	ticker := time.NewTicker(time.Second)
+	scanAborted := false
 statusLoop:
 	for {
 		select {
@@ -111,13 +116,21 @@ statusLoop:
 				stats.statusOccurance[status] = 0
 			}
 			stats.statusOccurance[status] += 1
+		case <-statusAbortChan:
+			scanAborted = true
 		}
 	}
+	scanStateString := "Scan Complete"
+	if scanAborted {
+		scanStateString = "Scan Aborted"
+	}
+
 	timeSinceStart := time.Since(stats.scanStartTime)
-	s := fmt.Sprintf("%02dh:%02dm:%02ds; Scan Complete; %d names scanned; %.02f names/sec; %.01f%% success rate; %s\n",
+	s := fmt.Sprintf("%02dh:%02dm:%02ds; %s; %d names scanned; %.02f names/sec; %.01f%% success rate; %s\n",
 		int(timeSinceStart.Hours()),
 		int(timeSinceStart.Minutes())%60,
 		int(timeSinceStart.Seconds())%60,
+		scanStateString,
 		stats.domainsScanned,
 		float64(stats.domainsScanned)/time.Since(stats.scanStartTime).Seconds(),
 		float64(stats.domainsSuccess*100)/float64(stats.domainsScanned),
