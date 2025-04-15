@@ -224,9 +224,13 @@ func NewResolverConfig() *ResolverConfig {
 		LookupClient: LookupClient{},
 		Cache:        c,
 
-		Blacklist:    blacklist.New(),
-		LocalAddrsV4: []net.IP{},
-		LocalAddrsV6: []net.IP{},
+		Blacklist:             blacklist.New(),
+		LocalAddrsV4:          []net.IP{},
+		LocalAddrsV6:          []net.IP{},
+		ExternalNameServersV4: DefaultExternalResolversV4,
+		ExternalNameServersV6: DefaultExternalResolversV6,
+		RootNameServersV4:     RootServersV4,
+		RootNameServersV6:     RootServersV6,
 
 		TransportMode:         defaultTransportMode,
 		IPVersionMode:         defaultIPVersionMode,
