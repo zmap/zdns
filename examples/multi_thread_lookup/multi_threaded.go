@@ -27,7 +27,7 @@ func main() {
 	// Create a shared cache
 	// Create a ResolverConfig object
 	resolverConfig := zdns.NewResolverConfig()
-	// Initialize the resolvers with the cache
+	// Initialize the resolvers with the config
 	resolver1, err := zdns.InitResolver(resolverConfig)
 	if err != nil {
 		log.Fatal("Error initializing resolver: ", err)

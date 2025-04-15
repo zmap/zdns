@@ -23,7 +23,7 @@ import (
 )
 
 func main() {
-	// Perform the lookup
+	// Setup
 	domain := "google.com"
 	dnsQuestion := &zdns.Question{Name: domain, Type: dns.TypeA, Class: dns.ClassINET}
 	resolverConfig := zdns.NewResolverConfig()
