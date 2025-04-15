@@ -37,6 +37,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Error initializing resolver: ", err)
 	}
+	defer resolver.Close()
 
 	result, _, status, err := resolver.ExternalLookup(context.Background(), dnsQuestion, &zdns.NameServer{IP: net.ParseIP("1.1.1.1"), Port: 53})
 	if err != nil {
@@ -53,5 +54,4 @@ func main() {
 	}
 	fmt.Printf("Result: %s", spew.Sdump(result))
 	fmt.Printf("Status: %v", status)
-	resolver.Close()
 }

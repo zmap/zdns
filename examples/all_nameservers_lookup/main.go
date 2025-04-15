@@ -31,6 +31,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Error initializing resolver: ", err)
 	}
+	defer resolver.Close()
 	// LookupAllNameserversIterative will query all root nameservers, and then all TLD nameservers, and then all authoritative nameservers for the domain.
 	result, _, status, err := resolver.LookupAllNameserversIterative(dnsQuestion, nil)
 	if err != nil {
@@ -55,5 +56,4 @@ func main() {
 	}
 	log.Warnf("Result: %v", externalResult)
 	log.Warnf("Status: %v", status)
-	resolver.Close()
 }

@@ -32,10 +32,12 @@ func main() {
 	if err != nil {
 		log.Fatal("Error initializing resolver: ", err)
 	}
+	defer resolver1.Close()
 	resolver2, err := zdns.InitResolver(resolverConfig)
 	if err != nil {
 		log.Fatal("Error initializing resolver: ", err)
 	}
+	defer resolver2.Close()
 
 	// Perform the lookup
 	domain1 := "google.com"
@@ -65,6 +67,4 @@ func main() {
 	}()
 	wg.Wait()
 	log.Warn("All lookups complete")
-	resolver1.Close()
-	resolver2.Close()
 }
