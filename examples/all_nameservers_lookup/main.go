@@ -14,11 +14,9 @@
 package main
 
 import (
-	"net"
-	"time"
-
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
+	"net"
 
 	"github.com/zmap/zdns/v2/src/zdns"
 )
@@ -27,7 +25,11 @@ func main() {
 	// Perform the lookup
 	domain := "google.com"
 	dnsQuestion := &zdns.Question{Name: domain, Type: dns.TypeA, Class: dns.ClassINET}
-	resolver := initializeResolver()
+	resolverConfig := zdns.NewResolverConfig()
+	resolver, err := zdns.InitResolver(resolverConfig)
+	if err != nil {
+		log.Fatal("Error initializing resolver: ", err)
+	}
 	// LookupAllNameserversIterative will query all root nameservers, and then all TLD nameservers, and then all authoritative nameservers for the domain.
 	result, _, status, err := resolver.LookupAllNameserversIterative(dnsQuestion, nil)
 	if err != nil {
@@ -53,27 +55,4 @@ func main() {
 	log.Warnf("Result: %v", externalResult)
 	log.Warnf("Status: %v", status)
 	resolver.Close()
-}
-
-func initializeResolver() *zdns.Resolver {
-	localAddr, err := zdns.GetLocalIPv4Address()
-	if err != nil {
-		log.Fatal("Error getting local IP: ", err)
-	}
-	// Create a ResolverConfig object
-	resolverConfig := zdns.NewResolverConfig()
-	// Set any desired options on the ResolverConfig object
-	resolverConfig.LogLevel = log.InfoLevel
-	resolverConfig.LocalAddrsV4 = []net.IP{localAddr}
-	resolverConfig.ExternalNameServersV4 = []zdns.NameServer{{IP: net.ParseIP("1.1.1.1"), Port: 53}}
-	resolverConfig.RootNameServersV4 = zdns.RootServersV4
-	resolverConfig.IPVersionMode = zdns.IPv4Only
-	resolverConfig.Timeout = time.Minute
-	resolverConfig.IterativeTimeout = time.Minute
-	// Create a new Resolver object with the ResolverConfig object, it will retain all settings set on the ResolverConfig object
-	resolver, err := zdns.InitResolver(resolverConfig)
-	if err != nil {
-		log.Fatal("Error initializing resolver: ", err)
-	}
-	return resolver
 }
