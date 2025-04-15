@@ -78,9 +78,9 @@ func (mxMod *MXLookupModule) Init() {
 	}
 }
 
-func (mxMod *MXLookupModule) lookupIPs(r *zdns.Resolver, name string, nameServer *zdns.NameServer, ipMode zdns.IPVersionMode) (CachedAddresses, zdns.Trace) {
+func (mxMod *MXLookupModule) lookupIPs(ctx context.Context, r *zdns.Resolver, name string, nameServer *zdns.NameServer, ipMode zdns.IPVersionMode) (CachedAddresses, zdns.Trace) {
 	retv := CachedAddresses{}
-	result, trace, status, _ := r.DoTargetedLookup(name, nameServer, mxMod.IsIterative, mxMod.IPv4Lookup, mxMod.IPv6Lookup)
+	result, trace, status, _ := r.DoTargetedLookup(ctx, name, nameServer, mxMod.IsIterative, mxMod.IPv4Lookup, mxMod.IPv6Lookup)
 	if status == zdns.StatusNoError && result != nil {
 		retv.IPv4Addresses = result.IPv4Addresses
 		retv.IPv6Addresses = result.IPv6Addresses
@@ -88,7 +88,7 @@ func (mxMod *MXLookupModule) lookupIPs(r *zdns.Resolver, name string, nameServer
 	return retv, trace
 }
 
-func (mxMod *MXLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
+func (mxMod *MXLookupModule) Lookup(ctx context.Context, r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
 	ipMode := zdns.GetIPVersionMode(mxMod.IPv4Lookup, mxMod.IPv6Lookup)
 	retv := MXResult{Servers: []MXRecord{}}
 	var res *zdns.SingleQueryResult
@@ -96,9 +96,9 @@ func (mxMod *MXLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameSer
 	var status zdns.Status
 	var err error
 	if mxMod.IsIterative {
-		res, trace, status, err = r.IterativeLookup(context.Background(), &zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET})
+		res, trace, status, err = r.IterativeLookup(ctx, &zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET})
 	} else {
-		res, trace, status, err = r.ExternalLookup(context.Background(), &zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET}, nameServer)
+		res, trace, status, err = r.ExternalLookup(ctx, &zdns.Question{Name: lookupName, Type: dns.TypeMX, Class: dns.ClassINET}, nameServer)
 	}
 	if status != zdns.StatusNoError || err != nil {
 		return nil, trace, status, err
@@ -108,7 +108,7 @@ func (mxMod *MXLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameSer
 		if mxAns, ok := ans.(zdns.PrefAnswer); ok {
 			lookupName = strings.TrimSuffix(mxAns.Answer.Answer, ".")
 			rec := MXRecord{TTL: mxAns.TTL, Type: mxAns.Type, Class: mxAns.Class, Name: lookupName, Preference: mxAns.Preference}
-			ips, secondTrace := mxMod.lookupIPs(r, lookupName, nameServer, ipMode)
+			ips, secondTrace := mxMod.lookupIPs(ctx, r, lookupName, nameServer, ipMode)
 			rec.IPv4Addresses = ips.IPv4Addresses
 			rec.IPv6Addresses = ips.IPv6Addresses
 			retv.Servers = append(retv.Servers, rec)

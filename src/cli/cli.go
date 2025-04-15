@@ -15,6 +15,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -32,13 +33,13 @@ import (
 var parser *flags.Parser
 
 type InputHandler interface {
-	FeedChannel(in chan<- string, wg *sync.WaitGroup) error
+	FeedChannel(ctx context.Context, in chan<- string, wg *sync.WaitGroup) error
 }
 type OutputHandler interface {
 	WriteResults(results <-chan string, wg *sync.WaitGroup) error
 }
 type StatusHandler interface {
-	LogPeriodicUpdates(statusChan <-chan zdns.Status, wg *sync.WaitGroup) error
+	LogPeriodicUpdates(statusChan <-chan zdns.Status, statusAbortChan <-chan struct{}, wg *sync.WaitGroup) error
 }
 
 // GeneralOptions core options for all ZDNS modules

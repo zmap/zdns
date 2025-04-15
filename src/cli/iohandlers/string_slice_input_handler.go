@@ -15,9 +15,12 @@
 package iohandlers
 
 import (
+	"context"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
+
+	"github.com/zmap/zdns/v2/src/internal/util"
 )
 
 // StringSliceInputHandler Feeds a channel with the strings in the slice.
@@ -32,10 +35,13 @@ func NewStringSliceInputHandler(domains []string) *StringSliceInputHandler {
 	return &StringSliceInputHandler{Names: domains}
 }
 
-func (h *StringSliceInputHandler) FeedChannel(in chan<- string, wg *sync.WaitGroup) error {
+func (h *StringSliceInputHandler) FeedChannel(ctx context.Context, in chan<- string, wg *sync.WaitGroup) error {
 	defer close(in)
 	defer wg.Done()
 	for _, name := range h.Names {
+		if util.HasCtxExpired(ctx) {
+			return nil
+		}
 		in <- name
 	}
 	return nil

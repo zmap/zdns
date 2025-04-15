@@ -14,6 +14,7 @@
 package dmarc
 
 import (
+	"context"
 	"errors"
 	"regexp"
 
@@ -51,8 +52,8 @@ func (dmarcMod *DmarcLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverCon
 	return dmarcMod.BasicLookupModule.CLIInit(gc, rc)
 }
 
-func (dmarcMod *DmarcLookupModule) Lookup(r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
-	innerRes, trace, status, err := dmarcMod.BasicLookupModule.Lookup(r, lookupName, nameServer)
+func (dmarcMod *DmarcLookupModule) Lookup(ctx context.Context, r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
+	innerRes, trace, status, err := dmarcMod.BasicLookupModule.Lookup(ctx, r, lookupName, nameServer)
 	castedInnerRes, ok := innerRes.(*zdns.SingleQueryResult)
 	if !ok {
 		return nil, trace, status, errors.New("lookup didn't return a single query result type")
