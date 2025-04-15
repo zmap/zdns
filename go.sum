@@ -64,8 +64,8 @@ github.com/weppos/publicsuffix-go v0.40.3-0.20250311103038-7794c8c0723b h1:PFOWo
 github.com/weppos/publicsuffix-go v0.40.3-0.20250311103038-7794c8c0723b/go.mod h1:EACzvcFHnxqmDapI/oqMjtpXz+mtjNzJe7r1zhRczZ0=
 github.com/zmap/dns v1.1.65 h1:seQlz2lWy04u2WqSMUfgxjNy7OLXgCkZjQM43Y2QzVk=
 github.com/zmap/dns v1.1.65/go.mod h1:vXyKOHhM3MCtyYNRihartCD+fmMWC/qhHtkXDPC6dMg=
-github.com/zmap/go-dns-root-anchors v0.0.0-20250415173640-94fe95e38117 h1:34sAuhCdDLw8c9xmgfaj8odG9PTkm7tDq3lsApS89Pg=
-github.com/zmap/go-dns-root-anchors v0.0.0-20250415173640-94fe95e38117/go.mod h1:W5CEzaf+B3Pg1hzUQotwQ2EBg7jB49DkmKuiNuWPO80=
+github.com/zmap/go-dns-root-anchors v0.0.0-20250415191259-6d65fb878756 h1:yeprVDswfVwnP3uCPm1h1vUZYUOMk7Ue56//8ttmUwA=
+github.com/zmap/go-dns-root-anchors v0.0.0-20250415191259-6d65fb878756/go.mod h1:W5CEzaf+B3Pg1hzUQotwQ2EBg7jB49DkmKuiNuWPO80=
 github.com/zmap/go-iptree v0.0.0-20210731043055-d4e632617837 h1:DjHnADS2r2zynZ3WkCFAQ+PNYngMSNceRROi0pO6c3M=
 github.com/zmap/go-iptree v0.0.0-20210731043055-d4e632617837/go.mod h1:9vp0bxqozzQwcjBwenEXfKVq8+mYbwHkQ1NF9Ap0DMw=
 github.com/zmap/zcrypto v0.0.0-20250324021606-4f0ea0eaccac h1:FWk36AHMBeDuQ3fl76mZj6LQjzAgnJVAErhMsTgqHps=

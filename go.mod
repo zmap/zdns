@@ -11,7 +11,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.10.0
 	github.com/zmap/dns v1.1.65
-	github.com/zmap/go-dns-root-anchors v0.0.0-20250415173640-94fe95e38117
+	github.com/zmap/go-dns-root-anchors v0.0.0-20250415191259-6d65fb878756
 	github.com/zmap/go-iptree v0.0.0-20210731043055-d4e632617837
 	github.com/zmap/zcrypto v0.0.0-20250324021606-4f0ea0eaccac
 	github.com/zmap/zflags v1.4.0-beta.1.0.20200204220219-9d95409821b6
