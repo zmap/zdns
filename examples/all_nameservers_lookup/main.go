@@ -14,9 +14,10 @@
 package main
 
 import (
+	"net"
+
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
-	"net"
 
 	"github.com/zmap/zdns/v2/src/zdns"
 )

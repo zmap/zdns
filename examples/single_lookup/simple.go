@@ -16,8 +16,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"net"
+
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
