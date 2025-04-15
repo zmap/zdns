@@ -116,8 +116,13 @@ statusLoop:
 				stats.statusOccurance[status] = 0
 			}
 			stats.statusOccurance[status] += 1
-		case <-statusAbortChan:
-			scanAborted = true
+		case _, ok := <-statusAbortChan:
+			if ok {
+				// We can't exit the loop here because the lookup threads will block on writing to the status channel.
+				// Instead, we'll set a flag and when we break out of this loop later (because the status channel is closed)
+				// we'll print an abort message for the user.
+				scanAborted = true
+			}
 		}
 	}
 	scanStateString := "Scan Complete"
