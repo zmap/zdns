@@ -20,7 +20,6 @@ import (
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/zmap/zdns/v2/examples/utils"
 	"github.com/zmap/zdns/v2/src/zdns"
 )
 
@@ -57,7 +56,7 @@ func main() {
 }
 
 func initializeResolver() *zdns.Resolver {
-	localAddr, err := utils.GetLocalIPByConnecting()
+	localAddr, err := zdns.GetLocalIPv4Address()
 	if err != nil {
 		log.Fatal("Error getting local IP: ", err)
 	}

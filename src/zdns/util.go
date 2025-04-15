@@ -252,3 +252,45 @@ func DeepCopyIPs(ips []net.IP) []net.IP {
 	}
 	return copied
 }
+
+const (
+	ipv4 = "ipv4"
+	ipv6 = "ipv6"
+)
+
+func GetLocalIPv4Address() (net.IP, error) {
+	return getLocalIPByConnecting(ipv4)
+}
+
+func GetLocalIPv6Address() (net.IP, error) {
+	return getLocalIPByConnecting(ipv6)
+}
+
+func getLocalIPByConnecting(ipType string) (net.IP, error) {
+	var targetIP string
+	switch ipType {
+	case ipv4:
+		targetIP = "1.1.1.1:53"
+	case ipv6:
+		targetIP = "[2606:4700:4700::1111]:53"
+	default:
+		return nil, errors.New("invalid IP type specified")
+	}
+	conn, err := net.Dial("udp", targetIP)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to dial UDP connection")
+	}
+	defer func(conn net.Conn) {
+		err := conn.Close()
+		if err != nil {
+			log.Errorf("failed to close connection: %v", err)
+		}
+	}(conn)
+
+	localAddr, ok := conn.LocalAddr().(*net.UDPAddr)
+	if !ok {
+		return nil, errors.New("failed to get the local address as a UDP address")
+	}
+
+	return localAddr.IP, nil
+}
