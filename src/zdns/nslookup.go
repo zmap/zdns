@@ -17,8 +17,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/miekg/dns"
 	"github.com/pkg/errors"
+	"github.com/zmap/dns"
 )
 
 /*

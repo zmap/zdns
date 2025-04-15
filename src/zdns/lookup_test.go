@@ -30,7 +30,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/miekg/dns"
+	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/v2/src/internal/util"
 )

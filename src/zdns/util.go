@@ -23,7 +23,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/miekg/dns"
+	"github.com/zmap/dns"
 )
 
 func dotName(name string) string {
