@@ -650,7 +650,7 @@ func TestOneA(t *testing.T) {
 		Protocol:    "",
 		Flags:       DNSFlags{},
 	}
-	res, _, _, _ := resolver.DoTargetedLookup("example.com", ns1, false, true, false)
+	res, _, _, _ := resolver.DoTargetedLookup(context.Background(), "example.com", ns1, false, true, false)
 	verifyResult(t, *res, []string{"192.0.2.1"}, nil)
 }
 
@@ -685,7 +685,7 @@ func TestTwoA(t *testing.T) {
 		Protocol:    "",
 		Flags:       DNSFlags{},
 	}
-	res, _, _, _ := resolver.DoTargetedLookup(domain1, ns1, false, true, false)
+	res, _, _, _ := resolver.DoTargetedLookup(context.Background(), domain1, ns1, false, true, false)
 	verifyResult(t, *res, []string{"192.0.2.1", "192.0.2.2"}, nil)
 }
 
@@ -721,7 +721,7 @@ func TestQuadAWithoutFlag(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 
-	res, _, _, _ := resolver.DoTargetedLookup(domain1, ns1, false, true, false)
+	res, _, _, _ := resolver.DoTargetedLookup(context.Background(), domain1, ns1, false, true, false)
 	verifyResult(t, *res, []string{"192.0.2.1"}, nil)
 }
 
@@ -750,7 +750,7 @@ func TestOnlyQuadA(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 
-	res, _, _, _ := resolver.DoTargetedLookup(domain1, ns1, false, false, true)
+	res, _, _, _ := resolver.DoTargetedLookup(context.Background(), domain1, ns1, false, false, true)
 	assert.NotNil(t, res)
 	verifyResult(t, *res, nil, []string{"2001:db8::1"})
 }
@@ -786,7 +786,7 @@ func TestAandQuadA(t *testing.T) {
 		Protocol:    "",
 		Flags:       DNSFlags{},
 	}
-	res, _, _, _ := resolver.DoTargetedLookup(domain1, ns1, false, true, true)
+	res, _, _, _ := resolver.DoTargetedLookup(context.Background(), domain1, ns1, false, true, true)
 	assert.NotNil(t, res)
 	verifyResult(t, *res, []string{"192.0.2.1"}, []string{"2001:db8::1"})
 }
@@ -822,7 +822,7 @@ func TestTwoQuadA(t *testing.T) {
 		Protocol:    "",
 		Flags:       DNSFlags{},
 	}
-	res, _, _, _ := resolver.DoTargetedLookup("example.com", ns1, false, false, true)
+	res, _, _, _ := resolver.DoTargetedLookup(context.Background(), "example.com", ns1, false, false, true)
 	assert.NotNil(t, res)
 	verifyResult(t, *res, nil, []string{"2001:db8::1", "2001:db8::2"})
 }
@@ -846,7 +846,7 @@ func TestNoResults(t *testing.T) {
 		Protocol:    "",
 		Flags:       DNSFlags{},
 	}
-	res, _, _, _ := resolver.DoTargetedLookup("example.com", ns1, false, true, false)
+	res, _, _, _ := resolver.DoTargetedLookup(context.Background(), "example.com", ns1, false, true, false)
 	verifyResult(t, *res, nil, nil)
 }
 
@@ -881,7 +881,7 @@ func TestQuadAWithCname(t *testing.T) {
 		Protocol:    "",
 		Flags:       DNSFlags{},
 	}
-	res, _, _, _ := resolver.DoTargetedLookup("cname.example.com", ns1, false, false, true)
+	res, _, _, _ := resolver.DoTargetedLookup(context.Background(), "cname.example.com", ns1, false, false, true)
 	verifyResult(t, *res, nil, []string{"2001:db8::3"})
 }
 
@@ -910,7 +910,7 @@ func TestUnexpectedMxOnly(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 
-	res, _, status, _ := resolver.DoTargetedLookup("example.com", ns1, false, true, true)
+	res, _, status, _ := resolver.DoTargetedLookup(context.Background(), "example.com", ns1, false, true, true)
 
 	if status != StatusNoError {
 		t.Errorf("Expected no error, got %v", status)
@@ -958,7 +958,7 @@ func TestMxAndAdditionals(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 
-	res, _, _, _ := resolver.DoTargetedLookup("example.com", ns1, false, true, true)
+	res, _, _, _ := resolver.DoTargetedLookup(context.Background(), "example.com", ns1, false, true, true)
 	verifyResult(t, *res, []string{"192.0.2.3"}, []string{"2001:db8::4"})
 }
 
@@ -986,7 +986,7 @@ func TestMismatchIpType(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 
-	res, _, status, _ := resolver.DoTargetedLookup("example.com", ns1, false, false, true)
+	res, _, status, _ := resolver.DoTargetedLookup(context.Background(), "example.com", ns1, false, false, true)
 
 	if status != StatusNoError {
 		t.Errorf("Expected no error, got %v", status)
@@ -1034,11 +1034,11 @@ func TestEmptyNonTerminal(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 	// Verify leaf returns correctly
-	res, _, _, _ := resolver.DoTargetedLookup("leaf.intermediate.example.com", ns1, false, true, false)
+	res, _, _, _ := resolver.DoTargetedLookup(context.Background(), "leaf.intermediate.example.com", ns1, false, true, false)
 	verifyResult(t, *res, []string{"192.0.2.3"}, nil)
 
 	// Verify empty non-terminal returns no answer
-	res, _, _, _ = resolver.DoTargetedLookup("intermediate.example.com", ns1, false, true, true)
+	res, _, _, _ = resolver.DoTargetedLookup(context.Background(), "intermediate.example.com", ns1, false, true, true)
 	verifyResult(t, *res, nil, nil)
 }
 
@@ -1049,7 +1049,7 @@ func TestNXDomain(t *testing.T) {
 	resolver, err := InitResolver(config)
 	require.NoError(t, err)
 	ns1 := &config.ExternalNameServersV4[0]
-	res, _, status, _ := resolver.DoTargetedLookup("nonexistent.example.com", ns1, false, true, true)
+	res, _, status, _ := resolver.DoTargetedLookup(context.Background(), "nonexistent.example.com", ns1, false, true, true)
 	if status != StatusNXDomain {
 		t.Errorf("Expected StatusNXDomain status, got %v", status)
 	} else if res != nil {
@@ -1149,7 +1149,7 @@ func TestAandQuadADedup(t *testing.T) {
 		Flags:       DNSFlags{},
 	}
 
-	res, _, _, _ := resolver.DoTargetedLookup(domain1, ns1, false, true, true)
+	res, _, _, _ := resolver.DoTargetedLookup(context.Background(), domain1, ns1, false, true, true)
 	assert.NotNil(t, res)
 	verifyResult(t, *res, []string{"192.0.2.1"}, []string{"2001:db8::3"})
 }
@@ -1169,7 +1169,7 @@ func TestServFail(t *testing.T) {
 	name := "example.com"
 	protocolStatus[domainNS1] = StatusServFail
 
-	res, _, finalStatus, _ := resolver.DoTargetedLookup(name, ns1, false, true, true)
+	res, _, finalStatus, _ := resolver.DoTargetedLookup(context.Background(), name, ns1, false, true, true)
 
 	if finalStatus != protocolStatus[domainNS1] {
 		t.Errorf("Expected %v status, got %v", protocolStatus, finalStatus)
@@ -1231,7 +1231,7 @@ func TestNsAInAdditional(t *testing.T) {
 		IPv4Addresses: []string{"192.0.2.3"},
 		IPv6Addresses: nil,
 	}
-	res, _, _, _ := resolver.DoNSLookup("example.com", ns1, false, true, false)
+	res, _, _, _ := resolver.DoNSLookup(context.Background(), "example.com", ns1, false, true, false)
 	verifyNsResult(t, res.Servers, expectedServersMap)
 }
 
@@ -1292,7 +1292,7 @@ func TestTwoNSInAdditional(t *testing.T) {
 		IPv4Addresses: []string{"192.0.2.4"},
 		IPv6Addresses: nil,
 	}
-	res, _, _, _ := resolver.DoNSLookup("example.com", ns1, false, true, false)
+	res, _, _, _ := resolver.DoNSLookup(context.Background(), "example.com", ns1, false, true, false)
 	verifyNsResult(t, res.Servers, expectedServersMap)
 }
 
@@ -1341,7 +1341,7 @@ func TestAandQuadAInAdditional(t *testing.T) {
 		IPv4Addresses: []string{"192.0.2.3"},
 		IPv6Addresses: []string{"2001:db8::4"},
 	}
-	res, _, _, _ := resolver.DoNSLookup("example.com", ns1, false, true, true)
+	res, _, _, _ := resolver.DoNSLookup(context.Background(), "example.com", ns1, false, true, true)
 	verifyNsResult(t, res.Servers, expectedServersMap)
 }
 
@@ -1390,7 +1390,7 @@ func TestNsMismatchIpType(t *testing.T) {
 		IPv4Addresses: nil,
 		IPv6Addresses: nil,
 	}
-	res, _, _, _ := resolver.DoNSLookup("example.com", ns1, false, true, true)
+	res, _, _, _ := resolver.DoNSLookup(context.Background(), "example.com", ns1, false, true, true)
 	verifyNsResult(t, res.Servers, expectedServersMap)
 }
 
@@ -1451,7 +1451,7 @@ func TestAandQuadALookup(t *testing.T) {
 		IPv4Addresses: []string{"192.0.2.3"},
 		IPv6Addresses: []string{"2001:db8::4"},
 	}
-	res, _, _, _ := resolver.DoNSLookup("example.com", ns1, false, true, true)
+	res, _, _, _ := resolver.DoNSLookup(context.Background(), "example.com", ns1, false, true, true)
 	verifyNsResult(t, res.Servers, expectedServersMap)
 }
 
@@ -1462,7 +1462,7 @@ func TestNsNXDomain(t *testing.T) {
 
 	ns1 := &config.ExternalNameServersV4[0]
 
-	_, _, status, _ := resolver.DoNSLookup("nonexistentexample.com", ns1, false, true, true)
+	_, _, status, _ := resolver.DoNSLookup(context.Background(), "nonexistentexample.com", ns1, false, true, true)
 
 	assert.Equal(t, StatusNXDomain, status)
 }
@@ -1479,7 +1479,7 @@ func TestNsServFail(t *testing.T) {
 	mockResults[domainNS1] = SingleQueryResult{}
 	protocolStatus[domainNS1] = StatusServFail
 
-	res, _, status, _ := resolver.DoNSLookup("example.com", ns1, false, true, false)
+	res, _, status, _ := resolver.DoNSLookup(context.Background(), "example.com", ns1, false, true, false)
 
 	assert.Equal(t, status, protocolStatus[domainNS1])
 	assert.Empty(t, res.Servers)
@@ -1512,7 +1512,7 @@ func TestErrorInTargetedLookup(t *testing.T) {
 
 	protocolStatus[domainNS1] = StatusError
 
-	res, _, status, _ := resolver.DoNSLookup("example.com", ns1, false, true, false)
+	res, _, status, _ := resolver.DoNSLookup(context.Background(), "example.com", ns1, false, true, false)
 	assert.Empty(t, len(res.Servers), 0)
 	assert.Equal(t, status, protocolStatus[domainNS1])
 }
@@ -1692,7 +1692,7 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 		Name:  "example.com",
 	}
 
-	results, _, _, err := resolver.LookupAllNameserversIterative(&q, []NameServer{{DomainName: rootServer, IP: net.ParseIP(rootServerIP)}})
+	results, _, _, err := resolver.LookupAllNameserversIterative(context.Background(), &q, []NameServer{{DomainName: rootServer, IP: net.ParseIP(rootServerIP)}})
 	require.NoError(t, err)
 	verifyCombinedResult(t, results.LayeredResponses, expectedRes)
 }
@@ -1918,7 +1918,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 		Name:  "example.com",
 	}
 
-	results, _, _, err := resolver.LookupAllNameserversIterative(&q, []NameServer{{DomainName: rootServer, IP: net.ParseIP(rootServerIP)}})
+	results, _, _, err := resolver.LookupAllNameserversIterative(context.Background(), &q, []NameServer{{DomainName: rootServer, IP: net.ParseIP(rootServerIP)}})
 	require.NoError(t, err)
 	verifyCombinedResult(t, results.LayeredResponses, expectedRes)
 }
@@ -1936,7 +1936,7 @@ func TestAllNsLookupNXDomain(t *testing.T) {
 		Name:  "example.com",
 	}
 
-	res, _, status, err := resolver.LookupAllNameserversIterative(&q, []NameServer{*ns1})
+	res, _, status, err := resolver.LookupAllNameserversIterative(context.Background(), &q, []NameServer{*ns1})
 
 	expectedResponse := map[string][]ExtendedResult{
 		".": {{Status: StatusNXDomain, Type: "NS"}},
