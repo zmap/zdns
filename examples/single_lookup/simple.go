@@ -20,8 +20,8 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
+	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/v2/src/zdns"
 )

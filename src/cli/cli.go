@@ -23,8 +23,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
+	"github.com/zmap/dns"
 	flags "github.com/zmap/zflags"
 
 	"github.com/zmap/zdns/v2/src/zdns"

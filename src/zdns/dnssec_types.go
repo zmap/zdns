@@ -16,7 +16,7 @@ package zdns
 import (
 	"context"
 
-	"github.com/miekg/dns"
+	"github.com/zmap/dns"
 )
 
 // DNSSECStatus represents the overall validation status according to RFC 4035

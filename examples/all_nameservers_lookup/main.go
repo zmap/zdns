@@ -17,8 +17,8 @@ import (
 	"context"
 	"net"
 
-	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
+	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/v2/src/zdns"
 )

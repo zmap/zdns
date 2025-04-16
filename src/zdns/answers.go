@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/miekg/dns"
+	"github.com/zmap/dns"
 )
 
 //go:generate go run answers_generate.go
