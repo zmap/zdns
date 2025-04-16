@@ -14,4 +14,4 @@
 
 package zdns
 
-const ZDNSVersion = "2.0.3"
+const ZDNSVersion = "2.0.4"
