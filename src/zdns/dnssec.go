@@ -35,8 +35,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/miekg/dns"
 	"github.com/pkg/errors"
+	"github.com/zmap/dns"
 	rootanchors "github.com/zmap/go-dns-root-anchors"
 )
 

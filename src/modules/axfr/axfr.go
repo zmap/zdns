@@ -25,8 +25,8 @@ import (
 	"github.com/zmap/zdns/v2/src/internal/safeblacklist"
 	"github.com/zmap/zdns/v2/src/modules/nslookup"
 
-	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
+	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/v2/src/zdns"
 )

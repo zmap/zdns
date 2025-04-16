@@ -34,9 +34,9 @@ import (
 
 	"github.com/hashicorp/go-version"
 	"github.com/liip/sheriff"
-	"github.com/miekg/dns"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/v2/src/cli/iohandlers"
 	blacklist "github.com/zmap/zdns/v2/src/internal/safeblacklist"
