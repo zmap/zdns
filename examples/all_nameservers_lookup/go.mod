@@ -5,7 +5,7 @@ go 1.24.2
 require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/zmap/dns v1.1.65
-	github.com/zmap/zdns/v2 v2.0.3
+	github.com/zmap/zdns/v2 v2.0.4-0.20250415213637-25a3fd4898bb
 )
 
 require (
@@ -21,7 +21,7 @@ require (
 	github.com/prometheus/common v0.63.0 // indirect
 	github.com/prometheus/procfs v0.16.0 // indirect
 	github.com/weppos/publicsuffix-go v0.40.3-0.20250311103038-7794c8c0723b // indirect
-	github.com/zmap/go-dns-root-anchors v0.0.0-20241218192521-63aee68224b6 // indirect
+	github.com/zmap/go-dns-root-anchors v0.0.0-20250415191259-6d65fb878756 // indirect
 	github.com/zmap/go-iptree v0.0.0-20210731043055-d4e632617837 // indirect
 	github.com/zmap/zcrypto v0.0.0-20250324021606-4f0ea0eaccac // indirect
 	github.com/zmap/zflags v1.4.0-beta.1.0.20200204220219-9d95409821b6 // indirect
