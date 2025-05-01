@@ -17,6 +17,7 @@ package zdns
 import (
 	"encoding/hex"
 	"fmt"
+	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -144,6 +145,11 @@ type LOCAnswer struct {
 	Answer
 	Version     uint8  `json:"version" groups:"short,normal,long,trace"`
 	Size        uint8  `json:"size" groups:"short,normal,long,trace"`
+	HorizPre    uint8  `json:"horizontal_pre" groups:"short,normal,long,trace"`
+	VertPre     uint8  `json:"vertical_pre" groups:"short,normal,long,trace"`
+	Latitude    uint32 `json:"latitude" groups:"short,normal,long,trace"`
+	Longitude   uint32 `json:"longitude" groups:"short,normal,long,trace"`
+	Altitude    uint32 `json:"altitude" groups:"short,normal,long,trace"`
 	Coordinates string `json:"coordinates" groups:"short,normal,long,trace"`
 }
 
@@ -455,8 +461,8 @@ func euiToString(eui uint64, bits int) (hex string) {
 // The conversion follows RFC 1876 section 3 for LOC record format
 func formatLOCCoordinates(rawLat, rawLong, rawAlt uint32, size, horizPre, vertPre uint8) string {
 	// Convert raw ms values to signed integer values in seconds
-	latSeconds := float64((int64(rawLat) - 2147483648)) / 1000.0
-	longSeconds := float64((int64(rawLong) - 2147483648)) / 1000.0
+	latSeconds := float64((int64(rawLat) - math.MaxInt32 + 1)) / 1000.0
+	longSeconds := float64((int64(rawLong) - math.MaxInt32 + 1)) / 1000.0
 
 	// Determine hemispheres based on sign
 	latHemisphere := "N"
@@ -485,14 +491,31 @@ func formatLOCCoordinates(rawLat, rawLong, rawAlt uint32, size, horizPre, vertPr
 	longSeconds = longSeconds - float64(longDegrees*3600+longMinutes*60)
 
 	// Convert altitude from centimeters to meters
-	altMeters := (float64(rawAlt) / 100.0) - 100000.00
+	// The -100000.00 offset is specified in RFC 1876 section 2
+	// This allows for negative altitudes (below sea level) to be represented
+	altMeters := float64(rawAlt)/100.0 - 100000.00
+
+	// Convert precision values to meters
+	sizeMeters := decodeSizePrecision(size)
+	horizPreMeters := decodeSizePrecision(horizPre)
+	vertPreMeters := decodeSizePrecision(vertPre)
 
 	// Return formatted coordinates as a single string
 	// Format: "DD MM SS.SSS H DD MM SS.SSS H ALTm SIZEm HPRECm VPRECm"
-	return fmt.Sprintf("%d %d %.3f %s %d %d %.3f %s %.2fm %dm %dm %dm",
+	return fmt.Sprintf("%d %d %.3f %s %d %d %.3f %s %.2fm %gm %gm %gm",
 		latDegrees, latMinutes, latSeconds, latHemisphere,
 		longDegrees, longMinutes, longSeconds, longHemisphere,
-		altMeters, size, horizPre, vertPre)
+		altMeters, sizeMeters, horizPreMeters, vertPreMeters)
+}
+
+// decodeSizePrecision converts raw size and percision values to meters
+// Conversion according to section 2 of RFC 1876
+func decodeSizePrecision(rawValue uint8) float64 {
+	fourBitMask := uint8(0x0F)
+	base := (rawValue >> 4) & fourBitMask
+	exponent := rawValue & fourBitMask
+	centimeterRepresentation := float64(base) * math.Pow10(int(exponent))
+	return centimeterRepresentation / 100.0
 }
 
 func makeBitString(bm []uint16) string {
@@ -935,9 +958,14 @@ func ParseAnswer(ans dns.RR) interface{} {
 		// This has the raw DNS values, which are not very human readable
 		// TODO: convert DNS types into usable values
 		return LOCAnswer{
-			Answer:  makeBaseAnswer(&cAns.Hdr, ""),
-			Version: cAns.Version,
-			Size:    cAns.Size,
+			Answer:    makeBaseAnswer(&cAns.Hdr, ""),
+			Version:   cAns.Version,
+			Size:      cAns.Size,
+			HorizPre:  cAns.HorizPre,
+			VertPre:   cAns.VertPre,
+			Latitude:  cAns.Latitude,
+			Longitude: cAns.Longitude,
+			Altitude:  cAns.Altitude,
 			Coordinates: formatLOCCoordinates(
 				cAns.Latitude,
 				cAns.Longitude,
