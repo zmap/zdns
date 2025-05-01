@@ -461,8 +461,8 @@ func euiToString(eui uint64, bits int) (hex string) {
 // The conversion follows RFC 1876 section 3 for LOC record format
 func formatLOCCoordinates(rawLat, rawLong, rawAlt uint32, size, horizPre, vertPre uint8) string {
 	// Convert raw ms values to signed integer values in seconds
-	latSeconds := float64((int64(rawLat) - math.MaxInt32 + 1)) / 1000.0
-	longSeconds := float64((int64(rawLong) - math.MaxInt32 + 1)) / 1000.0
+	latSeconds := float64((int64(rawLat) - (math.MaxInt32 + 1))) / 1000.0
+	longSeconds := float64((int64(rawLong) - (math.MaxInt32 + 1))) / 1000.0
 
 	// Determine hemispheres based on sign
 	latHemisphere := "N"
