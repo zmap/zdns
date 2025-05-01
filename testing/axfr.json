@@ -87,7 +87,8 @@
                         "size": 18,
                         "type": "LOC",
                         "version": 0,
-                        "vertical_pre": 19
+                        "vertical_pre": 19,
+                        "coordinates": "53 20 56.558 N 1 38 33.526 W 0.00m 1m 10000m 10m"
                     },
                     {
                         "class": "IN",

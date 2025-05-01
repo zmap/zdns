@@ -17,6 +17,7 @@ package zdns
 import (
 	"encoding/hex"
 	"fmt"
+	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -142,13 +143,14 @@ type HIPAnswer struct {
 
 type LOCAnswer struct {
 	Answer
-	Version   uint8  `json:"version" groups:"short,normal,long,trace"`
-	Size      uint8  `json:"size" groups:"short,normal,long,trace"`
-	HorizPre  uint8  `json:"horizontal_pre" groups:"short,normal,long,trace"`
-	VertPre   uint8  `json:"vertical_pre" groups:"short,normal,long,trace"`
-	Latitude  uint32 `json:"latitude" groups:"short,normal,long,trace"`
-	Longitude uint32 `json:"longitude" groups:"short,normal,long,trace"`
-	Altitude  uint32 `json:"altitude" groups:"short,normal,long,trace"`
+	Version     uint8  `json:"version" groups:"short,normal,long,trace"`
+	Size        uint8  `json:"size" groups:"short,normal,long,trace"`
+	HorizPre    uint8  `json:"horizontal_pre" groups:"short,normal,long,trace"`
+	VertPre     uint8  `json:"vertical_pre" groups:"short,normal,long,trace"`
+	Latitude    uint32 `json:"latitude" groups:"short,normal,long,trace"`
+	Longitude   uint32 `json:"longitude" groups:"short,normal,long,trace"`
+	Altitude    uint32 `json:"altitude" groups:"short,normal,long,trace"`
+	Coordinates string `json:"coordinates" groups:"short,normal,long,trace"`
 }
 
 type MINFOAnswer struct {
@@ -454,6 +456,67 @@ func euiToString(eui uint64, bits int) (hex string) {
 }
 
 // <<<<< END GOOGLE CODE
+
+// formatLOCCoordinates converts raw DNS LOC values to human-readable GPS coordinates
+// The conversion follows RFC 1876 section 3 for LOC record format
+func formatLOCCoordinates(rawLat, rawLong, rawAlt uint32, size, horizPre, vertPre uint8) string {
+	// Convert raw ms values to signed integer values in seconds
+	latSeconds := float64((int64(rawLat) - (math.MaxInt32 + 1))) / 1000.0
+	longSeconds := float64((int64(rawLong) - (math.MaxInt32 + 1))) / 1000.0
+
+	// Determine hemispheres based on sign
+	latHemisphere := "N"
+	// The sign of latDegrees indicates hemisphere (negative = South)
+	if latSeconds < 0 {
+		latHemisphere = "S"
+		latSeconds = -latSeconds
+	}
+
+	longHemisphere := "E"
+	// The sign of longDegrees indicates hemisphere (negative = West)
+	if longSeconds < 0 {
+		longHemisphere = "W"
+		longSeconds = -longSeconds
+	}
+
+	// Convert seconds to degrees, minutes, seconds
+	// 1 degree = 3600 seconds
+	// 1 minute = 60 seconds
+	latDegrees := int32(latSeconds) / 3600
+	latMinutes := (int32(latSeconds) % 3600) / 60
+	latSeconds = latSeconds - float64(latDegrees*3600+latMinutes*60)
+
+	longDegrees := int32(longSeconds) / 3600
+	longMinutes := (int32(longSeconds) % 3600) / 60
+	longSeconds = longSeconds - float64(longDegrees*3600+longMinutes*60)
+
+	// Convert altitude from centimeters to meters
+	// The -100000.00 offset is specified in RFC 1876 section 2
+	// This allows for negative altitudes (below sea level) to be represented
+	altMeters := float64(rawAlt)/100.0 - 100000.00
+
+	// Convert precision values to meters
+	sizeMeters := decodeSizePrecision(size)
+	horizPreMeters := decodeSizePrecision(horizPre)
+	vertPreMeters := decodeSizePrecision(vertPre)
+
+	// Return formatted coordinates as a single string
+	// Format: "DD MM SS.SSS H DD MM SS.SSS H ALTm SIZEm HPRECm VPRECm"
+	return fmt.Sprintf("%d %d %.3f %s %d %d %.3f %s %.2fm %gm %gm %gm",
+		latDegrees, latMinutes, latSeconds, latHemisphere,
+		longDegrees, longMinutes, longSeconds, longHemisphere,
+		altMeters, sizeMeters, horizPreMeters, vertPreMeters)
+}
+
+// decodeSizePrecision converts raw size and percision values to meters
+// Conversion according to section 2 of RFC 1876
+func decodeSizePrecision(rawValue uint8) float64 {
+	fourBitMask := uint8(0x0F)
+	base := (rawValue >> 4) & fourBitMask
+	exponent := rawValue & fourBitMask
+	centimeterRepresentation := float64(base) * math.Pow10(int(exponent))
+	return centimeterRepresentation / 100.0
+}
 
 func makeBitString(bm []uint16) string {
 	retv := ""
@@ -900,9 +963,17 @@ func ParseAnswer(ans dns.RR) interface{} {
 			Size:      cAns.Size,
 			HorizPre:  cAns.HorizPre,
 			VertPre:   cAns.VertPre,
-			Longitude: cAns.Longitude,
 			Latitude:  cAns.Latitude,
+			Longitude: cAns.Longitude,
 			Altitude:  cAns.Altitude,
+			Coordinates: formatLOCCoordinates(
+				cAns.Latitude,
+				cAns.Longitude,
+				cAns.Altitude,
+				cAns.Size,
+				cAns.HorizPre,
+				cAns.VertPre,
+			),
 		}
 	case *dns.HIP:
 		return HIPAnswer{
