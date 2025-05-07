@@ -860,6 +860,16 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd, "AAAA")
         self.assertEqualAnswers(res, self.WWW_CNAME_AND_AAAA_ANSWERS, cmd, "AAAA")
 
+    def test_any(self):
+        c = "ANY --iterative"
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "ANY")
+        # ANY's implementation is nameserver dependent. Per RFC 8482, it can just return an HINFO record and it won't
+        # send all other records. It can just send back a status NOTIMP like cloudflare's resolvers do.
+        # Our nameservers do send back records, so we'll just check that the response is not empty.
+        self.assertTrue(len(res["results"]["ANY"]["data"]["answers"]) > 0)
+
     def test_caa(self):
         c = "CAA"
         name = "zdns-testing.com"

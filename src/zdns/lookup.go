@@ -1461,7 +1461,9 @@ func populateResults(records []interface{}, dnsType uint16, candidateSet map[str
 		// Verify that the answer type matches requested type
 		if VerifyAddress(ans.Type, ans.Answer) {
 			ansType := dns.StringToType[ans.Type]
-			if dnsType == ansType {
+			// Either this record is the type we're looking for, or we're performing an ANY lookup and this isn't a
+			// CNAME or DNAME (we'll need to follow those)
+			if dnsType == ansType || (dns.TypeANY == dnsType && ansType != dns.TypeCNAME && ansType != dns.TypeDNAME) {
 				candidateSet[lowerCaseName] = append(candidateSet[lowerCaseName], ans)
 			} else if dns.TypeCNAME == ansType {
 				cnameSet[lowerCaseName] = append(cnameSet[lowerCaseName], ans)
