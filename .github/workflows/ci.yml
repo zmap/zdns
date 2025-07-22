@@ -47,17 +47,27 @@ jobs:
   test-32-bit:
     runs-on: ubuntu-latest
     steps:
-      - name: Integration Tests
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Run integration tests on arm32
         run: |
-          docker run --rm -v "${{ github.workspace }}":/src -w /src arm32v7/golang bash -c "\
-          apt update && \
-          apt install -y python3 python3-pip python3-venv && \
-          make && \
-          python3 --version && \
-          python3 -m venv venv && \
-          source venv/bin/activate && \
-          pip3 install -r testing/requirements.txt && \
-          pytest -n 1 ./testing/integration_tests.py"
+         docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+         docker run --rm -v "${{ github.workspace }}":/src -w /src arm32v7/golang bash -c "\
+         apt update && \
+         apt install -y python3 python3-pip python3-venv && \
+         make && \
+         python3 --version && \
+         python3 -m venv venv && \
+         source venv/bin/activate && \
+         pip3 install -r testing/requirements.txt && \
+         pytest -n 1 ./testing/integration_tests.py"
   lint:
     runs-on: ubuntu-latest
     steps:
