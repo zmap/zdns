@@ -73,7 +73,7 @@ type ResolverConfig struct {
 	Retries  int
 	LogLevel log.Level
 
-	TransportMode         transportMode
+	TransportMode         TransportMode
 	IPVersionMode         IPVersionMode
 	IterationIPPreference IterationIPPreference // preference for IPv4 or IPv6 lookups in iterative queries
 	ShouldRecycleSockets  bool
@@ -282,7 +282,7 @@ type Resolver struct {
 	pendingQueries   map[Question]bool // map of pending queries, to prevent cyclic queries
 	logLevel         log.Level
 
-	transportMode         transportMode
+	transportMode         TransportMode
 	ipVersionMode         IPVersionMode
 	iterationIPPreference IterationIPPreference
 	shouldRecycleSockets  bool
