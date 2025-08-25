@@ -1,5 +1,4 @@
 //go:build linux || darwin
-// +build linux darwin
 
 /*
  * ZDNS Copyright 2020 Regents of the University of Michigan
