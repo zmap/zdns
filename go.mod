@@ -8,7 +8,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/schollz/progressbar/v3 v3.18.0
 	github.com/sirupsen/logrus v1.9.3
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.0
 	github.com/zmap/dns v1.1.67
 	github.com/zmap/go-dns-root-anchors v0.0.0-20250415191259-6d65fb878756
 	github.com/zmap/go-iptree v0.0.0-20210731043055-d4e632617837
