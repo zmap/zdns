@@ -128,6 +128,7 @@ func (r *Resolver) doDstServersLookup(ctx context.Context, q Question, nameServe
 				return nil, nil, StatusIllegalInput, err
 			}
 		} else {
+			// remove trailing "." added by dns.ReverseAddr
 			q.Name = qname[:len(qname)-1]
 		}
 	}
