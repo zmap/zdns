@@ -116,7 +116,7 @@ func TestFormatLOCCoordinates(t *testing.T) {
 
 		// Test for different precision values
 		{
-			name:     "Various Percisions",
+			name:     "Various Precisions",
 			lat:      2147483648 + 152514000, // 42 21 54 N
 			long:     2147483648 - 255960000, // 71 06 00 W
 			alt:      20000000,               // 100000.00m
@@ -126,7 +126,7 @@ func TestFormatLOCCoordinates(t *testing.T) {
 			expected: "42 21 54.000 N 71 6 0.000 W 100000.00m 100m 10m 3000m",
 		},
 		{
-			name:     "Zero Percision",
+			name:     "Zero Precision",
 			lat:      2147483648 + 152514000, // 42 21 54 N
 			long:     2147483648 - 255960000, // 71 06 00 W
 			alt:      9990000,                // -100.00m
@@ -136,7 +136,7 @@ func TestFormatLOCCoordinates(t *testing.T) {
 			expected: "42 21 54.000 N 71 6 0.000 W -100.00m 0m 0m 0m",
 		},
 		{
-			name:     "Minumum Percision",
+			name:     "Minimum Precision",
 			lat:      2147483648 + 152514000, // 42 21 54 N
 			long:     2147483648 - 255960000, // 71 06 00 W
 			alt:      9990000,                // -100.00m
@@ -146,7 +146,7 @@ func TestFormatLOCCoordinates(t *testing.T) {
 			expected: "42 21 54.000 N 71 6 0.000 W -100.00m 0.01m 0.01m 0.01m",
 		},
 		{
-			name:     "Maximum Percision",
+			name:     "Maximum Precision",
 			lat:      2147483648 + 152514000, // 42 21 54 N
 			long:     2147483648 - 255960000, // 71 06 00 W
 			alt:      9990000,                // -100.00m
