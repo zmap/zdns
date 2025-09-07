@@ -679,7 +679,7 @@ func (r *Resolver) queryAllNameServersInLayer(ctx context.Context, perNameServer
 			}
 		}
 		if extResult == nil {
-			log.Debugf("LookupAllNameserversIterative of name %s against nameserver %s ran out of retries, continueing to next nameserver", q.Name, nameServer.IP.String())
+			log.Debugf("LookupAllNameserversIterative of name %s against nameserver %s ran out of retries, continuing to next nameserver", q.Name, nameServer.IP.String())
 		} else {
 			currentLayerResults = append(currentLayerResults, *extResult)
 		}
@@ -1385,7 +1385,7 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, 
 		q.RetriesRemaining = &r.retriesRemaining
 
 		// A/AAAA records for NSes are not on the chain of trust, so we don't need to validate DNSSEC
-		// Doing this to save us some time (this can propogate A LOT of queries in certain cases)
+		// Doing this to save us some time (this can propagate A LOT of queries in certain cases)
 		prevSecValue := r.shouldValidateDNSSEC
 		r.shouldValidateDNSSEC = false
 		res, trace, status, _ = r.iterativeLookup(ctx, &q, r.rootNameServers, depth+1, ".", trace)

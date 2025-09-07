@@ -98,7 +98,7 @@ statusLoop:
 				stats.domainsScanned,
 				float64(stats.domainsScanned)/timeSinceStart.Seconds(),
 				float64(stats.domainsSuccess*100)/float64(stats.domainsScanned),
-				getStatusOccuranceString(stats.statusOccurance))
+				getStatusOccurrenceString(stats.statusOccurance))
 			if _, err := statusFile.WriteString(s); err != nil {
 				return errors.Wrap(err, "unable to write periodic status update")
 			}
@@ -139,32 +139,32 @@ statusLoop:
 		stats.domainsScanned,
 		float64(stats.domainsScanned)/time.Since(stats.scanStartTime).Seconds(),
 		float64(stats.domainsSuccess*100)/float64(stats.domainsScanned),
-		getStatusOccuranceString(stats.statusOccurance))
+		getStatusOccurrenceString(stats.statusOccurance))
 	if _, err := statusFile.WriteString(s); err != nil {
 		return errors.Wrap(err, "unable to write final status update")
 	}
 	return nil
 }
 
-func getStatusOccuranceString(statusOccurances map[zdns.Status]int) string {
-	type statusAndOccurance struct {
-		status    zdns.Status
-		occurance int
+func getStatusOccurrenceString(statusOccurrences map[zdns.Status]int) string {
+	type statusAndOccurrence struct {
+		status     zdns.Status
+		occurrence int
 	}
-	statusesAndOccurances := make([]statusAndOccurance, 0, len(statusOccurances))
-	for status, occurance := range statusOccurances {
-		statusesAndOccurances = append(statusesAndOccurances, statusAndOccurance{
-			status:    status,
-			occurance: occurance,
+	statusesAndOccurrences := make([]statusAndOccurrence, 0, len(statusOccurrences))
+	for status, occurrence := range statusOccurrences {
+		statusesAndOccurrences = append(statusesAndOccurrences, statusAndOccurrence{
+			status:     status,
+			occurrence: occurrence,
 		})
 	}
-	// sort by occurance
-	sort.Slice(statusesAndOccurances, func(i, j int) bool {
-		return statusesAndOccurances[i].occurance > statusesAndOccurances[j].occurance
+	// sort by occurrence
+	sort.Slice(statusesAndOccurrences, func(i, j int) bool {
+		return statusesAndOccurrences[i].occurrence > statusesAndOccurrences[j].occurrence
 	})
 	returnStr := ""
-	for _, statusOccurance := range statusesAndOccurances {
-		returnStr += fmt.Sprintf("%s: %d, ", statusOccurance.status, statusOccurance.occurance)
+	for _, statusOccurrence := range statusesAndOccurrences {
+		returnStr += fmt.Sprintf("%s: %d, ", statusOccurrence.status, statusOccurrence.occurrence)
 	}
 	// remove trailing comma
 	returnStr = strings.TrimSuffix(returnStr, ", ")

@@ -1,7 +1,7 @@
 ZDNS
 ====
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/zmap/zdns)](https://goreportcard.com/report/github.com/zmap/zdns)
+[![Go Report Card](https://goreportcard.com/badge/github.com/zmap/zdns/v2)](https://goreportcard.com/report/github.com/zmap/zdns/v2)
 
 ZDNS is a command-line utility that provides high-speed DNS lookups. ZDNS is
 written in Go and contains its own recursive resolution code and a cache

@@ -508,7 +508,7 @@ func formatLOCCoordinates(rawLat, rawLong, rawAlt uint32, size, horizPre, vertPr
 		altMeters, sizeMeters, horizPreMeters, vertPreMeters)
 }
 
-// decodeSizePrecision converts raw size and percision values to meters
+// decodeSizePrecision converts raw size and precision values to meters
 // Conversion according to section 2 of RFC 1876
 func decodeSizePrecision(rawValue uint8) float64 {
 	fourBitMask := uint8(0x0F)
