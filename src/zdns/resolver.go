@@ -717,7 +717,7 @@ func (r *Resolver) randomExternalNameServer() *NameServer {
 	return &r.externalNameServers[rand.Intn(l)]
 }
 
-func (r *Resolver) verboseLog(depth int, args ...interface{}) {
+func (r *Resolver) verboseLog(depth int, args ...any) {
 	// the makeVerbosePrefix function is expensive, only call it if we're going to log
 	if log.GetLevel() >= log.DebugLevel {
 		log.Debug(makeVerbosePrefix(depth), args)

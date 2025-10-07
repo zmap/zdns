@@ -56,7 +56,7 @@ func (s *Cache) Init(cacheSize int) {
 	s.IterativeCache.Init(cacheSize, 4096)
 }
 
-func (s *Cache) VerboseLog(depth int, args ...interface{}) {
+func (s *Cache) VerboseLog(depth int, args ...any) {
 	// the makeVerbosePrefix is expensive, so only do it if we're going to log
 	if log.GetLevel() >= log.DebugLevel {
 		log.Debug(makeVerbosePrefix(depth), args)
@@ -134,9 +134,9 @@ func (s *Cache) getCachedResult(q Question, ns *NameServer, isAuthority bool, de
 		log.Panic("unable to cast cached result for ", q.Name)
 	}
 	retv = new(SingleQueryResult)
-	retv.Answers = make([]interface{}, 0, len(cachedRes.Answers))
-	retv.Authorities = make([]interface{}, 0, len(cachedRes.Authorities))
-	retv.Additionals = make([]interface{}, 0, len(cachedRes.Additionals))
+	retv.Answers = make([]any, 0, len(cachedRes.Answers))
+	retv.Authorities = make([]any, 0, len(cachedRes.Authorities))
+	retv.Additionals = make([]any, 0, len(cachedRes.Additionals))
 	retv.Flags = cachedRes.Flags
 	retv.DNSSECResult = cachedRes.DNSSECResult
 	// great we have a result. let's go through the entries and build a result. In the process, throw away anything
@@ -297,7 +297,7 @@ func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, d
 
 	if len(res.Answers) > 0 {
 		// authorities should not have answers
-		res.Answers = make([]interface{}, 0)
+		res.Answers = make([]any, 0)
 	}
 	authName := ""
 	for _, auth := range res.Authorities {
@@ -327,8 +327,8 @@ func (s *Cache) SafeAddCachedAuthority(res *SingleQueryResult, ns *NameServer, d
 	}
 
 	// Referrals may contain DS records in the authority section. These need to be cached under the child name.
-	delegateToDSRRs := make(map[string][]interface{})
-	var otherRRs []interface{}
+	delegateToDSRRs := make(map[string][]any)
+	var otherRRs []any
 	for _, rr := range res.Authorities {
 		switch rr := rr.(type) {
 		case DSAnswer, NSECAnswer, NSEC3Answer:

@@ -65,24 +65,24 @@ type Result struct {
 
 // SingleModuleResult contains all the metadata from a complete lookup for a name, potentially after following many CNAMEs/etc.
 type SingleModuleResult struct {
-	Status    string      `json:"status,omitempty" groups:"short,normal,long,trace"`
-	Error     string      `json:"error,omitempty" groups:"short,normal,long,trace"`
-	Timestamp string      `json:"timestamp,omitempty" groups:"short,normal,long,trace"`
-	Duration  float64     `json:"duration,omitempty" groups:"short,normal,long,trace"` // in seconds
-	Data      interface{} `json:"data,omitempty" groups:"short,normal,long,trace"`
-	Trace     Trace       `json:"trace,omitempty" groups:"trace"`
+	Status    string  `json:"status,omitempty" groups:"short,normal,long,trace"`
+	Error     string  `json:"error,omitempty" groups:"short,normal,long,trace"`
+	Timestamp string  `json:"timestamp,omitempty" groups:"short,normal,long,trace"`
+	Duration  float64 `json:"duration,omitempty" groups:"short,normal,long,trace"` // in seconds
+	Data      any     `json:"data,omitempty" groups:"short,normal,long,trace"`
+	Trace     Trace   `json:"trace,omitempty" groups:"trace"`
 }
 
 // SingleQueryResult contains the results of a single DNS query
 type SingleQueryResult struct {
-	Answers            []interface{} `json:"answers,omitempty" groups:"short,normal,long,trace"`
-	Additionals        []interface{} `json:"additionals,omitempty" groups:"short,normal,long,trace"`
-	Authorities        []interface{} `json:"authorities,omitempty" groups:"short,normal,long,trace"`
+	Answers            []any         `json:"answers,omitempty" groups:"short,normal,long,trace"`
+	Additionals        []any         `json:"additionals,omitempty" groups:"short,normal,long,trace"`
+	Authorities        []any         `json:"authorities,omitempty" groups:"short,normal,long,trace"`
 	Protocol           string        `json:"protocol" groups:"protocol,normal,long,trace"`
 	Resolver           string        `json:"resolver" groups:"resolver,normal,long,trace"` // IP address
 	Flags              DNSFlags      `json:"flags" groups:"flags,long,trace"`
 	DNSSECResult       *DNSSECResult `json:"dnssec,omitempty" groups:"dnssec,normal,long,trace"`
-	TLSServerHandshake interface{}   `json:"tls_handshake,omitempty" groups:"normal,long,trace"` // used for --tls and --https, JSON string of the TLS handshake
+	TLSServerHandshake any           `json:"tls_handshake,omitempty" groups:"normal,long,trace"` // used for --tls and --https, JSON string of the TLS handshake
 }
 
 type ExtendedResult struct {

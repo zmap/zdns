@@ -22,11 +22,11 @@ import (
 )
 
 // replaceIntSliceInterface replaces all slices of ints/uints with a JSON byte slice in the input interface
-// this is needed because if you marshal a slice of interface{}'s, where the interface{} objects are ints, it'll
+// this is needed because if you marshal a slice of any's, where the any objects are ints, it'll
 // get outputted as a list of numbers instead of a base64 encoded byte slice. This function recursively traverses
 // the input interface and replaces all slices of ints/uints with a JSON byte slice, or leaves the input interface
 // unchanged if it doesn't contain any slices of ints/uints
-func replaceIntSliceInterface(data interface{}) interface{} {
+func replaceIntSliceInterface(data any) any {
 	// special case
 	jsonData, err := marshalIntSlice(data)
 	if err != nil {
@@ -37,14 +37,14 @@ func replaceIntSliceInterface(data interface{}) interface{} {
 	}
 
 	// map recursive case
-	if castedData, ok := data.(map[string]interface{}); ok {
+	if castedData, ok := data.(map[string]any); ok {
 		for k, v := range castedData {
 			castedData[k] = replaceIntSliceInterface(v)
 		}
 		return castedData
 	}
 	// slice recursive case
-	if castedData, ok := data.([]interface{}); ok {
+	if castedData, ok := data.([]any); ok {
 		for i, v := range castedData {
 			castedData[i] = replaceIntSliceInterface(v)
 		}
@@ -56,7 +56,7 @@ func replaceIntSliceInterface(data interface{}) interface{} {
 
 // marshalIntSlice marshals a slice of ints, uints, or interfaces containing ints or uints into a JSON byte slice
 // If the input is not a slice of ints, uints, or interfaces containing ints or uints, it returns nil, nil
-func marshalIntSlice(v interface{}) ([]byte, error) {
+func marshalIntSlice(v any) ([]byte, error) {
 	switch v := v.(type) {
 	case []int:
 		return json.Marshal(v)
@@ -78,7 +78,7 @@ func marshalIntSlice(v interface{}) ([]byte, error) {
 		return json.Marshal(v)
 	case []uint64:
 		return json.Marshal(v)
-	case []interface{}:
+	case []any:
 		var ok bool
 		if len(v) > 0 {
 			// Check the type of the first element

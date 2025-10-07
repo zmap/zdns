@@ -33,7 +33,7 @@ func (c *ShardedCacheHash) Init(maxLen int, shards int) {
 	}
 }
 
-func (c *ShardedCacheHash) getShardID(k interface{}) int {
+func (c *ShardedCacheHash) getShardID(k any) int {
 	kb := []byte(fmt.Sprintf("%v", k))
 	hash := int(crc32.ChecksumIEEE(kb))
 	// crc32 returns a 32-bit unsigned integer. On 32-bit systems, this int cast can return negative values.
@@ -44,40 +44,40 @@ func (c *ShardedCacheHash) getShardID(k interface{}) int {
 	return hash % c.shardsLen
 }
 
-func (c *ShardedCacheHash) getShard(k interface{}) *CacheHash {
+func (c *ShardedCacheHash) getShard(k any) *CacheHash {
 	return &c.shards[c.getShardID(k)]
 }
 
-func (c *ShardedCacheHash) Add(k interface{}, v interface{}) (didExist, didEject bool) {
+func (c *ShardedCacheHash) Add(k any, v any) (didExist, didEject bool) {
 	return c.getShard(k).Upsert(k, v)
 }
 
-func (c *ShardedCacheHash) Get(k interface{}) (interface{}, bool) {
+func (c *ShardedCacheHash) Get(k any) (any, bool) {
 	return c.getShard(k).Get(k)
 }
 
-func (c *ShardedCacheHash) GetNoMove(k interface{}) (interface{}, bool) {
+func (c *ShardedCacheHash) GetNoMove(k any) (any, bool) {
 	return c.getShard(k).GetNoMove(k)
 }
 
-func (c *ShardedCacheHash) Has(k interface{}) bool {
+func (c *ShardedCacheHash) Has(k any) bool {
 	return c.getShard(k).Has(k)
 }
 
-func (c *ShardedCacheHash) Delete(k interface{}) (interface{}, bool) {
+func (c *ShardedCacheHash) Delete(k any) (any, bool) {
 	return c.getShard(k).Delete(k)
 }
 
-func (c *ShardedCacheHash) RegisterCB(newCB func(interface{}, interface{})) {
+func (c *ShardedCacheHash) RegisterCB(newCB func(any, any)) {
 	for i := 0; i < c.shardsLen; i++ {
 		c.shards[i].RegisterCB(newCB)
 	}
 }
 
-func (c *ShardedCacheHash) Lock(k interface{}) {
+func (c *ShardedCacheHash) Lock(k any) {
 	c.getShard(k).Lock()
 }
 
-func (c *ShardedCacheHash) Unlock(k interface{}) {
+func (c *ShardedCacheHash) Unlock(k any) {
 	c.getShard(k).Unlock()
 }

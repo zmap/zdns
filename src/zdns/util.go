@@ -114,9 +114,9 @@ func checkGlueHelper(server, ansType string, result *SingleQueryResult) (*Single
 		// RFC 4343 - states DNS names are case-insensitive
 		if ans.Type == ansType && strings.EqualFold(strings.TrimSuffix(ans.Name, "."), server) {
 			var retv SingleQueryResult
-			retv.Authorities = make([]interface{}, 0)
-			retv.Answers = make([]interface{}, 0, 1)
-			retv.Additionals = make([]interface{}, 0)
+			retv.Authorities = make([]any, 0)
+			retv.Answers = make([]any, 0, 1)
+			retv.Additionals = make([]any, 0)
 			retv.Answers = append(retv.Answers, ans)
 			return &retv, StatusNoError
 		}

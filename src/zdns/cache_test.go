@@ -31,7 +31,7 @@ func TestCheckForNonExistentKey(t *testing.T) {
 
 func TestNoNameServerLookupSuccess(t *testing.T) {
 	res := SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:     3600,
 			RrType:  1,
 			RrClass: 1,
@@ -52,7 +52,7 @@ func TestNoNameServerLookupSuccess(t *testing.T) {
 
 func TestNoNameServerLookupForNamedNameServer(t *testing.T) {
 	res := SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:     3600,
 			RrType:  1,
 			RrClass: 1,
@@ -76,7 +76,7 @@ func TestNoNameServerLookupForNamedNameServer(t *testing.T) {
 
 func TestNamedServerLookupForNonNamedNameServer(t *testing.T) {
 	res := SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:     3600,
 			RrType:  1,
 			RrClass: 1,
@@ -100,7 +100,7 @@ func TestNamedServerLookupForNonNamedNameServer(t *testing.T) {
 
 func TestNamedServerLookupForNamedNameServer(t *testing.T) {
 	res := SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:     3600,
 			RrType:  1,
 			RrClass: 1,
@@ -127,7 +127,7 @@ func TestNamedServerLookupForNamedNameServer(t *testing.T) {
 
 func TestNoNameServerLookupNotAuthoritative(t *testing.T) {
 	res := SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:     3600,
 			RrType:  1,
 			RrClass: 1,

@@ -26,11 +26,11 @@ import (
 
 type LookupModule interface {
 	CLIInit(gc *CLIConf, rc *zdns.ResolverConfig) error
-	Lookup(ctx context.Context, resolver *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error)
+	Lookup(ctx context.Context, resolver *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (any, zdns.Trace, zdns.Status, error)
 	Help() string                 // needed to satisfy the ZCommander interface in ZFlags.
 	GetDescription() string       // needed to add a command to the parser, printed to the user. Printed to the user when they run the help command for a given module
 	Validate(args []string) error // needed to satisfy the ZCommander interface in ZFlags
-	NewFlags() interface{}        // needed to satisfy the ZModule interface in ZFlags
+	NewFlags() any                // needed to satisfy the ZModule interface in ZFlags
 }
 
 const (
@@ -173,7 +173,7 @@ func (lm *BasicLookupModule) Validate(args []string) error {
 	return nil
 }
 
-func (lm *BasicLookupModule) NewFlags() interface{} {
+func (lm *BasicLookupModule) NewFlags() any {
 	return lm
 }
 
@@ -183,7 +183,7 @@ func (lm *BasicLookupModule) NewFlags() interface{} {
 // non-Iterative query -> we'll send a query to the nameserver provided. If none provided, a random nameserver from the resolver's external nameservers will be used
 // iterative + all-Nameservers query -> we'll send a query to each root NS and query all nameservers down the chain.
 // iterative query -> we'll send a query to a random root NS and query all nameservers down the chain.
-func (lm *BasicLookupModule) Lookup(ctx context.Context, resolver *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
+func (lm *BasicLookupModule) Lookup(ctx context.Context, resolver *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (any, zdns.Trace, zdns.Status, error) {
 	if lm.LookupAllNameServers && lm.IsIterative {
 		return resolver.LookupAllNameserversIterative(ctx, &zdns.Question{Name: lookupName, Type: lm.DNSType, Class: lm.DNSClass}, nil)
 	}

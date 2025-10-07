@@ -205,7 +205,7 @@ func (r *Resolver) followingLookup(ctx context.Context, qWithMeta *QuestionWithM
 	candidateSet := make(map[string][]Answer)
 	cnameSet := make(map[string][]Answer)
 	garbage := make(map[string][]Answer)
-	allAnswerSet := make([]interface{}, 0)
+	allAnswerSet := make([]any, 0)
 	dnameSet := make(map[string][]Answer)
 
 	originalName := qWithMeta.Q.Name // in case this is a CNAME, this keeps track of the original name while we change the question
@@ -731,11 +731,11 @@ func (r *Resolver) iterativeLookup(ctx context.Context, qWithMeta *QuestionWithM
 			r.verboseLog((depth + 1), "-> answers found")
 			if len(result.Authorities) > 0 {
 				r.verboseLog((depth + 2), "Dropping ", len(result.Authorities), " authority answers from output")
-				result.Authorities = make([]interface{}, 0)
+				result.Authorities = make([]any, 0)
 			}
 			if len(result.Additionals) > 0 {
 				r.verboseLog((depth + 2), "Dropping ", len(result.Additionals), " additional answers from output")
-				result.Additionals = make([]interface{}, 0)
+				result.Additionals = make([]any, 0)
 			}
 		} else {
 			r.verboseLog((depth + 1), "-> authoritative response found")
@@ -1050,9 +1050,9 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 	res := SingleQueryResult{
 		Resolver:    connInfo.tlsConn.Conn.RemoteAddr().String(),
 		Protocol:    DoTProtocol,
-		Answers:     []interface{}{},
-		Authorities: []interface{}{},
-		Additionals: []interface{}{},
+		Answers:     []any{},
+		Authorities: []any{},
+		Additionals: []any{},
 	}
 	// if we have it, add the TLS handshake info
 	if connInfo.tlsHandshake != nil {
@@ -1122,9 +1122,9 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 	res := SingleQueryResult{
 		Resolver:    nameServer.DomainName,
 		Protocol:    DoHProtocol,
-		Answers:     []interface{}{},
-		Authorities: []interface{}{},
-		Additionals: []interface{}{},
+		Answers:     []any{},
+		Authorities: []any{},
+		Additionals: []any{},
 	}
 	if resp.Request != nil && resp.Request.TLSLog != nil {
 		processor := output.Processor{Verbose: false}
@@ -1140,7 +1140,7 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 
 // wireLookupTCP performs a DNS lookup on-the-wire over TCP with the given parameters
 func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, ednsOptions []dns.EDNS0, recursive, dnssec, checkingDisabled bool) (*SingleQueryResult, *dns.Msg, Status, error) {
-	res := SingleQueryResult{Answers: []interface{}{}, Authorities: []interface{}{}, Additionals: []interface{}{}}
+	res := SingleQueryResult{Answers: []any{}, Authorities: []any{}, Additionals: []any{}}
 	res.Resolver = nameServer.String()
 
 	m := new(dns.Msg)
@@ -1194,7 +1194,7 @@ func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, na
 
 // wireLookupUDP performs a DNS lookup on-the-wire over UDP with the given parameters
 func wireLookupUDP(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, ednsOptions []dns.EDNS0, recursive, dnssec, checkingDisabled bool) (*SingleQueryResult, *dns.Msg, Status, error) {
-	res := SingleQueryResult{Answers: []interface{}{}, Authorities: []interface{}{}, Additionals: []interface{}{}}
+	res := SingleQueryResult{Answers: []any{}, Authorities: []any{}, Additionals: []any{}}
 	res.Resolver = nameServer.String()
 	res.Protocol = "udp"
 
@@ -1289,7 +1289,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 	}
 
 	// Shuffle authorities to try them in random order
-	authorities := make([]interface{}, len(result.Authorities))
+	authorities := make([]any, len(result.Authorities))
 	copy(authorities, result.Authorities)
 	rand.Shuffle(len(authorities), func(i, j int) {
 		authorities[i], authorities[j] = authorities[j], authorities[i]
@@ -1351,7 +1351,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 	return &SingleQueryResult{}, trace, StatusServFail, errors.New("no valid nameservers found or all lookups failed")
 }
 
-func (r *Resolver) extractAuthority(ctx context.Context, authority interface{}, layer string, depth int, result *SingleQueryResult, trace Trace) (*NameServer, Status, string, Trace) {
+func (r *Resolver) extractAuthority(ctx context.Context, authority any, layer string, depth int, result *SingleQueryResult, trace Trace) (*NameServer, Status, string, Trace) {
 	// Is it an answer
 	ans, ok := authority.(Answer)
 	if !ok {
@@ -1448,7 +1448,7 @@ func FindTxtRecord(res *SingleQueryResult, regex *regexp.Regexp) (string, error)
 // dnameSet is a map of Answers that are DNAME records
 // garbage is a map of Answers that are not of the requested type or CNAME records
 // follows CNAME/DNAME and A/AAAA records to get all IPs for a given name
-func populateResults(records []interface{}, dnsType uint16, candidateSet map[string][]Answer, cnameSet map[string][]Answer, dnameSet map[string][]Answer, garbage map[string][]Answer) {
+func populateResults(records []any, dnsType uint16, candidateSet map[string][]Answer, cnameSet map[string][]Answer, dnameSet map[string][]Answer, garbage map[string][]Answer) {
 	var ans Answer
 	var ok bool
 	for _, a := range records {

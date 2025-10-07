@@ -325,9 +325,9 @@ type SRVAnswer struct {
 
 type SVCBAnswer struct {
 	Answer
-	Priority  uint16                 `json:"priority" groups:"short,normal,long,trace"`
-	Target    string                 `json:"target" groups:"short,normal,long,trace"`
-	SVCParams map[string]interface{} `json:"svcparams,omitempty" groups:"short,normal,long,trace"`
+	Priority  uint16         `json:"priority" groups:"short,normal,long,trace"`
+	Target    string         `json:"target" groups:"short,normal,long,trace"`
+	SVCParams map[string]any `json:"svcparams,omitempty" groups:"short,normal,long,trace"`
 }
 
 type TKEYAnswer struct {
@@ -551,9 +551,9 @@ func makeBaseAnswer(hdr *dns.RR_Header, answer string) Answer {
 }
 
 func makeSVCBAnswer(cAns *dns.SVCB) SVCBAnswer {
-	var params map[string]interface{}
+	var params map[string]any
 	if len(cAns.Value) > 0 {
-		params = make(map[string]interface{})
+		params = make(map[string]any)
 		for _, ikv := range cAns.Value {
 			// this could be reduced by adding, e.g., a new Data()
 			// method to the zmap/dns SVCBKeyValue interface
@@ -678,7 +678,7 @@ func makeEDNSAnswer(cAns *dns.OPT) EDNSAnswer {
 	return optRes
 }
 
-func ParseAnswer(ans dns.RR) interface{} {
+func ParseAnswer(ans dns.RR) any {
 	switch cAns := ans.(type) {
 	// Prioritize common types in expected order
 	case *dns.A:

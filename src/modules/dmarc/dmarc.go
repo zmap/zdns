@@ -52,7 +52,7 @@ func (dmarcMod *DmarcLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverCon
 	return dmarcMod.BasicLookupModule.CLIInit(gc, rc)
 }
 
-func (dmarcMod *DmarcLookupModule) Lookup(ctx context.Context, r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
+func (dmarcMod *DmarcLookupModule) Lookup(ctx context.Context, r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (any, zdns.Trace, zdns.Status, error) {
 	innerRes, trace, status, err := dmarcMod.BasicLookupModule.Lookup(ctx, r, lookupName, nameServer)
 	castedInnerRes, ok := innerRes.(*zdns.SingleQueryResult)
 	if !ok {
@@ -75,6 +75,6 @@ func (dmarcMod *DmarcLookupModule) GetDescription() string {
 	return ""
 }
 
-func (dmarcMod *DmarcLookupModule) NewFlags() interface{} {
+func (dmarcMod *DmarcLookupModule) NewFlags() any {
 	return dmarcMod
 }
