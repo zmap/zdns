@@ -51,7 +51,7 @@ func (bindVersionMod *BindVersionLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns
 	return bindVersionMod.BasicLookupModule.CLIInit(gc, rc)
 }
 
-func (bindVersionMod *BindVersionLookupModule) Lookup(ctx context.Context, r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
+func (bindVersionMod *BindVersionLookupModule) Lookup(ctx context.Context, r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (any, zdns.Trace, zdns.Status, error) {
 	var innerRes *zdns.SingleQueryResult
 	var trace zdns.Trace
 	var status zdns.Status
@@ -78,6 +78,6 @@ func (bindVersionMod *BindVersionLookupModule) Validate(args []string) error {
 	return nil
 }
 
-func (bindVersionMod *BindVersionLookupModule) NewFlags() interface{} {
+func (bindVersionMod *BindVersionLookupModule) NewFlags() any {
 	return bindVersionMod
 }

@@ -693,7 +693,7 @@ func handleWorkerInput(ctx context.Context, gc *CLIConf, rc *zdns.ResolverConfig
 	res.Name = rawName
 	// handle per-module lookups
 	for moduleName, module := range gc.ActiveModules {
-		var innerRes interface{}
+		var innerRes any
 		var trace zdns.Trace
 		var status zdns.Status
 		var err error

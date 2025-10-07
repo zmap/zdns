@@ -53,7 +53,7 @@ func (aMod *ALookupModule) Init(ipv4Lookup bool, ipv6Lookup bool) {
 	aMod.IPv6Lookup = ipv6Lookup
 }
 
-func (aMod *ALookupModule) Lookup(ctx context.Context, r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
+func (aMod *ALookupModule) Lookup(ctx context.Context, r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (any, zdns.Trace, zdns.Status, error) {
 	ipResult, trace, status, err := r.DoTargetedLookup(ctx, lookupName, nameServer, aMod.baseModule.IsIterative, aMod.IPv4Lookup, aMod.IPv6Lookup)
 	return ipResult, trace, status, err
 }
@@ -66,7 +66,7 @@ func (aMod *ALookupModule) Validate(args []string) error {
 	return nil
 }
 
-func (aMod *ALookupModule) NewFlags() interface{} {
+func (aMod *ALookupModule) NewFlags() any {
 	return aMod
 }
 

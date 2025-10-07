@@ -34,7 +34,7 @@ type NSLookupModule struct {
 	IPv4Lookup bool `long:"ipv4-lookup" description:"perform A lookups for each NS server"`
 	IPv6Lookup bool `long:"ipv6-lookup" description:"perform AAAA record lookups for each NS server"`
 	// used for mocking
-	testingLookup func(r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error)
+	testingLookup func(r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (any, zdns.Trace, zdns.Status, error)
 }
 
 // CLIInit initializes the NSLookupModule with the given parameters, used to call NSLookup from the command line
@@ -60,7 +60,7 @@ func (nsMod *NSLookupModule) Init(ipv4Lookup, ipv6Lookup bool) {
 	nsMod.IPv6Lookup = ipv6Lookup
 }
 
-func (nsMod *NSLookupModule) Lookup(ctx context.Context, r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
+func (nsMod *NSLookupModule) Lookup(ctx context.Context, r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (any, zdns.Trace, zdns.Status, error) {
 	if nsMod.testingLookup != nil {
 		// used for mocking
 		return nsMod.testingLookup(r, lookupName, nameServer)
@@ -85,7 +85,7 @@ func (nsMod *NSLookupModule) Validate(args []string) error {
 	return nil
 }
 
-func (nsMod *NSLookupModule) WithTestingLookup(f func(r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error)) {
+func (nsMod *NSLookupModule) WithTestingLookup(f func(r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (any, zdns.Trace, zdns.Status, error)) {
 	nsMod.testingLookup = f
 }
 
@@ -93,6 +93,6 @@ func (nsMod *NSLookupModule) GetDescription() string {
 	return "Run a more exhaustive ns lookup, will additionally do an A/AAAA lookup for the IP addresses that correspond with name server records."
 }
 
-func (nsMod *NSLookupModule) NewFlags() interface{} {
+func (nsMod *NSLookupModule) NewFlags() any {
 	return nsMod
 }

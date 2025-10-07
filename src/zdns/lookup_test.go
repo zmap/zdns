@@ -494,7 +494,7 @@ func TestParseEdnsAnswerClientSubnet1(t *testing.T) {
 	assert.Equal(t, "1.2.3.4", ednsAnswer.ClientSubnet.Address, "Unexpected address. Expected %v, got %v", "1.2.3.4", ednsAnswer.ClientSubnet.Address)
 }
 
-func verifyAnswer(t *testing.T, answer interface{}, original dns.RR, expectedAnswer interface{}) {
+func verifyAnswer(t *testing.T, answer any, original dns.RR, expectedAnswer any) {
 	ans, ok := answer.(Answer)
 	if !ok {
 		t.Error("Failed to parse record")
@@ -524,7 +524,7 @@ func verifyAnswer(t *testing.T, answer interface{}, original dns.RR, expectedAns
 func TestLookup_DoTxtLookup_1(t *testing.T) {
 	testRegexp := regexp.MustCompile(".*")
 	input := &SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:    3600,
 			Type:   "TXT",
 			Class:  "IN",
@@ -545,7 +545,7 @@ func TestLookup_DoTxtLookup_1(t *testing.T) {
 func TestLookup_DoTxtLookup_2(t *testing.T) {
 	testRegexp := regexp.MustCompile("^google-site-verification=.*")
 	input := &SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "TXT",
@@ -573,7 +573,7 @@ func TestLookup_DoTxtLookup_2(t *testing.T) {
 func TestLookup_DoTxtLookup_3(t *testing.T) {
 	testRegexp := regexp.MustCompile("(?i)^v=spf1.*")
 	input := &SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "TXT",
@@ -600,7 +600,7 @@ func TestLookup_DoTxtLookup_3(t *testing.T) {
 func TestLookup_DoTxtLookup_4(t *testing.T) {
 	testRegexp := regexp.MustCompile("(?i)^v=spf1.*")
 	input := &SingleQueryResult{
-		Answers: []interface{}{},
+		Answers: []any{},
 	}
 	resultString, err := FindTxtRecord(input, testRegexp)
 	require.Error(t, err, "no such TXT record found")
@@ -610,7 +610,7 @@ func TestLookup_DoTxtLookup_4(t *testing.T) {
 func TestLookup_DoTxtLookup_5(t *testing.T) {
 	testRegexp := regexp.MustCompile("")
 	input := &SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:    3600,
 			Type:   "TXT",
 			Class:  "IN",
@@ -638,7 +638,7 @@ func TestOneA(t *testing.T) {
 	domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
 
 	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
@@ -666,7 +666,7 @@ func TestTwoA(t *testing.T) {
 	domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
 
 	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
@@ -701,7 +701,7 @@ func TestQuadAWithoutFlag(t *testing.T) {
 	domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
 
 	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
@@ -737,7 +737,7 @@ func TestOnlyQuadA(t *testing.T) {
 	domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
 
 	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:    3600,
 			Type:   "AAAA",
 			Class:  "IN",
@@ -767,7 +767,7 @@ func TestAandQuadA(t *testing.T) {
 	domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
 
 	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
@@ -803,7 +803,7 @@ func TestTwoQuadA(t *testing.T) {
 	domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
 
 	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:    3600,
 			Type:   "AAAA",
 			Class:  "IN",
@@ -862,7 +862,7 @@ func TestQuadAWithCname(t *testing.T) {
 	domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
 
 	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:    3600,
 			Type:   "AAAA",
 			Class:  "IN",
@@ -897,7 +897,7 @@ func TestUnexpectedMxOnly(t *testing.T) {
 	domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
 
 	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:    3600,
 			Type:   "MX",
 			Class:  "IN",
@@ -932,14 +932,14 @@ func TestMxAndAdditionals(t *testing.T) {
 	domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
 
 	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:    3600,
 			Type:   "MX",
 			Class:  "IN",
 			Name:   "example.com",
 			Answer: "mail.example.com.",
 		}},
-		Additionals: []interface{}{Answer{
+		Additionals: []any{Answer{
 			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
@@ -973,7 +973,7 @@ func TestMismatchIpType(t *testing.T) {
 	domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
 
 	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
@@ -1009,7 +1009,7 @@ func TestEmptyNonTerminal(t *testing.T) {
 	domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
 
 	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
@@ -1072,7 +1072,7 @@ func TestAandQuadADedup(t *testing.T) {
 	domainNS3 := nameAndIP{name: domain3, IP: ns1.String()}
 
 	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:    3600,
 			Type:   "CNAME",
 			Class:  "IN",
@@ -1104,7 +1104,7 @@ func TestAandQuadADedup(t *testing.T) {
 	}
 
 	mockResults[domainNS2] = SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:    3600,
 			Type:   "CNAME",
 			Class:  "IN",
@@ -1130,7 +1130,7 @@ func TestAandQuadADedup(t *testing.T) {
 	}
 
 	mockResults[domainNS3] = SingleQueryResult{
-		Answers: []interface{}{Answer{
+		Answers: []any{Answer{
 			TTL:    3600,
 			Type:   "A",
 			Class:  "IN",
@@ -1203,7 +1203,7 @@ func TestNsAInAdditional(t *testing.T) {
 	domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
 
 	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "NS",
@@ -1212,7 +1212,7 @@ func TestNsAInAdditional(t *testing.T) {
 				Answer: "ns1.example.com.",
 			},
 		},
-		Additionals: []interface{}{
+		Additionals: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "A",
@@ -1246,7 +1246,7 @@ func TestTwoNSInAdditional(t *testing.T) {
 	domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
 
 	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "NS",
@@ -1262,7 +1262,7 @@ func TestTwoNSInAdditional(t *testing.T) {
 				Answer: "ns2.example.com.",
 			},
 		},
-		Additionals: []interface{}{
+		Additionals: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "A",
@@ -1306,7 +1306,7 @@ func TestAandQuadAInAdditional(t *testing.T) {
 	domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
 
 	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "NS",
@@ -1315,7 +1315,7 @@ func TestAandQuadAInAdditional(t *testing.T) {
 				Answer: "ns1.example.com.",
 			},
 		},
-		Additionals: []interface{}{
+		Additionals: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "A",
@@ -1355,7 +1355,7 @@ func TestNsMismatchIpType(t *testing.T) {
 	domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
 
 	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "NS",
@@ -1364,7 +1364,7 @@ func TestNsMismatchIpType(t *testing.T) {
 				Answer: "ns1.example.com.",
 			},
 		},
-		Additionals: []interface{}{
+		Additionals: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "AAAA",
@@ -1404,7 +1404,7 @@ func TestAandQuadALookup(t *testing.T) {
 	domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
 
 	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "NS",
@@ -1424,7 +1424,7 @@ func TestAandQuadALookup(t *testing.T) {
 	domainNS2 := nameAndIP{name: dom2, IP: ns1.String()}
 
 	mockResults[domainNS2] = SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "A",
@@ -1495,7 +1495,7 @@ func TestErrorInTargetedLookup(t *testing.T) {
 	domainNS1 := nameAndIP{name: domain1, IP: ns1.String()}
 
 	mockResults[domainNS1] = SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "NS",
@@ -1534,7 +1534,7 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 	exampleNameAAnswer := "4.4.4.4"
 
 	mockResults[nameAndIP{name: exampleName, IP: rootServerIP + ":53"}] = SingleQueryResult{
-		Authorities: []interface{}{
+		Authorities: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "NS",
@@ -1544,7 +1544,7 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 				Answer: comServer + ".",
 			},
 		},
-		Additionals: []interface{}{
+		Additionals: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "A",
@@ -1556,7 +1556,7 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 		},
 	}
 	mockResults[nameAndIP{name: exampleName, IP: comServerIP + ":53"}] = SingleQueryResult{
-		Authorities: []interface{}{
+		Authorities: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "NS",
@@ -1566,7 +1566,7 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 				Answer: exampleNSServer + ".",
 			},
 		},
-		Additionals: []interface{}{
+		Additionals: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "A",
@@ -1578,7 +1578,7 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 		},
 	}
 	mockResults[nameAndIP{name: exampleName, IP: exampleNSServerIP + ":53"}] = SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "A",
@@ -1597,7 +1597,7 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 				Nameserver: rootServer,
 				Type:       "NS",
 				Res: SingleQueryResult{
-					Authorities: []interface{}{
+					Authorities: []any{
 						Answer{
 							TTL:    3600,
 							Type:   "NS",
@@ -1607,7 +1607,7 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 							Answer: "a.gtld-servers.net.",
 						},
 					},
-					Additionals: []interface{}{
+					Additionals: []any{
 						Answer{
 							TTL:    3600,
 							Type:   "A",
@@ -1626,7 +1626,7 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 				Type:       "NS",
 				Nameserver: comServer,
 				Res: SingleQueryResult{
-					Authorities: []interface{}{
+					Authorities: []any{
 						Answer{
 							TTL:    3600,
 							Type:   "NS",
@@ -1636,7 +1636,7 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 							Answer: "ns1.example.com.",
 						},
 					},
-					Additionals: []interface{}{
+					Additionals: []any{
 						Answer{
 							TTL:    3600,
 							Type:   "A",
@@ -1655,7 +1655,7 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 				Type:       "NS",
 				Nameserver: exampleNSServer,
 				Res: SingleQueryResult{
-					Answers: []interface{}{
+					Answers: []any{
 						Answer{
 							TTL:    3600,
 							Type:   "A",
@@ -1672,7 +1672,7 @@ func TestAllNsLookupOneNsThreeLevels(t *testing.T) {
 				Type:       "A",
 				Nameserver: exampleNSServer,
 				Res: SingleQueryResult{
-					Answers: []interface{}{
+					Answers: []any{
 						Answer{
 							TTL:    3600,
 							Type:   "A",
@@ -1718,7 +1718,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 	exampleNameAAnswer := "5.5.5.5"
 
 	mockResults[nameAndIP{name: exampleName, IP: rootServerIP + ":53"}] = SingleQueryResult{
-		Authorities: []interface{}{
+		Authorities: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "NS",
@@ -1736,7 +1736,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 				Answer: comServerB + ".",
 			},
 		},
-		Additionals: []interface{}{
+		Additionals: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "A",
@@ -1760,7 +1760,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 	protocolStatus[nameAndIP{name: exampleName, IP: comServerAIP + ":53"}] = StatusServFail
 	// Success in comServerA
 	mockResults[nameAndIP{name: exampleName, IP: comServerBIP + ":53"}] = SingleQueryResult{
-		Authorities: []interface{}{
+		Authorities: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "NS",
@@ -1770,7 +1770,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 				Answer: exampleNSServer + ".",
 			},
 		},
-		Additionals: []interface{}{
+		Additionals: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "A",
@@ -1782,7 +1782,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 		},
 	}
 	mockResults[nameAndIP{name: exampleName, IP: exampleNSServerIP + ":53"}] = SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			Answer{
 				TTL:    3600,
 				Type:   "A",
@@ -1801,7 +1801,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 				Type:       "NS",
 				Nameserver: rootServer,
 				Res: SingleQueryResult{
-					Authorities: []interface{}{
+					Authorities: []any{
 						Answer{
 							TTL:    3600,
 							Type:   "NS",
@@ -1819,7 +1819,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 							Answer: "b.gtld-servers.net.",
 						},
 					},
-					Additionals: []interface{}{
+					Additionals: []any{
 						Answer{
 							TTL:    3600,
 							Type:   "A",
@@ -1852,7 +1852,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 				Type:       "NS",
 				Nameserver: comServerB,
 				Res: SingleQueryResult{
-					Authorities: []interface{}{
+					Authorities: []any{
 						Answer{
 							TTL:    3600,
 							Type:   "NS",
@@ -1862,7 +1862,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 							Answer: exampleNSServer + ".",
 						},
 					},
-					Additionals: []interface{}{
+					Additionals: []any{
 						Answer{
 							TTL:    3600,
 							Type:   "A",
@@ -1881,7 +1881,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 				Type:       "NS",
 				Nameserver: exampleNSServer,
 				Res: SingleQueryResult{
-					Answers: []interface{}{
+					Answers: []any{
 						Answer{
 							TTL:    3600,
 							Type:   "A",
@@ -1898,7 +1898,7 @@ func TestAllNsLookupErrorInOne(t *testing.T) {
 				Type:       "A",
 				Nameserver: exampleNSServer,
 				Res: SingleQueryResult{
-					Answers: []interface{}{
+					Answers: []any{
 						Answer{
 							TTL:    3600,
 							Type:   "A",

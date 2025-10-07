@@ -63,7 +63,7 @@ func InitTest(t *testing.T) *zdns.Resolver {
 func TestLookup_DoTxtLookup_Valid_1(t *testing.T) {
 	resolver := InitTest(t)
 	mockResults["google.com"] = &zdns.SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			zdns.Answer{Name: "google.com", Answer: "some TXT record"},
 			zdns.Answer{Name: "google.com", Answer: "v=spf1 mx include:_spf.google.com -all"}},
 	}
@@ -83,7 +83,7 @@ func TestLookup_DoTxtLookup_Valid_1(t *testing.T) {
 func TestLookup_DoTxtLookup_Valid_2(t *testing.T) {
 	resolver := InitTest(t)
 	mockResults["google.com"] = &zdns.SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			zdns.Answer{Name: "google.com", Answer: "some TXT record"},
 			zdns.Answer{Name: "google.com", Answer: "V=SpF1 mx include:_spf.google.com -all"}},
 	}
@@ -103,7 +103,7 @@ func TestLookup_DoTxtLookup_Valid_2(t *testing.T) {
 func TestLookup_DoTxtLookup_NotValid_1(t *testing.T) {
 	resolver := InitTest(t)
 	mockResults["google.com"] = &zdns.SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			zdns.Answer{Name: "google.com", Answer: "some TXT record"},
 			zdns.Answer{Name: "google.com", Answer: "  V  =  SpF1 mx include:_spf.google.com -all"}},
 	}
@@ -123,7 +123,7 @@ func TestLookup_DoTxtLookup_NotValid_1(t *testing.T) {
 func TestLookup_DoTxtLookup_NotValid_2(t *testing.T) {
 	resolver := InitTest(t)
 	mockResults["google.com"] = &zdns.SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			zdns.Answer{Name: "google.com", Answer: "some TXT record"},
 			zdns.Answer{Name: "google.com", Answer: "some other TXT record but no SPF"}},
 	}

@@ -88,7 +88,7 @@ func (mxMod *MXLookupModule) lookupIPs(ctx context.Context, r *zdns.Resolver, na
 	return retv, trace
 }
 
-func (mxMod *MXLookupModule) Lookup(ctx context.Context, r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
+func (mxMod *MXLookupModule) Lookup(ctx context.Context, r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (any, zdns.Trace, zdns.Status, error) {
 	ipMode := zdns.GetIPVersionMode(mxMod.IPv4Lookup, mxMod.IPv6Lookup)
 	retv := MXResult{Servers: []MXRecord{}}
 	var res *zdns.SingleQueryResult
@@ -130,6 +130,6 @@ func (mxMod *MXLookupModule) GetDescription() string {
 	return "MXLOOKUP will additionally do an A lookup for the IP addresses that correspond with an exchange record."
 }
 
-func (mxMod *MXLookupModule) NewFlags() interface{} {
+func (mxMod *MXLookupModule) NewFlags() any {
 	return mxMod
 }

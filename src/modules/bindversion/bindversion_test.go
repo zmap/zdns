@@ -62,7 +62,7 @@ func InitTest(t *testing.T) *zdns.Resolver {
 func TestBindVersionLookup_Valid_1(t *testing.T) {
 	resolver := InitTest(t)
 	mockResults["VERSION.BIND"] = &zdns.SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			zdns.Answer{Name: "VERSION.BIND", Answer: "Nominum Vantio 5.4.1.0", Class: "CHAOS"}},
 	}
 	bvModule := BindVersionLookupModule{}
@@ -79,7 +79,7 @@ func TestBindVersionLookup_Valid_1(t *testing.T) {
 func TestBindVersionLookup_NotValid_1(t *testing.T) {
 	resolver := InitTest(t)
 	mockResults["VERSION.BIND"] = &zdns.SingleQueryResult{
-		Answers: []interface{}{},
+		Answers: []any{},
 	}
 	bvModule := BindVersionLookupModule{}
 	res, _, status, _ := bvModule.Lookup(context.Background(), resolver, "", &zdns.NameServer{IP: net.ParseIP("1.2.3.4"), Port: 53})

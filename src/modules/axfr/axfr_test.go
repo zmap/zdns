@@ -87,7 +87,7 @@ var nsRecords = make(map[string]*zdns.NSResult)
 var nsStatus = zdns.StatusNoError
 
 // Mock the actual NS lookup.
-func mockNSLookup(r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
+func mockNSLookup(r *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (any, zdns.Trace, zdns.Status, error) {
 	if res, ok := nsRecords[lookupName]; ok {
 		return res, nil, nsStatus, nil
 	} else {
@@ -226,8 +226,8 @@ func TestLookupSingleNS(t *testing.T) {
 		naptr,
 	}
 
-	expectedServersMap := make(map[string][]interface{})
-	expectedServersMap[ip1] = make([]interface{}, len(axfrRecords[hostPort1]))
+	expectedServersMap := make(map[string][]any)
+	expectedServersMap[ip1] = make([]any, len(axfrRecords[hostPort1]))
 	for i, rec := range axfrRecords[hostPort1] {
 		expectedServersMap[ip1][i] = zdns.ParseAnswer(rec)
 	}
@@ -298,12 +298,12 @@ func TestLookupTwoNS(t *testing.T) {
 		ipv6,
 	}
 
-	expectedServersMap := make(map[string][]interface{})
-	expectedServersMap[ip1] = make([]interface{}, len(axfrRecords[hostPort1]))
+	expectedServersMap := make(map[string][]any)
+	expectedServersMap[ip1] = make([]any, len(axfrRecords[hostPort1]))
 	for i, rec := range axfrRecords[hostPort1] {
 		expectedServersMap[ip1][i] = zdns.ParseAnswer(rec)
 	}
-	expectedServersMap[ip2] = make([]interface{}, len(axfrRecords[hostPort2]))
+	expectedServersMap[ip2] = make([]any, len(axfrRecords[hostPort2]))
 	for i, rec := range axfrRecords[hostPort2] {
 		expectedServersMap[ip2][i] = zdns.ParseAnswer(rec)
 	}
@@ -334,8 +334,8 @@ func TestFailureInTransfer(t *testing.T) {
 
 	transferError = "Error in transfer."
 
-	expectedServersMap := make(map[string][]interface{})
-	expectedServersMap[ip1] = make([]interface{}, 0)
+	expectedServersMap := make(map[string][]any)
+	expectedServersMap[ip1] = make([]any, 0)
 
 	res, _, status, _ := axfrMod.Lookup(context.Background(), resolver, "example.com", nil)
 	// The overall status should be no error
@@ -367,8 +367,8 @@ func TestErrorInEnvelope(t *testing.T) {
 
 	envelopeError = "Error in envelope."
 
-	expectedServersMap := make(map[string][]interface{})
-	expectedServersMap[ip1] = make([]interface{}, 0)
+	expectedServersMap := make(map[string][]any)
+	expectedServersMap[ip1] = make([]any, 0)
 
 	res, _, status, _ := axfrMod.Lookup(context.Background(), resolver, "example.com", nil)
 	// The overall status should be no error
@@ -424,7 +424,7 @@ func TestErrorInNsLookup(t *testing.T) {
 	assert.Equal(t, res, nil)
 }
 
-func verifyResult(t *testing.T, servers []AXFRServerResult, expectedServersMap map[string][]interface{}) {
+func verifyResult(t *testing.T, servers []AXFRServerResult, expectedServersMap map[string][]any) {
 	serversLength := len(servers)
 	expectedServersLength := len(expectedServersMap)
 

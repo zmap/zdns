@@ -62,7 +62,7 @@ func InitTest(t *testing.T) *zdns.Resolver {
 func TestDmarcLookup_Valid_1(t *testing.T) {
 	resolver := InitTest(t)
 	mockResults["_dmarc.zdns-testing.com"] = &zdns.SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			zdns.Answer{Name: "_dmarc.zdns-testing.com", Answer: "some TXT record"},
 			zdns.Answer{Name: "_dmarc.zdns-testing.com", Answer: "v=DMARC1; p=none; rua=mailto:postmaster@censys.io"}},
 	}
@@ -82,7 +82,7 @@ func TestDmarcLookup_Valid_1(t *testing.T) {
 func TestDmarcLookup_Valid_2(t *testing.T) {
 	resolver := InitTest(t)
 	mockResults["_dmarc.zdns-testing.com"] = &zdns.SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			zdns.Answer{Name: "_dmarc.zdns-testing.com", Answer: "some TXT record"},
 			// Capital V in V=DMARC1; should pass
 			zdns.Answer{Name: "_dmarc.zdns-testing.com", Answer: "V=DMARC1; p=none; rua=mailto:postmaster@censys.io"}},
@@ -103,7 +103,7 @@ func TestDmarcLookup_Valid_2(t *testing.T) {
 func TestDmarcLookup_Valid_3(t *testing.T) {
 	resolver := InitTest(t)
 	mockResults["_dmarc.zdns-testing.com"] = &zdns.SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			zdns.Answer{Name: "_dmarc.zdns-testing.com", Answer: "some TXT record"},
 			// spaces and tabs should pass
 			zdns.Answer{Name: "_dmarc.zdns-testing.com", Answer: "v\t\t\t=\t\t  DMARC1\t\t; p=none; rua=mailto:postmaster@censys.io"}},
@@ -124,7 +124,7 @@ func TestDmarcLookup_Valid_3(t *testing.T) {
 func TestDmarcLookup_NotValid_1(t *testing.T) {
 	resolver := InitTest(t)
 	mockResults["_dmarc.zdns-testing.com"] = &zdns.SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			zdns.Answer{Name: "_dmarc.zdns-testing.com", Answer: "some TXT record"},
 			// spaces before "v" should not be accepted
 			zdns.Answer{Name: "_dmarc.zdns-testing.com", Answer: "\t\t   v   =DMARC1; p=none; rua=mailto:postmaster@censys.io"}},
@@ -145,7 +145,7 @@ func TestDmarcLookup_NotValid_1(t *testing.T) {
 func TestDmarcLookup_NotValid_2(t *testing.T) {
 	resolver := InitTest(t)
 	mockResults["_dmarc.zdns-testing.com"] = &zdns.SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			zdns.Answer{Name: "_dmarc.zdns-testing.com", Answer: "some TXT record"},
 			// DMARC1 should be capital letters
 			zdns.Answer{Name: "_dmarc.zdns-testing.com", Answer: "v=DMARc1; p=none; rua=mailto:postmaster@censys.io"}},
@@ -166,7 +166,7 @@ func TestDmarcLookup_NotValid_2(t *testing.T) {
 func TestDmarcLookup_NotValid_3(t *testing.T) {
 	resolver := InitTest(t)
 	mockResults["_dmarc.zdns-testing.com"] = &zdns.SingleQueryResult{
-		Answers: []interface{}{
+		Answers: []any{
 			zdns.Answer{Name: "_dmarc.zdns-testing.com", Answer: "some TXT record"},
 			// ; has to be present after DMARC1
 			zdns.Answer{Name: "_dmarc.zdns-testing.com", Answer: "v=DMARc1. p=none; rua=mailto:postmaster@censys.io"}},

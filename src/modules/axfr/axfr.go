@@ -58,8 +58,8 @@ func (f *RealTransferFactory) NewTransfer() TransferInterface {
 type AXFRServerResult struct {
 	Server  string `json:"server" groups:"short,normal,long,trace"`
 	Status  zdns.Status
-	Error   string        `json:"error,omitempty" groups:"short,normal,long,trace"`
-	Records []interface{} `json:"records,omitempty" groups:"short,normal,long,trace"`
+	Error   string `json:"error,omitempty" groups:"short,normal,long,trace"`
+	Records []any  `json:"records,omitempty" groups:"short,normal,long,trace"`
 }
 
 type AXFRResult struct {
@@ -114,7 +114,7 @@ func (axfrMod *AxfrLookupModule) doAXFR(transfer TransferInterface, name string,
 	return retv
 }
 
-func (axfrMod *AxfrLookupModule) Lookup(ctx context.Context, resolver *zdns.Resolver, name string, nameServer *zdns.NameServer) (interface{}, zdns.Trace, zdns.Status, error) {
+func (axfrMod *AxfrLookupModule) Lookup(ctx context.Context, resolver *zdns.Resolver, name string, nameServer *zdns.NameServer) (any, zdns.Trace, zdns.Status, error) {
 	var retv AXFRResult
 	// create a new AXFR transfer object
 	transfer := axfrMod.TransferFact.NewTransfer()
@@ -147,7 +147,7 @@ func (axfrMod *AxfrLookupModule) Validate(args []string) error {
 	return nil
 }
 
-func (axfrMod *AxfrLookupModule) NewFlags() interface{} {
+func (axfrMod *AxfrLookupModule) NewFlags() any {
 	return axfrMod
 }
 
