@@ -27,8 +27,7 @@ make install
 Usage
 =====
 
-ZDNS was originally built as a CLI tool only. Work has been done to convert
-this [library](github.com/zmap/zdns/src/zdns) into a standalone library and let a separate [CLI](github.com/zmap/zdns/src/cli) wrap the library.
+ZDNS consists of a recursive resolver [library](github.com/zmap/zdns/src/zdns) and [CLI wrapper](github.com/zmap/zdns/src/cli).
 
 The library consists of a `ResolverConfig` struct which will contain all config options for all lookups made.
 The `ResolverConfig` is used to create 1+ `Resolver` struct(s) which will make all lookups. A `Resolver`
