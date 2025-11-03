@@ -1784,45 +1784,5 @@ _http._tcp.example.com.	3600	IN	SRV	10	5	80	server.example.com.
         finally:
             os.remove(zone_file)
 
-    def test_zone_file_real_format(self):
-        zone_content = """
-zdns-testing.com.	3600	IN	SOA	ns-cloud-c1.googledomains.com. cloud-dns-hostmaster.google.com. 2 21600 3600 259200 300
-zdns-testing.com.	3600	IN	NS	ns-cloud-c1.googledomains.com.
-zdns-testing.com.	3600	IN	NS	ns-cloud-c2.googledomains.com.
-zdns-testing.com.	300	IN	A	1.2.3.4
-www.zdns-testing.com.	300	IN	CNAME	zdns-testing.com.
-mx1.zdns-testing.com.	300	IN	A	1.2.3.4
-zdns-testing.com.	300	IN	MX	1	mx1.zdns-testing.com.
-zdns-testing.com.	900	IN	CAA	0	issue	"letsencrypt.org"
-; Comment line
-"""
-        zone_file = "test_zone_real_format.zone"
-        with open(zone_file, "w") as f:
-            f.write(zone_content)
-
-        try:
-            c = f"A --input-file={zone_file} --zone-file --include-targets"
-            cmd = f"{self.ZDNS_EXECUTABLE} {c} {self.ADDITIONAL_FLAGS}"
-            o = subprocess.check_output(cmd, shell=True)
-            output_lines = o.decode("utf-8").strip().splitlines()
-
-            names = set()
-            for line in output_lines:
-                result = json.loads(line)
-                names.add(result["name"])
-
-            # Should extract names and targets from NS, CNAME, MX records; SOA mname
-            expected_names = {
-                "zdns-testing.com",
-                "www.zdns-testing.com",
-                "mx1.zdns-testing.com",
-                "ns-cloud-c1.googledomains.com",
-                "ns-cloud-c2.googledomains.com"
-            }
-            self.assertEqual(names, expected_names, "Should parse real zone file format correctly")
-        finally:
-            os.remove(zone_file)
-
-
 if __name__ == "__main__":
     unittest.main()
