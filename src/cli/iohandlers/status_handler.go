@@ -162,10 +162,11 @@ func getStatusOccurrenceString(statusOccurrences map[zdns.Status]int) string {
 	sort.Slice(statusesAndOccurrences, func(i, j int) bool {
 		return statusesAndOccurrences[i].occurrence > statusesAndOccurrences[j].occurrence
 	})
-	returnStr := ""
+	strSlice := make([]string, 0, len(statusesAndOccurrences)) // we'll use a slice to avoid reallocating strings
 	for _, statusOccurrence := range statusesAndOccurrences {
-		returnStr += fmt.Sprintf("%s: %d, ", statusOccurrence.status, statusOccurrence.occurrence)
+		strSlice = append(strSlice, fmt.Sprintf("%s: %d, ", statusOccurrence.status, statusOccurrence.occurrence))
 	}
+	returnStr := strings.Join(strSlice, "")
 	// remove trailing comma
 	returnStr = strings.TrimSuffix(returnStr, ", ")
 	return returnStr
