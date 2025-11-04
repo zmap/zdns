@@ -1742,7 +1742,9 @@ example.com.	3600	IN	NS	ns1.example.com.
                 names.add(result["name"])
 
             expected_names = {"example.com", "www.example.com", "mail.example.com"}
-            self.assertEqual(names, expected_names, "Should extract all record names from zone file")
+            self.assertEqual(
+                names, expected_names, "Should extract all record names from zone file"
+            )
         finally:
             os.remove(zone_file)
 
@@ -1778,11 +1780,16 @@ _http._tcp.example.com.	3600	IN	SRV	10	5	80	server.example.com.
                 "ns1.example.com",
                 "ns2.example.com",
                 "mx.example.com",
-                "server.example.com"
+                "server.example.com",
             }
-            self.assertEqual(names, expected_names, "Should extract both names and targets from zone file")
+            self.assertEqual(
+                names,
+                expected_names,
+                "Should extract both names and targets from zone file",
+            )
         finally:
             os.remove(zone_file)
+
 
 if __name__ == "__main__":
     unittest.main()
