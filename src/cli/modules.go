@@ -133,11 +133,12 @@ func RegisterLookupModule(name string, lm LookupModule) {
 	moduleToLookupModule[name] = lm
 	_, err := parser.AddCommand(name, "", lm.GetDescription(), lm)
 	if err != nil {
-		log.Fatalf("could not add command: %v", err)
+		log.Fatalf("could not add command (%s): %v", name, err)
 	}
 }
 
 type BasicLookupModule struct {
+	Trigger              string `long:"trigger" description:"invoke only on targets with specified tag. Useful for multiple module"`
 	IsIterative          bool
 	LookupAllNameServers bool
 	DNSType              uint16

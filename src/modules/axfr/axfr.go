@@ -33,10 +33,12 @@ import (
 
 type AxfrLookupModule struct {
 	cli.BasicLookupModule
-	NSModule      nslookup.NSLookupModule
+	IPv4Lookup    bool   `long:"ipv4-lookup" description:"perform A lookups for each NS server"`
+	IPv6Lookup    bool   `long:"ipv6-lookup" description:"perform AAAA record lookups for each NS server"`
 	BlacklistPath string `long:"blacklist-file" description:"path to blacklist file" default:""`
 	Blacklist     *safeblacklist.SafeBlacklist
 	TransferFact  TransferFactory
+	nsModule      *nslookup.NSLookupModule
 }
 
 // TransferInterface used to enable mocking for dns.In
@@ -119,7 +121,7 @@ func (axfrMod *AxfrLookupModule) Lookup(ctx context.Context, resolver *zdns.Reso
 	// create a new AXFR transfer object
 	transfer := axfrMod.TransferFact.NewTransfer()
 	if nameServer == nil {
-		parsedNS, trace, status, err := axfrMod.NSModule.Lookup(ctx, resolver, name, nameServer)
+		parsedNS, trace, status, err := axfrMod.nsModule.Lookup(ctx, resolver, name, nameServer)
 		if status != zdns.StatusNoError {
 			return nil, trace, status, err
 		}
@@ -176,7 +178,11 @@ func (axfrMod *AxfrLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfi
 			return errors.Wrap(err, "failed to parse blacklist")
 		}
 	}
-	err = axfrMod.NSModule.CLIInit(gc, rc)
+	axfrMod.nsModule = &nslookup.NSLookupModule{
+		IPv4Lookup: axfrMod.IPv4Lookup,
+		IPv6Lookup: axfrMod.IPv6Lookup,
+	}
+	err = axfrMod.nsModule.CLIInit(gc, rc)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize NSLookupModule as apart of axfrModule")
 	}

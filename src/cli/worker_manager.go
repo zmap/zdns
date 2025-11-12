@@ -765,7 +765,7 @@ func parseMetadataInputLine(line string) (string, string) {
 	return s[0], s[1]
 }
 
-func parseNormalInputLine(line string) (string, string) {
+func parseNormalInputLine(line string) (name string, nameserver string) {
 	r := csv.NewReader(strings.NewReader(line))
 	s, err := r.Read()
 	if err != nil || len(s) == 0 {
