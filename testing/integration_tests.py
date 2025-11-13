@@ -888,6 +888,13 @@ class Tests(unittest.TestCase):
                 for mod in ["A", "AAAA"]:
                     self.assertSuccess(res, cmd, mod)
                     self.assertEqual(res["results"][mod]["data"]["resolver"], "1.1.1.1:53")
+            with self.subTest(name="nameserver and trigger without using MULTIPLE module"):
+                name = "zdns-testing.com,1.1.1.1,A,AAAA"
+                c = "A --trigger A"
+                cmd, res = self.run_zdns(c, name)
+                for mod in ["A"]:
+                    self.assertSuccess(res, cmd, mod)
+                    self.assertEqual(res["results"][mod]["data"]["resolver"], "1.1.1.1:53")
 
     def test_cname(self):
         c = "CNAME"
