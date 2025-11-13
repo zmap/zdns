@@ -121,7 +121,7 @@ func InitTest() (*AxfrLookupModule, *zdns.Resolver) {
 	if err != nil {
 		panic("failed to initialize resolver: " + err.Error())
 	}
-	axfrMod.NSModule.WithTestingLookup(mockNSLookup)
+	axfrMod.nsModule.WithTestingLookup(mockNSLookup)
 	return axfrMod, resolver
 }
 
