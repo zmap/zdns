@@ -657,6 +657,7 @@ func handleWorkerInput(ctx context.Context, gc *CLIConf, rc *zdns.ResolverConfig
 	var nameServer *zdns.NameServer
 	var nameServers []zdns.NameServer
 	nameServerString := ""
+	inputTriggers := make(map[string]struct{})
 	var rank int
 	var entryMetadata string
 	var err error
@@ -677,7 +678,8 @@ func handleWorkerInput(ctx context.Context, gc *CLIConf, rc *zdns.ResolverConfig
 		// if user provides a domain name for the name server (one.one.one.one) we'll pick one of the IPs at random
 		nameServer = &nameServers[rand.Intn(len(nameServers))]
 	} else {
-		rawName, nameServerString = parseNormalInputLine(line)
+		var inputTriggersSlice []string
+		rawName, nameServerString, inputTriggersSlice = parseNormalInputLine(line)
 		if len(nameServerString) != 0 {
 			nameServers, err = convertNameServerStringToNameServer(nameServerString, rc.IPVersionMode, rc.DNSOverTLS, rc.DNSOverHTTPS)
 			if err != nil {
@@ -689,10 +691,22 @@ func handleWorkerInput(ctx context.Context, gc *CLIConf, rc *zdns.ResolverConfig
 			// if user provides a domain name for the name server (one.one.one.one) we'll pick one of the IPs at random
 			nameServer = &nameServers[rand.Intn(len(nameServers))]
 		}
+		if len(inputTriggersSlice) > 0 {
+			for _, t := range inputTriggersSlice {
+				// build set of input triggers for lookup
+				inputTriggers[t] = struct{}{}
+			}
+		}
 	}
 	res.Name = rawName
 	// handle per-module lookups
 	for moduleName, module := range gc.ActiveModules {
+		if len(inputTriggers) > 0 {
+			if _, ok := inputTriggers[module.GetTrigger()]; !ok {
+				// this module was not triggered for this input line, skip
+				continue
+			}
+		}
 		var innerRes any
 		var trace zdns.Trace
 		var status zdns.Status
@@ -765,16 +779,22 @@ func parseMetadataInputLine(line string) (string, string) {
 	return s[0], s[1]
 }
 
-func parseNormalInputLine(line string) (name string, nameserver string) {
+func parseNormalInputLine(line string) (name, nameserver string, triggers []string) {
 	r := csv.NewReader(strings.NewReader(line))
 	s, err := r.Read()
 	if err != nil || len(s) == 0 {
-		return line, ""
+		return line, "", []string{}
 	}
-	if len(s) == 1 {
-		return s[0], ""
-	} else {
-		return s[0], s[1]
+	for i := range s {
+		s[i] = strings.TrimSpace(s[i])
+	}
+	switch len(s) {
+	case 1:
+		return s[0], "", []string{}
+	case 2:
+		return s[0], s[1], []string{}
+	default:
+		return s[0], s[1], s[2:]
 	}
 }
 

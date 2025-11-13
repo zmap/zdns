@@ -157,6 +157,10 @@ func (axfrMod *AxfrLookupModule) GetDescription() string {
 	return ""
 }
 
+func (axfrMod *AxfrLookupModule) GetTrigger() string {
+	return axfrMod.Trigger
+}
+
 // CLIInit initializes the AxfrLookupModule with the given parameters, used to call AXFR from the command line
 func (axfrMod *AxfrLookupModule) CLIInit(gc *cli.CLIConf, rc *zdns.ResolverConfig) error {
 	if gc == nil {

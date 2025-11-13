@@ -130,6 +130,10 @@ func (mxMod *MXLookupModule) GetDescription() string {
 	return "MXLOOKUP will additionally do an A lookup for the IP addresses that correspond with an exchange record."
 }
 
+func (mxMod *MXLookupModule) GetTrigger() string {
+	return mxMod.Trigger
+}
+
 func (mxMod *MXLookupModule) NewFlags() any {
 	return mxMod
 }

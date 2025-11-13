@@ -73,3 +73,7 @@ func (aMod *ALookupModule) NewFlags() any {
 func (aMod *ALookupModule) GetDescription() string {
 	return "alookup will get the information that is typically desired, instead of just the information that exists in a single record. Specifically, alookup acts similar to nslookup and will follow CNAME records."
 }
+
+func (aMod *ALookupModule) GetTrigger() string {
+	return aMod.baseModule.Trigger
+}

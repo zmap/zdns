@@ -163,3 +163,58 @@ func TestRemoveDomainsFromNameServersString(t *testing.T) {
 		})
 	}
 }
+
+func TestParseNormalInputLine(t *testing.T) {
+	tests := []struct {
+		input            string
+		expectedDomain   string
+		expectedNS       string
+		expectedTriggers []string
+	}{
+		{
+			input:            "example.com",
+			expectedDomain:   "example.com",
+			expectedNS:       "",
+			expectedTriggers: []string{},
+		},
+		{
+			input:            "example.com,1.1.1.1",
+			expectedDomain:   "example.com",
+			expectedNS:       "1.1.1.1",
+			expectedTriggers: []string{},
+		},
+		{
+			// spaces after commas
+			input:            "example.com, 1.1.1.1",
+			expectedDomain:   "example.com",
+			expectedNS:       "1.1.1.1",
+			expectedTriggers: []string{},
+		},
+		{
+			input:            "example.com, 1.1.1.1, trigger1",
+			expectedDomain:   "example.com",
+			expectedNS:       "1.1.1.1",
+			expectedTriggers: []string{"trigger1"},
+		},
+		{
+			input:            "example.com,, trigger1",
+			expectedDomain:   "example.com",
+			expectedNS:       "",
+			expectedTriggers: []string{"trigger1"},
+		},
+		{
+			input:            "example.com,,,",
+			expectedDomain:   "example.com",
+			expectedNS:       "",
+			expectedTriggers: []string{"", ""},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			domain, ns, triggers := parseNormalInputLine(test.input)
+			require.Equal(t, test.expectedDomain, domain)
+			require.Equal(t, test.expectedNS, ns)
+			require.Equal(t, test.expectedTriggers, triggers)
+		})
+	}
+}
