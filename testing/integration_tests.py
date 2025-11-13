@@ -839,7 +839,8 @@ class Tests(unittest.TestCase):
             # Create multiple.ini
             multi_config_path = os.path.join(tmpdir, "multiple.ini")
             with open(multi_config_path, "w") as f:
-                f.write("""
+                f.write(
+                    """
                         [Application Options]
                         iterative=false
                         prefer-ipv6-iteration="true"
@@ -850,7 +851,8 @@ class Tests(unittest.TestCase):
                         trigger = "AAAA"
                         [CNAME]
                         trigger = "CNAME"
-                    """)
+                    """
+                )
             # ---- Subtests for each domain ----
             with self.subTest(name="using multiple modules and no trigger"):
                 name = "zdns-testing.com"
@@ -874,27 +876,37 @@ class Tests(unittest.TestCase):
                 self.assertSuccess(res, cmd, "CNAME")
                 self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
                 self.assertEqual(len(res["results"]), 2)
-            with self.subTest(name="nameserver specified and using multiple modules and no trigger"):
+            with self.subTest(
+                name="nameserver specified and using multiple modules and no trigger"
+            ):
                 name = "zdns-testing.com,1.1.1.1"
                 c = "MULTIPLE -c " + multi_config_path
                 cmd, res = self.run_zdns(c, name)
                 for mod in ["A", "AAAA", "CNAME"]:
                     self.assertSuccess(res, cmd, mod)
-                    self.assertEqual(res["results"][mod]["data"]["resolver"], "1.1.1.1:53")
+                    self.assertEqual(
+                        res["results"][mod]["data"]["resolver"], "1.1.1.1:53"
+                    )
             with self.subTest(name="nameserver and trigger"):
                 name = "zdns-testing.com,1.1.1.1,A,AAAA"
                 c = "MULTIPLE -c " + multi_config_path
                 cmd, res = self.run_zdns(c, name)
                 for mod in ["A", "AAAA"]:
                     self.assertSuccess(res, cmd, mod)
-                    self.assertEqual(res["results"][mod]["data"]["resolver"], "1.1.1.1:53")
-            with self.subTest(name="nameserver and trigger without using MULTIPLE module"):
+                    self.assertEqual(
+                        res["results"][mod]["data"]["resolver"], "1.1.1.1:53"
+                    )
+            with self.subTest(
+                name="nameserver and trigger without using MULTIPLE module"
+            ):
                 name = "zdns-testing.com,1.1.1.1,A,AAAA"
                 c = "A --trigger A"
                 cmd, res = self.run_zdns(c, name)
                 for mod in ["A"]:
                     self.assertSuccess(res, cmd, mod)
-                    self.assertEqual(res["results"][mod]["data"]["resolver"], "1.1.1.1:53")
+                    self.assertEqual(
+                        res["results"][mod]["data"]["resolver"], "1.1.1.1:53"
+                    )
 
     def test_cname(self):
         c = "CNAME"
