@@ -212,6 +212,18 @@ $ echo "google.com,1.1.1.1\nfacebook.com,8.8.8.8" | zdns A
 {"name":"facebook.com","results":{"A":{"data":{"additionals":[...],"answers":[...],"protocol":"udp","resolver":"8.8.8.8:53"},"duration":0.061365459,"status":"NOERROR","timestamp":"2024-09-13T09:51:34-04:00"}}}
 ````
 
+### Zone Files
+
+Zone files (from ICANN CZDS or similar) can be used as an input source for ZDNS with the `--zone-file` flag. This enables parsing zone files from either stdin (default) or a file with the `--input-file` flag.
+
+By default, ZDNS will extract only the name from each zone file record. If you'd also like to resolve the names referenced in the answer section of record types such as CNAMEs or NS records, you can use the `--zone-file-include-targets` CLI flag.
+
+For example, with `--zone-file-include-targets` and this DNS zone file entry:
+```
+example.com. 3600 IN NS ns1.example.com
+```
+both `example.com` and `ns1.example.com` would be resolved.
+
 Local Recursion
 ---------------
 
