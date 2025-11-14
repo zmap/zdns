@@ -58,9 +58,9 @@ func (h *ZoneFileInputHandler) parseZoneLine(line string) []string {
 	if name != "" {
 		domains = append(domains, name)
 	}
-if !h.includeTargets {
-    return domains
-}
+	if !h.includeTargets {
+		return domains
+	}
 	// Find the record type by skipping TTL (numeric) and CLASS (IN)
 	// Standard format: NAME TTL CLASS TYPE RDATA
 	typeIndex := -1
