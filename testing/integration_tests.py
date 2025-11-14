@@ -1716,6 +1716,80 @@ class Tests(unittest.TestCase):
                 resolver, actual_resolvers, "Should have the expected resolvers"
             )
 
+    def test_zone_file_input_names_only(self):
+        zone_content = """
+; Zone file for testing
+example.com.	3600	IN	A	192.0.2.1
+www.example.com.	3600	IN	CNAME	example.com.
+mail.example.com.	3600	IN	MX	10	mx.example.com.
+example.com.	3600	IN	NS	ns1.example.com.
+; Comment line should be ignored
+"""
+        zone_file = "test_zone_names_only.zone"
+        with open(zone_file, "w") as f:
+            f.write(zone_content)
+
+        try:
+            c = f"A --input-file={zone_file} --zone-file"
+            cmd = f"{self.ZDNS_EXECUTABLE} {c} {self.ADDITIONAL_FLAGS}"
+            o = subprocess.check_output(cmd, shell=True)
+            output_lines = o.decode("utf-8").strip().splitlines()
+
+            # Should get 3 unique domains: example.com, www.example.com, mail.example.com
+            names = set()
+            for line in output_lines:
+                result = json.loads(line)
+                names.add(result["name"])
+
+            expected_names = {"example.com", "www.example.com", "mail.example.com"}
+            self.assertEqual(
+                names, expected_names, "Should extract all record names from zone file"
+            )
+        finally:
+            os.remove(zone_file)
+
+    def test_zone_file_input_with_targets(self):
+        zone_content = """
+example.com.	3600	IN	NS	ns1.example.com.
+example.com.	3600	IN	NS	ns2.example.com.
+www.example.com.	3600	IN	CNAME	example.com.
+mail.example.com.	3600	IN	MX	10	mx.example.com.
+_http._tcp.example.com.	3600	IN	SRV	10	5	80	server.example.com.
+"""
+        zone_file = "test_zone_with_targets.zone"
+        with open(zone_file, "w") as f:
+            f.write(zone_content)
+
+        try:
+            c = f"A --input-file={zone_file} --zone-file --zone-file-include-targets"
+            cmd = f"{self.ZDNS_EXECUTABLE} {c} {self.ADDITIONAL_FLAGS}"
+            o = subprocess.check_output(cmd, shell=True)
+            output_lines = o.decode("utf-8").strip().splitlines()
+
+            # Should get both names and targets
+            names = set()
+            for line in output_lines:
+                result = json.loads(line)
+                names.add(result["name"])
+
+            expected_names = {
+                "example.com",
+                "www.example.com",
+                "mail.example.com",
+                "_http._tcp.example.com",
+                "ns1.example.com",
+                "ns2.example.com",
+                "mx.example.com",
+                "server.example.com",
+            }
+            self.assertEqual(
+                names,
+                expected_names,
+                "Should extract both names and targets from zone file",
+            )
+        finally:
+            os.remove(zone_file)
+
 
 if __name__ == "__main__":
     unittest.main()
