@@ -143,6 +143,18 @@ func populateCLIConfig(gc *CLIConf) *CLIConf {
 	if gc.NameServerMode && gc.MetadataFormat {
 		log.Fatal("Metadata mode is incompatible with name server mode")
 	}
+	if gc.NameServerMode && gc.ZoneFileFormat {
+		log.Fatal("Zone file mode is incompatible with name server mode")
+	}
+	if gc.ZoneFileIncludeTargets && !gc.ZoneFileFormat {
+		log.Fatal("--zone-file-include-targets can only be used with --zone-file")
+	}
+	if gc.ZoneFileFormat && gc.AlexaFormat {
+		log.Fatal("Zone file mode is incompatible with Alexa format")
+	}
+	if gc.ZoneFileFormat && gc.MetadataFormat {
+		log.Fatal("Zone file mode is incompatible with metadata format")
+	}
 	if gc.NameServerMode && gc.NameOverride == "" && gc.CLIModule != BINDVERSION {
 		log.Fatal("Static Name must be defined with --override-name in --name-server-mode unless DNS module does not expect names (e.g., BINDVERSION).")
 	}
@@ -160,7 +172,11 @@ func populateCLIConfig(gc *CLIConf) *CLIConf {
 		// using domains from command line
 		gc.InputHandler = iohandlers.NewStringSliceInputHandler(GC.Domains)
 	} else if gc.InputHandler == nil {
-		gc.InputHandler = iohandlers.NewFileInputHandler(gc.InputFilePath)
+		if gc.ZoneFileFormat {
+			gc.InputHandler = iohandlers.NewZoneFileInputHandler(gc.InputFilePath, gc.ZoneFileIncludeTargets)
+		} else {
+			gc.InputHandler = iohandlers.NewFileInputHandler(gc.InputFilePath)
+		}
 	}
 	if gc.OutputHandler == nil {
 		gc.OutputHandler = iohandlers.NewFileOutputHandler(gc.OutputFilePath)

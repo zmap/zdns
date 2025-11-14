@@ -107,6 +107,8 @@ type InputOutputOptions struct {
 	ResultVerbosity              string `long:"result-verbosity" default:"normal" description:"Sets verbosity of each output record. Options: short, normal, long, trace"`
 	StatusUpdatesFilePath        string `short:"u" long:"status-updates-file" default:"-" description:"file to write scan progress to, defaults to stderr"`
 	Verbosity                    int    `long:"verbosity" default:"3" description:"log verbosity: 1 (lowest)--5 (highest)"`
+	ZoneFileFormat               bool   `long:"zone-file" description:"input file is a DNS zone file"`
+	ZoneFileIncludeTargets       bool   `long:"zone-file-include-targets" description:"include target domains from zone file records (e.g., nameservers from NS records). Only used with --zone-file"`
 }
 
 type CLIConf struct {
