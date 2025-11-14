@@ -233,11 +233,26 @@ The input format is:
 
 An example `input.csv` file:
 ```
-example.com,,A
-google.com,,A,CNAME
-example.com,1.1.1.1,AAAA
+example.com,,a-trigger
+google.com,,a-trigger,cname-trigger
+example.com,1.1.1.1,aaaa-trigger
 yahoo.com
 apnews.com,1.1.1.1
+```
+
+And corresponding `multiple.ini`:
+```
+; Specify Global Options here
+[Application Options]
+iterative=true
+prefer-ipv6-iteration="true"
+; List out modules and their respective module-specific options here. A module can only be listed once
+[A]
+trigger = "a-trigger"
+[AAAA]
+trigger = "aaaa-trigger"
+[CNAME]
+trigger = "cname-trigger"
 ```
 
 This will lookup:
@@ -247,20 +262,6 @@ This will lookup:
 - `yahoo.com` with all modules specified and using default nameservers
 - `apnews.com` with all modules specified and using Cloudflare's 1.1.1.1 resolver
 
-A corresponding `multiple.ini` file would be provided:
-```
-; Specify Global Options here
-[Application Options]
-iterative=true
-prefer-ipv6-iteration="true"
-; List out modules and their respective module-specific options here. A module can only be listed once
-[A]
-trigger = "A"
-[AAAA]
-trigger = "AAAA"
-[CNAME]
-trigger = "CNAME"
-```
 
 Running the command:
 ```shell
