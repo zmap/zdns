@@ -1761,7 +1761,7 @@ _http._tcp.example.com.	3600	IN	SRV	10	5	80	server.example.com.
             f.write(zone_content)
 
         try:
-            c = f"A --input-file={zone_file} --zone-file --include-targets"
+            c = f"A --input-file={zone_file} --zone-file --zone-file-include-targets"
             cmd = f"{self.ZDNS_EXECUTABLE} {c} {self.ADDITIONAL_FLAGS}"
             o = subprocess.check_output(cmd, shell=True)
             output_lines = o.decode("utf-8").strip().splitlines()
