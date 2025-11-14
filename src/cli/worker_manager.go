@@ -147,7 +147,7 @@ func populateCLIConfig(gc *CLIConf) *CLIConf {
 		log.Fatal("Zone file mode is incompatible with name server mode")
 	}
 	if gc.ZoneFileIncludeTargets && !gc.ZoneFileFormat {
-		log.Fatal("--include-targets can only be used with --zone-file")
+		log.Fatal("--zone-file-include-targets can only be used with --zone-file")
 	}
 	if gc.ZoneFileFormat && gc.AlexaFormat {
 		log.Fatal("Zone file mode is incompatible with Alexa format")
