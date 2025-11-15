@@ -253,6 +253,17 @@ For Example:
 zdns A google.com --name-servers=1.1.1.1,8.8.8.8
 echo "google.com,1.0.0.1" | zdns A
 
+Input Formats
+The input format is new-line delimited with optional nameserver and trigger(s) specified.
+name,[nameserver],[trigger1],[trigger2],...
+
+For example
+
+example.com                           # queries example.com using default nameservers
+example.com,1.1.1.1                   # queries example.com using 1.1.1.1
+example.com,,cname-trigger            # queries example.com using default nameservers, triggers on cname-trigger
+example.com,,cname-trigger,a-trigger  # queries example.com using default nameservers, triggers on both cname-trigger and a-trigger
+
 For more information, see the README
 `
 

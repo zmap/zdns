@@ -224,6 +224,50 @@ example.com. 3600 IN NS ns1.example.com
 ```
 both `example.com` and `ns1.example.com` would be resolved.
 
+### Per-Module Triggers
+ZDNS also supports passing in per-input-line "triggers" that map input lines to specific modules. With these, you can specify that
+certain domains be looked up with specific modules.
+
+The input format is:
+`domain_name,name_server,trigger,trigger_2,etc`, where nameServer can be empty to use the default nameservers and 1+ triggers can be specified.
+
+An example `input.csv` file:
+```
+example.com,,a-trigger
+google.com,,a-trigger,cname-trigger
+example.com,1.1.1.1,aaaa-trigger
+yahoo.com
+apnews.com,1.1.1.1
+```
+
+And corresponding `multiple.ini`:
+```
+; Specify Global Options here
+[Application Options]
+iterative=true
+prefer-ipv6-iteration="true"
+; List out modules and their respective module-specific options here. A module can only be listed once
+[A]
+trigger = "a-trigger"
+[AAAA]
+trigger = "aaaa-trigger"
+[CNAME]
+trigger = "cname-trigger"
+```
+
+This will lookup:
+- `example.com` with the A module using default nameservers
+- `google.com` with the A + CNAME modules using default nameservers
+- `example.com` with the AAAA module using Cloudflare's 1.1.1.1 resolver
+- `yahoo.com` with all modules specified and using default nameservers
+- `apnews.com` with all modules specified and using Cloudflare's 1.1.1.1 resolver
+
+
+Running the command:
+```shell
+zdns MULTIPLE --multi-config-file="./multiple.ini" --input-file="input.csv"
+```
+
 Local Recursion
 ---------------
 

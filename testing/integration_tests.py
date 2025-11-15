@@ -5,6 +5,7 @@ import os
 import subprocess
 import json
 import unittest
+import tempfile
 import datetime
 from dateutil import parser
 from ipaddress import ip_address
@@ -831,6 +832,81 @@ class Tests(unittest.TestCase):
         # delete file
         cmd = f"rm {file_name}"
         subprocess.check_output(cmd, shell=True)
+
+    def test_per_module_triggers(self):
+        """Integration test for per-module triggers feature."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create multiple.ini
+            multi_config_path = os.path.join(tmpdir, "multiple.ini")
+            with open(multi_config_path, "w") as f:
+                f.write(
+                    """
+                        [Application Options]
+                        iterative=false
+                        prefer-ipv6-iteration="true"
+
+                        [A]
+                        trigger = "A"
+                        [AAAA]
+                        trigger = "AAAA"
+                        [CNAME]
+                        trigger = "CNAME"
+                    """
+                )
+            # ---- Subtests for each domain ----
+            with self.subTest(name="using multiple modules and no trigger"):
+                name = "zdns-testing.com"
+                c = "MULTIPLE -c " + multi_config_path
+                cmd, res = self.run_zdns(c, name)
+                for mod in ["A", "AAAA", "CNAME"]:
+                    self.assertSuccess(res, cmd, mod)
+            with self.subTest(name="Single Trigger"):
+                name = "zdns-testing.com,,A"
+                c = "MULTIPLE -c " + multi_config_path
+                cmd, res = self.run_zdns(c, name)
+                self.assertSuccess(res, cmd, "A")
+                self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
+                self.assertEqual(len(res["results"]), 1)
+
+            with self.subTest(name="Multiple Triggers"):
+                name = "zdns-testing.com,,A,CNAME"
+                c = "MULTIPLE -c " + multi_config_path
+                cmd, res = self.run_zdns(c, name)
+                self.assertSuccess(res, cmd, "A")
+                self.assertSuccess(res, cmd, "CNAME")
+                self.assertEqualAnswers(res, self.ROOT_A_ANSWERS, cmd, "A")
+                self.assertEqual(len(res["results"]), 2)
+            with self.subTest(
+                name="nameserver specified and using multiple modules and no trigger"
+            ):
+                name = "zdns-testing.com,1.1.1.1"
+                c = "MULTIPLE -c " + multi_config_path
+                cmd, res = self.run_zdns(c, name)
+                for mod in ["A", "AAAA", "CNAME"]:
+                    self.assertSuccess(res, cmd, mod)
+                    self.assertEqual(
+                        res["results"][mod]["data"]["resolver"], "1.1.1.1:53"
+                    )
+            with self.subTest(name="nameserver and trigger"):
+                name = "zdns-testing.com,1.1.1.1,A,AAAA"
+                c = "MULTIPLE -c " + multi_config_path
+                cmd, res = self.run_zdns(c, name)
+                for mod in ["A", "AAAA"]:
+                    self.assertSuccess(res, cmd, mod)
+                    self.assertEqual(
+                        res["results"][mod]["data"]["resolver"], "1.1.1.1:53"
+                    )
+            with self.subTest(
+                name="nameserver and trigger without using MULTIPLE module"
+            ):
+                name = "zdns-testing.com,1.1.1.1,A,AAAA"
+                c = "A --trigger A"
+                cmd, res = self.run_zdns(c, name)
+                for mod in ["A"]:
+                    self.assertSuccess(res, cmd, mod)
+                    self.assertEqual(
+                        res["results"][mod]["data"]["resolver"], "1.1.1.1:53"
+                    )
 
     def test_cname(self):
         c = "CNAME"

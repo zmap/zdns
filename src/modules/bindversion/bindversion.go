@@ -74,6 +74,10 @@ func (bindVersionMod *BindVersionLookupModule) GetDescription() string {
 	return ""
 }
 
+func (bindVersionMod *BindVersionLookupModule) GetTrigger() string {
+	return bindVersionMod.Trigger
+}
+
 func (bindVersionMod *BindVersionLookupModule) Validate(args []string) error {
 	return nil
 }

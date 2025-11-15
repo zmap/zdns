@@ -78,6 +78,10 @@ func (spfMod *SpfLookupModule) GetDescription() string {
 	return ""
 }
 
+func (spfMod *SpfLookupModule) GetTrigger() string {
+	return spfMod.Trigger
+}
+
 func (spfMod *SpfLookupModule) NewFlags() any {
 	return spfMod
 }

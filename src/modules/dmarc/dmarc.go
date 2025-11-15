@@ -75,6 +75,10 @@ func (dmarcMod *DmarcLookupModule) GetDescription() string {
 	return ""
 }
 
+func (dmarcMod *DmarcLookupModule) GetTrigger() string {
+	return dmarcMod.Trigger
+}
+
 func (dmarcMod *DmarcLookupModule) NewFlags() any {
 	return dmarcMod
 }

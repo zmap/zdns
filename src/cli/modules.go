@@ -29,6 +29,7 @@ type LookupModule interface {
 	Lookup(ctx context.Context, resolver *zdns.Resolver, lookupName string, nameServer *zdns.NameServer) (any, zdns.Trace, zdns.Status, error)
 	Help() string                 // needed to satisfy the ZCommander interface in ZFlags.
 	GetDescription() string       // needed to add a command to the parser, printed to the user. Printed to the user when they run the help command for a given module
+	GetTrigger() string           // get the trigger tag for this module, if any
 	Validate(args []string) error // needed to satisfy the ZCommander interface in ZFlags
 	NewFlags() any                // needed to satisfy the ZModule interface in ZFlags
 }
@@ -133,11 +134,12 @@ func RegisterLookupModule(name string, lm LookupModule) {
 	moduleToLookupModule[name] = lm
 	_, err := parser.AddCommand(name, "", lm.GetDescription(), lm)
 	if err != nil {
-		log.Fatalf("could not add command: %v", err)
+		log.Fatalf("could not add command (%s): %v", name, err)
 	}
 }
 
 type BasicLookupModule struct {
+	Trigger              string `long:"trigger" description:"invoke only on targets with specified tag. Useful for multiple module"`
 	IsIterative          bool
 	LookupAllNameServers bool
 	DNSType              uint16
@@ -167,6 +169,10 @@ func (lm *BasicLookupModule) Help() string {
 
 func (lm *BasicLookupModule) GetDescription() string {
 	return lm.Description
+}
+
+func (lm *BasicLookupModule) GetTrigger() string {
+	return lm.Trigger
 }
 
 func (lm *BasicLookupModule) Validate(args []string) error {
