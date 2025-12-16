@@ -1741,20 +1741,12 @@ class Tests(unittest.TestCase):
     def test_lookup_all_nameservers_multi_zone_iterative(self):
         """
         Test that --all-nameservers lookups work with domains whose nameservers have their nameservers in different zones
-        In this case, tripadvisor.de has nameservers in .com, .net, .org, and .uk, which are of course NOT in the .de zone.
-        This means the nameservers will not provide the IPs in the additional section, and so we'll test that we still
-        resolve correctly by iteratively looking up the nameservers too.
-
-        Example (Note the lack of additionals)
-        $ dig -t A tripadvisor.de @a.nic.de
-        ...
-        AUTHORITY SECTION:
-        tripadvisor.de.		86400	IN	NS	ns-463.awsdns-57.com.
-        tripadvisor.de.		86400	IN	NS	ns-1014.awsdns-62.net.
-        tripadvisor.de.		86400	IN	NS	ns-1296.awsdns-34.org.
-        tripadvisor.de.		86400	IN	NS	ns-1710.awsdns-21.co.uk.
+        In this case, example.com has a/b.iana-servers.net as nameservers, which are in the .com zone, but whose nameservers
+        are dig -t NS iana-servers.com -> ns.icann.org, a/b/c.iana-servers.net. This means the .com nameservers will not
+        provide the IPs in the additional section.
         """
-        c = "A tripadvisor.de --all-nameservers --iterative --timeout=60"
+        # example.com has nameservers in .com, .org, and .net, we'll have to iteratively figure out their IP addresses too
+        c = "A example.com --all-nameservers --iterative --timeout=60"
         cmd, res = self.run_zdns(c, "")
         self.assertSuccess(res, cmd, "A")
         # Check for layers
@@ -1764,15 +1756,25 @@ class Tests(unittest.TestCase):
             "Should have the root (.) layer",
         )
         self.assertIn(
-            "de",
+            "com",
             res["results"]["A"]["data"]["per_layer_responses"],
-            "Should have the .de layer",
+            "Should have the .com layer",
         )
         self.assertIn(
-            "tripadvisor.de",
+            "example.com",
             res["results"]["A"]["data"]["per_layer_responses"],
-            "Should have the tripadvisor.de layer",
+            "Should have the example.com layer",
         )
+        self.check_for_existance_of_root_and_com_nses(res)
+        # check for the example.com nameservers
+        actual_example_nses = []
+        for entry in res["results"]["A"]["data"]["per_layer_responses"]["example.com"]:
+            actual_example_nses.append(entry["nameserver"])
+        expected_example_nses = ["a.iana-servers.net", "b.iana-servers.net"]
+        for ns in expected_example_nses:
+            self.assertIn(
+                ns, actual_example_nses, "Should have the example.com nameservers"
+            )
 
     def test_lookup_all_nameservers_external_lookup(self):
         """
