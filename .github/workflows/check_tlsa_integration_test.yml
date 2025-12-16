@@ -111,7 +111,7 @@ jobs:
 
       - name: Create Pull Request
         if: env.file_updated == 'true'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           title: "Update TLSA records"
           body: "This PR updates the TLSA records in the test file."
