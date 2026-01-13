@@ -9,7 +9,7 @@ require (
 	github.com/schollz/progressbar/v3 v3.18.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.11.1
-	github.com/zmap/dns v1.1.69
+	github.com/zmap/dns v1.1.70
 	github.com/zmap/go-dns-root-anchors v0.0.0-20250415191259-6d65fb878756
 	github.com/zmap/go-iptree v0.0.0-20210731043055-d4e632617837
 	github.com/zmap/zcrypto v0.0.0-20250618174828-7ca6a82cf2d4
@@ -37,15 +37,15 @@ require (
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/weppos/publicsuffix-go v0.40.3-0.20250617082559-9b2e24a9e482 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
-	golang.org/x/crypto v0.45.0 // indirect
-	golang.org/x/mod v0.30.0 // indirect
-	golang.org/x/net v0.47.0 // indirect
-	golang.org/x/sync v0.18.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
-	golang.org/x/term v0.37.0 // indirect
-	golang.org/x/text v0.31.0 // indirect
+	golang.org/x/crypto v0.46.0 // indirect
+	golang.org/x/mod v0.31.0 // indirect
+	golang.org/x/net v0.48.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
+	golang.org/x/term v0.38.0 // indirect
+	golang.org/x/text v0.32.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
-	golang.org/x/tools v0.39.0 // indirect
+	golang.org/x/tools v0.40.0 // indirect
 	google.golang.org/protobuf v1.36.8 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
