@@ -155,7 +155,7 @@ func (v *dNSSECValidator) validate(layer string, msg *dns.Msg, nameServer *NameS
 // - Trace: Updated trace context
 func (v *dNSSECValidator) validateSection(section []dns.RR, depth int, trace Trace) ([]DNSSECPerSetResult, Trace) {
 	typeToRRSets, typeToRRSigs := splitRRsetsAndSigs(section)
-	result := make([]DNSSECPerSetResult, 0)
+	result := make([]DNSSECPerSetResult, 0, len(typeToRRSets))
 
 	// Verify if for each RRset there is a corresponding RRSIG
 	for rrsKey, rrSet := range typeToRRSets {
