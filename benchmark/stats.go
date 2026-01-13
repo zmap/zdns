@@ -91,7 +91,7 @@ func printStats(s *Stats) {
 			Domain string
 			Status zdns.Status
 		}
-		var sortedFailedDomains []DomainStatus
+		sortedFailedDomains := make([]DomainStatus, 0, len(s.FailedDomains))
 		for domain, status := range s.FailedDomains {
 			sortedFailedDomains = append(sortedFailedDomains, DomainStatus{domain, status})
 		}
