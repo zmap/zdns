@@ -839,8 +839,7 @@ class Tests(unittest.TestCase):
             # Create multiple.ini
             multi_config_path = os.path.join(tmpdir, "multiple.ini")
             with open(multi_config_path, "w") as f:
-                f.write(
-                    """
+                f.write("""
                         [Application Options]
                         iterative=false
                         prefer-ipv6-iteration="true"
@@ -851,8 +850,7 @@ class Tests(unittest.TestCase):
                         trigger = "AAAA"
                         [CNAME]
                         trigger = "CNAME"
-                    """
-                )
+                    """)
             # ---- Subtests for each domain ----
             with self.subTest(name="using multiple modules and no trigger"):
                 name = "zdns-testing.com"
