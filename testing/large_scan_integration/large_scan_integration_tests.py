@@ -2,7 +2,6 @@
 import json
 import subprocess
 
-
 ZDNS_EXECUTABLE = "./zdns"
 EXPECTED_TEST_FILE = "./testing/large_scan_integration/expected_output.jsonl"
 
