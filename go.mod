@@ -7,7 +7,7 @@ require (
 	github.com/liip/sheriff v0.12.0
 	github.com/pkg/errors v0.9.1
 	github.com/schollz/progressbar/v3 v3.18.0
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.11.1
 	github.com/zmap/dns v1.1.70
 	github.com/zmap/go-dns-root-anchors v0.0.0-20250415191259-6d65fb878756
