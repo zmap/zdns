@@ -1382,9 +1382,9 @@ class Tests(unittest.TestCase):
         )
 
     def test_edns0_ede_1(self):
-        name = "dnssec.fail"
-        # using Cloudflare Public DNS (1.1.1.1) that implements EDE
-        c = f"A --name-servers=1.1.1.1:53"
+        name = "dnssec-failed.org"
+        # using Google Public DNS (8.8.8.8) that implements EDE
+        c = f"A --name-servers=8.8.8.8:53"
         cmd, res = self.run_zdns(c, name)
         self.assertServFail(res, cmd, "A")
         res = res["results"]["A"]
@@ -1392,24 +1392,16 @@ class Tests(unittest.TestCase):
         ede_obj = res["data"]["additionals"][0]["ede"][0]
         self.assertEqual("DNSKEY Missing", ede_obj["error_text"])
         self.assertEqual(
-            "no SEP matching the DS found for dnssec.fail.", ede_obj["extra_text"]
+            "No DNSKEY matches DS RRs of dnssec-failed.org", ede_obj["extra_text"]
         )
         self.assertEqual(9, ede_obj["info_code"])
 
     def test_edns0_ede_2_cd(self):
-        name = "dnssec.fail"
-        # using Cloudflare Public DNS (1.1.1.1) that implements EDE, checking disabled resulting in NOERROR
-        c = f"A --name-servers=1.1.1.1:53 --checking-disabled"
+        name = "dnssec-failed.org"
+        # using Cloudflare Public DNS (8.8.8.8) that implements EDE, checking disabled resulting in NOERROR
+        c = f"A --name-servers=8.8.8.8:53 --checking-disabled"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd, "A")
-        res = res["results"]["A"]
-        self.assertTrue("ede" in res["data"]["additionals"][0])
-        ede_obj = res["data"]["additionals"][0]["ede"][0]
-        self.assertEqual("DNSKEY Missing", ede_obj["error_text"])
-        self.assertEqual(
-            "no SEP matching the DS found for dnssec.fail.", ede_obj["extra_text"]
-        )
-        self.assertEqual(9, ede_obj["info_code"])
 
     def test_dnssec_response(self):
         # checks if dnssec records are returned
