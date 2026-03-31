@@ -1,6 +1,8 @@
 module github.com/zmap/zdns/v2
 
-go 1.24.0
+go 1.25.0
+
+toolchain go1.25.8
 
 require (
 	github.com/hashicorp/go-version v1.8.0
