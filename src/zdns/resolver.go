@@ -264,6 +264,30 @@ type ConnectionInfo struct {
 	localAddr    net.IP
 }
 
+// Close attempts to close any and all open connections
+func (c *ConnectionInfo) Close() error {
+	errStrs := []string{}
+	if c.udpConn != nil {
+		if err := c.udpConn.Close(); err != nil {
+			errStrs = append(errStrs, fmt.Sprintf("error closing UDP connection: %v", err))
+		}
+	}
+	if c.tcpConn != nil {
+		if err := c.tcpConn.Close(); err != nil {
+			errStrs = append(errStrs, fmt.Sprintf("error closing TCP connection: %v", err))
+		}
+	}
+	if c.tlsConn != nil {
+		if err := c.tlsConn.Close(); err != nil {
+			errStrs = append(errStrs, fmt.Sprintf("error closing TLS connection: %v", err))
+		}
+	}
+	if len(errStrs) > 0 {
+		return errors.New(strings.Join(errStrs, "; "))
+	}
+	return nil
+}
+
 // Resolver is a struct that holds the state of a DNS resolver. It is used to perform DNS lookups.
 type Resolver struct {
 	cache        *Cache
@@ -285,7 +309,7 @@ type Resolver struct {
 	transportMode         TransportMode
 	ipVersionMode         IPVersionMode
 	iterationIPPreference IterationIPPreference
-	shouldRecycleSockets  bool
+	shouldRecycleSockets  bool // if we should keep persistent TCP/UDP sockets or create a new connection each lookup
 
 	networkTimeout             time.Duration // timeout for a single on-the-wire network call
 	iterativeTimeout           time.Duration // timeout for a layer of the iterative lookup
@@ -430,6 +454,10 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 		} else if r.transportMode == TCPOnly && r.shouldRecycleSockets && existingConnInfo.tcpConn != nil {
 			return existingConnInfo, nil
 		}
+		// if we've fallen out here, it means we don't want to use this connection, we'll close it and open a new one
+		if err := existingConnInfo.Close(); err != nil {
+			return nil, fmt.Errorf("error closing existing connection info: %v", err)
+		}
 	}
 
 	// no existing ConnInfo, create a new one
@@ -495,7 +523,8 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 	connInfo := &ConnectionInfo{
 		localAddr: *localAddr,
 	}
-	if r.shouldRecycleSockets {
+	usingUDP := r.transportMode == UDPOrTCP || r.transportMode == UDPOnly
+	if usingUDP && r.shouldRecycleSockets {
 		// create persistent connection
 		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: connInfo.localAddr})
 		if err != nil {
@@ -505,7 +534,6 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 		connInfo.udpConn.Conn = conn
 	}
 
-	usingUDP := r.transportMode == UDPOrTCP || r.transportMode == UDPOnly
 	if usingUDP {
 		connInfo.udpClient = new(dns.Client)
 		connInfo.udpClient.Timeout = r.timeout

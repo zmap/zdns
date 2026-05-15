@@ -79,7 +79,7 @@ type NetworkOptions struct {
 	DNSOverHTTPS          bool   `long:"https" description:"Use DNS over HTTPS for lookups, mutually exclusive with --udp-only, --iterative, and --tls"`
 	LocalAddrString       string `long:"local-addr" description:"comma-delimited list of local addresses to use, serve as the source IP for outbound queries"`
 	LocalIfaceString      string `long:"local-interface" description:"local interface to use"`
-	DisableRecycleSockets bool   `long:"no-recycle-sockets" description:"do not create long-lived unbound UDP socket for each thread at launch and reuse for all (UDP) queries"`
+	DisableRecycleSockets bool   `long:"no-recycle-sockets" description:"do not create long-lived UDP/TCP sockets for each thread at launch and reuse for all queries"`
 	PreferIPv4Iteration   bool   `long:"prefer-ipv4-iteration" description:"Prefer IPv4/A record lookups during iterative resolution. Ignored unless used with both IPv4 and IPv6 query transport"`
 	PreferIPv6Iteration   bool   `long:"prefer-ipv6-iteration" description:"Prefer IPv6/AAAA record lookups during iterative resolution. Ignored unless used with both IPv4 and IPv6 query transport"`
 	RootCAsFile           string `long:"root-cas-file" description:"Path to a file containing PEM-encoded root CAs to use for verifying server certificates, required for --verify-server-cert"`
