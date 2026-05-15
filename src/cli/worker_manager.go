@@ -266,9 +266,7 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	} else if config.IPVersionMode == zdns.IPv6Only {
 		config.IterationIPPreference = zdns.PreferIPv6
 	} else if config.IPVersionMode == zdns.IPv4OrIPv6 && !gc.PreferIPv4Iteration && !gc.PreferIPv6Iteration {
-		// need to specify some type of preference, we'll default to IPv4 and inform the user
-		log.Info("No iteration IP preference specified, defaulting to IPv4 preferred. See --prefer-ipv4-iteration and --prefer-ipv6-iteration for more info")
-		config.IterationIPPreference = zdns.PreferIPv4
+		config.IterationIPPreference = zdns.NoPreference
 	} else if config.IPVersionMode == zdns.IPv4OrIPv6 && gc.PreferIPv4Iteration && gc.PreferIPv6Iteration {
 		log.Fatal("Cannot specify both --prefer-ipv4-iteration and --prefer-ipv6-iteration")
 	} else {

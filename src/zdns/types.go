@@ -92,6 +92,7 @@ type IterationIPPreference int
 const (
 	PreferIPv4 IterationIPPreference = iota
 	PreferIPv6
+	NoPreference
 )
 
 func GetIterationIPPreference(preferIPv4, preferIPv6 bool) IterationIPPreference {

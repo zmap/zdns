@@ -383,6 +383,8 @@ func (r *Resolver) filterNameServersForUniqueNames(nameServers []NameServer) []N
 			filteredNameServersSet = append(filteredNameServersSet, *ipv4NS)
 		} else if r.iterationIPPreference == PreferIPv6 {
 			filteredNameServersSet = append(filteredNameServersSet, *ipv6NS)
+		} else if r.iterationIPPreference == NoPreference {
+			filteredNameServersSet = append(filteredNameServersSet, *ipv4NS, *ipv6NS)
 		}
 	}
 	return filteredNameServersSet
