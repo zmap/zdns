@@ -3,11 +3,28 @@ package zdns
 import (
 	"context"
 	"fmt"
+	"net"
 	"testing"
 	"time"
 
 	"github.com/zmap/dns"
 )
+
+type testCase struct {
+	transportMode         TransportMode
+	ipVersion             IPVersionMode
+	iterationIPPreference IterationIPPreference
+	lookupAllNameservers  bool
+	useHTTPS              bool
+	useTLS                bool
+	recycleSockets        bool
+	isExternalLookup      bool
+}
+
+func (t *testCase) String() string {
+	return fmt.Sprintf("transport=%s/ip=%s/iterationpref=%s/lookupAllNS=%v/https=%v/tls=%v/recycleSocks=%v/externalLookup=%v",
+		t.transportMode,t.ipVersion,t.iterationIPPreference,t.lookupAllNameservers,t.useHTTPS,t.useTLS,t.recycleSockets,t.isExternalLookup)
+}
 
 // TODO
 // Wrapping up for the night, but preliminary testing shows 2 issues
@@ -23,19 +40,8 @@ func TestNetworkConditions(t *testing.T) {
 	}
 
 	// TODO Phillip You have to figure this part out
-	hostSupportsIPv4 := true
-	hostSupportsIPv6 := true
-
-	type testCase struct {
-		transportMode         TransportMode
-		ipVersion             IPVersionMode
-		iterationIPPreference IterationIPPreference
-		lookupAllNameservers  bool
-		useHTTPS              bool
-		useTLS                bool
-		recycleSockets        bool
-		isExternalLookup bool
-	}
+	hostSupportsIPv4 := hostHasIPv4()
+	hostSupportsIPv6 := hostHasIPv6()
 
 	// skipReason returns a non-empty string if this case should be skipped.
 	skipReason := func(tc testCase) string {
@@ -70,14 +76,14 @@ func TestNetworkConditions(t *testing.T) {
 								for _, isExternalLookup := range []bool{false, true} {
 									tests = append(tests,
 										testCase{
-										tm,
-										ipv,
-										pref,
-										lan,
-										https,
-										tls,
-										recycle,
-										isExternalLookup})
+											tm,
+											ipv,
+											pref,
+											lan,
+											https,
+											tls,
+											recycle,
+											isExternalLookup})
 								}
 							}
 						}
@@ -89,10 +95,7 @@ func TestNetworkConditions(t *testing.T) {
 	numTestsRan := 0
 	for _, tc := range tests {
 		tc := tc
-		t.Run(fmt.Sprintf("%v/%v/%v/lan=%v/https=%v/tls=%v/recycle=%v",
-			tc.transportMode, tc.ipVersion, tc.iterationIPPreference,
-			tc.lookupAllNameservers, tc.useHTTPS, tc.useTLS, tc.recycleSockets,
-		), func(t *testing.T) {
+		t.Run(tc.String(), func(t *testing.T) {
 			//t.Parallel()
 			if reason := skipReason(tc); reason != "" {
 				t.Skip(reason)
@@ -122,7 +125,7 @@ func TestNetworkConditions(t *testing.T) {
 			var result *SingleQueryResult
 			var status Status
 			if tc.isExternalLookup {
-				result, _, status, err = resolver.ExternalLookup(ctx,&q, nil)
+				result, _, status, err = resolver.ExternalLookup(ctx, &q, nil)
 			} else {
 				result, _, status, err = resolver.IterativeLookup(ctx, &q)
 			}
@@ -138,4 +141,22 @@ func TestNetworkConditions(t *testing.T) {
 			// TODO actually validate the answer, if possible
 		})
 	}
+}
+
+func hostHasIPv4() bool {
+	listener, err := net.Listen("tcp4", ":0")
+	if err != nil {
+		return false
+	}
+	listener.Close()
+	return true
+}
+
+func hostHasIPv6() bool {
+	listener, err := net.Listen("tcp6", ":0")
+	if err != nil {
+		return false
+	}
+	listener.Close()
+	return true
 }

@@ -29,6 +29,19 @@ const (
 
 type TransportMode int
 
+func (m TransportMode) String() string {
+	switch m {
+	case UDPOrTCP:
+		return "UDP or TCP"
+	case UDPOnly:
+		return "UDP"
+	case TCPOnly:
+		return "TCP"
+	default:
+		return "Unknown"
+	}
+}
+
 const (
 	UDPOrTCP TransportMode = iota
 	UDPOnly
@@ -68,6 +81,19 @@ const (
 	IPv4OrIPv6
 )
 
+func (v IPVersionMode) String() string {
+	switch v {
+	case IPv4Only:
+		return "IPv4"
+	case IPv6Only:
+		return "IPv6"
+	case IPv4OrIPv6:
+		return "IPv4 or IPv6"
+	default:
+		return "Unknown"
+	}
+}
+
 func GetIPVersionMode(ipv4, ipv6 bool) IPVersionMode {
 	if ipv4 && ipv6 {
 		return IPv4OrIPv6
@@ -94,6 +120,19 @@ const (
 	PreferIPv6
 	NoPreference
 )
+
+func (i IterationIPPreference) String() string {
+	switch i {
+	case PreferIPv4:
+		return "prefer IPv4"
+	case PreferIPv6:
+		return "prefer IPv6"
+	case NoPreference:
+		return "no IPv4 or IPv6 preference"
+	default:
+		return "Unknown"
+	}
+}
 
 func GetIterationIPPreference(preferIPv4, preferIPv6 bool) IterationIPPreference {
 	if preferIPv4 {
