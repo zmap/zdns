@@ -82,10 +82,10 @@ type ResolverConfig struct {
 	NetworkTimeout        time.Duration // timeout for a single on-the-wire network call
 	Timeout               time.Duration // timeout for the resolution of a single name
 	MaxDepth              int
-	ExternalNameServersV4 []NameServer // v4 name servers used for external lookups
-	ExternalNameServersV6 []NameServer // v6 name servers used for external lookups
-	RootNameServersV4     []NameServer // v4 root servers used for iterative lookups
-	RootNameServersV6     []NameServer // v6 root servers used for iterative lookups
+	ExternalNameServersV4 []NameServer // v4 name servers used for external lookups. Be sure lookup host has IPv4 capability as we don't check to avoid having ZDNS make unexpected outbound connections
+	ExternalNameServersV6 []NameServer // v6 name servers used for external lookups. Be sure lookup host has IPv6 capability as we don't check to avoid having ZDNS make unexpected outbound connections
+	RootNameServersV4     []NameServer // v4 root servers used for iterative lookups. Be sure lookup host has IPv4 capability as we don't check to avoid having ZDNS make unexpected outbound connections
+	RootNameServersV6     []NameServer // v6 root servers used for iterative lookups. Be sure lookup host has IPv6 capability as we don't check to avoid having ZDNS make unexpected outbound connections
 	LookupAllNameServers  bool         // perform the lookup via all the nameservers for the name
 	FollowCNAMEs          bool         // whether iterative lookups should follow CNAMEs/DNAMEs
 	DNSConfigFilePath     string       // path to the DNS config file, ex: /etc/resolv.conf
@@ -566,7 +566,7 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 		connInfo.httpsClient = &http.Client{
 			UserAgent: "zdns/" + ZDNSVersion,
 			Transport: &http.Transport{
-				DialTLS: func(network, addr string) (net.Conn, error) {
+				DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 					localTCPAddr := &net.TCPAddr{
 						IP:   net.ParseIP(connInfo.localAddr.String()),
 						Port: 0,
@@ -574,11 +574,10 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 
 					// Custom dialer with local address binding
 					dialer := &net.Dialer{
-						Timeout:   30 * time.Second,
 						KeepAlive: 30 * time.Second,
 						LocalAddr: localTCPAddr,
 					}
-					conn, err := dialer.Dial(network, addr)
+					conn, err := dialer.DialContext(ctx, network, addr)
 					if err != nil {
 						return nil, err
 					}
@@ -599,6 +598,11 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 					err = tlsConn.Handshake()
 					if err != nil {
 						conn.Close()
+						return nil, err
+					}
+					// Clear the deadline after handshake; per-request deadlines are set via req.WithContext.
+					if err = tlsConn.SetDeadline(time.Time{}); err != nil {
+						tlsConn.Close()
 						return nil, err
 					}
 					return tlsConn, nil

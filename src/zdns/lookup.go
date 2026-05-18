@@ -212,6 +212,9 @@ func (r *Resolver) followingLookup(ctx context.Context, qWithMeta *QuestionWithM
 	currName := qWithMeta.Q.Name     // this is the current name we are looking up
 	r.verboseLog(0, "MIEKG-IN: starting a C/DNAME following lookup for ", originalName, " (", qWithMeta.Q.Type, ")")
 	for i := 0; i < r.maxDepth; i++ {
+		if util.HasCtxExpired(ctx) {
+			return nil, trace, StatusTimeout, nil
+		}
 		qWithMeta.Q.Name = currName // update the question with the current name, this allows following CNAMEs
 		iterRes, newTrace, iterStatus, lookupErr := r.lookup(ctx, qWithMeta, nameServers, isIterative, trace)
 		trace = newTrace
@@ -384,6 +387,7 @@ func (r *Resolver) filterNameServersForUniqueNames(nameServers []NameServer) []N
 		} else if r.iterationIPPreference == PreferIPv6 {
 			filteredNameServersSet = append(filteredNameServersSet, *ipv6NS)
 		} else if r.iterationIPPreference == NoPreference {
+			// dual-stack and no preference. we'll use both
 			filteredNameServersSet = append(filteredNameServersSet, *ipv4NS, *ipv6NS)
 		}
 	}
@@ -596,7 +600,11 @@ func (r *Resolver) populateNameServerIP(ctx context.Context, nameServer *NameSer
 	} else if r.iterationIPPreference == PreferIPv4 {
 		q = Question{dns.TypeA, dns.ClassINET, nameServer.DomainName}
 	} else {
+		// Dual-stack and no IP preference, flip a coin
 		q = Question{dns.TypeAAAA, dns.ClassINET, nameServer.DomainName}
+		if rand.Intn(2) == 0 {
+			q.Type = dns.TypeA
+		}
 	}
 	res, nsTrace, status, err := r.followingLookup(ctx, &QuestionWithMetadata{
 		Q:                q,
@@ -787,7 +795,7 @@ func (r *Resolver) cyclingLookup(ctx context.Context, qWithMeta *QuestionWithMet
 			return result, isCached, status, trace, err
 		} else if *qWithMeta.RetriesRemaining == 0 {
 			r.verboseLog(depth+1, "Cycling lookup failed - out of retries. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
-			return result, isCached, status, trace, errors.New("cycling lookup failed - out of retries")
+			return result, isCached, status, trace, fmt.Errorf("cycling lookup failed - out of retries. Last error: %v", err)
 		} else if util.HasCtxExpired(ctx) {
 			r.verboseLog(depth+1, "Cycling lookup failed - context expired. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 			return result, isCached, status, trace, errors.New("cycling lookup failed - context expired")
@@ -1030,7 +1038,7 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 				ServerName:         nameServer.DomainName,
 			})
 		}
-		err = tlsConn.Handshake()
+		err = tlsConn.HandshakeContext(ctx)
 		if err != nil {
 			closeErr := tlsConn.Close()
 			if closeErr != nil {
@@ -1040,6 +1048,11 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 		}
 		connInfo.tlsHandshake = tlsConn.GetHandshakeLog()
 		connInfo.tlsConn = &dns.Conn{Conn: tlsConn}
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		if err := connInfo.tlsConn.SetDeadline(deadline); err != nil {
+			return nil, nil, StatusError, errors.Wrap(err, "could not set DoT connection deadline")
+		}
 	}
 	err := connInfo.tlsConn.WriteMsg(m)
 	if err != nil {
