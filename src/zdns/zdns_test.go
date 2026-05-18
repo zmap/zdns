@@ -23,7 +23,7 @@ type testCase struct {
 
 func (t *testCase) String() string {
 	return fmt.Sprintf("transport=%s/ip=%s/iterationpref=%s/lookupAllNS=%v/https=%v/tls=%v/recycleSocks=%v/externalLookup=%v",
-		t.transportMode,t.ipVersion,t.iterationIPPreference,t.lookupAllNameservers,t.useHTTPS,t.useTLS,t.recycleSockets,t.isExternalLookup)
+		t.transportMode, t.ipVersion, t.iterationIPPreference, t.lookupAllNameservers, t.useHTTPS, t.useTLS, t.recycleSockets, t.isExternalLookup)
 }
 
 // TODO
@@ -32,6 +32,7 @@ func (t *testCase) String() string {
 // 2. Almost all errors seem to be when preference is "NoPref"
 
 func TestNetworkConditions(t *testing.T) {
+	// Todo set to 200 sec for dev
 	const timeout = 2 * time.Second
 	q := Question{
 		Type:  dns.TypeA,
@@ -40,15 +41,15 @@ func TestNetworkConditions(t *testing.T) {
 	}
 
 	// TODO Phillip You have to figure this part out
-	hostSupportsIPv4 := hostHasIPv4()
-	hostSupportsIPv6 := hostHasIPv6()
+	hostSupportsIPv4 := canReachIPv4()
+	hostSupportsIPv6 := canReachIPv6()
 
 	// skipReason returns a non-empty string if this case should be skipped.
 	skipReason := func(tc testCase) string {
-		if tc.ipVersion == IPv4Only && !hostSupportsIPv4 {
+		if (tc.ipVersion == IPv4Only || tc.ipVersion == IPv4OrIPv6) && !hostSupportsIPv4 {
 			return "host does not support IPv4"
 		}
-		if tc.ipVersion == IPv6Only && !hostSupportsIPv6 {
+		if (tc.ipVersion == IPv6Only || tc.ipVersion == IPv4OrIPv6) && !hostSupportsIPv6 {
 			return "host does not support IPv6"
 		}
 		// HTTPS and TLS are mutually exclusive
@@ -58,6 +59,9 @@ func TestNetworkConditions(t *testing.T) {
 		// IterationIPPreference only meaningful for dual-stack
 		if tc.ipVersion != IPv4OrIPv6 && tc.iterationIPPreference != NoPreference {
 			return "IterationIPPreference only relevant in IPv4OrIPv6 mode"
+		}
+		if (tc.useHTTPS || tc.useTLS) && !tc.isExternalLookup {
+			return "HTTPS and TLS only supported for external lookups, root nameservers don't support HTTPS/TLS"
 		}
 		if tc.transportMode == UDPOnly && (tc.useHTTPS || tc.useTLS) {
 			return "UDP transport cannot be used with HTTPS or TLS"
@@ -96,7 +100,6 @@ func TestNetworkConditions(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.String(), func(t *testing.T) {
-			//t.Parallel()
 			if reason := skipReason(tc); reason != "" {
 				t.Skip(reason)
 			}
@@ -104,6 +107,18 @@ func TestNetworkConditions(t *testing.T) {
 
 			// Create a fresh ResolverConfig per test (no shared cache)
 			cfg := NewResolverConfig()
+			if tc.useHTTPS {
+				cfg.ExternalNameServersV4 = append(cfg.ExternalNameServersV4, []NameServer{{DomainName: GoogleDoHDomainName, IP: net.ParseIP("8.8.8.8"), Port: 443}, {DomainName: GoogleDoHDomainName, IP: net.ParseIP("8.8.4.4"), Port: 443}}...)
+				cfg.ExternalNameServersV6 = append(cfg.ExternalNameServersV6, []NameServer{{DomainName: GoogleDoHDomainName, IP: net.ParseIP("2001:4860:4860::8844"), Port: 443}, {DomainName: GoogleDoHDomainName, IP: net.ParseIP("2001:4860:4860::8888"), Port: 443}}...)
+			}
+			if tc.useTLS {
+				cfg.ExternalNameServersV4 = DefaultExternalDoTResolversV4
+				cfg.ExternalNameServersV6 = DefaultExternalDoTResolversV6
+			}
+			cfg.Timeout = timeout
+			cfg.NetworkTimeout = timeout
+			cfg.IterativeTimeout = timeout
+			cfg.Retries = 3
 			cfg.IPVersionMode = tc.ipVersion
 			cfg.TransportMode = tc.transportMode
 			cfg.IterationIPPreference = tc.iterationIPPreference
@@ -143,20 +158,20 @@ func TestNetworkConditions(t *testing.T) {
 	}
 }
 
-func hostHasIPv4() bool {
-	listener, err := net.Listen("tcp4", ":0")
+func canReachIPv4() bool {
+	conn, err := net.DialTimeout("tcp4", "8.8.8.8:53", 1*time.Second)
 	if err != nil {
 		return false
 	}
-	listener.Close()
+	conn.Close()
 	return true
 }
 
-func hostHasIPv6() bool {
-	listener, err := net.Listen("tcp6", ":0")
+func canReachIPv6() bool {
+	conn, err := net.DialTimeout("tcp6", "[2001:4860:4860::8888]:53", 1*time.Second)
 	if err != nil {
 		return false
 	}
-	listener.Close()
+	conn.Close()
 	return true
 }
