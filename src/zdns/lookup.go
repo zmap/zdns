@@ -923,6 +923,11 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 	if connInfo == nil {
 		return &SingleQueryResult{}, false, StatusError, trace, fmt.Errorf("no connection info for nameserver: %s", nameServer)
 	}
+	// Check Rate Limits
+	err = r.rateLimit.wait(lookupCtx, *nameServer)
+	if err != nil {
+		return &SingleQueryResult{}, false, StatusError, trace, fmt.Errorf("rate limiter error for nameserver %s: %v", nameServer, err)
+	}
 	var result *SingleQueryResult
 	var rawResp *dns.Msg
 	var status Status
