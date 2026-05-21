@@ -8,29 +8,29 @@ import (
 	"time"
 
 	"github.com/jellydator/ttlcache/v3"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 )
 
 const rateLimitTTL = time.Second * 15
+
 var ErrRateLimitExceeded = errors.New("rate limit exceeded")
 
-type nameServerRateLimiter interface {
+type NameServerRateLimiter interface {
 	wait(ctx context.Context, ns NameServer) error
 }
 
-type NameServerRateLimiter struct {
-	perIPInterArrivalTime time.Duration
-	perNameArrivalTime    time.Duration
+type PerIPPerNameNSRateLimiter struct {
+	perIPRate   rate.Limit
+	perNameRate rate.Limit
 
 	perIPRateLimitCache   *ttlcache.Cache[netip.Addr, *rate.Limiter]
 	perNameRateLimitCache *ttlcache.Cache[string, *rate.Limiter]
 }
 
-func newNameServerRateLimiter(perIPInterArrivalLimit, perNameInterArrivalLimit time.Duration) nameServerRateLimiter {
-	rl := &NameServerRateLimiter{
-		perIPInterArrivalTime: perIPInterArrivalLimit,
-		perNameArrivalTime:    perNameInterArrivalLimit,
+func NewNameServerRateLimiter(perIPRate, perNameRate rate.Limit) *PerIPPerNameNSRateLimiter {
+	rl := &PerIPPerNameNSRateLimiter{
+		perIPRate:   perIPRate,
+		perNameRate: perNameRate,
 
 		perIPRateLimitCache: ttlcache.New[netip.Addr, *rate.Limiter](
 			ttlcache.WithTTL[netip.Addr, *rate.Limiter](rateLimitTTL),
@@ -62,33 +62,36 @@ func (r reservation) Cancel() {
 }
 
 // getLimiters retrieves the associated per-IP and per-Name limiters for a given NS. If none exist, they will be created.
-func (l *NameServerRateLimiter) getReservations(ns NameServer) (perIPReservation, perNameReservation *reservation) {
+func (l *PerIPPerNameNSRateLimiter) getReservations(ns NameServer) (perIPReservation, perNameReservation *reservation, err error) {
 	perIPReservation = &reservation{}
 	perNameReservation = &reservation{}
 	if len(ns.DomainName) > 0 {
 		perName := l.perNameRateLimitCache.Get(ns.DomainName)
 		if perName == nil {
-			perName = l.perNameRateLimitCache.Set(ns.DomainName, rate.NewLimiter(rate.Every(l.perNameArrivalTime), 1), rateLimitTTL)
+			perName = l.perNameRateLimitCache.Set(ns.DomainName, rate.NewLimiter(l.perNameRate, 1), rateLimitTTL)
 		}
 		perNameReservation.r = perName.Value().Reserve()
 	}
 	ip, err := netip.ParseAddr(ns.IP.String())
 	if err != nil {
-		// TODO Phillip revisit if this should be a fatal panic
-		log.Fatalf("error parsing IP address %s: %s", ns.IP.String(), err)
+		err = fmt.Errorf("error parsing IP address %s: %w", ns.IP.String(), err)
+		return
 	}
 	perIP := l.perIPRateLimitCache.Get(ip)
 	if perIP == nil {
-		perIP = l.perIPRateLimitCache.Set(ip, rate.NewLimiter(rate.Every(l.perIPInterArrivalTime), 1), rateLimitTTL)
+		perIP = l.perIPRateLimitCache.Set(ip, rate.NewLimiter(l.perIPRate, 1), rateLimitTTL)
 	}
 	perIPReservation.r = perIP.Value().Reserve()
 	return
 
 }
 
-func (l *NameServerRateLimiter) wait(ctx context.Context, ns NameServer) error {
+func (l *PerIPPerNameNSRateLimiter) wait(ctx context.Context, ns NameServer) error {
 
-	ipReservation, nameReservation := l.getReservations(ns)
+	ipReservation, nameReservation, err := l.getReservations(ns)
+	if err != nil {
+		return err
+	}
 
 	if deadline, ok := ctx.Deadline(); ok {
 		remaining := time.Until(deadline)

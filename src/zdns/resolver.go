@@ -63,7 +63,7 @@ const (
 type ResolverConfig struct {
 	Cache        *Cache
 	CacheSize    int // don't use both cache and cacheSize
-	RateLimiter  nameServerRateLimiter
+	RateLimiter  NameServerRateLimiter
 	LookupClient Lookuper // either a functional or mock Lookuper client for testing
 
 	Blacklist *blacklist.SafeBlacklist
@@ -224,7 +224,7 @@ func NewResolverConfig() *ResolverConfig {
 	return &ResolverConfig{
 		LookupClient: LookupClient{},
 		Cache:        c,
-		RateLimiter:  newNameServerRateLimiter(500 * time.Millisecond, 500 * time.Millisecond),
+		RateLimiter:  NewNameServerRateLimiter(20, 10),
 
 		Blacklist:             blacklist.New(),
 		LocalAddrsV4:          []net.IP{},
@@ -269,7 +269,7 @@ type ConnectionInfo struct {
 // Resolver is a struct that holds the state of a DNS resolver. It is used to perform DNS lookups.
 type Resolver struct {
 	cache        *Cache
-	rateLimit    nameServerRateLimiter
+	rateLimit    NameServerRateLimiter
 	lookupClient Lookuper // either a functional or mock Lookuper client for testing
 
 	blacklist                   *blacklist.SafeBlacklist
