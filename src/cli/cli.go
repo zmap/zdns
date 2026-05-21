@@ -45,21 +45,23 @@ type StatusHandler interface {
 // GeneralOptions core options for all ZDNS modules
 // Order here is the order they'll be printed to the user, so preserve alphabetical order
 type GeneralOptions struct {
-	LookupAllNameServers bool   `long:"all-nameservers" description:"Behavior is dependent on --iterative. In --iterative, --all-nameservers will query all root servers, then all gtld servers, etc. recording the responses at each layer. In non-iterative mode, the query will be sent to all external resolvers specified in --name-servers."`
-	CacheSize            int    `long:"cache-size" default:"10000" description:"how many items can be stored in internal recursive cache"`
-	GoMaxProcs           int    `long:"go-processes" default:"0" description:"number of OS processes to use, GOMAXPROCS if 0"`
-	IterationTimeout     int    `long:"iteration-timeout" default:"8" description:"timeout for a single iterative step in an iterative query, in seconds. Only applicable with --iterative"`
-	IterativeResolution  bool   `long:"iterative" description:"Perform own iteration instead of relying on recursive resolver"`
-	MaxDepth             int    `long:"max-depth" default:"10" description:"how deep should we recurse when performing iterative lookups"`
-	NameServerMode       bool   `long:"name-server-mode" description:"Treats input as nameservers to query with a static query rather than queries to send to a static name server"`
-	NameServersString    string `long:"name-servers" description:"List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53. If not provided, defaults to either the default root servers in --iterative or the recursive resolvers specified in /etc/resolv.conf or OS equivalent."`
-	UseNanoseconds       bool   `long:"nanoseconds" description:"Use nanosecond resolution timestamps in output"`
-	NetworkTimeout       int    `long:"network-timeout" default:"2" description:"timeout for round trip network operations, in seconds"`
-	DisableFollowCNAMEs  bool   `long:"no-follow-cnames" description:"do not follow CNAMEs/DNAMEs in the lookup process"`
-	Retries              int    `long:"retries" default:"3" description:"how many times should zdns retry query against a new nameserver if timeout or temporary failure"`
-	Threads              int    `short:"t" long:"threads" default:"100" description:"number of lightweight go threads"`
-	Timeout              int    `long:"timeout" default:"20" description:"timeout for resolving a individual name, in seconds"`
-	Version              bool   `long:"version" short:"v" description:"Print the version of zdns and exit"`
+	LookupAllNameServers bool    `long:"all-nameservers" description:"Behavior is dependent on --iterative. In --iterative, --all-nameservers will query all root servers, then all gtld servers, etc. recording the responses at each layer. In non-iterative mode, the query will be sent to all external resolvers specified in --name-servers."`
+	CacheSize            int     `long:"cache-size" default:"10000" description:"how many items can be stored in internal recursive cache"`
+	GoMaxProcs           int     `long:"go-processes" default:"0" description:"number of OS processes to use, GOMAXPROCS if 0"`
+	IterationTimeout     int     `long:"iteration-timeout" default:"8" description:"timeout for a single iterative step in an iterative query, in seconds. Only applicable with --iterative"`
+	IterativeResolution  bool    `long:"iterative" description:"Perform own iteration instead of relying on recursive resolver"`
+	MaxDepth             int     `long:"max-depth" default:"10" description:"how deep should we recurse when performing iterative lookups"`
+	NameServerMode       bool    `long:"name-server-mode" description:"Treats input as nameservers to query with a static query rather than queries to send to a static name server"`
+	NameServersString    string  `long:"name-servers" description:"List of DNS servers to use. Can be passed as comma-delimited string or via @/path/to/file. If no port is specified, defaults to 53. If not provided, defaults to either the default root servers in --iterative or the recursive resolvers specified in /etc/resolv.conf or OS equivalent."`
+	UseNanoseconds       bool    `long:"nanoseconds" description:"Use nanosecond resolution timestamps in output"`
+	NetworkTimeout       int     `long:"network-timeout" default:"2" description:"timeout for round trip network operations, in seconds"`
+	DisableFollowCNAMEs  bool    `long:"no-follow-cnames" description:"do not follow CNAMEs/DNAMEs in the lookup process"`
+	PerIPNSRateLimit     float64 `long:"per-ip-ns-rate-limit" default:"0" description:"rate limit for queries sent to a specific name server by IP, per second. Use 0 for no rate limit'"`
+	PerNameNSRateLimit   float64 `long:"per-name-ns-rate-limit" default:"0" description:"rate limit for queries sent to a specific name server by domain name, per second. Covers both IPv4 and IPv6 addresses the name may resolve to. Use 0 for no rate limit'"`
+	Retries              int     `long:"retries" default:"3" description:"how many times should zdns retry query against a new nameserver if timeout or temporary failure"`
+	Threads              int     `short:"t" long:"threads" default:"100" description:"number of lightweight go threads"`
+	Timeout              int     `long:"timeout" default:"20" description:"timeout for resolving a individual name, in seconds"`
+	Version              bool    `long:"version" short:"v" description:"Print the version of zdns and exit"`
 }
 
 // QueryOptions affect the fields of the actual DNS queries. Applicable to all modules.

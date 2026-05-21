@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/zmap/zcrypto/x509"
+	"golang.org/x/time/rate"
 
 	"github.com/hashicorp/go-version"
 	"github.com/liip/sheriff"
@@ -215,6 +216,16 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config.Timeout = time.Second * time.Duration(gc.Timeout)
 	config.NetworkTimeout = time.Second * time.Duration(gc.NetworkTimeout)
 	config.IterativeTimeout = time.Second * time.Duration(gc.IterationTimeout)
+	perIPRate := rate.Limit(gc.PerIPNSRateLimit)
+	// In --help we say that rate = 0 means infinite rate
+	if perIPRate == 0 {
+		perIPRate = rate.Inf
+	}
+	perNameRate := rate.Limit(gc.PerNameNSRateLimit)
+	if perNameRate == 0 {
+		perNameRate = rate.Inf
+	}
+	config.RateLimiter = zdns.NewNameServerRateLimiter(perIPRate, perNameRate)
 	config.LookupAllNameServers = gc.LookupAllNameServers
 	config.FollowCNAMEs = !gc.DisableFollowCNAMEs // ZFlags only allows default-false bool flags. We'll invert here.
 
