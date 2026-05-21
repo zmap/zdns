@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/zmap/zcrypto/x509"
+	"golang.org/x/time/rate"
 
 	"github.com/pkg/errors"
 
@@ -224,7 +225,7 @@ func NewResolverConfig() *ResolverConfig {
 	return &ResolverConfig{
 		LookupClient: LookupClient{},
 		Cache:        c,
-		RateLimiter:  NewNameServerRateLimiter(20, 10),
+		RateLimiter:  NewNameServerRateLimiter(rate.Inf, rate.Inf),
 
 		Blacklist:             blacklist.New(),
 		LocalAddrsV4:          []net.IP{},
