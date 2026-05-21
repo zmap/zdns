@@ -14,3 +14,18 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+
+  - package-ecosystem: "gomod"
+    directory: "/examples/single_lookup"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "gomod"
+    directory: "/examples/multi_thread_lookup"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "gomod"
+    directory: "/examples/all_nameservers_lookup"
+    schedule:
+      interval: "weekly"
