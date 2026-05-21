@@ -596,7 +596,6 @@ func Run(gc CLIConf) {
 	lookupWG.Add(gc.Threads)
 	startTime := time.Now().Format(gc.TimeFormat)
 	// create shared cache for all threads to share
-	// Slow start threads to give cache a second to populate
 	for i := 0; i < gc.Threads; i++ {
 		i := i
 		go func(threadID int) {
