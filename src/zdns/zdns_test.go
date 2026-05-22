@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -26,13 +28,7 @@ func (t *testCase) String() string {
 		t.transportMode, t.ipVersion, t.iterationIPPreference, t.lookupAllNameservers, t.useHTTPS, t.useTLS, t.recycleSockets, t.isExternalLookup)
 }
 
-// TODO
-// Wrapping up for the night, but preliminary testing shows 2 issues
-// 1. We're not obeying the timeout in all cases. Yep, definitely some issue wiht the context not preempting
-// 2. Almost all errors seem to be when preference is "NoPref"
-
 func TestNetworkConditions(t *testing.T) {
-	// Todo set to 200 sec for dev
 	const timeout = 2 * time.Second
 	q := Question{
 		Type:  dns.TypeA,
@@ -40,7 +36,19 @@ func TestNetworkConditions(t *testing.T) {
 		Name:  "example.com",
 	}
 
-	// TODO Phillip You have to figure this part out
+	expectedResult, err := net.LookupHost(q.Name)
+	if err != nil {
+		t.Fatal("failed to lookup sample domain for test validation: ", err)
+	}
+	expectedResult = slices.DeleteFunc(expectedResult, func(s string) bool {
+		// Delete non-IPv4 addresses since we're doing an A lookup
+		if ip := net.ParseIP(s); ip != nil && ip.To4() != nil {
+			return false
+		}
+		return true
+	})
+	slices.Sort(expectedResult)
+
 	hostSupportsIPv4 := canReachIPv4()
 	hostSupportsIPv6 := canReachIPv6()
 
@@ -100,6 +108,7 @@ func TestNetworkConditions(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.String(), func(t *testing.T) {
+			t.Parallel()
 			if reason := skipReason(tc); reason != "" {
 				t.Skip(reason)
 			}
@@ -150,10 +159,18 @@ func TestNetworkConditions(t *testing.T) {
 			if status != StatusNoError {
 				t.Fatalf("lookup returned status %v; want %v", status, StatusNoError)
 			}
-			if result == nil {
-				t.Fatal("result is nil")
+			actualResult := make([]string, 0, len(result.Answers))
+			for _, answer := range result.Answers {
+				if ans, ok := answer.(Answer); !ok {
+					t.Fatalf("answer was incorrect type")
+				} else {
+					actualResult = append(actualResult, ans.Answer)
+				}
 			}
-			// TODO actually validate the answer, if possible
+			slices.Sort(actualResult)
+			if !reflect.DeepEqual(actualResult, expectedResult) {
+				t.Errorf("got %v; want %v", actualResult, expectedResult)
+			}
 		})
 	}
 }
