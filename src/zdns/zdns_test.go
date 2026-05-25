@@ -91,7 +91,7 @@ func TestNetworkConditions(t *testing.T) {
 		return ""
 	}
 
-	var tests []testCase
+	tests := make([]testCase, 0, 3*3*3*2*2*2*2*2) // preallocate
 	for _, ipv := range []IPVersionMode{IPv4Only, IPv6Only, IPv4OrIPv6} {
 		for _, tm := range []TransportMode{UDPOnly, TCPOnly, UDPOrTCP} {
 			for _, pref := range []IterationIPPreference{PreferIPv4, PreferIPv6, NoPreference} {
