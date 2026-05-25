@@ -1309,7 +1309,13 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority any, layer st
 			q.Q.Type = dns.TypeAAAA
 		} else if r.ipVersionMode == IPv4OrIPv6 && r.iterationIPPreference == PreferIPv6 {
 			q.Q.Type = dns.TypeAAAA
-		} else {
+		} else if r.ipVersionMode == IPv4OrIPv6 && r.iterationIPPreference == NoPreference {
+			// flip a coin to decide, user has no pref
+			q.Q.Type = dns.TypeA
+			if rand.Intn(2) == 0 {
+				q.Q.Type = dns.TypeAAAA
+			}
+		}else {
 			q.Q.Type = dns.TypeA
 		}
 		q.RetriesRemaining = &r.retriesRemaining
@@ -1318,6 +1324,19 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority any, layer st
 		// Doing this to save us some time (this can propagate A LOT of queries in certain cases)
 		prevSecValue := r.shouldValidateDNSSEC
 		r.shouldValidateDNSSEC = false
+		res, trace, status, _ = r.iterativeLookup(ctx, &q, r.rootNameServers, depth+1, ".", trace)
+		// If we're preferring A/AAAA iteration and got a failure, retry with the other
+		canRetry := r.ipVersionMode == IPv4OrIPv6
+		statusUnsuccessfulAndHaveTime := status != StatusNoError && !util.HasCtxExpired(ctx)
+		if canRetry && statusUnsuccessfulAndHaveTime {
+			// flip the query type
+			if q.Q.Type == dns.TypeA {
+				q.Q.Type = dns.TypeAAAA
+			} else {
+				q.Q.Type = dns.TypeA
+			}
+			q.RetriesRemaining = &r.retriesRemaining
+		}
 		res, trace, status, _ = r.iterativeLookup(ctx, &q, r.rootNameServers, depth+1, ".", trace)
 		r.shouldValidateDNSSEC = prevSecValue
 	}
