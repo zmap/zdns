@@ -89,6 +89,7 @@ type ResolverConfig struct {
 	RootNameServersV4     []NameServer // v4 root servers used for iterative lookups. Be sure lookup host has IPv4 capability as we don't check to avoid having ZDNS make unexpected outbound connections
 	RootNameServersV6     []NameServer // v6 root servers used for iterative lookups. Be sure lookup host has IPv6 capability as we don't check to avoid having ZDNS make unexpected outbound connections
 	LookupAllNameServers  bool         // perform the lookup via all the nameservers for the name
+	AllNameServersAllIPs  bool         // For a given NS, query all of it's IPs. If false, we'll only query one A or AAAA record for a given NS name.
 	FollowCNAMEs          bool         // whether iterative lookups should follow CNAMEs/DNAMEs
 	DNSConfigFilePath     string       // path to the DNS config file, ex: /etc/resolv.conf
 
@@ -323,6 +324,7 @@ type Resolver struct {
 	rootNameServers            []NameServer // root servers used for iterative lookups
 	lastUsedExternalNameServer *NameServer  // the last external name server used for an external lookup
 	lookupAllNameServers       bool
+	lookupAllNameServersAllIPs bool
 	followCNAMEs               bool // whether iterative lookups should follow CNAMEs/DNAMEs
 
 	dnsSecEnabled        bool

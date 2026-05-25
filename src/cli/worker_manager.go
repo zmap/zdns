@@ -226,7 +226,8 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 		perNameRate = rate.Inf
 	}
 	config.RateLimiter = zdns.NewNameServerRateLimiter(perIPRate, perNameRate)
-	config.LookupAllNameServers = gc.LookupAllNameServers
+	config.LookupAllNameServers = gc.LookupAllNameServers || gc.AllNameServersAllIPs
+	config.AllNameServersAllIPs = gc.AllNameServersAllIPs
 	config.FollowCNAMEs = !gc.DisableFollowCNAMEs // ZFlags only allows default-false bool flags. We'll invert here.
 
 	if gc.UseNSID {

@@ -17,10 +17,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"math/rand"
 	"net"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -423,7 +425,6 @@ func (r *Resolver) LookupAllNameserversIterative(ctx context.Context, q *Questio
 	var layerResults []ExtendedResult
 	var currTrace Trace
 	for {
-		// Filter out duplicate nameservers by name, we'll treat IPv4 and IPv6 addresses as the same nameserver
 		currentLayerNameServers = r.filterNameServersForUniqueNames(currentLayerNameServers)
 		// Getting the NameServers
 		layerResults, currTrace, _, err = r.queryAllNameServersInLayer(ctx, perNameServerRetriesLimit, q, currentLayerNameServers)
@@ -438,7 +439,7 @@ func (r *Resolver) LookupAllNameserversIterative(ctx context.Context, q *Questio
 			retv.LayeredResponses[currentLayer] = append(retv.LayeredResponses[currentLayer], layerResults...)
 		}
 		var newNameServers []NameServer
-		newNameServers, err = r.extractNameServersFromLayerResults(layerResults)
+		newNameServers, err = extractNameServersFromLayerResults(layerResults, r.ipVersionMode, r.lookupAllNameServersAllIPs)
 		if err != nil {
 			return &retv, trace, StatusError, errors.Wrapf(err, "error extracting nameservers from layer %s", currentLayer)
 		}
@@ -494,97 +495,7 @@ func (r *Resolver) LookupAllNameserversIterative(ctx context.Context, q *Questio
 	return &retv, trace, StatusNoError, nil
 }
 
-// extractNameServersFromLayerResults
-// extracts unique nameservers from Additionals/Authorities. Uniques by nameserver name, not by IP
-func (r *Resolver) extractNameServersFromLayerResults(layerResults []ExtendedResult) ([]NameServer, error) {
-	type mapKey struct {
-		Type   uint16
-		Name   string
-		Answer string
-	}
-	uniqueAdditionals := make(map[mapKey]Answer)
-	uniqueAuthorities := make(map[mapKey]Answer)
-	uniqueAnswers := make(map[mapKey]Answer)
-	for _, res := range layerResults {
-		if res.Status != StatusNoError {
-			continue
-		}
-		for _, ans := range res.Res.Additionals {
-			if a, ok := ans.(Answer); ok {
-				uniqueAdditionals[mapKey{Type: a.RrType, Name: a.Name, Answer: a.Answer}] = a
-			}
-		}
-		for _, ans := range res.Res.Authorities {
-			if a, ok := ans.(Answer); ok {
-				uniqueAuthorities[mapKey{Type: a.RrType, Name: a.Name, Answer: a.Answer}] = a
-			}
-		}
-		for _, ans := range res.Res.Answers {
-			if a, ok := ans.(Answer); ok {
-				if a.RrType == dns.TypeNS {
-					uniqueAnswers[mapKey{Type: a.RrType, Name: a.Name, Answer: a.Answer}] = a
-				}
-			}
-		}
-	}
-	// We have a map of unique additional and authority records. Now we need to extract the nameservers from them.
-	v4NameServers := make(map[string]NameServer)
-	v6NameServers := make(map[string]NameServer)
-	for _, authorities := range uniqueAuthorities {
-		if authorities.RrType == dns.TypeNS {
-			v4NameServers[strings.TrimSuffix(authorities.Answer, ".")] = NameServer{DomainName: strings.TrimSuffix(authorities.Answer, ".")}
-			v6NameServers[strings.TrimSuffix(authorities.Answer, ".")] = NameServer{DomainName: strings.TrimSuffix(authorities.Answer, ".")}
-		}
-	}
-	for _, additionals := range uniqueAdditionals {
-		additionals.Name = strings.TrimSuffix(additionals.Name, ".")
-		if additionals.RrType == dns.TypeA {
-			if ns, ok := v4NameServers[additionals.Name]; ok {
-				ns.IP = net.ParseIP(additionals.Answer)
-				v4NameServers[additionals.Name] = ns
-			}
-		}
-		if additionals.RrType == dns.TypeAAAA {
-			if ns, ok := v6NameServers[additionals.Name]; ok {
-				ns.IP = net.ParseIP(additionals.Answer)
-				v6NameServers[additionals.Name] = ns
-			}
-		}
-	}
-	uniqNameServersSet := make(map[string]NameServer)
-	if r.ipVersionMode != IPv6Only {
-		for _, ns := range v4NameServers {
-			key := ns.DomainName + ns.IP.String()
-			if _, ok := uniqNameServersSet[key]; !ok {
-				uniqNameServersSet[key] = ns
-
-			}
-		}
-	}
-	if r.ipVersionMode != IPv4Only {
-		for _, ns := range v6NameServers {
-			key := ns.DomainName + ns.IP.String()
-			if _, ok := uniqNameServersSet[key]; !ok {
-				uniqNameServersSet[key] = ns
-			}
-		}
-	}
-	// append any NS answers too
-	for _, answer := range uniqueAnswers {
-		ns := NameServer{
-			DomainName: strings.TrimSuffix(answer.Answer, "."),
-		}
-		key := ns.DomainName
-		if _, ok := uniqNameServersSet[key]; !ok {
-			uniqNameServersSet[key] = ns
-		}
-	}
-	uniqNameServers := make([]NameServer, 0, len(uniqNameServersSet))
-	for _, ns := range uniqNameServersSet {
-		uniqNameServers = append(uniqNameServers, ns)
-	}
-	return uniqNameServers, nil
-}
+/
 
 func (r *Resolver) populateNameServerIP(ctx context.Context, nameServer *NameServer) (Trace, error) {
 	if nameServer.IP != nil {
