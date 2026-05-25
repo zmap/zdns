@@ -126,7 +126,6 @@ func TestNetworkConditions(t *testing.T) {
 			}
 		}
 	}
-	numTestsRan := 0
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.String(), func(t *testing.T) {
@@ -134,8 +133,6 @@ func TestNetworkConditions(t *testing.T) {
 			if reason := skipReason(tc); reason != "" {
 				t.Skip(reason)
 			}
-			numTestsRan++
-
 			// Create a fresh ResolverConfig per test (no shared cache)
 			cfg := NewResolverConfig()
 			if tc.useHTTPS {

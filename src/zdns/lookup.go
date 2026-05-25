@@ -17,10 +17,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"math/rand"
 	"net"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -340,7 +342,31 @@ func (r *Resolver) LookupAllNameserversExternal(ctx context.Context, q *Question
 
 // filterNameServersForUniqueNames will filter out duplicate nameservers based on the name.
 // Usually we'll have duplicates if a nameserver has both an IPv4 and IPv6 address. We'll use r.ipVersionMode and r.iterationIPPreference to determine which to keep.
+// When r.lookupAllNameServersAllIPs is true, all unique (name, IP) pairs are kept instead of one per name.
 func (r *Resolver) filterNameServersForUniqueNames(nameServers []NameServer) []NameServer {
+	if r.lookupAllNameServersAllIPs {
+		seen := make(map[string]NameServer, len(nameServers))
+		for _, ns := range nameServers {
+			if ns.IP != nil {
+				if ns.IP.To4() != nil && r.ipVersionMode == IPv6Only {
+					continue
+				}
+				if util.IsIPv6(&ns.IP) && r.ipVersionMode == IPv4Only {
+					continue
+				}
+			}
+			var key string
+			if ns.IP != nil {
+				key = ns.DomainName + "\x00" + ns.IP.String()
+			} else {
+				key = ns.DomainName
+			}
+			if _, ok := seen[key]; !ok {
+				seen[key] = ns
+			}
+		}
+		return slices.Collect(maps.Values(seen))
+	}
 	uniqNameServersSet := make(map[string][]NameServer)
 	for _, ns := range nameServers {
 		if _, ok := uniqNameServersSet[ns.DomainName]; !ok {
@@ -418,7 +444,11 @@ func (r *Resolver) LookupAllNameserversIterative(ctx context.Context, q *Questio
 		// no root nameservers provided, use the resolver's root nameservers
 		currentLayerNameServers = r.rootNameServers
 	}
+	// Shadow q with a local copy so we don't mutate the caller's Question.
+	// Early-return paths would otherwise leave q.Type as dns.TypeNS.
 	originalQuestionType := q.Type
+	qLocal := *q
+	q = &qLocal
 	q.Type = dns.TypeNS
 	var layerResults []ExtendedResult
 	var currTrace Trace
@@ -1336,8 +1366,8 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority any, layer st
 				q.Q.Type = dns.TypeA
 			}
 			q.RetriesRemaining = &r.retriesRemaining
+			res, trace, status, _ = r.iterativeLookup(ctx, &q, r.rootNameServers, depth+1, ".", trace)
 		}
-		res, trace, status, _ = r.iterativeLookup(ctx, &q, r.rootNameServers, depth+1, ".", trace)
 		r.shouldValidateDNSSEC = prevSecValue
 	}
 	if status == StatusIterTimeout || status == StatusNoNeededGlue {
