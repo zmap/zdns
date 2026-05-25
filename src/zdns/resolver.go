@@ -200,6 +200,10 @@ func (rc *ResolverConfig) Validate() error {
 			return fmt.Errorf("link-local IPv6 external/root nameservers are not supported: %v", ns.IP)
 		}
 	}
+
+	if rc.AllNameServersAllIPs && !rc.LookupAllNameServers {
+		return fmt.Errorf("if looking up all name servers on all ips, must enable LookupAllNameServers")
+	}
 	return nil
 }
 
@@ -240,7 +244,6 @@ func NewResolverConfig() *ResolverConfig {
 		IPVersionMode:         defaultIPVersionMode,
 		IterationIPPreference: defaultIterationIPPreference,
 		ShouldRecycleSockets:  defaultShouldRecycleSockets,
-		LookupAllNameServers:  false,
 		FollowCNAMEs:          defaultFollowCNAMEs,
 
 		Retries:  defaultRetries,

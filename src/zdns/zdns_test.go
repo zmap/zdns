@@ -31,6 +31,7 @@ type testCase struct {
 	ipVersion             IPVersionMode
 	iterationIPPreference IterationIPPreference
 	lookupAllNameservers  bool
+	lookupAllNSesAllIPs   bool
 	useHTTPS              bool
 	useTLS                bool
 	recycleSockets        bool
@@ -38,12 +39,13 @@ type testCase struct {
 }
 
 func (t *testCase) String() string {
-	return fmt.Sprintf("transport=%s/ip=%s/iterationpref=%s/lookupAllNS=%v/https=%v/tls=%v/recycleSocks=%v/externalLookup=%v",
-		t.transportMode, t.ipVersion, t.iterationIPPreference, t.lookupAllNameservers, t.useHTTPS, t.useTLS, t.recycleSockets, t.isExternalLookup)
+	return fmt.Sprintf("transport=%s/ip=%s/iterationpref=%s/lookupAllNS=%v/lookupAllNSAllIPs=%v/https=%v/tls=%v/recycleSocks=%v/externalLookup=%v",
+		t.transportMode, t.ipVersion, t.iterationIPPreference, t.lookupAllNameservers, t.lookupAllNSesAllIPs, t.useHTTPS, t.useTLS, t.recycleSockets, t.isExternalLookup)
 }
 
 func TestNetworkConditions(t *testing.T) {
 	const timeout = 2 * time.Second
+	const allNSTimeout = 10 * time.Second
 	q := Question{
 		Type:  dns.TypeA,
 		Class: dns.ClassINET,
@@ -88,6 +90,9 @@ func TestNetworkConditions(t *testing.T) {
 		if tc.transportMode == UDPOnly && (tc.useHTTPS || tc.useTLS) {
 			return "UDP transport cannot be used with HTTPS or TLS"
 		}
+		if tc.lookupAllNSesAllIPs && !tc.lookupAllNameservers {
+			return "cannot use all NS all IPs if not also using all NS mode"
+		}
 		return ""
 	}
 
@@ -96,20 +101,23 @@ func TestNetworkConditions(t *testing.T) {
 		for _, tm := range []TransportMode{UDPOnly, TCPOnly, UDPOrTCP} {
 			for _, pref := range []IterationIPPreference{PreferIPv4, PreferIPv6, NoPreference} {
 				for _, lan := range []bool{false, true} {
-					for _, https := range []bool{false, true} {
-						for _, tls := range []bool{false, true} {
-							for _, recycle := range []bool{false, true} {
-								for _, isExternalLookup := range []bool{false, true} {
-									tests = append(tests,
-										testCase{
-											tm,
-											ipv,
-											pref,
-											lan,
-											https,
-											tls,
-											recycle,
-											isExternalLookup})
+					for _, lanAllIPs := range []bool{false, true} {
+						for _, https := range []bool{false, true} {
+							for _, tls := range []bool{false, true} {
+								for _, recycle := range []bool{false, true} {
+									for _, isExternalLookup := range []bool{false, true} {
+										tests = append(tests,
+											testCase{
+												tm,
+												ipv,
+												pref,
+												lan,
+												lanAllIPs,
+												https,
+												tls,
+												recycle,
+												isExternalLookup})
+									}
 								}
 							}
 						}
@@ -146,6 +154,7 @@ func TestNetworkConditions(t *testing.T) {
 			cfg.TransportMode = tc.transportMode
 			cfg.IterationIPPreference = tc.iterationIPPreference
 			cfg.LookupAllNameServers = tc.lookupAllNameservers
+			cfg.AllNameServersAllIPs = tc.lookupAllNSesAllIPs
 			cfg.DNSOverHTTPS = tc.useHTTPS
 			cfg.DNSOverTLS = tc.useTLS
 			cfg.ShouldRecycleSockets = tc.recycleSockets
@@ -158,14 +167,33 @@ func TestNetworkConditions(t *testing.T) {
 			if err != nil {
 				t.Fatalf("could not initialize resolver: %v", err)
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			testTimeout := timeout
+			if tc.lookupAllNameservers {
+				testTimeout = allNSTimeout
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 			defer cancel()
 			var result *SingleQueryResult
 			var status Status
 			if tc.isExternalLookup {
-				result, _, status, err = resolver.ExternalLookup(ctx, &q, nil)
+				if tc.lookupAllNameservers {
+					var results []SingleQueryResult
+					results, _, status, err = resolver.LookupAllNameserversExternal(ctx, &q, nil)
+					result = &results[0]
+				} else {
+					result, _, status, err = resolver.ExternalLookup(ctx, &q, nil)
+				}
 			} else {
-				result, _, status, err = resolver.IterativeLookup(ctx, &q)
+				if tc.lookupAllNameservers {
+					var results *AllNameServersResult
+					results, _, status, err = resolver.LookupAllNameserversIterative(ctx, &q, nil)
+					if results != nil {
+						// Don't check the output, if we get here that's a success
+						return
+					}
+				} else {
+					result, _, status, err = resolver.IterativeLookup(ctx, &q)
+				}
 			}
 			if err != nil {
 				t.Fatalf("could not perform lookup: %v", err)
