@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/zmap/zcrypto/x509"
+	"golang.org/x/time/rate"
 
 	"github.com/pkg/errors"
 
@@ -62,7 +63,8 @@ const (
 // ResolverConfig is a struct that holds all the configuration options for a Resolver. It is used to create a new Resolver.
 type ResolverConfig struct {
 	Cache        *Cache
-	CacheSize    int      // don't use both cache and cacheSize
+	CacheSize    int // don't use both cache and cacheSize
+	RateLimiter  NameServerRateLimiter
 	LookupClient Lookuper // either a functional or mock Lookuper client for testing
 
 	Blacklist *blacklist.SafeBlacklist
@@ -223,6 +225,7 @@ func NewResolverConfig() *ResolverConfig {
 	return &ResolverConfig{
 		LookupClient: LookupClient{},
 		Cache:        c,
+		RateLimiter:  NewNameServerRateLimiter(rate.Inf, rate.Inf),
 
 		Blacklist:             blacklist.New(),
 		LocalAddrsV4:          []net.IP{},
@@ -291,6 +294,7 @@ func (c *ConnectionInfo) Close() error {
 // Resolver is a struct that holds the state of a DNS resolver. It is used to perform DNS lookups.
 type Resolver struct {
 	cache        *Cache
+	rateLimit    NameServerRateLimiter
 	lookupClient Lookuper // either a functional or mock Lookuper client for testing
 
 	blacklist                   *blacklist.SafeBlacklist
@@ -354,6 +358,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	// copy relevant all values from config to resolver
 	r := &Resolver{
 		cache:        c,
+		rateLimit:    config.RateLimiter,
 		lookupClient: config.LookupClient,
 
 		blacklist: config.Blacklist,

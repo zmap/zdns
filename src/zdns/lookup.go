@@ -793,6 +793,9 @@ func (r *Resolver) cyclingLookup(ctx context.Context, qWithMeta *QuestionWithMet
 		if status == StatusNoError {
 			r.verboseLog(depth+1, "Cycling lookup successful. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 			return result, isCached, status, trace, err
+		} else if *qWithMeta.RetriesRemaining == 0 && errors.Is(err, ErrRateLimitExceeded) {
+			r.verboseLog(depth+1, "Cycling lookup failed - rate limit exceeded and out of retries. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
+			return result, isCached, status, trace, errors.New("cycling lookup failed - rate limit exceeded and out of retries")
 		} else if *qWithMeta.RetriesRemaining == 0 {
 			r.verboseLog(depth+1, "Cycling lookup failed - out of retries. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 			return result, isCached, status, trace, fmt.Errorf("cycling lookup failed - out of retries. Last error: %v", err)
@@ -927,11 +930,16 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 	r.verboseLog(depth+2, "Cache miss for ", q, ", Layer: ", layer, ", Nameserver: ", nameServer, " going to the wire in retryingLookup")
 	connInfo, err := r.getConnectionInfo(nameServer)
 	if err != nil {
-		return &SingleQueryResult{}, false, StatusError, trace, fmt.Errorf("could not get a connection info to query nameserver %s: %v", nameServer, err)
+		return &SingleQueryResult{}, false, StatusError, trace, fmt.Errorf("could not get a connection info to query nameserver %s: %w", nameServer, err)
 	}
 	// check that our connection info is valid
 	if connInfo == nil {
 		return &SingleQueryResult{}, false, StatusError, trace, fmt.Errorf("no connection info for nameserver: %s", nameServer)
+	}
+	// Check Rate Limits
+	err = r.rateLimit.wait(lookupCtx, *nameServer)
+	if err != nil {
+		return &SingleQueryResult{}, false, StatusError, trace, fmt.Errorf("rate limiter error for nameserver %s: %w", nameServer, err)
 	}
 	var result *SingleQueryResult
 	var rawResp *dns.Msg
