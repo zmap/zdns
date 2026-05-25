@@ -80,7 +80,7 @@ func nameIsBeneath(name, layer string) (bool, string) {
 // It takes into account IP mode an IP preference to extract the correct A/AAAA record type accordingly
 // It will return on the first valid record seen
 func checkGlue(server string, result *SingleQueryResult, ipMode IPVersionMode, ipPreference IterationIPPreference) (*SingleQueryResult, Status) {
-	acceptableAnsTypes := make([]string, 1)
+	acceptableAnsTypes := make([]string, 0, 1)
 	if ipMode == IPv4Only {
 		acceptableAnsTypes = append(acceptableAnsTypes, "A")
 	} else if ipMode == IPv6Only {
@@ -96,7 +96,7 @@ func checkGlue(server string, result *SingleQueryResult, ipMode IPVersionMode, i
 		acceptableAnsTypes = append(acceptableAnsTypes, "A", "AAAA")
 	}
 	res, status := checkGlueHelper(server, acceptableAnsTypes, result)
-	if status == StatusNoError || ipMode != IPv4OrIPv6 || ipPreference == NoPreference{
+	if status == StatusNoError || ipMode != IPv4OrIPv6 || ipPreference == NoPreference {
 		// Return if:
 		//   - We have a valid glue to try
 		//   - We don't have another IP mode (A or AAAA) to try, so nothing to do
@@ -104,7 +104,7 @@ func checkGlue(server string, result *SingleQueryResult, ipMode IPVersionMode, i
 		return res, status
 	}
 	// If we're looking for both A and AAAA records, and we didn't find an answer, try the other type
-	if ipPreference == PreferIPv4{
+	if ipPreference == PreferIPv4 {
 		acceptableAnsTypes = []string{"AAAA"}
 	} else {
 		acceptableAnsTypes = []string{"A"}
