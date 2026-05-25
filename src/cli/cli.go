@@ -46,7 +46,7 @@ type StatusHandler interface {
 // Order here is the order they'll be printed to the user, so preserve alphabetical order
 type GeneralOptions struct {
 	LookupAllNameServers bool `long:"all-nameservers" description:"Behavior is dependent on --iterative. In --iterative, --all-nameservers will query all root servers, then all gtld servers, etc. recording the responses at each layer. In non-iterative mode, the query will be sent to all external resolvers specified in --name-servers."`
-	AllNameServersAllIPs bool `long:"all-nameservers-all-ips" description:"When used with --all-nameservers, query all listed IPs for a given nameserver. So if emma.ns.cloudflare.com has 3x A and 3x AAAA records, we'll query all of them if this is true. If false, we'll query only 1 per NS."`
+	AllNameServersAllIPs bool `long:"all-nameservers-all-ips" description:"Acts like --all-nameservers, but in addition to querying every NS at each level, will query all listed IPs for that nameserver. So if emma.ns.cloudflare.com has 3x A and 3x AAAA records, we'll query all of them if this is true. If false, we'll query only 1 per NS."`
 
 	CacheSize           int     `long:"cache-size" default:"10000" description:"how many items can be stored in internal recursive cache"`
 	GoMaxProcs          int     `long:"go-processes" default:"0" description:"number of OS processes to use, GOMAXPROCS if 0"`

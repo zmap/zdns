@@ -17,12 +17,10 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"maps"
 	"math/rand"
 	"net"
 	"os"
 	"regexp"
-	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -494,8 +492,6 @@ func (r *Resolver) LookupAllNameserversIterative(ctx context.Context, q *Questio
 
 	return &retv, trace, StatusNoError, nil
 }
-
-/
 
 func (r *Resolver) populateNameServerIP(ctx context.Context, nameServer *NameServer) (Trace, error) {
 	if nameServer.IP != nil {

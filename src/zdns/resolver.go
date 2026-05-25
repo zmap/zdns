@@ -369,6 +369,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		logLevel:             config.LogLevel,
 		pendingQueries:       make(map[Question]bool),
 		lookupAllNameServers: config.LookupAllNameServers,
+		lookupAllNameServersAllIPs: config.AllNameServersAllIPs,
 
 		transportMode:         config.TransportMode,
 		ipVersionMode:         config.IPVersionMode,

@@ -30,59 +30,68 @@ import (
 // If allNSAllIPs is false, will extract one A and one AAAA for each name-server, only de-duplicating across ns.name.
 func extractNameServersFromLayerResults(layerResults []ExtendedResult, ipMode IPVersionMode, allNSAllIPs bool) ([]NameServer, error) {
 	uniqueAnswers, uniqueAdditionals, uniqueAuthorities := extractUniqueAnswersAdditionalsAuthorities(layerResults)
-	// We have a map of unique additional and authority records. Now we need to extract the nameservers from them.
-	v4NameServers := make(map[string]NameServer)
-	v6NameServers := make(map[string]NameServer)
-	for _, authorities := range uniqueAuthorities {
-		if authorities.RrType == dns.TypeNS {
-			v4NameServers[strings.TrimSuffix(authorities.Answer, ".")] = NameServer{DomainName: strings.TrimSuffix(authorities.Answer, ".")}
-			v6NameServers[strings.TrimSuffix(authorities.Answer, ".")] = NameServer{DomainName: strings.TrimSuffix(authorities.Answer, ".")}
-		}
-	}
-	for _, additionals := range uniqueAdditionals {
-		additionals.Name = strings.TrimSuffix(additionals.Name, ".")
-		if additionals.RrType == dns.TypeA {
-			if ns, ok := v4NameServers[additionals.Name]; ok {
-				ns.IP = net.ParseIP(additionals.Answer)
-				v4NameServers[additionals.Name] = ns
-			}
-		}
-		if additionals.RrType == dns.TypeAAAA {
-			if ns, ok := v6NameServers[additionals.Name]; ok {
-				ns.IP = net.ParseIP(additionals.Answer)
-				v6NameServers[additionals.Name] = ns
-			}
-		}
-	}
-	uniqNameServersSet := make(map[string]NameServer)
-	if ipMode != IPv6Only {
-		for _, ns := range v4NameServers {
-			key := ns.DomainName + ns.IP.String()
-			if _, ok := uniqNameServersSet[key]; !ok {
-				uniqNameServersSet[key] = ns
 
-			}
+	// Determine which DNS record types are relevant given the IP mode
+	wantRRType := func(rrType uint16) bool {
+		switch rrType {
+		case dns.TypeA:
+			return ipMode != IPv6Only
+		case dns.TypeAAAA:
+			return ipMode != IPv4Only
+		default:
+			return false
 		}
 	}
-	if ipMode != IPv4Only {
-		for _, ns := range v6NameServers {
-			key := ns.DomainName + ns.IP.String()
-			if _, ok := uniqNameServersSet[key]; !ok {
-				uniqNameServersSet[key] = ns
-			}
+
+	// Dedup key: name-only for allNSAllIPs=false, name+IP otherwise
+	dedupKey := func(ns NameServer) string {
+		if allNSAllIPs && ns.IP != nil {
+			return ns.DomainName + "\x00" + ns.IP.String()
+		}
+		return ns.DomainName
+	}
+
+	// Seed the NS name set from authority records
+	nsNames := make(map[string]struct{})
+	for _, auth := range uniqueAuthorities {
+		if auth.RrType == dns.TypeNS {
+			nsNames[strings.TrimSuffix(auth.Answer, ".")] = struct{}{}
 		}
 	}
-	// append any NS answers too
-	for _, answer := range uniqueAnswers {
+
+	// Build NameServer entries from glue records in additionals, filtered by ipMode
+	uniq := make(map[string]NameServer)
+	for _, add := range uniqueAdditionals {
+		if !wantRRType(add.RrType) {
+			continue
+		}
+		name := strings.TrimSuffix(add.Name, ".")
+		if _, known := nsNames[name]; !known {
+			continue
+		}
 		ns := NameServer{
-			DomainName: strings.TrimSuffix(answer.Answer, "."),
+			DomainName: name,
+			IP:         net.ParseIP(add.Answer),
 		}
-		key := ns.DomainName
-		if _, ok := uniqNameServersSet[key]; !ok {
-			uniqNameServersSet[key] = ns
+		key := dedupKey(ns)
+		if _, exists := uniq[key]; !exists {
+			uniq[key] = ns
 		}
 	}
-	return slices.Collect(maps.Values(uniqNameServersSet)), nil
+
+	// Include any NS-type answer records (typically no glue IP available)
+	for _, answer := range uniqueAnswers {
+		if answer.RrType != dns.TypeNS {
+			continue
+		}
+		ns := NameServer{DomainName: strings.TrimSuffix(answer.Answer, ".")}
+		key := dedupKey(ns)
+		if _, exists := uniq[key]; !exists {
+			uniq[key] = ns
+		}
+	}
+
+	return slices.Collect(maps.Values(uniq)), nil
 }
 
 func extractUniqueAnswersAdditionalsAuthorities(layerResults []ExtendedResult) (answers, additionals, authorities []Answer) {
