@@ -209,7 +209,10 @@ func (rc *ResolverConfig) Validate() error {
 }
 
 func (rc *ResolverConfig) PrintInfo() {
-	log.Infof("using local addresses: %v", slices.Concat(rc.LocalAddrsV4, rc.LocalAddrsV6))
+	localAddrs := slices.Concat(rc.LocalAddrsV4, rc.LocalAddrsV4)
+	if len(localAddrs) > 0 {
+		log.Infof("using local addresses: %v", slices.Concat(rc.LocalAddrsV4, rc.LocalAddrsV6))
+	}
 	externalNameServers := slices.Concat(rc.ExternalNameServersV4, rc.ExternalNameServersV6)
 	rootNameServers := slices.Concat(rc.RootNameServersV4, rc.RootNameServersV6)
 	externalNameServerStrings := make([]string, 0, len(externalNameServers))
