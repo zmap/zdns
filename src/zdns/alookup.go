@@ -15,13 +15,12 @@ package zdns
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
 
 	"github.com/zmap/dns"
-
-	"github.com/zmap/zdns/v2/src/internal/util"
 )
 
 // DoTargetedLookup performs a lookup of the given name against the given nameserver, looking up both IPv4 and IPv6 addresses
@@ -62,7 +61,7 @@ func (r *Resolver) DoTargetedLookup(ctx context.Context, name string, nameServer
 		copy(res.IPv6Addresses, ipv6)
 	}
 
-	combinedTrace := util.Concat(ipv4Trace, ipv6Trace)
+	combinedTrace := slices.Concat(ipv4Trace, ipv6Trace)
 
 	// In case we get no IPs and a non-NOERROR status from either
 	// IPv4 or IPv6 lookup, we return that status.

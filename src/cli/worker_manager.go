@@ -292,7 +292,7 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	}
 	// If --verify-server-cert is set, all nameservers must have a domain name
 	if config.VerifyServerCert {
-		for _, ns := range util.Concat(config.ExternalNameServersV4, config.RootNameServersV4, config.ExternalNameServersV6, config.RootNameServersV6) {
+		for _, ns := range slices.Concat(config.ExternalNameServersV4, config.RootNameServersV4, config.ExternalNameServersV6, config.RootNameServersV6) {
 			if len(ns.DomainName) == 0 {
 				log.Fatal("All name servers must have domain names when using --verify-server-cert, specify --name-servers=domain1,domain2 and ZDNS will resolve the domain to a name server IP")
 			}
@@ -425,7 +425,7 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 		}
 		if config.DNSOverHTTPS {
 			// double-check all external nameservers have domains, necessary for DoH
-			for _, ns := range util.Concat(config.ExternalNameServersV4, config.ExternalNameServersV6) {
+			for _, ns := range slices.Concat(config.ExternalNameServersV4, config.ExternalNameServersV6) {
 				if len(ns.DomainName) == 0 {
 					log.Fatal("DoH requires domain names for all name servers, ex. --name-servers=cloudflare-dns.com,dns.google")
 				}

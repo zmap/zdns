@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"slices"
 	"strings"
 	"time"
 
@@ -141,7 +142,7 @@ func (rc *ResolverConfig) Validate() error {
 	}
 
 	// Validate all nameservers have ports and are valid IPs
-	for _, ns := range util.Concat(rc.ExternalNameServersV4, rc.ExternalNameServersV6) {
+	for _, ns := range slices.Concat(rc.ExternalNameServersV4, rc.ExternalNameServersV6) {
 		if isValid, reason := ns.IsValid(); !isValid {
 			return fmt.Errorf("invalid external name server: %s", reason)
 		}
@@ -157,14 +158,14 @@ func (rc *ResolverConfig) Validate() error {
 	}
 
 	// Validate all nameservers have ports and are valid IPs
-	for _, ns := range util.Concat(rc.RootNameServersV4, rc.RootNameServersV6) {
+	for _, ns := range slices.Concat(rc.RootNameServersV4, rc.RootNameServersV6) {
 		if isValid, reason := ns.IsValid(); !isValid {
 			return fmt.Errorf("invalid root name server: %s", reason)
 		}
 	}
 
 	// Validate all local addresses are valid IPs
-	for _, ip := range util.Concat(rc.LocalAddrsV4, rc.LocalAddrsV6) {
+	for _, ip := range slices.Concat(rc.LocalAddrsV4, rc.LocalAddrsV6) {
 		if ip == nil {
 			return errors.New("local address cannot be nil")
 		}
@@ -195,22 +196,22 @@ func (rc *ResolverConfig) Validate() error {
 	}
 
 	// Ensure no IPv6 link-local/multicast external/root nameservers are used
-	for _, ns := range util.Concat(rc.ExternalNameServersV6, rc.RootNameServersV6) {
+	for _, ns := range slices.Concat(rc.ExternalNameServersV6, rc.RootNameServersV6) {
 		if ns.IP.IsLinkLocalUnicast() || ns.IP.IsLinkLocalMulticast() {
 			return fmt.Errorf("link-local IPv6 external/root nameservers are not supported: %v", ns.IP)
 		}
 	}
 
 	if rc.AllNameServersAllIPs && !rc.LookupAllNameServers {
-		return fmt.Errorf("if looking up all name servers on all ips, must enable LookupAllNameServers")
+		return errors.New("if looking up all name servers on all ips, must enable LookupAllNameServers")
 	}
 	return nil
 }
 
 func (rc *ResolverConfig) PrintInfo() {
-	log.Infof("using local addresses: %v", util.Concat(rc.LocalAddrsV4, rc.LocalAddrsV6))
-	externalNameServers := util.Concat(rc.ExternalNameServersV4, rc.ExternalNameServersV6)
-	rootNameServers := util.Concat(rc.RootNameServersV4, rc.RootNameServersV6)
+	log.Infof("using local addresses: %v", slices.Concat(rc.LocalAddrsV4, rc.LocalAddrsV6))
+	externalNameServers := slices.Concat(rc.ExternalNameServersV4, rc.ExternalNameServersV6)
+	rootNameServers := slices.Concat(rc.RootNameServersV4, rc.RootNameServersV6)
 	externalNameServerStrings := make([]string, 0, len(externalNameServers))
 	rootNameServerStrings := make([]string, 0, len(rootNameServers))
 	for _, ns := range externalNameServers {
@@ -368,10 +369,10 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 
 		blacklist: config.Blacklist,
 
-		retries:              config.Retries,
-		logLevel:             config.LogLevel,
-		pendingQueries:       make(map[Question]bool),
-		lookupAllNameServers: config.LookupAllNameServers,
+		retries:                    config.Retries,
+		logLevel:                   config.LogLevel,
+		pendingQueries:             make(map[Question]bool),
+		lookupAllNameServers:       config.LookupAllNameServers,
 		lookupAllNameServersAllIPs: config.AllNameServersAllIPs,
 
 		transportMode:         config.TransportMode,

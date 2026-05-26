@@ -1345,7 +1345,7 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority any, layer st
 			if rand.Intn(2) == 0 {
 				q.Q.Type = dns.TypeAAAA
 			}
-		}else {
+		} else {
 			q.Q.Type = dns.TypeA
 		}
 		q.RetriesRemaining = &r.retriesRemaining

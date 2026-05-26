@@ -98,8 +98,8 @@ func (v IPVersionMode) SupportsIPv4() bool {
 	switch v {
 	case IPv4Only, IPv4OrIPv6:
 		return true
-		default:
-			return false
+	default:
+		return false
 	}
 }
 
