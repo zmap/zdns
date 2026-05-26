@@ -346,7 +346,9 @@ func (r *Resolver) LookupAllNameserversExternal(ctx context.Context, q *Question
 func (r *Resolver) filterNameServersForUniqueNames(nameServers []NameServer) []NameServer {
 	if r.lookupAllNameServersAllIPs {
 		seen := make(map[string]NameServer, len(nameServers))
+		nsWithIPs := make(map[string]struct{})
 		for _, ns := range nameServers {
+			var key string
 			if ns.IP != nil {
 				if ns.IP.To4() != nil && r.ipVersionMode == IPv6Only {
 					continue
@@ -354,15 +356,18 @@ func (r *Resolver) filterNameServersForUniqueNames(nameServers []NameServer) []N
 				if util.IsIPv6(&ns.IP) && r.ipVersionMode == IPv4Only {
 					continue
 				}
-			}
-			var key string
-			if ns.IP != nil {
 				key = ns.DomainName + "\x00" + ns.IP.String()
-			} else {
-				key = ns.DomainName
+				if _, ok := seen[key]; !ok {
+					seen[key] = ns
+					nsWithIPs[ns.DomainName] = struct{}{}
+				}
 			}
-			if _, ok := seen[key]; !ok {
-				seen[key] = ns
+		}
+		// Now populate any NSes for which we don't have an IP
+		for _, ns := range nameServers {
+			if _, ok := nsWithIPs[ns.DomainName]; !ok {
+				// missing this NS, adding
+				seen[ns.DomainName] = ns
 			}
 		}
 		return slices.Collect(maps.Values(seen))
@@ -430,7 +435,7 @@ func (r *Resolver) filterNameServersForUniqueNames(nameServers []NameServer) []N
 // Additionally, we'll query each layer for NS records, and once we have the set of authoritative nameservers, we'll query with
 // the original question type. This helps find sibling nameservers that aren't listed with the TLD.
 func (r *Resolver) LookupAllNameserversIterative(ctx context.Context, q *Question, rootNameServers []NameServer) (*AllNameServersResult, Trace, Status, error) {
-	perNameServerRetriesLimit := 2
+	perNameServerRetriesLimit := 1
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 	retv := AllNameServersResult{
@@ -482,6 +487,7 @@ func (r *Resolver) LookupAllNameserversIterative(ctx context.Context, q *Questio
 			currentLayerNameServers = append(currentLayerNameServers, newNameServers...)
 			break
 		}
+		log.Debugf("About to query level %s with nameservers: %v", newLayer, newNameServers)
 		if len(newNameServers) == 0 {
 			// check if we have no referral nameservers because we've hit a CNAME or DNAME
 			foundReferral := false

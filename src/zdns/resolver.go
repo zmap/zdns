@@ -551,9 +551,9 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 
 	if usingUDP {
 		connInfo.udpClient = new(dns.Client)
-		connInfo.udpClient.Timeout = r.timeout
+		connInfo.udpClient.Timeout = r.networkTimeout
 		connInfo.udpClient.Dialer = &net.Dialer{
-			Timeout:   r.timeout,
+			Timeout:   r.networkTimeout,
 			LocalAddr: &net.UDPAddr{IP: connInfo.localAddr},
 		}
 	}
@@ -561,9 +561,9 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 	if usingTCP {
 		connInfo.tcpClient = new(dns.Client)
 		connInfo.tcpClient.Net = "tcp"
-		connInfo.tcpClient.Timeout = r.timeout
+		connInfo.tcpClient.Timeout = r.networkTimeout
 		connInfo.tcpClient.Dialer = &net.Dialer{
-			Timeout:   r.timeout,
+			Timeout:   r.networkTimeout,
 			LocalAddr: &net.TCPAddr{IP: connInfo.localAddr},
 		}
 	}
@@ -668,7 +668,7 @@ func (r *Resolver) ExternalLookup(ctx context.Context, q *Question, dstServer *N
 	if r.isClosed {
 		log.Fatal("resolver has been closed, cannot perform lookup")
 	}
-	ctx, cancelFn := context.WithTimeout(ctx, r.timeout)
+	ctx, cancelFn := context.WithTimeout(ctx, r.networkTimeout)
 	defer cancelFn()
 	// If dstServer is not provided, AND we're in HTTPS/TLS/TCP mode, AND we have a pre-existing external name server, use it
 	if dstServer == nil && r.lastUsedExternalNameServer == nil {
