@@ -61,6 +61,7 @@ func extractNameServersFromLayerResults(layerResults []ExtendedResult, ipMode IP
 
 	// Build NameServer entries from glue records in additionals, filtered by ipMode
 	uniq := make(map[string]NameServer)
+	namesWithGlue := make(map[string]struct{})
 	for _, add := range uniqueAdditionals {
 		if !wantRRType(add.RrType) {
 			continue
@@ -73,6 +74,22 @@ func extractNameServersFromLayerResults(layerResults []ExtendedResult, ipMode IP
 			DomainName: name,
 			IP:         net.ParseIP(add.Answer),
 		}
+		key := dedupKey(ns)
+		if _, exists := uniq[key]; !exists {
+			uniq[key] = ns
+			namesWithGlue[ns.DomainName] = struct{}{}
+		}
+	}
+
+	// Include any authority NS names that had no glue in additionals.
+	// IP is nil; populateNameServerIP will resolve them during the next layer's queries.
+	// This is to let us resolve domains like tripadvisor.de whose nameservers have nameservers in a different zone (ie. won't have glue)
+	for name := range nsNames {
+		if _, known := namesWithGlue[name]; known {
+			// this is a fallback if we're missing glue. But we have glue, so let's continue
+			continue
+		}
+		ns := NameServer{DomainName: name}
 		key := dedupKey(ns)
 		if _, exists := uniq[key]; !exists {
 			uniq[key] = ns
