@@ -94,6 +94,24 @@ func (v IPVersionMode) String() string {
 	}
 }
 
+func (v IPVersionMode) SupportsIPv4() bool {
+	switch v {
+	case IPv4Only, IPv4OrIPv6:
+		return true
+		default:
+			return false
+	}
+}
+
+func (v IPVersionMode) SupportsIPv6() bool {
+	switch v {
+	case IPv6Only, IPv4OrIPv6:
+		return true
+	default:
+		return false
+	}
+}
+
 func GetIPVersionMode(ipv4, ipv6 bool) IPVersionMode {
 	if ipv4 && ipv6 {
 		return IPv4OrIPv6

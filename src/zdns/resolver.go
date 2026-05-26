@@ -413,22 +413,22 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	r.iterativeTimeout = config.IterativeTimeout
 	r.maxDepth = config.MaxDepth
 	r.rootNameServers = make([]NameServer, 0, len(config.RootNameServersV4)+len(config.RootNameServersV6))
-	if r.ipVersionMode != IPv6Only && len(config.RootNameServersV4) == 0 {
+	if r.ipVersionMode.SupportsIPv4() && len(config.RootNameServersV4) == 0 {
 		// add IPv4 root servers
 		for _, ns := range RootServersV4 {
 			r.rootNameServers = append(r.rootNameServers, *ns.DeepCopy())
 		}
-	} else if r.ipVersionMode != IPv6Only {
+	} else if r.ipVersionMode.SupportsIPv4() {
 		for _, ns := range config.RootNameServersV4 {
 			r.rootNameServers = append(r.rootNameServers, *ns.DeepCopy())
 		}
 	}
-	if r.ipVersionMode != IPv4Only && len(config.RootNameServersV6) == 0 {
-		// add IPv4 root servers
+	if r.ipVersionMode.SupportsIPv6() && len(config.RootNameServersV6) == 0 {
+		// add IPv6 root servers
 		for _, ns := range RootServersV6 {
 			r.rootNameServers = append(r.rootNameServers, *ns.DeepCopy())
 		}
-	} else if r.ipVersionMode != IPv4Only {
+	} else if r.ipVersionMode.SupportsIPv6() {
 		for _, ns := range config.RootNameServersV6 {
 			r.rootNameServers = append(r.rootNameServers, *ns.DeepCopy())
 		}
