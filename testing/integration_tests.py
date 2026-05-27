@@ -1707,6 +1707,59 @@ class Tests(unittest.TestCase):
                 actualAnswers, expectedAnswers, "Should have the expected A records"
             )
 
+    def test_lookup_all_nameservers_all_ips(self):
+        # zdns-testing.com's nameservers are all in the .com zone, so we should only have to query the .com nameservers
+        c = "A zdns-testing.com --all-nameservers-all-ips --iterative --timeout=60"
+        cmd, res = self.run_zdns(c, "")
+        self.assertSuccess(res, cmd, "A")
+        # Check for layers
+        self.assertIn(
+            ".",
+            res["results"]["A"]["data"]["per_layer_responses"],
+            "Should have the root (.) layer",
+        )
+        self.assertIn(
+            "com",
+            res["results"]["A"]["data"]["per_layer_responses"],
+            "Should have the .com layer",
+        )
+        self.assertIn(
+            "zdns-testing.com",
+            res["results"]["A"]["data"]["per_layer_responses"],
+            "Should have the google.com layer",
+        )
+        # check for a.root-servers.net, b.root-servers.net, ... m.root-servers.net
+        self.check_for_existance_of_root_and_com_nses(res)
+        # check for the google.com nameservers
+        actual_zdns_testing_leaf_NS_answers = []
+        actual_zdns_testing_leaf_A_answers = []
+        for entry in res["results"]["A"]["data"]["per_layer_responses"][
+            "zdns-testing.com"
+        ]:
+            if entry["type"] == "NS":
+                actual_zdns_testing_leaf_NS_answers.append(entry)
+            elif entry["type"] == "A":
+                actual_zdns_testing_leaf_A_answers.append(entry)
+            else:
+                self.fail(f"Unexpected record type {entry['type']}")
+
+        expectedAnswers = ["1.2.3.4", "2.3.4.5", "3.4.5.6"]
+        successfulResponses = 0
+        for entry in actual_zdns_testing_leaf_A_answers:
+            if entry["status"] != "NOERROR":
+                # Some NS's aren't responsive
+                continue
+            successfulResponses += 1
+            actualAnswers = []
+            for answer in entry["result"]["answers"]:
+                actualAnswers.append(answer["answer"])
+            # sort
+            actualAnswers.sort()
+            expectedAnswers.sort()
+            self.assertEqual(
+                actualAnswers, expectedAnswers, "Should have the expected A records"
+            )
+
     def check_for_existance_of_root_and_com_nses(self, res):
         actual_root_ns = []
         for entry in res["results"]["A"]["data"]["per_layer_responses"]["."]:

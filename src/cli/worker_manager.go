@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -226,7 +227,8 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 		perNameRate = rate.Inf
 	}
 	config.RateLimiter = zdns.NewNameServerRateLimiter(perIPRate, perNameRate)
-	config.LookupAllNameServers = gc.LookupAllNameServers
+	config.LookupAllNameServers = gc.LookupAllNameServers || gc.AllNameServersAllIPs
+	config.AllNameServersAllIPs = gc.AllNameServersAllIPs
 	config.FollowCNAMEs = !gc.DisableFollowCNAMEs // ZFlags only allows default-false bool flags. We'll invert here.
 
 	if gc.UseNSID {
@@ -277,9 +279,7 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	} else if config.IPVersionMode == zdns.IPv6Only {
 		config.IterationIPPreference = zdns.PreferIPv6
 	} else if config.IPVersionMode == zdns.IPv4OrIPv6 && !gc.PreferIPv4Iteration && !gc.PreferIPv6Iteration {
-		// need to specify some type of preference, we'll default to IPv4 and inform the user
-		log.Info("No iteration IP preference specified, defaulting to IPv4 preferred. See --prefer-ipv4-iteration and --prefer-ipv6-iteration for more info")
-		config.IterationIPPreference = zdns.PreferIPv4
+		config.IterationIPPreference = zdns.NoPreference
 	} else if config.IPVersionMode == zdns.IPv4OrIPv6 && gc.PreferIPv4Iteration && gc.PreferIPv6Iteration {
 		log.Fatal("Cannot specify both --prefer-ipv4-iteration and --prefer-ipv6-iteration")
 	} else {
@@ -292,7 +292,7 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	}
 	// If --verify-server-cert is set, all nameservers must have a domain name
 	if config.VerifyServerCert {
-		for _, ns := range util.Concat(config.ExternalNameServersV4, config.RootNameServersV4, config.ExternalNameServersV6, config.RootNameServersV6) {
+		for _, ns := range slices.Concat(config.ExternalNameServersV4, config.RootNameServersV4, config.ExternalNameServersV6, config.RootNameServersV6) {
 			if len(ns.DomainName) == 0 {
 				log.Fatal("All name servers must have domain names when using --verify-server-cert, specify --name-servers=domain1,domain2 and ZDNS will resolve the domain to a name server IP")
 			}
@@ -317,10 +317,6 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 		log.Fatal("cannot use --6 since no IPv6 nameservers found, ensure you have IPv6 connectivity and provide --name-servers")
 	}
 
-	config, err = populateLocalAddresses(gc, config)
-	if err != nil {
-		log.Fatal("could not populate local addresses: ", err)
-	}
 	return config
 }
 
@@ -328,7 +324,8 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 // If user sets --4 (IPv4 Only) or --6 (IPv6 Only), we'll set the IPVersionMode to IPv4Only or IPv6Only, respectively.
 // If user does not set --4 or --6, we'll determine the IPVersionMode based on:
 //  1. the provided name-servers (if any)
-//  2. the OS' default resolvers (if no name-servers provided)
+//  2. the IP mode of the user's provided local addresses (if any)
+//  3. the OS' default resolvers (if no name-servers provided)
 func populateIPTransportMode(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.ResolverConfig, error) {
 	if gc.IPv4TransportOnly && gc.IPv6TransportOnly {
 		return nil, errors.New("only one of --4 and --6 allowed")
@@ -341,7 +338,11 @@ func populateIPTransportMode(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Re
 		config.IPVersionMode = zdns.IPv6Only
 		return config, nil
 	}
-	// User did not specify IPv4 or IPv6 only transport, so we need to determine the IPVersionMode based on the nameservers
+	// User did not specify IPv4 or IPv6 only transport, so attempt to determine the IPVersionMode based on the nameservers
+	log.Info("User didn't specify IPv4 or IPv6 support. In this case, ZDNS will attempt to determine what mode is desired based on the IP version mode of:")
+	log.Info(" 1. the provided --name-servers (if any)")
+	log.Info(" 2. the provided --local-addr (if any)")
+	log.Info(" 3. the addresses in the OS' default resolver config file (typically /etc/resolv.conf)")
 	var nses []zdns.NameServer
 	var err error
 	var ipv4NSStrings, ipv6NSStrings []string
@@ -369,6 +370,19 @@ func populateIPTransportMode(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Re
 			return nil, errors.New("no nameservers found. Please specify desired nameservers with --name-servers")
 		}
 		config.IPVersionMode = zdns.GetIPVersionMode(nameServersSupportIPv4, nameServersSupportIPv6)
+		log.Infof("user didn't prescribe a specific IP version mode (IPv4/v6), but did provide nameservers. Inferred IP mode - %s", config.IPVersionMode.String())
+		return config, nil
+	}
+	// Check local addressed if provided
+	var didSet bool
+	config, didSet, err = populateLocalAddresses(gc, config)
+	if err != nil {
+		log.Fatal("could not populate local addresses: ", err)
+	}
+	if didSet {
+		haveLocalIPv4Addr, haveLocalIPv6Addr := len(config.LocalAddrsV4) > 0, len(config.LocalAddrsV6) > 0
+		config.IPVersionMode = zdns.GetIPVersionMode(haveLocalIPv4Addr, haveLocalIPv6Addr)
+		log.Infof("user provided local addresses: %v and therefore inferred using IP mode - %s", slices.Concat(config.LocalAddrsV4, config.LocalAddrsV6), config.IPVersionMode.String())
 		return config, nil
 	}
 	// check OS' default resolver(s) to determine if we support IPv4 or IPv6
@@ -388,6 +402,7 @@ func populateIPTransportMode(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Re
 		nameServersSupportIPv6 = true
 	}
 	config.IPVersionMode = zdns.GetIPVersionMode(nameServersSupportIPv4, nameServersSupportIPv6)
+	log.Infof("inferred IP mode from OS default resolvers file: %s", config.IPVersionMode.String())
 	return config, nil
 }
 
@@ -410,7 +425,7 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 		}
 		if config.DNSOverHTTPS {
 			// double-check all external nameservers have domains, necessary for DoH
-			for _, ns := range util.Concat(config.ExternalNameServersV4, config.ExternalNameServersV6) {
+			for _, ns := range slices.Concat(config.ExternalNameServersV4, config.ExternalNameServersV6) {
 				if len(ns.DomainName) == 0 {
 					log.Fatal("DoH requires domain names for all name servers, ex. --name-servers=cloudflare-dns.com,dns.google")
 				}
@@ -447,6 +462,15 @@ func populateNameServers(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Resolv
 			if err != nil {
 				return nil, fmt.Errorf("could not convert IPv6 nameservers %s to NameServers: %v", strings.Join(v6NameServersStrings, ", "), err)
 			}
+		}
+		// Check that we have the nameservers we need to support lookups
+		if len(v4NameServers) == 0 && config.IPVersionMode.SupportsIPv4() {
+			log.Infof("no IPv4 nameservers found with OS defaults and it was detected the user wanted IPv4 support. Using ZDNS defaults for IPv4")
+			v4NameServers = zdns.DefaultExternalResolversV4
+		}
+		if len(v6NameServers) == 0 && config.IPVersionMode.SupportsIPv6() {
+			log.Infof("no IPv6 nameservers found with OS defaults and it was detected the user wanted IPv6 support. Using ZDNS defaults for IPv6")
+			v6NameServers = zdns.DefaultExternalResolversV6
 		}
 		// The resolver will ignore IPv6 nameservers if we're doing IPv4 only lookups, and vice versa so this is fine
 		config.ExternalNameServersV4 = v4NameServers
@@ -487,28 +511,30 @@ func useNameServerStringToPopulateNameServers(nameServers []string, config *zdns
 	return config, nil
 }
 
-func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.ResolverConfig, error) {
+func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.ResolverConfig, bool, error) {
 	// Local Addresses are populated in this order:
 	// 1. If user provided local addresses, use those
 	// 2. If user does not provide local addresses, one will be used on-demand by Resolver. See resolver.go:getConnectionInfo for more info
+	var didSet bool
 
 	if len(gc.LocalAddrs) != 0 {
 		// if user provided a local address(es), that takes precedent
 		config.LocalAddrsV4, config.LocalAddrsV6 = []net.IP{}, []net.IP{}
 		for _, addr := range gc.LocalAddrs {
 			if addr == nil {
-				return nil, errors.New("invalid nil local address")
+				return nil, false, errors.New("invalid nil local address")
 			}
 			if addr.To4() != nil {
 				config.LocalAddrsV4 = append(config.LocalAddrsV4, addr)
 			} else if util.IsIPv6(&addr) {
 				config.LocalAddrsV6 = append(config.LocalAddrsV6, addr)
 			} else {
-				return nil, fmt.Errorf("invalid local address: %s", addr.String())
+				return nil, false, fmt.Errorf("invalid local address: %s", addr.String())
 			}
+			didSet = true
 		}
 	}
-	return config, nil
+	return config, didSet, nil
 }
 
 func Run(gc CLIConf) {

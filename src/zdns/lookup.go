@@ -17,10 +17,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"math/rand"
 	"net"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -212,6 +214,9 @@ func (r *Resolver) followingLookup(ctx context.Context, qWithMeta *QuestionWithM
 	currName := qWithMeta.Q.Name     // this is the current name we are looking up
 	r.verboseLog(0, "MIEKG-IN: starting a C/DNAME following lookup for ", originalName, " (", qWithMeta.Q.Type, ")")
 	for i := 0; i < r.maxDepth; i++ {
+		if util.HasCtxExpired(ctx) {
+			return nil, trace, StatusTimeout, nil
+		}
 		qWithMeta.Q.Name = currName // update the question with the current name, this allows following CNAMEs
 		iterRes, newTrace, iterStatus, lookupErr := r.lookup(ctx, qWithMeta, nameServers, isIterative, trace)
 		trace = newTrace
@@ -337,7 +342,36 @@ func (r *Resolver) LookupAllNameserversExternal(ctx context.Context, q *Question
 
 // filterNameServersForUniqueNames will filter out duplicate nameservers based on the name.
 // Usually we'll have duplicates if a nameserver has both an IPv4 and IPv6 address. We'll use r.ipVersionMode and r.iterationIPPreference to determine which to keep.
+// When r.lookupAllNameServersAllIPs is true, all unique (name, IP) pairs are kept instead of one per name.
 func (r *Resolver) filterNameServersForUniqueNames(nameServers []NameServer) []NameServer {
+	if r.lookupAllNameServersAllIPs {
+		seen := make(map[string]NameServer, len(nameServers))
+		nsWithIPs := make(map[string]struct{})
+		for _, ns := range nameServers {
+			var key string
+			if ns.IP != nil {
+				if ns.IP.To4() != nil && r.ipVersionMode == IPv6Only {
+					continue
+				}
+				if util.IsIPv6(&ns.IP) && r.ipVersionMode == IPv4Only {
+					continue
+				}
+				key = ns.DomainName + "\x00" + ns.IP.String()
+				if _, ok := seen[key]; !ok {
+					seen[key] = ns
+					nsWithIPs[ns.DomainName] = struct{}{}
+				}
+			}
+		}
+		// Now populate any NSes for which we don't have an IP
+		for _, ns := range nameServers {
+			if _, ok := nsWithIPs[ns.DomainName]; !ok {
+				// missing this NS, adding
+				seen[ns.DomainName] = ns
+			}
+		}
+		return slices.Collect(maps.Values(seen))
+	}
 	uniqNameServersSet := make(map[string][]NameServer)
 	for _, ns := range nameServers {
 		if _, ok := uniqNameServersSet[ns.DomainName]; !ok {
@@ -383,6 +417,9 @@ func (r *Resolver) filterNameServersForUniqueNames(nameServers []NameServer) []N
 			filteredNameServersSet = append(filteredNameServersSet, *ipv4NS)
 		} else if r.iterationIPPreference == PreferIPv6 {
 			filteredNameServersSet = append(filteredNameServersSet, *ipv6NS)
+		} else if r.iterationIPPreference == NoPreference {
+			// dual-stack and no preference. we'll use both
+			filteredNameServersSet = append(filteredNameServersSet, *ipv4NS, *ipv6NS)
 		}
 	}
 	return filteredNameServersSet
@@ -398,7 +435,7 @@ func (r *Resolver) filterNameServersForUniqueNames(nameServers []NameServer) []N
 // Additionally, we'll query each layer for NS records, and once we have the set of authoritative nameservers, we'll query with
 // the original question type. This helps find sibling nameservers that aren't listed with the TLD.
 func (r *Resolver) LookupAllNameserversIterative(ctx context.Context, q *Question, rootNameServers []NameServer) (*AllNameServersResult, Trace, Status, error) {
-	perNameServerRetriesLimit := 2
+	perNameServerRetriesLimit := 1
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 	retv := AllNameServersResult{
@@ -412,12 +449,15 @@ func (r *Resolver) LookupAllNameserversIterative(ctx context.Context, q *Questio
 		// no root nameservers provided, use the resolver's root nameservers
 		currentLayerNameServers = r.rootNameServers
 	}
+	// Shadow q with a local copy so we don't mutate the caller's Question.
+	// Early-return paths would otherwise leave q.Type as dns.TypeNS.
 	originalQuestionType := q.Type
+	qLocal := *q
+	q = &qLocal
 	q.Type = dns.TypeNS
 	var layerResults []ExtendedResult
 	var currTrace Trace
 	for {
-		// Filter out duplicate nameservers by name, we'll treat IPv4 and IPv6 addresses as the same nameserver
 		currentLayerNameServers = r.filterNameServersForUniqueNames(currentLayerNameServers)
 		// Getting the NameServers
 		layerResults, currTrace, _, err = r.queryAllNameServersInLayer(ctx, perNameServerRetriesLimit, q, currentLayerNameServers)
@@ -432,7 +472,7 @@ func (r *Resolver) LookupAllNameserversIterative(ctx context.Context, q *Questio
 			retv.LayeredResponses[currentLayer] = append(retv.LayeredResponses[currentLayer], layerResults...)
 		}
 		var newNameServers []NameServer
-		newNameServers, err = r.extractNameServersFromLayerResults(layerResults)
+		newNameServers, err = extractNameServersFromLayerResults(layerResults, r.ipVersionMode, r.lookupAllNameServersAllIPs)
 		if err != nil {
 			return &retv, trace, StatusError, errors.Wrapf(err, "error extracting nameservers from layer %s", currentLayer)
 		}
@@ -447,6 +487,7 @@ func (r *Resolver) LookupAllNameserversIterative(ctx context.Context, q *Questio
 			currentLayerNameServers = append(currentLayerNameServers, newNameServers...)
 			break
 		}
+		log.Debugf("About to query level %s with nameservers: %v", newLayer, newNameServers)
 		if len(newNameServers) == 0 {
 			// check if we have no referral nameservers because we've hit a CNAME or DNAME
 			foundReferral := false
@@ -488,98 +529,6 @@ func (r *Resolver) LookupAllNameserversIterative(ctx context.Context, q *Questio
 	return &retv, trace, StatusNoError, nil
 }
 
-// extractNameServersFromLayerResults
-// extracts unique nameservers from Additionals/Authorities. Uniques by nameserver name, not by IP
-func (r *Resolver) extractNameServersFromLayerResults(layerResults []ExtendedResult) ([]NameServer, error) {
-	type mapKey struct {
-		Type   uint16
-		Name   string
-		Answer string
-	}
-	uniqueAdditionals := make(map[mapKey]Answer)
-	uniqueAuthorities := make(map[mapKey]Answer)
-	uniqueAnswers := make(map[mapKey]Answer)
-	for _, res := range layerResults {
-		if res.Status != StatusNoError {
-			continue
-		}
-		for _, ans := range res.Res.Additionals {
-			if a, ok := ans.(Answer); ok {
-				uniqueAdditionals[mapKey{Type: a.RrType, Name: a.Name, Answer: a.Answer}] = a
-			}
-		}
-		for _, ans := range res.Res.Authorities {
-			if a, ok := ans.(Answer); ok {
-				uniqueAuthorities[mapKey{Type: a.RrType, Name: a.Name, Answer: a.Answer}] = a
-			}
-		}
-		for _, ans := range res.Res.Answers {
-			if a, ok := ans.(Answer); ok {
-				if a.RrType == dns.TypeNS {
-					uniqueAnswers[mapKey{Type: a.RrType, Name: a.Name, Answer: a.Answer}] = a
-				}
-			}
-		}
-	}
-	// We have a map of unique additional and authority records. Now we need to extract the nameservers from them.
-	v4NameServers := make(map[string]NameServer)
-	v6NameServers := make(map[string]NameServer)
-	for _, authorities := range uniqueAuthorities {
-		if authorities.RrType == dns.TypeNS {
-			v4NameServers[strings.TrimSuffix(authorities.Answer, ".")] = NameServer{DomainName: strings.TrimSuffix(authorities.Answer, ".")}
-			v6NameServers[strings.TrimSuffix(authorities.Answer, ".")] = NameServer{DomainName: strings.TrimSuffix(authorities.Answer, ".")}
-		}
-	}
-	for _, additionals := range uniqueAdditionals {
-		additionals.Name = strings.TrimSuffix(additionals.Name, ".")
-		if additionals.RrType == dns.TypeA {
-			if ns, ok := v4NameServers[additionals.Name]; ok {
-				ns.IP = net.ParseIP(additionals.Answer)
-				v4NameServers[additionals.Name] = ns
-			}
-		}
-		if additionals.RrType == dns.TypeAAAA {
-			if ns, ok := v6NameServers[additionals.Name]; ok {
-				ns.IP = net.ParseIP(additionals.Answer)
-				v6NameServers[additionals.Name] = ns
-			}
-		}
-	}
-	uniqNameServersSet := make(map[string]NameServer)
-	if r.ipVersionMode != IPv6Only {
-		for _, ns := range v4NameServers {
-			key := ns.DomainName + ns.IP.String()
-			if _, ok := uniqNameServersSet[key]; !ok {
-				uniqNameServersSet[key] = ns
-
-			}
-		}
-	}
-	if r.ipVersionMode != IPv4Only {
-		for _, ns := range v6NameServers {
-			key := ns.DomainName + ns.IP.String()
-			if _, ok := uniqNameServersSet[key]; !ok {
-				uniqNameServersSet[key] = ns
-			}
-		}
-	}
-	// append any NS answers too
-	for _, answer := range uniqueAnswers {
-		ns := NameServer{
-			DomainName: strings.TrimSuffix(answer.Answer, "."),
-		}
-		key := ns.DomainName
-		if _, ok := uniqNameServersSet[key]; !ok {
-			uniqNameServersSet[key] = ns
-		}
-	}
-	uniqNameServers := make([]NameServer, 0, len(uniqNameServersSet))
-	for _, ns := range uniqNameServersSet {
-		uniqNameServers = append(uniqNameServers, ns)
-	}
-	return uniqNameServers, nil
-}
-
 func (r *Resolver) populateNameServerIP(ctx context.Context, nameServer *NameServer) (Trace, error) {
 	if nameServer.IP != nil {
 		// already have an IP
@@ -594,7 +543,11 @@ func (r *Resolver) populateNameServerIP(ctx context.Context, nameServer *NameSer
 	} else if r.iterationIPPreference == PreferIPv4 {
 		q = Question{dns.TypeA, dns.ClassINET, nameServer.DomainName}
 	} else {
+		// Dual-stack and no IP preference, flip a coin
 		q = Question{dns.TypeAAAA, dns.ClassINET, nameServer.DomainName}
+		if rand.Intn(2) == 0 {
+			q.Type = dns.TypeA
+		}
 	}
 	res, nsTrace, status, err := r.followingLookup(ctx, &QuestionWithMetadata{
 		Q:                q,
@@ -788,7 +741,7 @@ func (r *Resolver) cyclingLookup(ctx context.Context, qWithMeta *QuestionWithMet
 			return result, isCached, status, trace, errors.New("cycling lookup failed - rate limit exceeded and out of retries")
 		} else if *qWithMeta.RetriesRemaining == 0 {
 			r.verboseLog(depth+1, "Cycling lookup failed - out of retries. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
-			return result, isCached, status, trace, errors.New("cycling lookup failed - out of retries")
+			return result, isCached, status, trace, fmt.Errorf("cycling lookup failed - out of retries. Last error: %v", err)
 		} else if util.HasCtxExpired(ctx) {
 			r.verboseLog(depth+1, "Cycling lookup failed - context expired. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 			return result, isCached, status, trace, errors.New("cycling lookup failed - context expired")
@@ -1036,7 +989,7 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 				ServerName:         nameServer.DomainName,
 			})
 		}
-		err = tlsConn.Handshake()
+		err = tlsConn.HandshakeContext(ctx)
 		if err != nil {
 			closeErr := tlsConn.Close()
 			if closeErr != nil {
@@ -1046,6 +999,11 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 		}
 		connInfo.tlsHandshake = tlsConn.GetHandshakeLog()
 		connInfo.tlsConn = &dns.Conn{Conn: tlsConn}
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		if err := connInfo.tlsConn.SetDeadline(deadline); err != nil {
+			return nil, nil, StatusError, errors.Wrap(err, "could not set DoT connection deadline")
+		}
 	}
 	err := connInfo.tlsConn.WriteMsg(m)
 	if err != nil {
@@ -1391,6 +1349,12 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority any, layer st
 			q.Q.Type = dns.TypeAAAA
 		} else if r.ipVersionMode == IPv4OrIPv6 && r.iterationIPPreference == PreferIPv6 {
 			q.Q.Type = dns.TypeAAAA
+		} else if r.ipVersionMode == IPv4OrIPv6 && r.iterationIPPreference == NoPreference {
+			// flip a coin to decide, user has no pref
+			q.Q.Type = dns.TypeA
+			if rand.Intn(2) == 0 {
+				q.Q.Type = dns.TypeAAAA
+			}
 		} else {
 			q.Q.Type = dns.TypeA
 		}
@@ -1401,6 +1365,19 @@ func (r *Resolver) extractAuthority(ctx context.Context, authority any, layer st
 		prevSecValue := r.shouldValidateDNSSEC
 		r.shouldValidateDNSSEC = false
 		res, trace, status, _ = r.iterativeLookup(ctx, &q, r.rootNameServers, depth+1, ".", trace)
+		// If we're preferring A/AAAA iteration and got a failure, retry with the other
+		canRetry := r.ipVersionMode == IPv4OrIPv6
+		statusUnsuccessfulAndHaveTime := status != StatusNoError && !util.HasCtxExpired(ctx)
+		if canRetry && statusUnsuccessfulAndHaveTime {
+			// flip the query type
+			if q.Q.Type == dns.TypeA {
+				q.Q.Type = dns.TypeAAAA
+			} else {
+				q.Q.Type = dns.TypeA
+			}
+			q.RetriesRemaining = &r.retriesRemaining
+			res, trace, status, _ = r.iterativeLookup(ctx, &q, r.rootNameServers, depth+1, ".", trace)
+		}
 		r.shouldValidateDNSSEC = prevSecValue
 	}
 	if status == StatusIterTimeout || status == StatusNoNeededGlue {

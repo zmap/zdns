@@ -14,6 +14,7 @@
 package zdns
 
 import (
+	"slices"
 	"strings"
 	"time"
 
@@ -22,7 +23,6 @@ import (
 	"github.com/zmap/dns"
 
 	"github.com/zmap/zdns/v2/src/internal/cachehash"
-	"github.com/zmap/zdns/v2/src/internal/util"
 )
 
 type IsCached bool
@@ -252,7 +252,7 @@ func (s *Cache) SafeAddCachedAnswer(q Question, res *SingleQueryResult, ns *Name
 		nsString = ns.String()
 	}
 	// check for poison
-	for _, a := range util.Concat(res.Answers, res.Authorities, res.Additionals) {
+	for _, a := range slices.Concat(res.Answers, res.Authorities, res.Additionals) {
 		castAns, ok := a.(WithBaseAnswer)
 		if !ok {
 			// if we can't cast, it won't be added to the cache. We'll log in buildCachedResult
