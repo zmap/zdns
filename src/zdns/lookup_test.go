@@ -21,6 +21,7 @@ import (
 	"net"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -31,8 +32,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/zmap/dns"
-
-	"github.com/zmap/zdns/v2/src/internal/util"
 )
 
 type nameAndIP struct {
@@ -917,7 +916,7 @@ func TestUnexpectedMxOnly(t *testing.T) {
 	} else if res == nil {
 		t.Error("Expected results, got none")
 	} else if len(res.IPv4Addresses) > 0 || len(res.IPv6Addresses) > 0 {
-		t.Errorf("Expected no IP addresses, got: %v", util.Concat(res.IPv4Addresses, res.IPv6Addresses))
+		t.Errorf("Expected no IP addresses, got: %v", slices.Concat(res.IPv4Addresses, res.IPv6Addresses))
 	}
 }
 
@@ -993,7 +992,7 @@ func TestMismatchIpType(t *testing.T) {
 	} else if res == nil {
 		t.Error("Expected results, got none")
 	} else if len(res.IPv4Addresses) > 0 || len(res.IPv6Addresses) > 0 {
-		t.Errorf("Expected no IP addresses, got: %v", util.Concat(res.IPv4Addresses, res.IPv6Addresses))
+		t.Errorf("Expected no IP addresses, got: %v", slices.Concat(res.IPv4Addresses, res.IPv6Addresses))
 	}
 }
 

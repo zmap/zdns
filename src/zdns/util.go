@@ -17,6 +17,7 @@ package zdns
 import (
 	"fmt"
 	"net"
+	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -75,36 +76,43 @@ func nameIsBeneath(name, layer string) (bool, string) {
 	return false, ""
 }
 
+// checkGlue uses the glue records (authorities/additionals) to extract a valid nameserver to try next
+// It takes into account IP mode an IP preference to extract the correct A/AAAA record type accordingly
+// It will return on the first valid record seen
 func checkGlue(server string, result *SingleQueryResult, ipMode IPVersionMode, ipPreference IterationIPPreference) (*SingleQueryResult, Status) {
-	var ansType string
+	acceptableAnsTypes := make([]string, 0, 1)
 	if ipMode == IPv4Only {
-		ansType = "A"
+		acceptableAnsTypes = append(acceptableAnsTypes, "A")
 	} else if ipMode == IPv6Only {
-		ansType = "AAAA"
+		acceptableAnsTypes = append(acceptableAnsTypes, "AAAA")
 	} else if ipPreference == PreferIPv4 {
 		// must be using either IPv4 or IPv6
-		ansType = "A"
+		acceptableAnsTypes = append(acceptableAnsTypes, "A")
 	} else if ipPreference == PreferIPv6 {
 		// must be using either IPv4 or IPv6
-		ansType = "AAAA"
+		acceptableAnsTypes = append(acceptableAnsTypes, "AAAA")
 	} else {
-		log.Fatal("should never hit this case in check glue: ", ipMode, ipPreference)
+		// No IP preference and on dual-stack.
+		acceptableAnsTypes = append(acceptableAnsTypes, "A", "AAAA")
 	}
-	res, status := checkGlueHelper(server, ansType, result)
-	if status == StatusNoError || ipMode != IPv4OrIPv6 {
-		// If we have a valid answer, or we're not looking for both A and AAAA records, return
+	res, status := checkGlueHelper(server, acceptableAnsTypes, result)
+	if status == StatusNoError || ipMode != IPv4OrIPv6 || ipPreference == NoPreference {
+		// Return if:
+		//   - We have a valid glue to try
+		//   - We don't have another IP mode (A or AAAA) to try, so nothing to do
+		//   - We have no preference on A/AAAA and are on dual-stack, we've tried both and there was nothing
 		return res, status
 	}
 	// If we're looking for both A and AAAA records, and we didn't find an answer, try the other type
-	if ansType == "A" {
-		ansType = "AAAA"
+	if ipPreference == PreferIPv4 {
+		acceptableAnsTypes = []string{"AAAA"}
 	} else {
-		ansType = "A"
+		acceptableAnsTypes = []string{"A"}
 	}
-	return checkGlueHelper(server, ansType, result)
+	return checkGlueHelper(server, acceptableAnsTypes, result)
 }
 
-func checkGlueHelper(server, ansType string, result *SingleQueryResult) (*SingleQueryResult, Status) {
+func checkGlueHelper(server string, ansTypes []string, result *SingleQueryResult) (*SingleQueryResult, Status) {
 	for _, additional := range result.Additionals {
 		ans, ok := additional.(Answer)
 		if !ok {
@@ -112,7 +120,7 @@ func checkGlueHelper(server, ansType string, result *SingleQueryResult) (*Single
 		}
 		// sanitize case and trailing dot
 		// RFC 4343 - states DNS names are case-insensitive
-		if ans.Type == ansType && strings.EqualFold(strings.TrimSuffix(ans.Name, "."), server) {
+		if slices.Contains(ansTypes, ans.Type) && strings.EqualFold(strings.TrimSuffix(ans.Name, "."), server) {
 			var retv SingleQueryResult
 			retv.Authorities = make([]any, 0)
 			retv.Answers = make([]any, 0, 1)
