@@ -1150,8 +1150,10 @@ func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, na
 		if nerr, ok := err.(net.Error); ok {
 			// Close the TCP connection on Error to prevent latent replies poisoning the connection.
 			// See github.com/zmap/zdns/issues/602
-			connInfo.tcpConn.Close()
-			connInfo.tcpConn = nil
+			if connInfo != nil && connInfo.tcpConn != nil {
+				connInfo.tcpConn.Close()
+				connInfo.tcpConn = nil
+			}
 			if nerr.Timeout() {
 				return &res, r, StatusTimeout, nil
 			}
