@@ -272,6 +272,10 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	if err != nil {
 		log.Fatal("could not populate IP transport mode: ", err)
 	}
+	config, _, err = populateLocalAddresses(gc, config)
+	if err != nil {
+		log.Fatal("could not populate local addresses: ", err)
+	}
 	// This is used in extractAuthorities where we need to know whether to request A or AAAA records to continue iteration
 	// Must be set after populating IPTransportMode
 	if config.IPVersionMode == zdns.IPv4Only {
@@ -511,6 +515,8 @@ func useNameServerStringToPopulateNameServers(nameServers []string, config *zdns
 	return config, nil
 }
 
+// populateLocalAddresses takes the local addr string from the CLI and splits it into IPv4 and v6 local addrs
+// Idempotent - it is safe to call repeatedly
 func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.ResolverConfig, bool, error) {
 	// Local Addresses are populated in this order:
 	// 1. If user provided local addresses, use those
