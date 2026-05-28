@@ -1265,7 +1265,6 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 		authorities[i], authorities[j] = authorities[j], authorities[i]
 	})
 
-	var err error
 	for _, elem := range authorities {
 		// Skip DNSSEC records
 		switch elem.(type) {
@@ -1290,8 +1289,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 		}
 
 		if nsStatus != StatusNoError {
-			var err error
-			newStatus, err := handleStatus(nsStatus, err)
+			newStatus, err := handleStatus(nsStatus, nil)
 			if err != nil {
 				r.verboseLog(depth+2, "--> Auth find failed for name ", qWithMeta.Q.Name, " with status: ", newStatus, " and error: ", err)
 			} else {
@@ -1301,9 +1299,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 		}
 
 		// Try iterative lookup immediately with this nameserver
-		var iterateResult *SingleQueryResult
-		var status Status
-		iterateResult, newTrace, status, err = r.iterativeLookup(ctx, qWithMeta, []NameServer{*ns}, depth+1, nextLayer, trace)
+		iterateResult, newTrace, status, err := r.iterativeLookup(ctx, qWithMeta, []NameServer{*ns}, depth+1, nextLayer, trace)
 		trace = newTrace
 
 		if status == StatusNoNeededGlue {

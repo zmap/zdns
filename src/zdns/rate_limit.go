@@ -22,8 +22,9 @@ import (
 	"time"
 
 	"github.com/jellydator/ttlcache/v3"
-	"github.com/zmap/zdns/v2/src/internal/util"
 	"golang.org/x/time/rate"
+
+	"github.com/zmap/zdns/v2/src/internal/util"
 )
 
 const rateLimitTTL = time.Second * 15
