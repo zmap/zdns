@@ -282,13 +282,17 @@ func TestPopulateResolverConfig(t *testing.T) {
 
 	t.Run("IPVersionMode from --4/--6 flags", func(t *testing.T) {
 		tests := []struct {
-			name                string
-			ipv4Only            bool
-			ipv6Only            bool
-			nameServers         []string
-			nameServersString   string
-			wantIPVersionMode   zdns.IPVersionMode
-			wantIterPref        zdns.IterationIPPreference
+			name              string
+			ipv4Only          bool
+			ipv6Only          bool
+			nameServers       []string
+			nameServersString string
+			wantIPVersionMode zdns.IPVersionMode
+			wantIterPref      zdns.IterationIPPreference
+			wantV4NSes        []string // IPs expected in External/RootNameServersV4; nil means don't check
+			wantV6NSes        []string // IPs expected in External/RootNameServersV6; nil means don't check
+			wantV4Empty       bool
+			wantV6Empty       bool
 		}{
 			{
 				name:              "--4 forces IPv4Only regardless of nameserver family",
@@ -297,6 +301,8 @@ func TestPopulateResolverConfig(t *testing.T) {
 				nameServersString: ipv4NS,
 				wantIPVersionMode: zdns.IPv4Only,
 				wantIterPref:      zdns.PreferIPv4,
+				wantV4NSes:        []string{ipv4NS},
+				wantV6Empty:       true,
 			},
 			{
 				name:              "--6 forces IPv6Only regardless of nameserver family",
@@ -305,6 +311,8 @@ func TestPopulateResolverConfig(t *testing.T) {
 				nameServersString: ipv6NS,
 				wantIPVersionMode: zdns.IPv6Only,
 				wantIterPref:      zdns.PreferIPv6,
+				wantV6NSes:        []string{ipv6NS},
+				wantV4Empty:       true,
 			},
 			{
 				name:              "--4 with mixed nameservers drops IPv6 nameservers",
@@ -313,6 +321,8 @@ func TestPopulateResolverConfig(t *testing.T) {
 				nameServersString: ipv4NS + "," + ipv6NS,
 				wantIPVersionMode: zdns.IPv4Only,
 				wantIterPref:      zdns.PreferIPv4,
+				wantV4NSes:        []string{ipv4NS},
+				wantV6Empty:       true,
 			},
 			{
 				name:              "--6 with mixed nameservers drops IPv4 nameservers",
@@ -321,6 +331,8 @@ func TestPopulateResolverConfig(t *testing.T) {
 				nameServersString: ipv4NS + "," + ipv6NS,
 				wantIPVersionMode: zdns.IPv6Only,
 				wantIterPref:      zdns.PreferIPv6,
+				wantV6NSes:        []string{ipv6NS},
+				wantV4Empty:       true,
 			},
 		}
 		for _, tt := range tests {
@@ -333,6 +345,20 @@ func TestPopulateResolverConfig(t *testing.T) {
 				config := populateResolverConfig(&gc)
 				assert.Equal(t, tt.wantIPVersionMode, config.IPVersionMode)
 				assert.Equal(t, tt.wantIterPref, config.IterationIPPreference)
+				if tt.wantV4Empty {
+					assert.Empty(t, config.ExternalNameServersV4, "ExternalNameServersV4 should be empty")
+					assert.Empty(t, config.RootNameServersV4, "RootNameServersV4 should be empty")
+				} else if tt.wantV4NSes != nil {
+					requireNSIPs(t, config.ExternalNameServersV4, tt.wantV4NSes, "ExternalNameServersV4")
+					requireNSIPs(t, config.RootNameServersV4, tt.wantV4NSes, "RootNameServersV4")
+				}
+				if tt.wantV6Empty {
+					assert.Empty(t, config.ExternalNameServersV6, "ExternalNameServersV6 should be empty")
+					assert.Empty(t, config.RootNameServersV6, "RootNameServersV6 should be empty")
+				} else if tt.wantV6NSes != nil {
+					requireNSIPs(t, config.ExternalNameServersV6, tt.wantV6NSes, "ExternalNameServersV6")
+					requireNSIPs(t, config.RootNameServersV6, tt.wantV6NSes, "RootNameServersV6")
+				}
 			})
 		}
 	})
@@ -435,9 +461,6 @@ func TestPopulateResolverConfig(t *testing.T) {
 	})
 
 	t.Run("local addresses populated when nameservers also provided", func(t *testing.T) {
-		// These cases expose the regression: populateIPTransportMode returns early when
-		// nameservers are given, bypassing the populateLocalAddresses call. LocalAddrsV4
-		// and LocalAddrsV6 are therefore never written into the ResolverConfig.
 		tests := []struct {
 			name              string
 			nameServers       []string
