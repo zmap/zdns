@@ -15,15 +15,19 @@ package zdns
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"math/rand"
 	"net"
 	"reflect"
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -2117,3 +2121,131 @@ func verifyCombinedResult(t *testing.T, records map[string][]ExtendedResult, exp
 		t.Errorf("Combined result not matching, expected %v, found %v", expectedRecords, records)
 	}
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// TCP Connection Poison Tests
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// startAlternatingDelayTCPServer starts a TCP DNS server on a random port. Odd-numbered
+// queries (globally, across all connections) are answered only after delay, causing the
+// client to time out. Even-numbered queries are answered immediately. The global counter
+// is atomic so concurrent connection goroutines are safe.
+func startAlternatingDelayTCPServer(t *testing.T, delay time.Duration) (addr string) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	t.Cleanup(func() { ln.Close() })
+
+	var queryCount atomic.Int32
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go serveAlternatingDelayConn(conn, &queryCount, delay)
+		}
+	}()
+	return ln.Addr().String()
+}
+
+func serveAlternatingDelayConn(conn net.Conn, queryCount *atomic.Int32, delay time.Duration) {
+	defer conn.Close()
+	for {
+		var msgLen uint16
+		if err := binary.Read(conn, binary.BigEndian, &msgLen); err != nil {
+			return
+		}
+		buf := make([]byte, msgLen)
+		if _, err := io.ReadFull(conn, buf); err != nil {
+			return
+		}
+		req := new(dns.Msg)
+		if err := req.Unpack(buf); err != nil {
+			return
+		}
+
+		n := queryCount.Add(1)
+		if n%2 == 1 {
+			// Odd query: sleep past the client's timeout so the reply arrives late.
+			time.Sleep(delay)
+		}
+
+		resp := new(dns.Msg)
+		resp.SetReply(req)
+		resp.Answer = []dns.RR{
+			&dns.A{
+				Hdr: dns.RR_Header{
+					Name:   req.Question[0].Name,
+					Rrtype: dns.TypeA,
+					Class:  dns.ClassINET,
+					Ttl:    60,
+				},
+				A: net.ParseIP("192.0.2.1"),
+			},
+		}
+		packed, err := resp.Pack()
+		if err != nil {
+			return
+		}
+		var lenBuf [2]byte
+		binary.BigEndian.PutUint16(lenBuf[:], uint16(len(packed)))
+		if _, err := conn.Write(append(lenBuf[:], packed...)); err != nil {
+			return
+		}
+	}
+}
+
+// TestTCPConnNotPoisonedOnTimeout verifies that a TCP connection is not reused after a
+// timeout (GitHub issue #602). Without the fix, the server's late reply to a timed-out
+// query stays buffered on the recycled connection and is mis-read as the reply to the
+// next query, producing StatusError instead of StatusNoError.
+//
+// The test server alternates: odd queries (1, 3) delay past the client timeout, even
+// queries (2, 4) respond immediately. With socket recycling enabled, the pre-fix code
+// would recycle the poisoned connection and the even queries would get ID-mismatched
+// replies. The fix closes the connection on any timeout so the next query reconnects.
+func TestTCPConnNotPoisonedOnTimeout(t *testing.T) {
+	const networkTimeout = 200 * time.Millisecond
+	const serverDelay = 2 * networkTimeout
+
+	addr := startAlternatingDelayTCPServer(t, serverDelay)
+
+	ip, portStr, err := net.SplitHostPort(addr)
+	require.NoError(t, err)
+	port, err := strconv.Atoi(portStr)
+	require.NoError(t, err)
+	ns := NameServer{IP: net.ParseIP(ip), Port: uint16(port)}
+
+	config := NewResolverConfig()
+	config.TransportMode = TCPOnly
+	config.ShouldRecycleSockets = true
+	config.NetworkTimeout = networkTimeout
+	config.Timeout = 5 * time.Second
+	config.Retries = 0
+	config.IPVersionMode = IPv4Only
+	config.LocalAddrsV4 = []net.IP{net.ParseIP("127.0.0.1")}
+	config.ExternalNameServersV4 = []NameServer{ns}
+	config.RootNameServersV4 = []NameServer{ns}
+	config.LookupClient = LookupClient{}
+
+	resolver, err := InitResolver(config)
+	require.NoError(t, err)
+	defer resolver.Close()
+
+	names := []string{"a.example", "b.example", "c.example", "d.example"}
+	statuses := make([]Status, len(names))
+	for i, name := range names {
+		q := Question{Name: name, Type: dns.TypeA, Class: dns.ClassINET}
+		_, _, statuses[i], _ = resolver.ExternalLookup(context.Background(), &q, &ns)
+	}
+
+	require.Equal(t, StatusTimeout, statuses[0], "query 1 (odd): expected timeout")
+	require.Equal(t, StatusNoError, statuses[1], "query 2 (even): expected success, not poisoned by query 1 timeout")
+	require.Equal(t, StatusTimeout, statuses[2], "query 3 (odd): expected timeout")
+	require.Equal(t, StatusNoError, statuses[3], "query 4 (even): expected success, not poisoned by query 3 timeout")
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// END TCP Connection Poison Tests
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
