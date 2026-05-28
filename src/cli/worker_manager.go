@@ -512,7 +512,6 @@ func useNameServerStringToPopulateNameServers(nameServers []string, config *zdns
 }
 
 // populateLocalAddresses populates the LocalAddrsV4 and LocalAddrsV6 fields of the ResolverConfig based on the provided CLI arguments.
-// It is idempotent, safe to call multiple times
 func populateLocalAddresses(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.ResolverConfig, bool, error) {
 	// Local Addresses are populated in this order:
 	// 1. If user provided local addresses, use those
