@@ -272,10 +272,6 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	if err != nil {
 		log.Fatal("could not populate IP transport mode: ", err)
 	}
-	config, _, err = populateLocalAddresses(gc, config)
-	if err != nil {
-		log.Fatal("could not populate local addresses: ", err)
-	}
 	// This is used in extractAuthorities where we need to know whether to request A or AAAA records to continue iteration
 	// Must be set after populating IPTransportMode
 	if config.IPVersionMode == zdns.IPv4Only {
