@@ -1321,9 +1321,6 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 
 	// If we get here, all authorities failed
 	r.verboseLog(depth+2, "--> No more authorities to try for name ", qWithMeta.Q.Name, ", terminating")
-	if err != nil {
-		return &SingleQueryResult{}, trace, StatusServFail, fmt.Errorf("no valid nameservers found or all lookups failed, last error: %w", err)
-	}
 	return &SingleQueryResult{}, trace, StatusServFail, errors.New("no valid nameservers found or all lookups failed")
 }
 
