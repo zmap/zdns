@@ -740,8 +740,12 @@ func (r *Resolver) cyclingLookup(ctx context.Context, qWithMeta *QuestionWithMet
 			r.verboseLog(depth+1, "Cycling lookup failed - rate limit exceeded and out of retries. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 			return result, isCached, status, trace, errors.New("cycling lookup failed - rate limit exceeded and out of retries")
 		} else if *qWithMeta.RetriesRemaining == 0 {
-			r.verboseLog(depth+1, "Cycling lookup failed - out of retries. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
-			return result, isCached, status, trace, fmt.Errorf("cycling lookup failed - out of retries. Last error: %v", err)
+			if err != nil {
+				r.verboseLog(depth+1, "Cycling lookup failed - out of retries. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer, ", Error: ", err)
+			} else {
+				r.verboseLog(depth+1, "Cycling lookup failed - out of retries. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
+			}
+			return result, isCached, status, trace, fmt.Errorf("cycling lookup failed - out of retries. Last error: %w", err)
 		} else if util.HasCtxExpired(ctx) {
 			r.verboseLog(depth+1, "Cycling lookup failed - context expired. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 			return result, isCached, status, trace, errors.New("cycling lookup failed - context expired")
@@ -1261,6 +1265,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 		authorities[i], authorities[j] = authorities[j], authorities[i]
 	})
 
+	var err error
 	for _, elem := range authorities {
 		// Skip DNSSEC records
 		switch elem.(type) {
@@ -1296,7 +1301,9 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 		}
 
 		// Try iterative lookup immediately with this nameserver
-		iterateResult, newTrace, status, err := r.iterativeLookup(ctx, qWithMeta, []NameServer{*ns}, depth+1, nextLayer, trace)
+		var iterateResult *SingleQueryResult
+		var status Status
+		iterateResult, newTrace, status, err = r.iterativeLookup(ctx, qWithMeta, []NameServer{*ns}, depth+1, nextLayer, trace)
 		trace = newTrace
 
 		if status == StatusNoNeededGlue {
@@ -1314,6 +1321,9 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 
 	// If we get here, all authorities failed
 	r.verboseLog(depth+2, "--> No more authorities to try for name ", qWithMeta.Q.Name, ", terminating")
+	if err != nil {
+		return &SingleQueryResult{}, trace, StatusServFail, fmt.Errorf("no valid nameservers found or all lookups failed, last error: %w", err)
+	}
 	return &SingleQueryResult{}, trace, StatusServFail, errors.New("no valid nameservers found or all lookups failed")
 }
 
