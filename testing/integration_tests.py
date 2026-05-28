@@ -1454,7 +1454,7 @@ class Tests(unittest.TestCase):
 
     def test_dnssec_validation_insecure(self):
         # checks if dnssec validation reports insecure (not signed) zones correctly
-        c = "A outlook.com --iterative --validate-dnssec --result-verbosity=long"
+        c = "A reddit.com --iterative --validate-dnssec --result-verbosity=long"
         name = "."
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd, "A")
