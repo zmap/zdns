@@ -740,8 +740,12 @@ func (r *Resolver) cyclingLookup(ctx context.Context, qWithMeta *QuestionWithMet
 			r.verboseLog(depth+1, "Cycling lookup failed - rate limit exceeded and out of retries. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 			return result, isCached, status, trace, errors.New("cycling lookup failed - rate limit exceeded and out of retries")
 		} else if *qWithMeta.RetriesRemaining == 0 {
-			r.verboseLog(depth+1, "Cycling lookup failed - out of retries. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
-			return result, isCached, status, trace, fmt.Errorf("cycling lookup failed - out of retries. Last error: %v", err)
+			if err != nil {
+				r.verboseLog(depth+1, "Cycling lookup failed - out of retries. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer, ", Error: ", err)
+			} else {
+				r.verboseLog(depth+1, "Cycling lookup failed - out of retries. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
+			}
+			return result, isCached, status, trace, fmt.Errorf("cycling lookup failed - out of retries. Last error: %w", err)
 		} else if util.HasCtxExpired(ctx) {
 			r.verboseLog(depth+1, "Cycling lookup failed - context expired. Name: ", qWithMeta.Q.Name, ", Layer: ", layer, ", Nameserver: ", nameServer)
 			return result, isCached, status, trace, errors.New("cycling lookup failed - context expired")
@@ -1291,8 +1295,7 @@ func (r *Resolver) iterateOnAuthorities(ctx context.Context, qWithMeta *Question
 		}
 
 		if nsStatus != StatusNoError {
-			var err error
-			newStatus, err := handleStatus(nsStatus, err)
+			newStatus, err := handleStatus(nsStatus, nil)
 			if err != nil {
 				r.verboseLog(depth+2, "--> Auth find failed for name ", qWithMeta.Q.Name, " with status: ", newStatus, " and error: ", err)
 			} else {

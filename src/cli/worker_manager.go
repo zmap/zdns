@@ -377,7 +377,7 @@ func populateIPTransportMode(gc *CLIConf, config *zdns.ResolverConfig) (*zdns.Re
 		log.Infof("user didn't prescribe a specific IP version mode (IPv4/v6), but did provide nameservers. Inferred IP mode - %s", config.IPVersionMode.String())
 		return config, nil
 	}
-	// Check local addressed if provided
+	// Check local addresses if provided
 	var didSet bool
 	config, didSet, err = populateLocalAddresses(gc, config)
 	if err != nil {

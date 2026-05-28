@@ -23,6 +23,8 @@ import (
 
 	"github.com/jellydator/ttlcache/v3"
 	"golang.org/x/time/rate"
+
+	"github.com/zmap/zdns/v2/src/internal/util"
 )
 
 const rateLimitTTL = time.Second * 15
@@ -101,6 +103,9 @@ func (l *PerIPPerNameNSRateLimiter) getReservations(ns NameServer) (perIPReserva
 }
 
 func (l *PerIPPerNameNSRateLimiter) wait(ctx context.Context, ns NameServer) error {
+	if util.HasCtxExpired(ctx) {
+		return errors.New("context has already expired before waiting on rate limiter")
+	}
 
 	ipReservation, nameReservation, err := l.getReservations(ns)
 	if err != nil {

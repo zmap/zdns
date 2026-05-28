@@ -446,16 +446,16 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, error) {
 	// what local addresses should we use?
 	isNSIPv6 := util.IsIPv6(&nameServer.IP)
-	isLoopback := nameServer.IP.IsLoopback()
+	isNSLoopback := nameServer.IP.IsLoopback()
 	// check if we have a pre-existing udpConn info
 	var existingConnInfo *ConnectionInfo
-	if isNSIPv6 && isLoopback && r.connInfoIPv6Loopback != nil {
+	if isNSIPv6 && isNSLoopback && r.connInfoIPv6Loopback != nil {
 		existingConnInfo = r.connInfoIPv6Loopback
-	} else if isNSIPv6 && !isLoopback && r.connInfoIPv6Internet != nil {
+	} else if isNSIPv6 && !isNSLoopback && r.connInfoIPv6Internet != nil {
 		existingConnInfo = r.connInfoIPv6Internet
-	} else if !isNSIPv6 && isLoopback && r.connInfoIPv4Loopback != nil {
+	} else if !isNSIPv6 && isNSLoopback && r.connInfoIPv4Loopback != nil {
 		existingConnInfo = r.connInfoIPv4Loopback
-	} else if !isNSIPv6 && !isLoopback && r.connInfoIPv4Internet != nil {
+	} else if !isNSIPv6 && !isNSLoopback && r.connInfoIPv4Internet != nil {
 		// must be IPv4 non-loopback
 		existingConnInfo = r.connInfoIPv4Internet
 	}
@@ -490,7 +490,7 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 	})
 	var localAddr *net.IP
 	for _, ip := range userIPs {
-		if isLoopback == ip.IsLoopback() {
+		if isNSLoopback == ip.IsLoopback() {
 			localAddr = &ip
 			break
 		}
@@ -498,10 +498,10 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 
 	if localAddr == nil {
 		// none of the user-supplied IPs match the conditions, we need to select one
-		if isLoopback && isNSIPv6 {
+		if isNSLoopback && isNSIPv6 {
 			ip := net.ParseIP(DefaultLoopbackIPv6Addr)
 			localAddr = &ip
-		} else if isLoopback {
+		} else if isNSLoopback {
 			ip := net.ParseIP(DefaultLoopbackIPv4Addr)
 			localAddr = &ip
 		} else {
@@ -519,21 +519,22 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 
 			// cleanup socket
 			if err = conn.Close(); err != nil {
-				log.Error("unable to close test connection to Google public DNS: ", err)
+				log.Error("unable to close test connection to nameserver: ", err)
 			}
 		}
 		if localAddr != nil {
 			if (len(r.userPreferredIPv4LocalAddrs) > 0 && localAddr.To4() != nil) || (len(r.userPreferredIPv6LocalAddrs) > 0 && util.IsIPv6(localAddr)) {
 				// the user provided a local addr. explicitly that won't work, error
-				log.Fatalf("none of the user-supplied local addresses (%v) could connect to name server %s", userIPs, nameServer.String())
-			} else {
-				// user didn't explicitly provide a local addr, this is just a default. Info level so as not to alarm the user
-				log.Infof("none of the default local addresses could connect to name server %s, using local address %s", nameServer.String(), localAddr.String())
+				// In rare cases, a NS for a name can point at a local address. While obviously not resolveable, we shouldn't kill the ZDNS process.
+				// Return an error and move on
+				return nil, fmt.Errorf("none of the user-supplied local addresses (%v) could connect to name server %s", userIPs, nameServer.String())
 			}
+			// user didn't explicitly provide a local addr, this is just a default. Info level so as not to alarm the user
+			log.Infof("none of the default local addresses could connect to name server %s, using local address %s", nameServer.String(), localAddr.String())
 		}
 	}
 	if localAddr == nil {
-		return nil, errors.New("unable to find local address for connection")
+		return nil, fmt.Errorf("unable to find local address for connection to nameserver %s", nameServer.String())
 	}
 	connInfo := &ConnectionInfo{
 		localAddr: *localAddr,
@@ -627,11 +628,11 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 		}
 	}
 	// save the connection info for future use
-	if isNSIPv6 && isLoopback {
+	if isNSIPv6 && isNSLoopback {
 		r.connInfoIPv6Loopback = connInfo
 	} else if isNSIPv6 {
 		r.connInfoIPv6Internet = connInfo
-	} else if isLoopback {
+	} else if isNSLoopback {
 		r.connInfoIPv4Loopback = connInfo
 	} else {
 		r.connInfoIPv4Internet = connInfo
