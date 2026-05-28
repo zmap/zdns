@@ -512,12 +512,12 @@ func TestPopulateResolverConfig(t *testing.T) {
 
 	t.Run("IterationIPPreference with prefer flags", func(t *testing.T) {
 		tests := []struct {
-			name             string
-			preferIPv4       bool
-			preferIPv6       bool
-			nameServers      []string
+			name              string
+			preferIPv4        bool
+			preferIPv6        bool
+			nameServers       []string
 			nameServersString string
-			wantIterPref     zdns.IterationIPPreference
+			wantIterPref      zdns.IterationIPPreference
 		}{
 			{
 				name:              "--prefer-ipv4-iteration with mixed nameservers sets PreferIPv4",
