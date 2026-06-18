@@ -27,13 +27,13 @@ make install
 Usage
 =====
 
-ZDNS consists of a recursive resolver [library](github.com/zmap/zdns/src/zdns) and [CLI wrapper](github.com/zmap/zdns/src/cli).
+ZDNS consists of a recursive resolver [library](src/zdns) and [CLI wrapper](src/cli).
 
 The library consists of a `ResolverConfig` struct which will contain all config options for all lookups made.
 The `ResolverConfig` is used to create 1+ `Resolver` struct(s) which will make all lookups. A `Resolver`
 should only make a single lookup at a time (it is not thread-safe) and multiple `Resolver` structs should be
-used for parallelism. See our [examples](github.com/zmap/zdns/examples) for how to use the
-library. [Modules](github.com/zmap/zdns/src/modules) are used to define the behavior of the lookups.
+used for parallelism. See our [examples](examples) for how to use the
+library. [Modules](src/modules) are used to define the behavior of the lookups.
 
 ZDNS provides several types of modules:
 
