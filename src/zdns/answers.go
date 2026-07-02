@@ -576,6 +576,8 @@ func makeSVCBAnswer(cAns *dns.SVCB) SVCBAnswer {
 				params[ikv.Key().String()] = kv.ECH
 			case *dns.SVCBIPv6Hint:
 				params[ikv.Key().String()] = kv.Hint
+			case *dns.SVCBDoHPath:
+				params[ikv.Key().String()] = kv.Template
 			case *dns.SVCBLocal: //SVCBLocal is the default case for unknown keys
 				params[ikv.Key().String()] = kv.Data
 			default: //should not happen
