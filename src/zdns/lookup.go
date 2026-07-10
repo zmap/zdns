@@ -893,21 +893,21 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 	var status Status
 	if r.dnsOverHTTPSEnabled {
 		r.verboseLog(depth, "****WIRE LOOKUP*** ", DoHProtocol, " ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
-		result, rawResp, status, err = doDoHLookup(lookupCtx, connInfo.httpsClient, q, nameServer, requestIteration, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
+		result, rawResp, status, err = doDoHLookup(lookupCtx, connInfo.httpsClient, q, nameServer, requestIteration, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit, r.authenticatedDataBit)
 	} else if r.dnsOverTLSEnabled {
 		r.verboseLog(depth, "****WIRE LOOKUP*** ", DoTProtocol, " ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
-		result, rawResp, status, err = doDoTLookup(lookupCtx, connInfo, q, nameServer, r.rootCAs, r.verifyServerCert, requestIteration, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit)
+		result, rawResp, status, err = doDoTLookup(lookupCtx, connInfo, q, nameServer, r.rootCAs, r.verifyServerCert, requestIteration, r.ednsOptions, r.dnsSecEnabled, r.checkingDisabledBit, r.authenticatedDataBit)
 	} else if connInfo.udpClient != nil {
 		r.verboseLog(depth, "****WIRE LOOKUP*** ", UDPProtocol, " ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
-		result, rawResp, status, err = wireLookupUDP(lookupCtx, connInfo, q, nameServer, r.ednsOptions, requestIteration, r.dnsSecEnabled, r.checkingDisabledBit)
+		result, rawResp, status, err = wireLookupUDP(lookupCtx, connInfo, q, nameServer, r.ednsOptions, requestIteration, r.dnsSecEnabled, r.checkingDisabledBit, r.authenticatedDataBit)
 		if status == StatusTruncated && connInfo.tcpClient != nil {
 			// result truncated, try again with TCP
 			r.verboseLog(depth, "****WIRE LOOKUP*** ", TCPProtocol, " ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
-			result, rawResp, status, err = wireLookupTCP(lookupCtx, connInfo, q, nameServer, r.ednsOptions, requestIteration, r.dnsSecEnabled, r.checkingDisabledBit)
+			result, rawResp, status, err = wireLookupTCP(lookupCtx, connInfo, q, nameServer, r.ednsOptions, requestIteration, r.dnsSecEnabled, r.checkingDisabledBit, r.authenticatedDataBit)
 		}
 	} else if connInfo.tcpClient != nil {
 		r.verboseLog(depth, "****WIRE LOOKUP*** ", TCPProtocol, " ", dns.TypeToString[q.Type], " ", q.Name, " ", nameServer)
-		result, rawResp, status, err = wireLookupTCP(lookupCtx, connInfo, q, nameServer, r.ednsOptions, requestIteration, r.dnsSecEnabled, r.checkingDisabledBit)
+		result, rawResp, status, err = wireLookupTCP(lookupCtx, connInfo, q, nameServer, r.ednsOptions, requestIteration, r.dnsSecEnabled, r.checkingDisabledBit, r.authenticatedDataBit)
 	} else {
 		return &SingleQueryResult{}, false, StatusError, trace, errors.New("no connection info for nameserver")
 	}
@@ -943,7 +943,7 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 	return result, isCached, status, trace, err
 }
 
-func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, rootCAs *x509.CertPool, shouldVerifyServerCert, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (*SingleQueryResult, *dns.Msg, Status, error) {
+func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, rootCAs *x509.CertPool, shouldVerifyServerCert, recursive bool, ednsOptions []dns.EDNS0, dnssec, checkingDisabled, authenticatedData bool) (*SingleQueryResult, *dns.Msg, Status, error) {
 	if util.HasCtxExpired(ctx) {
 		return nil, nil, StatusTimeout, errors.New("context expired")
 	}
@@ -952,6 +952,7 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 	m.Question[0].Qclass = q.Class
 	m.RecursionDesired = recursive
 	m.CheckingDisabled = checkingDisabled
+	m.AuthenticatedData = authenticatedData
 	m.Id = 12345
 
 	m.SetEdns0(1232, dnssec)
@@ -1037,12 +1038,13 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 	return constructSingleQueryResultFromDNSMsg(&res, responseMsg)
 }
 
-func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameServer *NameServer, recursive bool, ednsOptions []dns.EDNS0, dnssec bool, checkingDisabled bool) (*SingleQueryResult, *dns.Msg, Status, error) {
+func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameServer *NameServer, recursive bool, ednsOptions []dns.EDNS0, dnssec, checkingDisabled, authenticatedData bool) (*SingleQueryResult, *dns.Msg, Status, error) {
 	m := new(dns.Msg)
 	m.SetQuestion(dotName(q.Name), q.Type)
 	m.Question[0].Qclass = q.Class
 	m.RecursionDesired = recursive
 	m.CheckingDisabled = checkingDisabled
+	m.AuthenticatedData = authenticatedData
 
 	m.SetEdns0(1232, dnssec)
 	if ednsOpt := m.IsEdns0(); ednsOpt != nil {
@@ -1109,7 +1111,7 @@ func doDoHLookup(ctx context.Context, httpClient *http.Client, q Question, nameS
 }
 
 // wireLookupTCP performs a DNS lookup on-the-wire over TCP with the given parameters
-func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, ednsOptions []dns.EDNS0, recursive, dnssec, checkingDisabled bool) (*SingleQueryResult, *dns.Msg, Status, error) {
+func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, ednsOptions []dns.EDNS0, recursive, dnssec, checkingDisabled, authenticatedData bool) (*SingleQueryResult, *dns.Msg, Status, error) {
 	res := SingleQueryResult{Answers: []any{}, Authorities: []any{}, Additionals: []any{}}
 	res.Resolver = nameServer.String()
 
@@ -1118,6 +1120,7 @@ func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, na
 	m.Question[0].Qclass = q.Class
 	m.RecursionDesired = recursive
 	m.CheckingDisabled = checkingDisabled
+	m.AuthenticatedData = authenticatedData
 
 	m.SetEdns0(1232, dnssec)
 	if ednsOpt := m.IsEdns0(); ednsOpt != nil {
@@ -1169,7 +1172,7 @@ func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, na
 }
 
 // wireLookupUDP performs a DNS lookup on-the-wire over UDP with the given parameters
-func wireLookupUDP(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, ednsOptions []dns.EDNS0, recursive, dnssec, checkingDisabled bool) (*SingleQueryResult, *dns.Msg, Status, error) {
+func wireLookupUDP(ctx context.Context, connInfo *ConnectionInfo, q Question, nameServer *NameServer, ednsOptions []dns.EDNS0, recursive, dnssec, checkingDisabled, authenticatedData bool) (*SingleQueryResult, *dns.Msg, Status, error) {
 	res := SingleQueryResult{Answers: []any{}, Authorities: []any{}, Additionals: []any{}}
 	res.Resolver = nameServer.String()
 	res.Protocol = "udp"
@@ -1179,6 +1182,7 @@ func wireLookupUDP(ctx context.Context, connInfo *ConnectionInfo, q Question, na
 	m.Question[0].Qclass = q.Class
 	m.RecursionDesired = recursive
 	m.CheckingDisabled = checkingDisabled
+	m.AuthenticatedData = authenticatedData
 
 	m.SetEdns0(1232, dnssec)
 	if ednsOpt := m.IsEdns0(); ednsOpt != nil {

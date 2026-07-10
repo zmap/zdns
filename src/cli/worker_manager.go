@@ -245,6 +245,7 @@ func populateResolverConfig(gc *CLIConf) *zdns.ResolverConfig {
 	config.Retries = gc.Retries
 	config.MaxDepth = gc.MaxDepth
 	config.CheckingDisabledBit = gc.CheckingDisabled
+	config.AuthenticatedDataBit = gc.AuthenticatedData
 	config.ShouldRecycleSockets = !gc.DisableRecycleSockets
 
 	config.ShouldValidateDNSSEC = gc.ValidateDNSSEC
