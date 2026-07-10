@@ -68,6 +68,7 @@ type GeneralOptions struct {
 
 // QueryOptions affect the fields of the actual DNS queries. Applicable to all modules.
 type QueryOptions struct {
+	AuthenticatedData  bool   `long:"authenticated-data" description:"Sends DNS packets with the AD bit set"`
 	CheckingDisabled   bool   `long:"checking-disabled" description:"Sends DNS packets with the CD bit set"`
 	ClassString        string `long:"class" default:"INET" description:"DNS class to query. Options: INET, CSNET, CHAOS, HESIOD, NONE, ANY."`
 	ClientSubnetString string `long:"client-subnet" description:"Client subnet in CIDR format for EDNS0."`

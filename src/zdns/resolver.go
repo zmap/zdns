@@ -47,6 +47,7 @@ const (
 	defaultRetries               = 1
 	defaultMaxDepth              = 10
 	defaultCheckingDisabledBit   = false // Sends DNS packets with the CD bit set
+	defaultAuthenticatedDataBit  = false // Sends DNS packets with the AD bit set
 	defaultNameServerModeEnabled = false // Treats input as nameservers to query with a static query rather than queries to send to a static name server
 	defaultFollowCNAMEs          = true  // Follow CNAMEs/DNAMEs in iterative queries
 	defaultCacheSize             = 10000
@@ -104,6 +105,7 @@ type ResolverConfig struct {
 	HTTPSClientIPv6      *http.Client   // for DoH, per docs should be shared amongst requests
 	EdnsOptions          []dns.EDNS0
 	CheckingDisabledBit  bool
+	AuthenticatedDataBit bool
 }
 
 // Validate checks if the ResolverConfig is valid, returns an error describing the issue if it is not.
@@ -261,6 +263,7 @@ func NewResolverConfig() *ResolverConfig {
 		DNSSecEnabled:        defaultDNSSECEnabled,
 		ShouldValidateDNSSEC: defaultShouldValidateDNSSEC,
 		CheckingDisabledBit:  defaultCheckingDisabledBit,
+		AuthenticatedDataBit: defaultAuthenticatedDataBit,
 	}
 }
 
@@ -338,13 +341,14 @@ type Resolver struct {
 	shouldValidateDNSSEC bool             // whether to validate DNSSEC
 	validator            *dNSSECValidator // DNSSEC validator for the current lookup
 
-	dnsOverHTTPSEnabled bool           // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
-	dnsOverTLSEnabled   bool           // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
-	rootCAs             *x509.CertPool // Root CAs for DoT/DoH Server Verification
-	verifyServerCert    bool           // Verify server certificates for DoT/DoH
-	ednsOptions         []dns.EDNS0
-	checkingDisabledBit bool
-	isClosed            bool // true if the resolver has been closed, lookup will panic if called after Close
+	dnsOverHTTPSEnabled  bool           // whether to use DNS over HTTPS for External Lookups, n/a to Iterative Lookups
+	dnsOverTLSEnabled    bool           // whether to use DNS over TLS for External Lookups, n/a to Iterative Lookups
+	rootCAs              *x509.CertPool // Root CAs for DoT/DoH Server Verification
+	verifyServerCert     bool           // Verify server certificates for DoT/DoH
+	ednsOptions          []dns.EDNS0
+	checkingDisabledBit  bool
+	authenticatedDataBit bool
+	isClosed             bool // true if the resolver has been closed, lookup will panic if called after Close
 }
 
 // InitResolver creates a new Resolver struct using the ResolverConfig. The Resolver is used to perform DNS lookups.
@@ -394,6 +398,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		shouldValidateDNSSEC: config.ShouldValidateDNSSEC,
 		ednsOptions:          config.EdnsOptions,
 		checkingDisabledBit:  config.CheckingDisabledBit,
+		authenticatedDataBit: config.AuthenticatedDataBit,
 	}
 	log.SetLevel(r.logLevel)
 	// Deep copy local address so Resolver is independent of the config
