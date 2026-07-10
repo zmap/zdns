@@ -1398,7 +1398,7 @@ class Tests(unittest.TestCase):
 
     def test_edns0_ede_2_cd(self):
         name = "dnssec-failed.org"
-        # using Cloudflare Public DNS (8.8.8.8) that implements EDE, checking disabled resulting in NOERROR
+        # using Google Public DNS (8.8.8.8) that implements EDE, checking disabled resulting in NOERROR
         c = f"A --name-servers=8.8.8.8:53 --checking-disabled"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd, "A")
@@ -1424,6 +1424,20 @@ class Tests(unittest.TestCase):
         name = "dnssec-failed.org"
         cmd, res = self.run_zdns(c, name)
         self.assertSuccess(res, cmd, "A")
+
+    def test_ad_bit_not_set(self):
+        c = "MX --name-servers=8.8.8.8:53 --include-fields=flags"
+        name = "pm.me"
+        cmd, res = self.run_zdns(c, name)
+        res = res["results"]["MX"]
+        self.assertFalse(res["data"]["flags"]["authenticated"])
+
+    def test_ad_bit_set(self):
+        c = "MX --name-servers=8.8.8.8:53 --authenticated-data --include-fields=flags"
+        name = "pm.me"
+        cmd, res = self.run_zdns(c, name)
+        res = res["results"]["MX"]
+        self.assertTrue(res["data"]["flags"]["authenticated"])
 
     def test_dnssec_validation_secure(self):
         # checks if dnssec validation is performed
