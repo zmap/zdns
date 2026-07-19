@@ -2249,3 +2249,216 @@ func TestTCPConnNotPoisonedOnTimeout(t *testing.T) {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // END TCP Connection Poison Tests
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// EDNS Fallback Tests
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type countingNameServerRateLimiter struct {
+	waits atomic.Int32
+}
+
+func (l *countingNameServerRateLimiter) wait(context.Context, NameServer) error {
+	l.waits.Add(1)
+	return nil
+}
+
+func startEDNSFallbackTestServer(t *testing.T, network string, formErrIncludesOPT bool, ednsDelay, plainDelay time.Duration) (NameServer, *atomic.Int32, *atomic.Int32) {
+	t.Helper()
+
+	var ednsQueries atomic.Int32
+	var plainQueries atomic.Int32
+	handler := dns.HandlerFunc(func(w dns.ResponseWriter, req *dns.Msg) {
+		resp := new(dns.Msg)
+		if req.IsEdns0() != nil {
+			ednsQueries.Add(1)
+			time.Sleep(ednsDelay)
+			resp.SetRcodeFormatError(req)
+			if formErrIncludesOPT {
+				resp.SetEdns0(1232, false)
+			}
+		} else {
+			plainQueries.Add(1)
+			time.Sleep(plainDelay)
+			resp.SetReply(req)
+			resp.Authoritative = true
+			resp.Answer = []dns.RR{
+				&dns.A{
+					Hdr: dns.RR_Header{
+						Name:   req.Question[0].Name,
+						Rrtype: dns.TypeA,
+						Class:  dns.ClassINET,
+						Ttl:    60,
+					},
+					A: net.ParseIP("192.0.2.1"),
+				},
+			}
+		}
+		assert.NoError(t, w.WriteMsg(resp))
+	})
+
+	server := &dns.Server{Net: network, Handler: handler}
+	var addr net.Addr
+	switch network {
+	case "udp":
+		packetConn, err := net.ListenPacket("udp", "127.0.0.1:0")
+		require.NoError(t, err)
+		server.PacketConn = packetConn
+		addr = packetConn.LocalAddr()
+	case "tcp":
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		require.NoError(t, err)
+		server.Listener = listener
+		addr = listener.Addr()
+	default:
+		t.Fatalf("unsupported test network %q", network)
+	}
+
+	go func() {
+		_ = server.ActivateAndServe()
+	}()
+	t.Cleanup(func() {
+		require.NoError(t, server.Shutdown())
+	})
+
+	host, portString, err := net.SplitHostPort(addr.String())
+	require.NoError(t, err)
+	port, err := strconv.Atoi(portString)
+	require.NoError(t, err)
+	return NameServer{IP: net.ParseIP(host), Port: uint16(port)}, &ednsQueries, &plainQueries
+}
+
+func TestCachedLookupEDNSFallback(t *testing.T) {
+	tests := []struct {
+		name                   string
+		network                string
+		formErrIncludesOPT     bool
+		ednsOptions            []dns.EDNS0
+		dnssec                 bool
+		expectedStatus         Status
+		expectedEDNSQueries    int32
+		expectedPlainQueries   int32
+		expectedRateLimitWaits int32
+	}{
+		{
+			name:                   "UDP retries without EDNS",
+			network:                "udp",
+			expectedStatus:         StatusNoError,
+			expectedEDNSQueries:    1,
+			expectedPlainQueries:   1,
+			expectedRateLimitWaits: 2,
+		},
+		{
+			name:                   "TCP retries without EDNS",
+			network:                "tcp",
+			expectedStatus:         StatusNoError,
+			expectedEDNSQueries:    1,
+			expectedPlainQueries:   1,
+			expectedRateLimitWaits: 2,
+		},
+		{
+			name:                   "FORMERR with OPT does not retry",
+			network:                "udp",
+			formErrIncludesOPT:     true,
+			expectedStatus:         StatusFormErr,
+			expectedEDNSQueries:    1,
+			expectedPlainQueries:   0,
+			expectedRateLimitWaits: 1,
+		},
+		{
+			name:                   "DNSSEC query does not retry",
+			network:                "udp",
+			dnssec:                 true,
+			expectedStatus:         StatusFormErr,
+			expectedEDNSQueries:    1,
+			expectedPlainQueries:   0,
+			expectedRateLimitWaits: 1,
+		},
+		{
+			name:    "explicit EDNS option does not retry",
+			network: "udp",
+			ednsOptions: []dns.EDNS0{
+				&dns.EDNS0_NSID{Code: dns.EDNS0NSID},
+			},
+			expectedStatus:         StatusFormErr,
+			expectedEDNSQueries:    1,
+			expectedPlainQueries:   0,
+			expectedRateLimitWaits: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			nameServer, ednsQueries, plainQueries := startEDNSFallbackTestServer(t, tt.network, tt.formErrIncludesOPT, 0, 0)
+			rateLimiter := new(countingNameServerRateLimiter)
+			config := NewResolverConfig()
+			config.RateLimiter = rateLimiter
+			config.IPVersionMode = IPv4Only
+			config.ShouldRecycleSockets = false
+			config.NetworkTimeout = time.Second
+			config.LocalAddrsV4 = []net.IP{net.ParseIP("127.0.0.1")}
+			config.ExternalNameServersV4 = []NameServer{nameServer}
+			config.RootNameServersV4 = []NameServer{nameServer}
+			config.DNSSecEnabled = tt.dnssec
+			config.EdnsOptions = tt.ednsOptions
+			if tt.network == "udp" {
+				config.TransportMode = UDPOnly
+			} else {
+				config.TransportMode = TCPOnly
+			}
+			resolver, err := InitResolver(config)
+			require.NoError(t, err)
+			defer resolver.Close()
+
+			q := Question{Name: "example.com", Type: dns.TypeA, Class: dns.ClassINET}
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+
+			result, _, status, _, err := resolver.cachedLookup(ctx, q, &nameServer, q.Name, 0, true, true, false, nil)
+
+			require.NoError(t, err)
+			require.Equal(t, tt.expectedStatus, status)
+			require.Equal(t, tt.expectedEDNSQueries, ednsQueries.Load())
+			require.Equal(t, tt.expectedPlainQueries, plainQueries.Load())
+			require.Equal(t, tt.expectedRateLimitWaits, rateLimiter.waits.Load())
+			if tt.expectedStatus == StatusNoError {
+				require.Len(t, result.Answers, 1)
+			}
+		})
+	}
+}
+
+func TestExternalLookupEDNSFallbackGetsFreshNetworkTimeout(t *testing.T) {
+	const networkTimeout = 500 * time.Millisecond
+	const responseDelay = 300 * time.Millisecond
+
+	nameServer, ednsQueries, plainQueries := startEDNSFallbackTestServer(t, "udp", false, responseDelay, responseDelay)
+	rateLimiter := new(countingNameServerRateLimiter)
+	config := NewResolverConfig()
+	config.RateLimiter = rateLimiter
+	config.TransportMode = UDPOnly
+	config.IPVersionMode = IPv4Only
+	config.ShouldRecycleSockets = false
+	config.NetworkTimeout = networkTimeout
+	config.Timeout = 2 * time.Second
+	config.LocalAddrsV4 = []net.IP{net.ParseIP("127.0.0.1")}
+	config.ExternalNameServersV4 = []NameServer{nameServer}
+
+	resolver, err := InitResolver(config)
+	require.NoError(t, err)
+	defer resolver.Close()
+
+	q := Question{Name: "example.com", Type: dns.TypeA, Class: dns.ClassINET}
+	result, _, status, err := resolver.ExternalLookup(context.Background(), &q, &nameServer)
+
+	require.NoError(t, err)
+	require.Equal(t, StatusNoError, status)
+	require.Len(t, result.Answers, 1)
+	require.Equal(t, int32(1), ednsQueries.Load())
+	require.Equal(t, int32(1), plainQueries.Load())
+	require.Equal(t, int32(2), rateLimiter.waits.Load())
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// END EDNS Fallback Tests
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
