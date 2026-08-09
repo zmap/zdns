@@ -197,7 +197,7 @@ Equivalent to `dig -t A google.com @1.1.1.1`
 
 ### Name Servers per-domain
 Normally, ZDNS will choose a random nameserver for each domain lookup from `--name-servers`. If instead you want to specify
-a different name server for each domain, you can do so by providing domainName,nameServerIP pairs seperated by newlines.
+a different name server for each domain, you can do so by providing domainName,nameServerIP pairs separated by newlines.
 This will override any nameservers provided with `--name-servers`.
 
 For example:
