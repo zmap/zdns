@@ -6,7 +6,7 @@ toolchain go1.25.8
 
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/sirupsen/logrus v1.9.4
+	github.com/sirupsen/logrus v1.10.0
 	github.com/zmap/dns v1.1.70
 	github.com/zmap/zdns/v2 v2.1.1
 )
