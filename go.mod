@@ -6,7 +6,7 @@ toolchain go1.25.8
 
 require (
 	github.com/hashicorp/go-version v1.9.0
-	github.com/jellydator/ttlcache/v3 v3.4.0
+	github.com/jellydator/ttlcache/v3 v3.4.1
 	github.com/liip/sheriff v0.12.0
 	github.com/pkg/errors v0.9.1
 	github.com/schollz/progressbar/v3 v3.19.0
