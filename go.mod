@@ -1,8 +1,6 @@
 module github.com/zmap/zdns/v2
 
-go 1.25.0
-
-toolchain go1.25.8
+go 1.26.0
 
 require (
 	github.com/hashicorp/go-version v1.9.0
@@ -18,7 +16,7 @@ require (
 	github.com/zmap/zcrypto v0.0.0-20260309174858-0e3c42de5a13
 	github.com/zmap/zflags v1.4.0-beta.1.0.20251126025438-ec78c6d2f8e9
 	github.com/zmap/zgrab2 v1.0.0
-	golang.org/x/time v0.15.0
+	golang.org/x/time v0.16.0
 	gotest.tools/v3 v3.5.2
 )
 
