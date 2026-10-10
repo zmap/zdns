@@ -574,9 +574,9 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 		}
 	}
 	if r.transportMode == TCPOnly && r.shouldRecycleSockets {
-		if connInfo.tcpConn == nil || connInfo.tcpConn.RemoteAddr != nil || connInfo.tcpConn.RemoteAddr.String() != nameServer.String() {
+		if connInfo.tcpConn == nil || connInfo.tcpConn.RemoteAddr == nil || connInfo.tcpConn.RemoteAddr.String() != nameServer.String() {
 			// need to re-handshake
-			err := getNewTCPConn(nameServer, connInfo)
+			err := getNewTCPConn(nameServer, connInfo, r.networkTimeout)
 			if err != nil {
 				return nil, errors.Wrap(err, "unable to create TCP connection")
 			}
@@ -645,7 +645,7 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 	return connInfo, nil
 }
 
-func getNewTCPConn(nameServer *NameServer, connInfo *ConnectionInfo) error {
+func getNewTCPConn(nameServer *NameServer, connInfo *ConnectionInfo, timeout time.Duration) error {
 	// close any existing TCP connection
 	if connInfo.tcpConn != nil {
 		if err := connInfo.tcpConn.Close(); err != nil {
@@ -653,7 +653,12 @@ func getNewTCPConn(nameServer *NameServer, connInfo *ConnectionInfo) error {
 		}
 	}
 	// create persistent TCP connection to nameserver
-	conn, err := net.DialTCP("tcp", &net.TCPAddr{IP: connInfo.localAddr}, &net.TCPAddr{IP: nameServer.IP, Port: int(nameServer.Port)})
+	// bound the dial, otherwise an unresponsive nameserver blocks until the OS connect timeout (75s on macOS)
+	dialer := &net.Dialer{
+		Timeout:   timeout,
+		LocalAddr: &net.TCPAddr{IP: connInfo.localAddr},
+	}
+	conn, err := dialer.Dial("tcp", nameServer.String())
 	if err != nil {
 		return fmt.Errorf("unable to create TCP connection for nameserver %s: %w", nameServer.String(), err)
 	}
