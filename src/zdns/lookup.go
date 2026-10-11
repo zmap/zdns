@@ -20,10 +20,12 @@ import (
 	"maps"
 	"math/rand"
 	"net"
+	"net/netip"
 	"os"
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -729,8 +731,11 @@ func (r *Resolver) cyclingLookup(ctx context.Context, qWithMeta *QuestionWithMet
 		if util.HasCtxExpired(ctx) {
 			return &SingleQueryResult{}, false, StatusTimeout, trace, nil
 		}
-		// get random unqueried nameserver
-		nameServer, queriedNameServers = getRandomNonQueriedNameServer(nameServers, queriedNameServers)
+		// get unqueried nameserver, preferring responsive ones if health tracking is enabled
+		nameServer, queriedNameServers = selectNameServer(nameServers, queriedNameServers, r.nsHealth, nil)
+		if r.nsHealth != nil && log.GetLevel() >= log.DebugLevel {
+			r.verboseLog(depth+1, "Selected nameserver ", nameServer, " with failure score ", nameServerScore(r.nsHealth, nameServer))
+		}
 		// perform the lookup
 		result, isCached, status, trace, err = r.cachedLookup(ctx, qWithMeta.Q, nameServer, layer, depth, recursionDesired, cacheBasedOnNameServer, cacheNonAuthoritative, trace)
 		if status == StatusNoError {
@@ -760,20 +765,106 @@ func (r *Resolver) cyclingLookup(ctx context.Context, qWithMeta *QuestionWithMet
 	return &SingleQueryResult{}, false, StatusError, trace, errors.New("cycling lookup function did not exit properly")
 }
 
-// getRandomNonQueriedNameServer returns a random name server from the list of name servers that has not been queried yet
-// If all have been queried, it resets the queriedNameServers map and returns a random name server
-func getRandomNonQueriedNameServer(nameServers []NameServer, queriedNameServers map[string]struct{}) (*NameServer, map[string]struct{}) {
-	for _, i := range rand.Perm(len(nameServers)) {
-		if _, ok := queriedNameServers[nameServers[i].String()]; !ok {
-			// set the nameserver as queried
-			queriedNameServers[nameServers[i].String()] = struct{}{}
-			return &nameServers[i], queriedNameServers
-		}
+// selectNameServer returns a name server from the list of name servers that has not been queried yet
+// If all have been queried, it resets the queriedNameServers map and selects again
+// With no health tracker, the choice is uniformly random. With one, it uses power-of-two random choices: two unqueried
+// name servers are drawn at random and the one with the lower failure score is returned, ties going to the first drawn.
+// Equal scores (e.g. no health data yet) therefore still give a uniformly random choice.
+// rng may be nil to use the global random source.
+func selectNameServer(nameServers []NameServer, queriedNameServers map[string]struct{}, health NameServerHealthTracker, rng *rand.Rand) (*NameServer, map[string]struct{}) {
+	perm := rand.Perm
+	if rng != nil {
+		perm = rng.Perm
 	}
-	// all have been queried, reset queriedNameServers
-	queriedNameServers = make(map[string]struct{}, len(nameServers))
-	// return a random one
-	return getRandomNonQueriedNameServer(nameServers, queriedNameServers)
+	// the first two unqueried name servers in a random permutation are two distinct uniform random draws
+	var first, second *NameServer
+	for _, i := range perm(len(nameServers)) {
+		if _, ok := queriedNameServers[nameServers[i].String()]; ok {
+			continue
+		}
+		if first == nil {
+			first = &nameServers[i]
+			if health == nil {
+				break
+			}
+			continue
+		}
+		second = &nameServers[i]
+		break
+	}
+	if first == nil {
+		// all have been queried, reset queriedNameServers
+		queriedNameServers = make(map[string]struct{}, len(nameServers))
+		return selectNameServer(nameServers, queriedNameServers, health, rng)
+	}
+	chosen := first
+	if second != nil && nameServerScore(health, second) < nameServerScore(health, first) {
+		chosen = second
+	}
+	// set the nameserver as queried
+	queriedNameServers[chosen.String()] = struct{}{}
+	return chosen, queriedNameServers
+}
+
+// nameServerAddr returns the name server's IP as a netip.Addr, for keying health state
+func nameServerAddr(ns *NameServer) (netip.Addr, bool) {
+	addr, ok := netip.AddrFromSlice(ns.IP)
+	return addr.Unmap(), ok
+}
+
+// nameServerScore returns the name server's failure score, 0 if it has no usable IP
+func nameServerScore(health NameServerHealthTracker, ns *NameServer) float64 {
+	addr, ok := nameServerAddr(ns)
+	if !ok {
+		return 0
+	}
+	return health.score(addr)
+}
+
+// wireOutcome classifies an on-the-wire attempt for name server health tracking
+type wireOutcome int
+
+const (
+	wireOutcomeNone    wireOutcome = iota // the attempt didn't test the name server, record nothing
+	wireOutcomeSuccess                    // the name server responded, whatever the RCODE
+	wireOutcomeFailure                    // the name server didn't respond
+)
+
+// classifyWireOutcome classifies the result of performWireLookup. callerCtxExpired reports whether the caller's
+// budget (not the per-attempt network timeout) had run out, in which case the attempt was cut short by us.
+func classifyWireOutcome(callerCtxExpired bool, status Status, err error) wireOutcome {
+	if callerCtxExpired {
+		return wireOutcomeNone
+	}
+	if status == StatusTimeout || (status == StatusError && err != nil) {
+		return wireOutcomeFailure
+	}
+	return wireOutcomeSuccess
+}
+
+// isCallerBudgetSpent reports whether ctx is done or past its deadline. The deadline is checked against the clock
+// because a socket deadline taken from ctx can fire before ctx's own timer marks it done, which would make an attempt
+// cut short by the caller's budget look like a name server timeout.
+func isCallerBudgetSpent(ctx context.Context) bool {
+	if ctx.Err() != nil {
+		return true
+	}
+	deadline, ok := ctx.Deadline()
+	return ok && !time.Now().Before(deadline)
+}
+
+// recordWireOutcome records an on-the-wire attempt against nameServer with the health tracker, if one is configured
+func (r *Resolver) recordWireOutcome(ctx context.Context, nameServer *NameServer, status Status, err error) {
+	if r.nsHealth == nil {
+		return
+	}
+	outcome := classifyWireOutcome(isCallerBudgetSpent(ctx), status, err)
+	if outcome == wireOutcomeNone {
+		return
+	}
+	if addr, ok := nameServerAddr(nameServer); ok {
+		r.nsHealth.record(addr, outcome == wireOutcomeFailure)
+	}
 }
 
 // cachedLookup performs a DNS lookup with caching
@@ -901,6 +992,7 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 		}
 		result, rawResp, status, err = r.performWireLookup(fallbackCtx, connInfo, q, nameServer, requestIteration, depth, false)
 	}
+	r.recordWireOutcome(ctx, nameServer, status, err)
 
 	if err != nil {
 		return &SingleQueryResult{}, isCached, status, trace, errors.Wrap(err, "could not perform lookup")
