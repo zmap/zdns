@@ -17,16 +17,18 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/zmap/dns"
 )
 
 func populateNetworkingConfig(gc *CLIConf) error {
 	// mutually exclusive CLI options
+	if gc.ClientSubnetInput && (gc.AlexaFormat || gc.MetadataFormat || gc.ZoneFileFormat || gc.NameServerMode) {
+		return errors.New("--client-subnet-input cannot be combined with --alexa, --metadata-passthrough, --zone-file, or --name-server-mode")
+	}
+
 	if gc.LocalIfaceString != "" && gc.LocalAddrString != "" {
 		return errors.New("--local-addr and --local-interface cannot both be specified")
 	}
@@ -98,33 +100,12 @@ func populateNetworkingConfig(gc *CLIConf) error {
 }
 
 func validateClientSubnetString(gc *CLIConf) error {
-	if gc.ClientSubnetString != "" {
-		parts := strings.Split(gc.ClientSubnetString, "/")
-		if len(parts) != 2 {
-			return fmt.Errorf("client subnet should be in CIDR format: %s", gc.ClientSubnetString)
-		}
-		ip := net.ParseIP(parts[0])
-		if ip == nil {
-			return fmt.Errorf("client subnet invalid: %s", gc.ClientSubnetString)
-		}
-		netmask, err := strconv.Atoi(parts[1])
-		if err != nil {
-			return fmt.Errorf("client subnet netmask invalid: %s", gc.ClientSubnetString)
-		}
-		if netmask > 24 || netmask < 8 {
-			return fmt.Errorf("client subnet netmask must be in 8..24: %s", gc.ClientSubnetString)
-		}
-		gc.ClientSubnet = new(dns.EDNS0_SUBNET)
-		gc.ClientSubnet.Code = dns.EDNS0SUBNET
-		if ip.To4() == nil {
-			gc.ClientSubnet.Family = 2
-		} else {
-			gc.ClientSubnet.Family = 1
-		}
-		gc.ClientSubnet.SourceNetmask = uint8(netmask)
-		gc.ClientSubnet.Address = ip
+	if gc.ClientSubnetString == "" {
+		return nil
 	}
-	return nil
+	var err error
+	gc.ClientSubnet, err = parseClientSubnet(gc.ClientSubnetString)
+	return err
 }
 
 func parseNameServers(gc *CLIConf) error {

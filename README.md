@@ -186,6 +186,37 @@ zdns A --input-file=list_of_domains.txt
 ```
 
 
+### EDNS Client Subnets per input
+
+Use `--client-subnet-input` to read CSV rows in the form
+`name,subnet[,nameserver[,trigger...]]`. Each subnet is an IPv4 or IPv6 CIDR;
+host bits are cleared, and prefix lengths from /0 to /32 (IPv4) or /128 (IPv6)
+are accepted. Without this flag, existing input formats retain their meaning.
+
+For example, to compare answers for the same name from different client networks:
+
+```sh
+printf 'example.com,192.0.2.0/24\nexample.com,2001:db8::/48\n' |
+  zdns A --client-subnet-input --name-servers=8.8.8.8
+```
+
+An empty subnet field uses the global `--client-subnet` value, or sends no ECS
+option if no global value was specified. To query one name for a list of subnets,
+use rows such as `,192.0.2.0/24` together with `--override-name=example.com`.
+Optional nameserver and module-trigger fields work as in normal CSV input.
+This mode cannot be combined with `--alexa`, `--metadata-passthrough`,
+`--zone-file`, or `--name-server-mode`.
+
+Each output includes the requested, normalized `client_subnet` when ECS is used
+in this mode. The server's returned ECS information is available in the EDNS
+additional record's `csubnet` field. Invalid subnet rows produce `ILLEGAL_INPUT`
+results and processing continues with the next row.
+
+Queries carrying ECS bypass ZDNS's cache because its keys do not distinguish
+client subnets or response scopes. This applies to both per-input and global
+ECS options, including iterative lookups; it can increase the number of network
+queries. Queries without ECS continue to use the cache normally.
+
 ### Dig-style Input
 If you don't need to resolve many domains, providing the domain as CLI argument, similar to `dig`, is supported for ease-of-use.
 

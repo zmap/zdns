@@ -721,6 +721,7 @@ func handleWorkerInput(ctx context.Context, gc *CLIConf, rc *zdns.ResolverConfig
 	var rank int
 	var entryMetadata string
 	var err error
+	var inputErr error
 	if gc.AlexaFormat {
 		rawName, rank = parseAlexa(line)
 		res.AlexaRank = rank
@@ -739,8 +740,22 @@ func handleWorkerInput(ctx context.Context, gc *CLIConf, rc *zdns.ResolverConfig
 		nameServer = &nameServers[rand.Intn(len(nameServers))]
 	} else {
 		var inputTriggersSlice []string
-		rawName, nameServerString, inputTriggersSlice = parseNormalInputLine(line)
-		if len(nameServerString) != 0 {
+		if gc.ClientSubnetInput {
+			var subnet *dns.EDNS0_SUBNET
+			rawName, subnet, nameServerString, inputTriggersSlice, inputErr = parseClientSubnetInputLine(line)
+			if subnet == nil {
+				subnet = gc.ClientSubnet
+			}
+			if inputErr == nil {
+				resolver.SetClientSubnet(subnet)
+				if subnet != nil {
+					res.ClientSubnet = clientSubnetCIDR(subnet)
+				}
+			}
+		} else {
+			rawName, nameServerString, inputTriggersSlice = parseNormalInputLine(line)
+		}
+		if inputErr == nil && len(nameServerString) != 0 {
 			nameServers, err = convertNameServerStringToNameServer(nameServerString, rc.IPVersionMode, rc.DNSOverTLS, rc.DNSOverHTTPS)
 			if err != nil {
 				log.Fatal("unable to parse name server: ", line)
@@ -780,7 +795,11 @@ func handleWorkerInput(ctx context.Context, gc *CLIConf, rc *zdns.ResolverConfig
 		res.Class = dns.Class(gc.Class).String()
 
 		startTime := time.Now()
-		innerRes, trace, status, err = module.Lookup(ctx, resolver, lookupName, nameServer)
+		if inputErr != nil {
+			status, err = zdns.StatusIllegalInput, inputErr
+		} else {
+			innerRes, trace, status, err = module.Lookup(ctx, resolver, lookupName, nameServer)
+		}
 
 		lookupRes := zdns.SingleModuleResult{
 			Timestamp: time.Now().Format(gc.TimeFormat),
