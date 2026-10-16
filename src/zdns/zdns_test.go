@@ -45,7 +45,7 @@ func (t *testCase) String() string {
 
 func TestNetworkConditions(t *testing.T) {
 	const timeout = 2 * time.Second
-	const allNSTimeout = 10 * time.Second
+	const multiQueryTimeout = 10 * time.Second
 	q := Question{
 		Type:  dns.TypeA,
 		Class: dns.ClassINET,
@@ -143,9 +143,17 @@ func TestNetworkConditions(t *testing.T) {
 				cfg.ExternalNameServersV4 = DefaultExternalDoTResolversV4
 				cfg.ExternalNameServersV6 = DefaultExternalDoTResolversV6
 			}
-			cfg.Timeout = timeout
+			// The resolver's Timeout bounds the whole lookup, so it must match the test's budget.
+			// Iterative lookups walk root -> TLD -> authoritative, and LookupAllNameservers* queries every
+			// nameserver sequentially, so both need more than a single network round trip's budget.
+			testTimeout := timeout
+			if tc.lookupAllNameservers || !tc.isExternalLookup {
+				testTimeout = multiQueryTimeout
+			}
+			cfg.Timeout = testTimeout
 			cfg.NetworkTimeout = timeout
-			cfg.IterativeTimeout = timeout
+			// Like the defaults, leave room in each iteration step to retry another nameserver after one times out.
+			cfg.IterativeTimeout = 2 * timeout
 			cfg.Retries = 3
 			cfg.IPVersionMode = tc.ipVersion
 			cfg.TransportMode = tc.transportMode
@@ -163,10 +171,6 @@ func TestNetworkConditions(t *testing.T) {
 			resolver, err = InitResolver(cfg)
 			if err != nil {
 				t.Fatalf("could not initialize resolver: %v", err)
-			}
-			testTimeout := timeout
-			if tc.lookupAllNameservers {
-				testTimeout = allNSTimeout
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 			defer cancel()
