@@ -68,6 +68,7 @@ type ResolverConfig struct {
 	CacheSize    int // don't use both cache and cacheSize
 	RateLimiter  NameServerRateLimiter
 	LookupClient Lookuper // either a functional or mock Lookuper client for testing
+	Dialer       Dialer   // opens connections to name servers, defaults to dialing over the real network. Override to fake the network in tests
 
 	// NameServerHealth, if set, prefers name servers that have been responding when choosing which to query. It should
 	// be shared by all threads, like Cache and RateLimiter. nil chooses uniformly at random.
@@ -280,6 +281,7 @@ type ConnectionInfo struct {
 	tlsConn      *dns.Conn            // for DoT
 	tlsHandshake *tls.ServerHandshake // for DoT, used to print TLS handshake to user
 	localAddr    net.IP
+	dialer       Dialer // opens new connections to name servers
 }
 
 // Close attempts to close any and all open connections
@@ -312,6 +314,7 @@ type Resolver struct {
 	rateLimit    NameServerRateLimiter
 	nsHealth     NameServerHealthTracker
 	lookupClient Lookuper // either a functional or mock Lookuper client for testing
+	dialer       Dialer   // opens connections to name servers
 
 	blacklist                   *blacklist.SafeBlacklist
 	userPreferredIPv4LocalAddrs []net.IP        // user-supplied local IPv4 addresses, we'll prefer to use these
@@ -379,6 +382,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		rateLimit:    config.RateLimiter,
 		nsHealth:     config.NameServerHealth,
 		lookupClient: config.LookupClient,
+		dialer:       config.Dialer,
 
 		blacklist: config.Blacklist,
 
@@ -425,6 +429,9 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 		}
 	}
 	r.networkTimeout = config.NetworkTimeout
+	if r.dialer == nil {
+		r.dialer = netDialer{timeout: r.networkTimeout}
+	}
 	r.iterativeTimeout = config.IterativeTimeout
 	r.maxDepth = config.MaxDepth
 	r.rootNameServers = make([]NameServer, 0, len(config.RootNameServersV4)+len(config.RootNameServersV6))
@@ -549,6 +556,7 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 	}
 	connInfo := &ConnectionInfo{
 		localAddr: *localAddr,
+		dialer:    r.dialer,
 	}
 	usingUDP := r.transportMode == UDPOrTCP || r.transportMode == UDPOnly
 	if usingUDP && r.shouldRecycleSockets {
@@ -564,25 +572,17 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 	if usingUDP {
 		connInfo.udpClient = new(dns.Client)
 		connInfo.udpClient.Timeout = r.networkTimeout
-		connInfo.udpClient.Dialer = &net.Dialer{
-			Timeout:   r.networkTimeout,
-			LocalAddr: &net.UDPAddr{IP: connInfo.localAddr},
-		}
 	}
 	usingTCP := r.transportMode == UDPOrTCP || r.transportMode == TCPOnly
 	if usingTCP {
 		connInfo.tcpClient = new(dns.Client)
 		connInfo.tcpClient.Net = "tcp"
 		connInfo.tcpClient.Timeout = r.networkTimeout
-		connInfo.tcpClient.Dialer = &net.Dialer{
-			Timeout:   r.networkTimeout,
-			LocalAddr: &net.TCPAddr{IP: connInfo.localAddr},
-		}
 	}
 	if r.transportMode == TCPOnly && r.shouldRecycleSockets {
 		if connInfo.tcpConn == nil || connInfo.tcpConn.RemoteAddr == nil || connInfo.tcpConn.RemoteAddr.String() != nameServer.String() {
 			// need to re-handshake
-			err := getNewTCPConn(nameServer, connInfo, r.networkTimeout)
+			err := getNewTCPConn(nameServer, connInfo)
 			if err != nil {
 				return nil, errors.Wrap(err, "unable to create TCP connection")
 			}
@@ -651,7 +651,7 @@ func (r *Resolver) getConnectionInfo(nameServer *NameServer) (*ConnectionInfo, e
 	return connInfo, nil
 }
 
-func getNewTCPConn(nameServer *NameServer, connInfo *ConnectionInfo, timeout time.Duration) error {
+func getNewTCPConn(nameServer *NameServer, connInfo *ConnectionInfo) error {
 	// close any existing TCP connection
 	if connInfo.tcpConn != nil {
 		if err := connInfo.tcpConn.Close(); err != nil {
@@ -659,12 +659,8 @@ func getNewTCPConn(nameServer *NameServer, connInfo *ConnectionInfo, timeout tim
 		}
 	}
 	// create persistent TCP connection to nameserver
-	// bound the dial, otherwise an unresponsive nameserver blocks until the OS connect timeout (75s on macOS)
-	dialer := &net.Dialer{
-		Timeout:   timeout,
-		LocalAddr: &net.TCPAddr{IP: connInfo.localAddr},
-	}
-	conn, err := dialer.Dial("tcp", nameServer.String())
+	// the dial is bounded by the Dialer's timeout, otherwise an unresponsive nameserver blocks until the OS connect timeout (75s on macOS)
+	conn, err := connInfo.dialer.DialContext(context.Background(), "tcp", connInfo.localAddr, nameServer.String())
 	if err != nil {
 		return fmt.Errorf("unable to create TCP connection for nameserver %s: %w", nameServer.String(), err)
 	}

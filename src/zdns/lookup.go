@@ -1075,13 +1075,7 @@ func doDoTLookup(ctx context.Context, connInfo *ConnectionInfo, q Question, name
 	if connInfo.tlsConn == nil || isConnNew {
 		// new connection
 		// Custom dialer with local address binding
-		dialer := &net.Dialer{
-			LocalAddr: &net.TCPAddr{
-				IP:   connInfo.localAddr,
-				Port: 0,
-			},
-		}
-		tcpConn, err := dialer.DialContext(ctx, "tcp", nameServer.String())
+		tcpConn, err := connInfo.dialer.DialContext(ctx, "tcp", connInfo.localAddr, nameServer.String())
 		if err != nil {
 			return nil, nil, StatusError, errors.Wrap(err, "could not connect to server")
 		}
@@ -1229,12 +1223,12 @@ func wireLookupTCP(ctx context.Context, connInfo *ConnectionInfo, q Question, na
 				log.Errorf("error closing TCP connection: %v", err)
 			}
 			connInfo.tcpConn = nil
-			r, _, err = connInfo.tcpClient.ExchangeContext(ctx, m, nameServer.String())
+			r, err = exchangeWithNewConn(ctx, connInfo, connInfo.tcpClient, "tcp", m, nameServer)
 		}
 	} else {
 		// no pre-existing connection, create an ephemeral one
 		res.Protocol = "tcp"
-		r, _, err = connInfo.tcpClient.ExchangeContext(ctx, m, nameServer.String())
+		r, err = exchangeWithNewConn(ctx, connInfo, connInfo.tcpClient, "tcp", m, nameServer)
 	}
 	if err != nil || r == nil {
 		if nerr, ok := err.(net.Error); ok {
@@ -1273,7 +1267,7 @@ func wireLookupUDP(ctx context.Context, connInfo *ConnectionInfo, q Question, na
 		}
 		r, _, err = connInfo.udpClient.ExchangeWithConnToContext(ctx, m, connInfo.udpConn, dst)
 	} else {
-		r, _, err = connInfo.udpClient.ExchangeContext(ctx, m, nameServer.String())
+		r, err = exchangeWithNewConn(ctx, connInfo, connInfo.udpClient, "udp", m, nameServer)
 	}
 
 	if r != nil && (r.Truncated || r.Rcode == dns.RcodeBadTrunc) {
