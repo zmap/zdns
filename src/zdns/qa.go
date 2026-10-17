@@ -54,13 +54,14 @@ type TraceStep struct {
 
 // Result contains all the metadata from a complete lookup(s) for a name. Results is keyed with the ModuleName.
 type Result struct {
-	AlteredName string                        `json:"altered_name,omitempty" groups:"short,normal,long,trace"`
-	Name        string                        `json:"name,omitempty" groups:"short,normal,long,trace"`
-	Nameserver  string                        `json:"nameserver,omitempty" groups:"normal,long,trace"`
-	Class       string                        `json:"class,omitempty" groups:"long,trace"`
-	AlexaRank   int                           `json:"alexa_rank,omitempty" groups:"short,normal,long,trace"`
-	Metadata    string                        `json:"metadata,omitempty" groups:"short,normal,long,trace"`
-	Results     map[string]SingleModuleResult `json:"results,omitempty" groups:"short,normal,long,trace"`
+	ClientSubnet string                        `json:"client_subnet,omitempty" groups:"short,normal,long,trace"`
+	AlteredName  string                        `json:"altered_name,omitempty" groups:"short,normal,long,trace"`
+	Name         string                        `json:"name,omitempty" groups:"short,normal,long,trace"`
+	Nameserver   string                        `json:"nameserver,omitempty" groups:"normal,long,trace"`
+	Class        string                        `json:"class,omitempty" groups:"long,trace"`
+	AlexaRank    int                           `json:"alexa_rank,omitempty" groups:"short,normal,long,trace"`
+	Metadata     string                        `json:"metadata,omitempty" groups:"short,normal,long,trace"`
+	Results      map[string]SingleModuleResult `json:"results,omitempty" groups:"short,normal,long,trace"`
 }
 
 // SingleModuleResult contains all the metadata from a complete lookup for a name, potentially after following many CNAMEs/etc.

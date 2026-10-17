@@ -903,8 +903,14 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 	if !cacheBasedOnNameServer {
 		cacheNameServer = nil
 	}
-	// First, we check the cache
-	cachedResult, ok := r.cache.GetCachedResults(q, cacheNameServer, depth+1)
+	// The cache does not include ECS prefixes or response scopes in its keys.
+	// Bypass both reads and writes for ECS queries to avoid mixing client views.
+	useCache := !r.hasClientSubnet()
+	var cachedResult *SingleQueryResult
+	var ok bool
+	if useCache {
+		cachedResult, ok = r.cache.GetCachedResults(q, cacheNameServer, depth+1)
+	}
 	if ok {
 		isCached = true
 		// set protocol on the result
@@ -944,7 +950,7 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 			return &SingleQueryResult{}, isCached, StatusAuthFail, trace, errors.Wrap(err, "could not get next authority with name: "+name+" and layer: "+layer)
 		}
 		// DS records are special, we need to query the parent zone and therefore cannot use the cache
-		if name != layer && authName != layer && q.Type != dns.TypeDS {
+		if useCache && name != layer && authName != layer && q.Type != dns.TypeDS {
 			// we have a valid authority to check the cache for
 			if authName == "" {
 				r.verboseLog(depth+2, "Can't parse name to authority properly. name: ", name, ", layer: ", layer)
@@ -1008,14 +1014,14 @@ func (r *Resolver) cachedLookup(ctx context.Context, q Question, nameServer *Nam
 		}
 
 		// only cache answers that don't have errors and pass DNSSEC validation
-		if !r.shouldValidateDNSSEC || result.DNSSECResult.Status != DNSSECBogus {
+		if useCache && (!r.shouldValidateDNSSEC || result.DNSSECResult.Status != DNSSECBogus) {
 			if !requestIteration && strings.ToLower(q.Name) != layer && authName != layer && !result.Flags.Authoritative { // TODO - how to detect if we've retrieved an authority record or a answer record? maybe add q.Name != authName
 				r.verboseLog(depth+2, "Cache auth upsert for ", authName)
 				r.cache.SafeAddCachedAuthority(result, cacheNameServer, depth+2, layer)
 			} else {
 				r.cache.SafeAddCachedAnswer(q, result, cacheNameServer, layer, depth+2, cacheNonAuthoritative)
 			}
-		} else {
+		} else if useCache {
 			r.verboseLog(depth+2, "skipping cache for domain", q.Name, "and type", dns.TypeToString[q.Type], "due to DNSSEC bogus status")
 		}
 	} else if r.shouldValidateDNSSEC {
