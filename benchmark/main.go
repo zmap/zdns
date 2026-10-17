@@ -111,7 +111,11 @@ func main() {
 		defer cancel()
 	}
 
-	cmd := exec.CommandContext(ctx, "../zdns", "A", "--iterative", "--verbosity=3", "--threads=100", "--status-updates-file", "/dev/null")
+	// arguments after the benchmark's own flags, following a --, are passed on to ZDNS after the defaults, so they can
+	// add to or override them, ex: ./benchmark --timeout=4m -- --threads=1000
+	zdnsArgs := append([]string{"A", "--iterative", "--verbosity=3", "--threads=100", "--status-updates-file", "/dev/null"}, flag.Args()...)
+	cmd := exec.CommandContext(ctx, "../zdns", zdnsArgs...)
+	fmt.Println("Running:", cmd.String())
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {

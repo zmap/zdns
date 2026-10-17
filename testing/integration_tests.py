@@ -1062,6 +1062,41 @@ class Tests(unittest.TestCase):
         self.assertSuccess(res, cmd, "ALOOKUP")
         self.assertEqualALookup(res, self.A_LOOKUP_WWW_ZDNS_TESTING, "ALOOKUP")
 
+    # --prefer-responsive-ns shares one name server health tracker across all threads. These mirror the iterative
+    # tests above with it on: the answers must be the same.
+    def test_a_iterative_prefer_responsive_ns(self):
+        c = "A zdns-testing.com a.zdns-testing.com --iterative --prefer-responsive-ns"
+        name = ""
+        cmd, res = self.run_zdns_multiline_output(c, name)
+        expected = {
+            "zdns-testing.com": self.ROOT_A_ANSWERS,
+            "a.zdns-testing.com": self.ROOT_A_A_ZDNS_TESTING_COM_ANSWERS,
+        }
+        self.assertEqual(sorted(r["name"] for r in res), sorted(expected), cmd)
+        for r in res:
+            self.assertSuccess(r, cmd, "A")
+            self.assertEqualAnswers(r, expected[r["name"]], cmd, "A")
+
+    def test_a_iterative_nxdomain_prefer_responsive_ns(self):
+        c = "A --iterative --prefer-responsive-ns"
+        name = "zdns-testing-nxdomain.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertEqualNXDOMAIN(res, self.NXDOMAIN_ANSWER, "A")
+
+    def test_mx_lookup_iterative_prefer_responsive_ns(self):
+        c = "mxlookup --ipv4-lookup --ipv6-lookup --iterative --prefer-responsive-ns"
+        name = "zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "MXLOOKUP")
+        self.assertEqualMXLookup(res, self.MX_LOOKUP_ANSWER)
+
+    def test_a_lookup_iterative_prefer_responsive_ns(self):
+        c = "alookup --ipv4-lookup --ipv6-lookup --iterative --prefer-responsive-ns"
+        name = "www.zdns-testing.com"
+        cmd, res = self.run_zdns(c, name)
+        self.assertSuccess(res, cmd, "ALOOKUP")
+        self.assertEqualALookup(res, self.A_LOOKUP_WWW_ZDNS_TESTING, "ALOOKUP")
+
     def test_a_lookup_ipv4(self):
         c = "alookup --ipv4-lookup"
         name = "www.zdns-testing.com"

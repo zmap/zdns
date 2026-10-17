@@ -60,6 +60,7 @@ type GeneralOptions struct {
 	DisableFollowCNAMEs bool    `long:"no-follow-cnames" description:"do not follow CNAMEs/DNAMEs in the lookup process"`
 	PerIPNSRateLimit    float64 `long:"per-ip-ns-rate-limit" default:"0" description:"rate limit for queries sent to a specific name server by IP, per second. Use 0 for no rate limit'"`
 	PerNameNSRateLimit  float64 `long:"per-name-ns-rate-limit" default:"0" description:"rate limit for queries sent to a specific name server by domain name, per second. Covers both IPv4 and IPv6 addresses the name may resolve to. Use 0 for no rate limit'"`
+	PreferResponsiveNS  bool    `long:"prefer-responsive-ns" description:"prefer name servers that have been responding when choosing which to query in iterative lookups, using a per-IP failure score shared across threads"`
 	Retries             int     `long:"retries" default:"3" description:"how many times should zdns retry query against a new nameserver if timeout or temporary failure"`
 	Threads             int     `short:"t" long:"threads" default:"100" description:"number of lightweight go threads"`
 	Timeout             int     `long:"timeout" default:"20" description:"timeout for resolving a individual name, in seconds"`
