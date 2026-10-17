@@ -70,6 +70,10 @@ type ResolverConfig struct {
 	LookupClient Lookuper // either a functional or mock Lookuper client for testing
 	Dialer       Dialer   // opens connections to name servers, defaults to dialing over the real network. Override to fake the network in tests
 
+	// NameServerHealth, if set, prefers name servers that have been responding when choosing which to query. It should
+	// be shared by all threads, like Cache and RateLimiter. nil chooses uniformly at random.
+	NameServerHealth NameServerHealthTracker
+
 	Blacklist *blacklist.SafeBlacklist
 
 	LocalAddrsV4 []net.IP // ipv4 local addresses to use for connections, one will be selected at random for the resolver
@@ -308,6 +312,7 @@ func (c *ConnectionInfo) Close() error {
 type Resolver struct {
 	cache        *Cache
 	rateLimit    NameServerRateLimiter
+	nsHealth     NameServerHealthTracker
 	lookupClient Lookuper // either a functional or mock Lookuper client for testing
 	dialer       Dialer   // opens connections to name servers
 
@@ -375,6 +380,7 @@ func InitResolver(config *ResolverConfig) (*Resolver, error) {
 	r := &Resolver{
 		cache:        c,
 		rateLimit:    config.RateLimiter,
+		nsHealth:     config.NameServerHealth,
 		lookupClient: config.LookupClient,
 		dialer:       config.Dialer,
 
