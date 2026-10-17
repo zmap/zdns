@@ -5,7 +5,7 @@ go 1.25.0
 toolchain go1.25.8
 
 require (
-	github.com/sirupsen/logrus v1.9.4
+	github.com/sirupsen/logrus v1.10.2
 	github.com/zmap/dns v1.1.70
 	github.com/zmap/zdns/v2 v2.1.1
 )
