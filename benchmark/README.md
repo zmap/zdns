@@ -4,9 +4,17 @@ This directory contains the benchmarking code for ZDNS. This is useful if you wa
 
 By default, `make benchmark` (run from the `zdns` directory) will run ZDNS:
 - against 7k domains from the CrUX dataset
-- 1k go-routines (ZDNS' default)
+- 100 go-routines (`--threads=100`, ZDNS' default)
 - Start a `pprof` server at [`localhost:6060`](http://localhost:6060/debug/pprof/)
   - You can get a CPU, goroutine, memory, and other profiles from this server
+
+### Passing flags to ZDNS
+Arguments after a `--` are passed on to ZDNS after the defaults, so they can add to or override them. This is useful to compare a run with and without a flag:
+```
+cd ./benchmark
+go run main.go stats.go -- --prefer-responsive-ns
+go run main.go stats.go -- --threads=1000
+```
 
 ### pprof
 [pprof](https://github.com/google/pprof/blob/main/doc/README.md) is a tool that can be used to profile Go programs. It can be used to profile CPU, memory, and goroutines. 
