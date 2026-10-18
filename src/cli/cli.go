@@ -98,6 +98,7 @@ type NetworkOptions struct {
 // InputOutputOptions options for controlling the input and output behavior of zdns. Applicable to all modules.
 type InputOutputOptions struct {
 	AlexaFormat                  bool   `long:"alexa" description:"is input file from Alexa Top Million download"`
+	ClientSubnetInput            bool   `long:"client-subnet-input" description:"Read CSV input as name,client-subnet[,nameserver[,trigger...]]. An empty subnet uses --client-subnet."`
 	BlacklistFilePath            string `long:"blacklist-file" description:"blacklist file for servers to exclude from lookups"`
 	DNSConfigFilePath            string `long:"conf-file" default:"/etc/resolv.conf" description:"config file for DNS servers"`
 	MultipleModuleConfigFilePath string `short:"c" long:"multi-config-file" description:"config file path for multiple module"`
